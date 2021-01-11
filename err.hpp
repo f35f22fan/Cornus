@@ -2,8 +2,9 @@
 
 #include "types.hxx"
 
-#include <errno.h>
 #include <cstdio>
+#include <errno.h>
+#include <string.h>
 
 #ifndef SRC_FILE_NAME
 #define SRC_FILE_NAME __FILE__
@@ -103,13 +104,6 @@
 #define mtl_printq2(msg, s) {\
 	auto ba = s.toLocal8Bit();\
 	mtl_info("%s\"%s\"", msg, ba.data());\
-}
-
-#define mtl_print_error(node) {\
-	if (node->is_error()) {\
-		auto ba = node->as_error()->description().toLocal8Bit();\
-		mtl_warn("%s", ba.data());\
-	}\
 }
 
 #define NO_ASSIGN_COPY_MOVE(TypeName)	\

@@ -27,6 +27,7 @@ set(src_files main.cpp
     decl.hxx
     err.hpp
     History.cpp History.hpp
+    MutexGuard.cpp MutexGuard.hpp
     
     gui/decl.hxx
     gui/Location.cpp gui/Location.hpp
@@ -49,4 +50,4 @@ endforeach()
 set (exe_name "cornus")
 add_executable(${exe_name} ${src_files} resources.qrc)
 target_include_directories(${exe_name} PRIVATE ${DCONF_INCLUDE_DIRS})
-target_link_libraries(${exe_name}  Qt5::Core Qt5::Gui Qt5::Widgets ${DCONF_LDFLAGS})
+target_link_libraries(${exe_name}  Qt5::Core Qt5::Gui Qt5::Widgets ${DCONF_LDFLAGS} pthread)

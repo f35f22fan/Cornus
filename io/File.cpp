@@ -38,6 +38,13 @@ File::Clone() const
 	return file;
 }
 
+void File::name(const QString &s)
+{
+	name_.orig = s;
+	name_.lower = s.toLower();
+	ReadExtension();
+}
+
 void File::ReadExtension()
 {
 	const auto &str = name_.lower;
@@ -49,11 +56,34 @@ void File::ReadExtension()
 		cache_.ext = {};
 }
 
-void File::name(const QString &s)
+QString
+File::SizeToString() const
 {
-	name_.orig = s;
-	name_.lower = s.toLower();
-	ReadExtension();
+	if (is_dir_or_so())
+		return QString();
+	
+	const i64 sz = size_;
+	float rounded;
+	QString type;
+	if (sz >= io::TiB) {
+		rounded = sz / io::TiB;
+		type = QLatin1String(" TiB");
+	}
+	else if (sz >= io::GiB) {
+		rounded = sz / io::GiB;
+		type = QLatin1String(" GiB");
+	} else if (sz >= io::MiB) {
+		rounded = sz / io::MiB;
+		type = QLatin1String(" MiB");
+	} else if (sz >= io::KiB) {
+		rounded = sz / io::KiB;
+		type = QLatin1String(" KiB");
+	} else {
+		rounded = sz;
+		type = QLatin1String(" bytes");
+	}
+	
+	return io::FloatToString(rounded, 1) + type;
 }
 
 }

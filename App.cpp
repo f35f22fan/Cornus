@@ -13,6 +13,7 @@ extern "C" {
 #include "gui/ToolBar.hpp"
 
 #include <chrono>
+#include <QApplication>
 #include <QClipboard>
 #include <QCoreApplication>
 #include <QDesktopServices>
@@ -62,10 +63,18 @@ void App::CreateGui() {
 	addToolBar(toolbar_);
 }
 
-void App::DisplaySymlinkInfo(io::File &file) {
+void App::DisplayMime(io::File *file)
+{
+	QString full_path = file->build_full_path();
+	QMimeType mt = mime_db_.mimeTypeForFile(full_path);
+	QString mime = mt.name();
+	QMessageBox::information(this, "Mime Type", mime);
+}
+
+void App::DisplaySymlinkInfo(io::File &file)
+{
 	io::LinkTarget *t = file.link_target();
-	if (t == nullptr)
-		return;
+	CHECK_PTR_VOID(t);
 	
 	QDialog dialog(this);
 	dialog.setWindowTitle("Symlink path chain");
@@ -85,7 +94,7 @@ void App::DisplaySymlinkInfo(io::File &file) {
 	
 	// 300 <= width <= 900
 	max_len = std::min(900, std::max(300, max_len));
-	auto go_icon = QIcon::fromTheme(QLatin1String("go-jump"));
+	static auto go_icon = QIcon::fromTheme(QLatin1String("go-jump"));
 	
 	for (auto &next: t->chain_paths_) {
 		QLineEdit *input = new QLineEdit();
@@ -114,7 +123,7 @@ void App::FileDoubleClicked(io::File *file, const gui::Column col)
 		if (file->is_symlink()) {
 			DisplaySymlinkInfo(*file);
 		} else {
-			PrintMime(file);
+			DisplayMime(file);
 		}
 	} else if (col == gui::Column::FileName) {
 		if (file->is_dir()) {
@@ -158,18 +167,26 @@ void App::GoBack() {
 	mtl_info();
 }
 
-bool App::GoTo(QString dir_path) {
+bool App::GoTo(QString dir_path, bool reload)
+{
+	if (!reload) {
+		if (table_model_->IsAt(dir_path))
+			return false;
+	}
+	
 	if (!dir_path.endsWith('/'))
 		dir_path.append('/');
-	const auto start_time = std::chrono::steady_clock::now();
-	auto *files = new io::Files();
 	
-	if (io::ListFiles(dir_path, *files, io::ListOptions::HiddenFiles) != io::Err::Ok) {
-		delete files;
+	const auto start_time = std::chrono::steady_clock::now();
+	io::Files files;
+	files.show_hidden_files = prefs_.show_hidden_files;
+	files.dir_path = dir_path;
+	
+	if (io::ListFiles(files) != io::Err::Ok) {
 		return false;
 	}
 	
-	int count = files->vec.size();
+	int count = files.vec.size();
 	table_model_->SwitchTo(files);
 	current_dir_ = dir_path;
 	auto now = std::chrono::steady_clock::now();
@@ -309,19 +326,25 @@ void App::LoadIcon(io::File &file)
 	SetDefaultIcon(file);
 }
 
-void App::PrintMime(io::File *file)
-{
-	QString full_path = file->build_full_path();
-	QMimeType mt = mime_db_.mimeTypeForFile(full_path);
-	QString mime = mt.name();
-	//mtl_printq2("Mimetype: ", mime);
-	QMessageBox::information(this, "Mime Type", mime);
-}
-
 void App::RegisterShortcuts() {
 	auto *shortcut = new QShortcut(QKeySequence(Qt::SHIFT + Qt::Key_Up), this);
 	shortcut->setContext(Qt::ApplicationShortcut);
 	connect(shortcut, &QShortcut::activated, this, &App::GoUp);
+	
+	shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_H), this);
+	shortcut->setContext(Qt::ApplicationShortcut);
+	
+	connect(shortcut, &QShortcut::activated, [=] {
+		prefs_.show_hidden_files = !prefs_.show_hidden_files;
+		GoTo(current_dir_, true);
+	});
+	
+	shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_Q), this);
+	shortcut->setContext(Qt::ApplicationShortcut);
+	
+	connect(shortcut, &QShortcut::activated, [=] {
+		QApplication::quit();
+	});
 }
 
 void App::SetDefaultIcon(io::File &file) {

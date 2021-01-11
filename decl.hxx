@@ -4,4 +4,5 @@ namespace cornus {
 class App;
 class ByteArray;
 class History;
+class MutexGuard;
 }

@@ -59,21 +59,6 @@ FileExistsCstr(const char *path, FileType *file_type)
 	return true;
 }
 
-io::Err
-FileFromPath(io::File &file, const QString &full_path)
-{
-	struct stat st;
-	auto ba = full_path.toLocal8Bit();
-	
-	if (lstat(ba.data(), &st) == -1)
-		return MapPosixError(errno);
-	
-	QFileInfo info(full_path);
-	FillIn(file, st, info.fileName());
-	
-	return io::Err::Ok;
-}
-
 const char*
 FileTypeToString(const FileType t)
 {
@@ -96,10 +81,11 @@ FileTypeToString(const FileType t)
 }
 
 void
-FillIn(io::File &file, const struct stat &st, const QString &name)
+FillIn(io::File &file, const struct stat &st, const QString *name)
 {
 	using io::FileType;
-	file.name(name);
+	if (name != nullptr)
+		file.name(*name);
 	file.size(st.st_size);
 	file.type(MapPosixTypeToLocal(st.st_mode));
 	file.id(io::FileID::New(st));
@@ -168,27 +154,22 @@ ListFileNames(const QString &full_dir_path, QVector<QString> &vec)
 }
 
 io::Err
-ListFiles(const QString &full_dir_path, io::Files &files,
-	const u8 options, FilterFunc ff)
+ListFiles(io::Files &files, FilterFunc ff)
 {
-	struct dirent *entry;
-	auto dir_path_ba = full_dir_path.toLocal8Bit();
+	if (!files.dir_path.endsWith('/'))
+		files.dir_path.append('/');
+	
+	auto dir_path_ba = files.dir_path.toLocal8Bit();
 	DIR *dp = opendir(dir_path_ba.data());
 	
 	if (dp == NULL) {
-		mtl_printq2("Can't list dir: ", full_dir_path);
+		mtl_printq2("Can't list dir: ", files.dir_path);
 		return MapPosixError(errno);
 	}
 	
-	QString dir_path = full_dir_path;
-	
-	if (!dir_path.endsWith('/'))
-		dir_path.append('/');
-	
-	files.dir_path = dir_path;
-	
 	struct stat st;
-	const bool hide_hidden_files = options & u8(io::ListOptions::HiddenFiles);
+	const bool hide_hidden_files = !files.show_hidden_files;
+	struct dirent *entry;
 	
 	while ((entry = readdir(dp)))
 	{
@@ -201,10 +182,10 @@ ListFiles(const QString &full_dir_path, io::Files &files,
 		if (hide_hidden_files && name.startsWith('.'))
 			continue;
 		
-		if (ff != nullptr && !ff(dir_path, name))
+		if (ff != nullptr && !ff(files.dir_path, name))
 			continue;
 		
-		QString full_path = dir_path + name;
+		QString full_path = files.dir_path + name;
 		auto ba = full_path.toLocal8Bit();
 		
 		if (lstat(ba.data(), &st) != 0)
@@ -217,12 +198,12 @@ ListFiles(const QString &full_dir_path, io::Files &files,
 		}
 		
 		auto *file = new io::File(&files);
-		FillIn(*file, st, name);
+		FillIn(*file, st, &name);
 		
 		if (file->is_symlink()) {
 			auto *target = new LinkTarget();
-			ReadLink(ba.data(), *target, dir_path);
-				file->link_target_ = target;
+			ReadLink(ba.data(), *target, files.dir_path);
+			file->link_target_ = target;
 		}
 		
 		files.vec.append(file);
@@ -378,6 +359,16 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer)
 	close(fd);
 	
 	return Err::Ok;
+}
+
+bool ReloadMeta(io::File &file)
+{
+	auto ba = file.build_full_path().toLocal8Bit();
+	struct stat st;
+	CHECK_TRUE(lstat(ba.data(), &st) == 0);
+	FillIn(file, st, nullptr);
+	
+	return true;
 }
 
 io::Err

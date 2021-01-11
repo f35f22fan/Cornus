@@ -10,12 +10,23 @@
 #include <QAbstractTableModel>
 #include <QVector>
 
+#include <sys/inotify.h>
+#include <limits.h>
 #include <type_traits>
+
+namespace cornus::gui {
+
+struct UpdateTableArgs {
+	QVector<int> indices;
+};
+}
+Q_DECLARE_METATYPE(cornus::gui::UpdateTableArgs);
 
 namespace cornus::gui {
 
 class TableModel: public QAbstractTableModel {
 	Q_OBJECT
+	
 public:
 	TableModel(cornus::App *app);
 	virtual ~TableModel();
@@ -33,7 +44,7 @@ public:
 	data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 	
 	cornus::io::Files*
-	files() { return files_; }
+	files() { return &files_; }
 	
 	QVariant
 	headerData(int section, Qt::Orientation orientation, int role) const override;
@@ -53,13 +64,16 @@ public:
 		mtl_trace();
 		return true;
 	}
+	
+	bool IsAt(const QString &dir_path) const;
+	
 	virtual bool removeRows(int row, int count, const QModelIndex &parent) override;
 	virtual bool removeColumns(int column, int count, const QModelIndex &parent) override {
 		mtl_trace();
 		return true;
 	}
 	
-	void SwitchTo(io::Files *files);
+	void SwitchTo(io::Files &files);
 	
 	void
 	UpdateRange(int row1, Column c1, int row2, Column c2);
@@ -75,10 +89,14 @@ public:
 			Column(i8(Column::Count) - 1));
 	}
 	
+public slots:
+	void UpdateTable(cornus::gui::UpdateTableArgs args);
+	
 private:
 	
 	cornus::App *app_ = nullptr;
-	mutable cornus::io::Files *files_ = nullptr;
+	mutable cornus::io::Files files_;
+	int inotify_fd_ = -1;
 };
 
 

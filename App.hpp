@@ -11,6 +11,10 @@
 
 namespace cornus {
 
+struct Prefs {
+	bool show_hidden_files = false;
+};
+
 class App : public QMainWindow {
 public:
 	App();
@@ -19,15 +23,15 @@ public:
 	void FileDoubleClicked(io::File *file, const gui::Column col);
 	void GoBack();
 	void GoHome();
-	bool GoTo(QString dir_path);
+	bool GoTo(QString dir_path, bool reload = false);
 	void GoUp();
 	void LoadIcon(io::File &file);
-	void PrintMime(io::File *file);
 	
 private:
 	NO_ASSIGN_COPY_MOVE(App);
 	
 	void CreateGui();
+	void DisplayMime(io::File *file);
 	void DisplaySymlinkInfo(io::File &file);
 	QString GetIconName(const QString &trunc);
 	QIcon* GetOrLoadIcon(const QString &icon_name);
@@ -61,5 +65,6 @@ private:
 	
 	gui::ToolBar *toolbar_ = nullptr;
 	gui::Location *location_ = nullptr;
+	Prefs prefs_ = {};
 };
 }

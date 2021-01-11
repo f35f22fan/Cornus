@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../gui/decl.hxx"
 #include "../err.hpp"
 #include "io.hh"
 
@@ -50,6 +51,8 @@ public:
 	void id(const FileID d) { id_ = d; }
 	FileID id() const { return id_; }
 	
+	QString SizeToString() const;
+	
 	i64 size() const { return size_; }
 	void size(const i64 n) { size_ = n; }
 	
@@ -73,8 +76,9 @@ private:
 	FileType type_ = FileType::Unknown;
 	FileID id_ = {};
 	
-	friend io::Err io::ListFiles(const QString &full_dir_path, io::Files &files,
-		const u8 options, FilterFunc ff);
+	friend io::Err io::ListFiles(io::Files &files, FilterFunc ff);
+	
+	friend class cornus::gui::TableModel;
 };
 
 }

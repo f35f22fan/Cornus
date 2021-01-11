@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <mutex>
+#include <pthread.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <time.h>
@@ -34,7 +35,10 @@ enum ListOptions : u8 {
 struct Files {
 	QVector<io::File*> vec;
 	QString dir_path;
-	std::mutex mutex;
+	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+	i32 dir_id = 0; // for inotify/epoll
+	bool show_hidden_files = false;
 };
 
 enum class Err : u8 {
@@ -118,14 +122,11 @@ FileExists(const QString &path, FileType *file_type = nullptr) {
 	return FileExistsCstr(ba.data(), file_type);
 }
 
-io::Err
-FileFromPath(File &file, const QString &full_path);
-
 const char*
 FileTypeToString(const FileType t);
 
 void
-FillIn(io::File &file, const struct stat &st, const QString  &name);
+FillIn(io::File &file, const struct stat &st, const QString *name);
 
 QString
 FloatToString(const float number, const int precision);
@@ -139,8 +140,7 @@ io::Err
 ListFileNames(const QString &full_dir_path, QVector<QString> &vec);
 
 io::Err
-ListFiles(const QString &full_dir_path, Files &files,
-	const u8 options, FilterFunc ff = nullptr);
+ListFiles(Files &files, FilterFunc ff = nullptr);
 
 io::Err
 MapPosixError(int e);
@@ -165,6 +165,8 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer);
 void
 ReadLink(const char *file_path, LinkTarget &link_target,
 	const QString &parent_dir);
+
+bool ReloadMeta(io::File &file);
 
 Err SameFiles(const QString &path1, const QString &path2, bool &same);
 

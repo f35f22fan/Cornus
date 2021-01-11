@@ -2,6 +2,7 @@
 
 #include "../App.hpp"
 #include "../io/File.hpp"
+#include "../MutexGuard.hpp"
 #include "TableDelegate.hpp"
 #include "TableModel.hpp"
 
@@ -31,8 +32,10 @@ table_model_(tm)
 {
 	setModel(table_model_);
 	delegate_ = new TableDelegate(this);
-	setItemDelegateForColumn(int(Column::FileName),
-		static_cast<QAbstractItemDelegate*>(delegate_));
+	auto d = static_cast<QAbstractItemDelegate*>(delegate_);
+	setItemDelegateForColumn(int(Column::Icon), d);
+	setItemDelegateForColumn(int(Column::FileName), d);
+	setItemDelegateForColumn(int(Column::Size), d);
 	setSelectionBehavior(QAbstractItemView::SelectRows);
 	//horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 	horizontalHeader()->setSectionsMovable(true);
@@ -165,7 +168,7 @@ Table::mouseDoubleClickEvent(QMouseEvent *event)
 		io::File *file = nullptr;
 		{
 			io::Files *files = table_model_->files();
-			std::lock_guard<std::mutex> guard(files->mutex);
+			MutexGuard guard(&files->mutex);
 			auto &vec = files->vec;
 			
 			if (row_index >= vec.size())
@@ -179,7 +182,7 @@ Table::mouseDoubleClickEvent(QMouseEvent *event)
 		io::File *file = nullptr;
 		{
 			io::Files *files = table_model_->files();
-			std::lock_guard<std::mutex> guard(files->mutex);
+			MutexGuard guard(&files->mutex);
 			auto &vec = files->vec;
 			
 			if (row_index >= vec.size())
@@ -338,7 +341,7 @@ Table::ScrollToAndSelect(const QString &full_path)
 	int row = -1;
 	{
 		auto *files = table_model_->files();
-		std::lock_guard<std::mutex> guard(files->mutex);
+		MutexGuard guard(&files->mutex);
 		auto &vec = files->vec;
 		
 		

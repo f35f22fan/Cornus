@@ -4,7 +4,7 @@
 #include "../err.hpp"
 #include "../io/decl.hxx"
 
-#include <QFontMetricsF>
+#include <QFontMetrics>
 #include <QStyledItemDelegate>
 
 Q_DECLARE_METATYPE(cornus::io::File*);
@@ -17,11 +17,19 @@ public:
 	virtual ~TableDelegate();
 	
 	virtual void paint(QPainter *painter, const QStyleOptionViewItem &option,
-		const QModelIndex &index) const override;
+		const QModelIndex &index) const;
 	
 private:
-	void DrawFileName(QPainter *painter, const io::File *file,
-		const QStyleOptionViewItem &option, QFontMetricsF &fm,
+	void DrawFileName(QPainter *painter, io::File *file,
+		const QStyleOptionViewItem &option, QFontMetrics &fm,
+		const QRect &text_rect) const;
+	
+	void DrawIcon(QPainter *painter, io::File *file,
+		const QStyleOptionViewItem &option, QFontMetrics &fm,
+		const QRect &text_rect) const;
+	
+	void DrawSize(QPainter *painter, io::File *file,
+		const QStyleOptionViewItem &option, QFontMetrics &fm,
 		const QRect &text_rect) const;
 	
 	gui::Table *table_ = nullptr;

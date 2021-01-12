@@ -27,6 +27,8 @@ public:
 	void GoUp();
 	void LoadIcon(io::File &file);
 	
+	gui::Table* table() const { return table_; }
+	
 private:
 	NO_ASSIGN_COPY_MOVE(App);
 	

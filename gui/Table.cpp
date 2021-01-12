@@ -192,8 +192,6 @@ Table::mouseDoubleClickEvent(QMouseEvent *event)
 		}
 		app->FileDoubleClicked(file, Column::FileName);
 	}
-		
-	
 }
 
 void

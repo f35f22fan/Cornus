@@ -110,6 +110,8 @@ struct LinkTarget {
 
 typedef bool (*FilterFunc)(const QString &dir_path, const QString &name);
 
+void Delete(io::File *file);
+
 bool
 EnsureDir(const QString &dir_path, const QString &subdir);
 

@@ -21,6 +21,8 @@ public:
 	File(const QString &dir_path);
 	virtual ~File();
 	
+	bool DeleteFromDisk();
+	
 	File* Clone() const;
 	
 	QString build_full_path() const;
@@ -44,6 +46,8 @@ public:
 	const QString& name() const { return name_.orig; }
 	const QString& name_lower() const { return name_.lower; }
 	void name(const QString &s);
+	
+	void dir_path(const QString &s) { dp_ = s; }
 	
 	const QString& dir_path() const {
 		return (files_ == nullptr) ? dp_ : files_->dir_path; }

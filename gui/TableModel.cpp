@@ -10,10 +10,11 @@
 #include <QFont>
 #include <QTime>
 
+//#define DEBUG_INOTIFY
+
 namespace cornus::gui {
 
 struct WatchArgs {
-	int inotify_fd = -1;
 	i32 dir_id = 0;
 	QString dir_path;
 	cornus::gui::TableModel *table_model = nullptr;
@@ -25,7 +26,7 @@ struct Renamed {
 };
 
 const size_t kInotifyEventSize = sizeof (struct inotify_event);
-const size_t kInotifyEventBufLen = 1024 * (kInotifyEventSize + 16);
+const size_t kInotifyEventBufLen = 256 * (kInotifyEventSize + 16);
 
 io::File* Find(const QVector<io::File*> &vec,
 	const QString &name, const bool is_dir, int *index)
@@ -81,6 +82,7 @@ void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
 		return;
 	}
 
+	//mtl_info("num_read: %ld", num_read);
 	ssize_t add = 0;
 	QVector<io::File*> &files_vec = files->vec;
 	
@@ -101,6 +103,9 @@ void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
 				}
 			}
 		} else if (mask & IN_CREATE) {
+#ifdef DEBUG_INOTIFY
+mtl_trace("IN_CREATE: %s", ev->name);
+#endif
 			QString name(ev->name);
 			if (!files->show_hidden_files && name.startsWith('.'))
 				continue;
@@ -116,52 +121,86 @@ void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
 				mtl_warn();
 			}
 		} else if (mask & IN_DELETE) {
+#ifdef DEBUG_INOTIFY
+mtl_trace("IN_DELETE: %s", ev->name);
+#endif
 			int index;
 			auto *found = Find(files_vec, ev->name, is_dir, &index);
 			if (found != nullptr) {
 				update_indices.append(-1);
 				files_vec.remove(index);
+			} else {
+				mtl_trace();
 			}
 		} else if (mask & IN_DELETE_SELF) {
-			printf("IN_DELETE_SELF\n");
+			mtl_warn("IN_DELETE_SELF");
 		} else if (mask & IN_MOVE_SELF) {
-			printf("IN_MOVE_SELF\n");
+			mtl_warn("IN_MOVE_SELF");
 		} else if (mask & IN_MOVED_FROM) {
+#ifdef DEBUG_INOTIFY
+mtl_trace("IN_MOVED_FROM: %s, is_dir: %d", ev->name, is_dir);
+#endif
 			renames.append(Renamed {ev->name, ev->cookie});
 		} else if (mask & IN_MOVED_TO) {
+#ifdef DEBUG_INOTIFY
+mtl_trace("IN_MOVED_TO: %s, is_dir: %d", ev->name, is_dir);
+#endif
 			int rename_i = 0;
-			const Renamed *renamed = nullptr;
+			const Renamed *old_name = nullptr;
 			for (const Renamed &r: renames) {
 				if (r.cookie == ev->cookie) {
-					renamed = &r;
+					old_name = &r;
 					break;
 				}
 				rename_i++;
 			}
-			if (renamed != nullptr) {
-				int update_index;
-				io::File *found = Find(files_vec, renamed->name, is_dir, &update_index);
-				renames.remove(rename_i);
-				if (found != nullptr) {
-					update_indices.append(update_index);
-					found->name(ev->name);
-					files_vec.remove(update_index);
-					InsertFile(found, files_vec, &update_index);
-					update_indices.append(update_index);
-				}
+			if (old_name == nullptr) {
+				mtl_trace();
+				continue;
+			}
+			
+			int rem_index;
+			io::File *to_file = Find(files_vec, ev->name, is_dir, &rem_index);
+			if (to_file != nullptr) {
+				files_vec.remove(rem_index);
+				update_indices.append(-rem_index);
+				delete to_file;
+			} else {
+				mtl_trace("%s not found", ev->name);
+			}
+			
+			int from_index;
+			io::File *from_file = Find(files_vec, old_name->name, is_dir, &from_index);
+			renames.remove(rename_i);
+			update_indices.append(from_index);
+			
+			if (from_file != nullptr) {
+				/// remove because it must be inserted at the proper position
+				files_vec.remove(from_index);
+				InsertFile(from_file, files_vec, &from_index);
+				update_indices.append(from_index);
+				from_file->name(ev->name);
+			} else {
+				mtl_trace();
 			}
 		} else if (mask & IN_Q_OVERFLOW) {
-			printf("IN_Q_OVERFLOW\n");
+			mtl_warn("IN_Q_OVERFLOW");
 		} else if (mask & IN_UNMOUNT) {
-			printf("IN_UNMOUNT\n");
+			mtl_warn("IN_UNMOUNT");
 		} else if (mask & IN_CLOSE) {
+#ifdef DEBUG_INOTIFY
+mtl_trace("IN_CLOSE: %s", ev->name);
+#endif
 			int update_index;
 			io::File *found = Find(files_vec, ev->name, is_dir, &update_index);
 			
-			if (found != nullptr) {
-				if (io::ReloadMeta(*found)) {
-					update_indices.append(update_index);
-				}
+			if (found == nullptr)
+				continue;
+			
+			if (io::ReloadMeta(*found)) {
+				update_indices.append(update_index);
+			} else {
+				mtl_trace();
 			}
 		} else if (mask & IN_IGNORED) {
 		} else {
@@ -170,7 +209,6 @@ void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
 	}
 }
 
-
 void* WatchDir(void *void_args)
 {
 	pthread_detach(pthread_self());
@@ -178,18 +216,20 @@ void* WatchDir(void *void_args)
 	
 	WatchArgs *args = (WatchArgs*)void_args;
 	AutoDelete ad_args(args);
+	//mtl_info("kInotifyEventBufLen: %ld", kInotifyEventBufLen);
 	char *buf = new char[kInotifyEventBufLen];
 	AutoDeleteArr ad_arr(buf);
+	cornus::gui::Notify &notify = args->table_model->notify();
 	
 	auto path = args->dir_path.toLocal8Bit();
 	auto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE | IN_DELETE_SELF
 		| IN_MOVE_SELF | IN_CLOSE | IN_MOVE;// | IN_MODIFY;
-	int wd = inotify_add_watch(args->inotify_fd, path.data(), event_types);
+	int wd = inotify_add_watch(notify.fd, path.data(), event_types);
 	if (wd == -1) {
 		mtl_status(errno);
 		return nullptr;
 	}
-	AutoRemoveWatch arw(args->inotify_fd, wd);
+	AutoRemoveWatch arw(notify, wd);
 	//mtl_info("Watching %s using wd %d", path.data(), wd);
 	
 	int epfd = epoll_create(1);
@@ -201,16 +241,16 @@ void* WatchDir(void *void_args)
 	
 	struct epoll_event pev;
 	pev.events = EPOLLIN;
-	pev.data.fd = args->inotify_fd;
+	pev.data.fd = notify.fd;
 	
-	if (epoll_ctl(epfd, EPOLL_CTL_ADD, args->inotify_fd, &pev)) {
+	if (epoll_ctl(epfd, EPOLL_CTL_ADD, notify.fd, &pev)) {
 		mtl_status(errno);
 		close(epfd);
 		return nullptr;
 	}
 	
 	struct epoll_event poll_event;
-	const int seconds = 1 * 1000;
+	const int seconds = 3 * 1000;
 	cornus::io::Files *files = args->table_model->files();
 	UpdateTableArgs method_args;
 	QVector<Renamed> renames;
@@ -231,9 +271,13 @@ void* WatchDir(void *void_args)
 			if (args->dir_id != files->dir_id)
 				break;
 			
+			method_args.prev_count = files->vec.size();
+			
 			if (event_count > 0)
 				ReadEvent(poll_event.data.fd, buf, files,
 					method_args.indices, renames);
+			
+			method_args.new_count = files->vec.size();
 		}
 		
 		if (!renames.isEmpty()) {
@@ -241,8 +285,8 @@ void* WatchDir(void *void_args)
 		}
 		
 		if (!method_args.indices.isEmpty()) {
-			QMetaObject::invokeMethod(args->table_model,
-				"UpdateTable", Q_ARG(cornus::gui::UpdateTableArgs, method_args));
+			QMetaObject::invokeMethod(args->table_model, "UpdateTable",
+				Q_ARG(cornus::gui::UpdateTableArgs, method_args));
 			method_args.indices.clear();
 		}
 	}
@@ -257,6 +301,9 @@ void* WatchDir(void *void_args)
 TableModel::TableModel(cornus::App *app): app_(app)
 {
 	qRegisterMetaType<cornus::gui::UpdateTableArgs>();
+	
+	if (notify_.fd == -1)
+		notify_.fd = inotify_init();
 }
 
 TableModel::~TableModel()
@@ -266,6 +313,33 @@ TableModel::~TableModel()
 		delete file;
 	
 	files_.vec.clear();
+}
+
+void
+TableModel::DeleteSelectedFiles() {
+	QItemSelectionModel *select = app_->table()->selectionModel();
+	
+	if (!select->hasSelection())
+		return;
+	
+	QModelIndexList rows = select->selectedRows();
+	QVector<io::File*> delete_files;
+	{
+		MutexGuard guard(&files_.mutex);
+		
+		for (QModelIndex &row: rows) {
+			const int index = row.row();
+			io::File *pass = files_.vec[index]->Clone();
+			pass->files_ = nullptr;
+			pass->dir_path(files_.dir_path);
+			delete_files.append(pass);
+		}
+	}
+	
+	for (io::File *file: delete_files) {
+		io::Delete(file);
+		delete file;
+	}
 }
 
 QModelIndex
@@ -450,11 +524,7 @@ TableModel::SwitchTo(io::Files &files)
 	}
 	endInsertRows();
 	
-	if (inotify_fd_ == -1)
-		inotify_fd_ = inotify_init();
-	
 	WatchArgs *args = new WatchArgs {
-		.inotify_fd = inotify_fd_,
 		.dir_id = dir_id,
 		.dir_path = files.dir_path,
 		.table_model = this,
@@ -489,6 +559,21 @@ TableModel::UpdateRange(int row1, Column c1, int row2, Column c2)
 void
 TableModel::UpdateTable(UpdateTableArgs args)
 {
+	const i32 added = args.new_count - args.prev_count;
+	
+//	if (added != 0) {
+//		mtl_info("added: %d, rowCount: %d", added, rowCount());
+//	}
+	
+	// send the signals to the table UI:
+	if (added > 0) {
+		beginInsertRows(QModelIndex(), 0, added);
+		endInsertRows();
+	} else if (added < 0) {
+		beginRemoveRows(QModelIndex(), 0, -added);
+		endRemoveRows();
+	}
+	
 	int min = -1, max = -1;
 	bool initialize = true;
 	
@@ -506,11 +591,13 @@ TableModel::UpdateTable(UpdateTableArgs args)
 	}
 	
 	if (min == -1 || max == -1) {
-		UpdateRowRange(0, rowCount());
+		///TBD: replace new_count with visible rows count,
+		/// and zero with first visible row index
+//		mtl_info("update range: %d", args.new_count);
+		UpdateRowRange(0, args.new_count);
 	} else {
 		UpdateRowRange(min, max);
 	}
-	
 }
 
 }

@@ -17,6 +17,28 @@
 
 namespace cornus::io {
 
+void Delete(io::File *file) {
+	if (!file->is_dir()) {
+		file->DeleteFromDisk();
+		return;
+	}
+	
+	io::Files files;
+	files.dir_path = file->build_full_path();
+	files.show_hidden_files = true;
+	CHECK_TRUE_VOID((ListFiles(files) == io::Err::Ok));
+	
+	for (io::File *next: files.vec) {
+		if (next->is_dir()) {
+			Delete(next);
+		}
+		next->DeleteFromDisk();
+		delete next;
+	}
+	
+	file->DeleteFromDisk();
+}
+
 bool
 EnsureDir(const QString &dir_path, const QString &subdir)
 {
@@ -364,8 +386,13 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer)
 bool ReloadMeta(io::File &file)
 {
 	auto ba = file.build_full_path().toLocal8Bit();
+//	mtl_info("%s", ba.data());
 	struct stat st;
-	CHECK_TRUE(lstat(ba.data(), &st) == 0);
+	if (lstat(ba.data(), &st) != 0) {
+		mtl_warn("%s", ba.data());
+		return false;
+	}
+	
 	FillIn(file, st, nullptr);
 	
 	return true;

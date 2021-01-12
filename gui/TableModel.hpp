@@ -18,6 +18,8 @@ namespace cornus::gui {
 
 struct UpdateTableArgs {
 	QVector<int> indices;
+	i32 prev_count = -1;
+	i32 new_count = -1;
 };
 }
 Q_DECLARE_METATYPE(cornus::gui::UpdateTableArgs);
@@ -33,6 +35,8 @@ public:
 	
 	cornus::App*
 	app() const { return app_; }
+	
+	void DeleteSelectedFiles();
 	
 	int
 	rowCount(const QModelIndex &parent = QModelIndex()) const override;
@@ -67,6 +71,8 @@ public:
 	
 	bool IsAt(const QString &dir_path) const;
 	
+	Notify& notify() { return notify_; }
+	
 	virtual bool removeRows(int row, int count, const QModelIndex &parent) override;
 	virtual bool removeColumns(int column, int count, const QModelIndex &parent) override {
 		mtl_trace();
@@ -96,7 +102,7 @@ private:
 	
 	cornus::App *app_ = nullptr;
 	mutable cornus::io::Files files_;
-	int inotify_fd_ = -1;
+	Notify notify_ = {};
 };
 
 

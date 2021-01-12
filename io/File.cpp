@@ -1,5 +1,7 @@
 #include "File.hpp"
 
+#include <cstdio>
+
 namespace cornus::io {
 
 File::File(Files *files): files_(files) {}
@@ -36,6 +38,17 @@ File::Clone() const
 		file->link_target_ = link_target_->Clone();
 	
 	return file;
+}
+
+bool
+File::DeleteFromDisk() {
+	auto ba = build_full_path().toLocal8Bit();
+	int status = remove(ba.data());
+	
+	if (status != 0)
+		mtl_status(status);
+	
+	return status == 0;
 }
 
 void File::name(const QString &s)

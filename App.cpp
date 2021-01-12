@@ -345,6 +345,13 @@ void App::RegisterShortcuts() {
 	connect(shortcut, &QShortcut::activated, [=] {
 		QApplication::quit();
 	});
+	
+	shortcut = new QShortcut(QKeySequence(Qt::SHIFT + Qt::Key_Delete), this);
+	shortcut->setContext(Qt::ApplicationShortcut);
+	
+	connect(shortcut, &QShortcut::activated, [=] {
+		table_model_->DeleteSelectedFiles();
+	});
 }
 
 void App::SetDefaultIcon(io::File &file) {

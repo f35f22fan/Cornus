@@ -1,20 +1,38 @@
 #pragma once
 
 #include <sys/inotify.h>
+#include "gui/decl.hxx"
+#include "MutexGuard.hpp"
 
 namespace cornus {
-    
+
 class AutoRemoveWatch {
 public:
-    AutoRemoveWatch(int inotify_fd, int wd): fd_(inotify_fd), wd_(wd) {}
-    ~AutoRemoveWatch() {
-        int status = inotify_rm_watch(fd_, wd_);
-        if (status != 0)
-            perror("inotify_rm_watch");
-    }
+	AutoRemoveWatch(cornus::gui::Notify &notify, int wd):
+		notify_(notify), wd_(wd)
+	{
+		MutexGuard guard(&notify.watches_mutex);
+		int count = notify.watches.value(wd_, 0);
+		notify.watches[wd_] = count + 1;
+	}
+	~AutoRemoveWatch() {
+		MutexGuard guard(&notify_.watches_mutex);
+		int count = notify_.watches.value(wd_) - 1;
+		
+		if (count > 0) {
+			//mtl_info("Skipped removing %d, new count: %d", wd_, count);
+			notify_.watches[wd_] = count;
+			return;
+		}
+		
+		notify_.watches.remove(wd_);
+		int status = inotify_rm_watch(notify_.fd, wd_);
+		if (status != 0)
+			mtl_warn("%s: %d", strerror(errno), wd_);
+	}
 private:
-    int fd_;
-    int wd_;
+	cornus::gui::Notify &notify_;
+	int wd_ = -1;
 };
 
 template <class A_Type> class AutoFree {

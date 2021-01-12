@@ -42,6 +42,7 @@ private:
 	TableDelegate *delegate_ = nullptr;
 	
 	int drop_y_coord_ = -1;
+	
 };
 
 } // cornus::gui::

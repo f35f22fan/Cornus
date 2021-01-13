@@ -8,6 +8,7 @@
 #include "TableModel.hpp"
 
 #include <mutex>
+#include <QDateTime>
 #include <QPainter>
 
 class RestorePainter {
@@ -143,6 +144,19 @@ TableDelegate::DrawSize(QPainter *painter, io::File *file,
 }
 
 void
+TableDelegate::DrawTime(QPainter *painter, io::File *file,
+	const QStyleOptionViewItem &option, QFontMetrics &fm,
+	const QRect &text_rect, const Column col) const
+{
+	const struct statx_timestamp &stx = (col == Column::TimeCreated)
+		? file->time_created() : file->time_modified();
+	QDateTime tm = QDateTime::fromSecsSinceEpoch(stx.tv_sec);
+	static const QString format = QLatin1String("yyyy/MM/dd hh:mm:ss");
+	QString s = tm.toString(format);//Qt::SystemLocaleShortDate);
+	painter->drawText(text_rect, s);
+}
+
+void
 TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 	const QModelIndex &index) const
 {
@@ -177,6 +191,8 @@ TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 		DrawFileName(painter, file, option, fm, text_rect);
 	} else if (col == Column::Size) {
 		DrawSize(painter, file, option, fm, text_rect);
+	} else if (col == Column::TimeCreated || col == Column::TimeModified) {
+		DrawTime(painter, file, option, fm, text_rect, col);
 	} else {
 		QStyledItemDelegate::paint(painter, option, index);
 	}

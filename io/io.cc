@@ -113,6 +113,19 @@ FillIn(io::File &file, const struct stat &st, const QString *name)
 	file.id(io::FileID::New(st));
 }
 
+void
+FillInStx(io::File &file, const struct statx &stx, const QString *name)
+{
+	using io::FileType;
+	if (name != nullptr)
+		file.name(*name);
+	file.size(stx.stx_size);
+	file.type(MapPosixTypeToLocal(stx.stx_mode));
+	file.id(io::FileID::NewStx(stx));
+	file.time_created(stx.stx_btime);
+	file.time_modified(stx.stx_mtime);
+}
+
 QString
 FloatToString(const float number, const int precision)
 {
@@ -189,9 +202,11 @@ ListFiles(io::Files &files, FilterFunc ff)
 		return MapPosixError(errno);
 	}
 	
-	struct stat st;
 	const bool hide_hidden_files = !files.show_hidden_files;
 	struct dirent *entry;
+	struct statx stx;
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_ALL;
 	
 	while ((entry = readdir(dp)))
 	{
@@ -210,17 +225,13 @@ ListFiles(io::Files &files, FilterFunc ff)
 		QString full_path = files.dir_path + name;
 		auto ba = full_path.toLocal8Bit();
 		
-		if (lstat(ba.data(), &st) != 0)
-		{
-			mtl_trace();
-//			perror("Failed reading file");
-//			closedir(dp);
-//			return MapPosixError(errno);
+		if (statx(0, ba.data(), flags, fields, &stx) != 0) {
+			mtl_warn("statx(): %s", strerror(errno));
 			continue;
 		}
 		
 		auto *file = new io::File(&files);
-		FillIn(*file, st, &name);
+		FillInStx(*file, stx, &name);
 		
 		if (file->is_symlink()) {
 			auto *target = new LinkTarget();
@@ -422,13 +433,57 @@ SameFiles(const QString &path1, const QString &path2, bool &same)
 bool
 SortFiles(const io::File *a, const io::File *b) 
 {
+/** Note: this function MUST be implemented with strict weak ordering
+  otherwise it randomly crashes (because of undefined behavior),
+  more info here:
+ https://stackoverflow.com/questions/979759/operator-and-strict-weak-ordering/981299#981299 */
+	const SortingOrder order = a->files()->sorting_order;
+	
 	if (a->is_dir_or_so() && !b->is_dir_or_so())
 		return true;
-	
-	if (b->is_dir_or_so() && !a->is_dir_or_so())
+	else if (b->is_dir_or_so() && !a->is_dir_or_so())
 		return false;
 	
-	return a->name_lower() < b->name_lower();
+	if (order.column == gui::Column::FileName) {
+		bool result = a->name_lower() < b->name_lower();
+		return order.ascending ? result : !result;
+	}
+	
+	const bool by_created = order.column == gui::Column::TimeCreated;
+	if (by_created || order.column == gui::Column::TimeModified)
+	{
+		auto &tc = by_created ? a->time_created() : a->time_modified();
+		auto &tc2 = by_created ? b->time_created() : a->time_modified();
+		
+		if (tc.tv_sec != tc2.tv_sec) {
+			const bool less_sec = (tc.tv_sec < tc2.tv_sec);
+			return order.ascending ? less_sec : !less_sec;
+		}
+		
+		if (tc.tv_nsec == tc2.tv_nsec)
+			return false;
+		
+		const bool less_nsec = tc.tv_nsec < tc2.tv_nsec;
+		return order.ascending ? less_nsec : !less_nsec;
+	}
+	
+	if (order.column == gui::Column::Size) {
+		if (a->size() == b->size())
+			return false;
+		const bool less_size = a->size() < b->size();
+		return order.ascending ? less_size : !less_size;
+	}
+	
+	if (order.column == gui::Column::Icon) {
+		// order by file type..
+		if (a->type() == b->type())
+			return false;
+		const bool less_type = a->type() < b->type();
+		return order.ascending ? less_type : !less_type;
+	}
+	
+	mtl_trace();
+	return false;
 }
 
 io::Err

@@ -18,10 +18,12 @@ File::build_full_path() const
 {
 	if (files_ != nullptr)
 		return files_->dir_path + name_.orig;
+	QString s = dp_;
 	
-	if (dp_.endsWith('/'))
-		return dp_ + name_.orig;
-	return dp_ + '/' + name_.orig;
+	if (!dp_.endsWith('/'))
+		s.append('/');
+	
+	return s + name_.orig;
 }
 
 File*
@@ -33,6 +35,8 @@ File::Clone() const
 	file->type_ = type_;
 	file->id_ = id_;
 	file->cache_ = cache_;
+	file->time_created_ = time_created_;
+	file->time_modified_ = time_modified_;
 	
 	if (link_target_ != nullptr)
 		file->link_target_ = link_target_->Clone();

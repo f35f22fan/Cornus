@@ -32,6 +32,10 @@ private:
 		const QStyleOptionViewItem &option, QFontMetrics &fm,
 		const QRect &text_rect) const;
 	
+	void DrawTime(QPainter *painter, io::File *file,
+		const QStyleOptionViewItem &option, QFontMetrics &fm,
+		const QRect &text_rect, const Column col) const;
+	
 	gui::Table *table_ = nullptr;
 };
 

@@ -79,19 +79,19 @@ public:
 		return true;
 	}
 	
-	void SwitchTo(io::Files &files);
+	void SwitchTo(io::Files &new_files);
 	
 	void
 	UpdateRange(int row1, Column c1, int row2, Column c2);
 	
 	void
 	UpdateRangeDefault(int row) {
-		UpdateRange(row, Column::FileName, row, Column::Size);
+		UpdateRange(row, Column::Icon, row, Column(i8(Column::Count) - 1));
 	}
 	
 	void
 	UpdateRowRange(int row_start, int row_end) {
-		UpdateRange(row_start, Column::FileName, row_end,
+		UpdateRange(row_start, Column::Icon, row_end,
 			Column(i8(Column::Count) - 1));
 	}
 	

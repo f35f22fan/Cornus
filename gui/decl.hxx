@@ -17,7 +17,9 @@ enum class Column : i8 {
 	Icon = 0,
 	FileName,
 	Size,
-	Count
+	TimeCreated,
+	TimeModified,
+	Count,
 };
 
 struct Notify {

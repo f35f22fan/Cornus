@@ -179,6 +179,11 @@ bool App::GoTo(QString dir_path, bool reload)
 	
 	const auto start_time = std::chrono::steady_clock::now();
 	io::Files files;
+	io::Files *tfiles = table_model_->files();
+	{
+		MutexGuard guard(&tfiles->mutex);
+		files.sorting_order = tfiles->sorting_order;
+	}
 	files.show_hidden_files = prefs_.show_hidden_files;
 	files.dir_path = dir_path;
 	

@@ -1,6 +1,7 @@
 #include "Table.hpp"
 
 #include "../App.hpp"
+#include "../io/io.hh"
 #include "../io/File.hpp"
 #include "../MutexGuard.hpp"
 #include "TableDelegate.hpp"
@@ -14,6 +15,7 @@
 #include <QDialog>
 #include <QDragEnterEvent>
 #include <QFormLayout>
+#include <QFontMetrics>
 #include <QGuiApplication>
 #include <QHeaderView>
 #include <QLineEdit>
@@ -36,7 +38,14 @@ table_model_(tm)
 	setItemDelegateForColumn(int(Column::Icon), d);
 	setItemDelegateForColumn(int(Column::FileName), d);
 	setItemDelegateForColumn(int(Column::Size), d);
+	setItemDelegateForColumn(int(Column::TimeCreated), d);
+	setItemDelegateForColumn(int(Column::TimeModified), d);
 	setSelectionBehavior(QAbstractItemView::SelectRows);
+	auto *hz = horizontalHeader();
+	hz->setSortIndicatorShown(true);
+	hz->setSectionHidden(int(Column::TimeModified), true);
+	hz->setSortIndicator(int(Column::FileName), Qt::AscendingOrder);
+	connect(hz, &QHeaderView::sortIndicatorChanged, this, &Table::SortingChanged);
 	//horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 	horizontalHeader()->setSectionsMovable(true);
 	verticalHeader()->setSectionsMovable(false);
@@ -162,34 +171,22 @@ Table::mouseDoubleClickEvent(QMouseEvent *event)
 	
 	i32 col = columnAt(event->pos().x());
 	auto *app = table_model_->app();
+	io::File *file = nullptr;
+	const int row_index = rows[0].row();
+	io::Files *files = table_model_->files();
+	{
+		MutexGuard guard(&files->mutex);
+		auto &vec = files->vec;
+		
+		if (row_index >= vec.size())
+			return;
+		
+		file = vec[row_index]->Clone();
+	}
 	
 	if (col == i32(Column::Icon)) {
-		const int row_index = rows[0].row();
-		io::File *file = nullptr;
-		{
-			io::Files *files = table_model_->files();
-			MutexGuard guard(&files->mutex);
-			auto &vec = files->vec;
-			
-			if (row_index >= vec.size())
-				return;
-			
-			file = vec[row_index]->Clone();
-		}
 		app->FileDoubleClicked(file, Column::Icon);
 	} else if (col == i32(Column::FileName)) {
-		const int row_index = rows[0].row();
-		io::File *file = nullptr;
-		{
-			io::Files *files = table_model_->files();
-			MutexGuard guard(&files->mutex);
-			auto &vec = files->vec;
-			
-			if (row_index >= vec.size())
-				return;
-			
-			file = vec[row_index]->Clone();
-		}
 		app->FileDoubleClicked(file, Column::FileName);
 	}
 }
@@ -324,13 +321,18 @@ void
 Table::resizeEvent(QResizeEvent *event) {
 	QTableView::resizeEvent(event);
 	double w = event->size().width();
-	int icon = 50;
-	int size = 120;
-	int file_name = w - (icon + size + 5);
+	const int icon = 50;
+	const int size = 110;
+	QFont font;
+	QFontMetrics metrics(font);
+	QString sample_date = QLatin1String("2020/12/01 18:04:55");
+	const int time_w = metrics.boundingRect(sample_date).width() * 1.1;
+	int file_name = w - (icon + size + time_w + 5);
 	
 	setColumnWidth(i8(gui::Column::Icon), icon);// 45);
 	setColumnWidth(i8(gui::Column::FileName), file_name);// 500);
-	setColumnWidth(i8(gui::Column::Size), size);//120);
+	setColumnWidth(i8(gui::Column::Size), size);
+	setColumnWidth(i8(gui::Column::TimeCreated), time_w);
 }
 
 void
@@ -380,5 +382,20 @@ Table::ShowRightClickMenu(const QPoint &pos)
 	*/
 }
 
+void
+Table::SortingChanged(int logical, Qt::SortOrder order) {
+	io::SortingOrder sorder = {Column(logical), order == Qt::AscendingOrder};
+	io::Files *files = table_model_->files();
+	int file_count;
+	{
+		MutexGuard guard(&files->mutex);
+		file_count = files->vec.size();
+		files->sorting_order = sorder;
+		std::sort(files->vec.begin(), files->vec.end(), cornus::io::SortFiles);
+	}
+	//int rh = verticalHeader()->defaultSectionSize();
+	//emit dataChanged(QModelIndex(), QModelIndex());
+	table_model_->UpdateRowRange(0, file_count - 1);
+}
 } // cornus::gui::
 

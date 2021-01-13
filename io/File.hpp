@@ -52,6 +52,8 @@ public:
 	const QString& dir_path() const {
 		return (files_ == nullptr) ? dp_ : files_->dir_path; }
 	
+	io::Files* files() const { return files_; }
+	
 	void id(const FileID d) { id_ = d; }
 	FileID id() const { return id_; }
 	
@@ -60,10 +62,20 @@ public:
 	i64 size() const { return size_; }
 	void size(const i64 n) { size_ = n; }
 	
+	const struct statx_timestamp&
+	time_created() const { return time_created_; }
+	void time_created(const struct statx_timestamp &t) { time_created_ = t; }
+	
+	const struct statx_timestamp&
+	time_modified() const { return time_modified_; }
+	void time_modified(const struct statx_timestamp &t) { time_modified_ = t; }
+	
 	void type(const FileType t) { type_ = t; }
 	FileType type() const { return type_; }
 	
 private:
+	NO_ASSIGN_COPY_MOVE(File);
+	
 	void ReadExtension();
 	
 	struct Name {
@@ -79,9 +91,10 @@ private:
 	i64 size_ = -1;
 	FileType type_ = FileType::Unknown;
 	FileID id_ = {};
+	struct statx_timestamp time_created_ = {};
+	struct statx_timestamp time_modified_ = {};
 	
 	friend io::Err io::ListFiles(io::Files &files, FilterFunc ff);
-	
 	friend class cornus::gui::TableModel;
 };
 

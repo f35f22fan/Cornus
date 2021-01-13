@@ -37,6 +37,7 @@ private:
 	
 	void RemoveSongsAndDeleteFiles(const QModelIndexList &indices);
 	void ShowRightClickMenu(const QPoint &pos);
+	void SortingChanged(int logical, Qt::SortOrder order);
 	
 	TableModel *table_model_ = nullptr;
 	TableDelegate *delegate_ = nullptr;

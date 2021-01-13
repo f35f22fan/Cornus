@@ -361,7 +361,7 @@ TableModel::columnCount(const QModelIndex &parent) const
 	if (parent.isValid())
 		return 0;
 	
-	return i8(Column::Count);
+	return int(Column::Count);
 }
 
 QVariant
@@ -401,12 +401,11 @@ TableModel::headerData(int section_i, Qt::Orientation orientation, int role) con
 			const Column section = static_cast<Column>(section_i);
 			
 			switch (section) {
-			case Column::Icon:
-				return QString();
-			case Column::FileName:
-				return QLatin1String("Name");
-			case Column::Size:
-				return QLatin1String("Size");
+			case Column::Icon: return QString();
+			case Column::FileName: return QLatin1String("Name");
+			case Column::Size: return QLatin1String("Size");
+			case Column::TimeCreated: return QLatin1String("Created");
+			case Column::TimeModified: return QLatin1String("Modified");
 			default: {
 				mtl_trace();
 				return {};
@@ -487,13 +486,13 @@ TableModel::removeRows(int row, int count, const QModelIndex &parent)
 }
 
 void
-TableModel::SwitchTo(io::Files &files)
+TableModel::SwitchTo(io::Files &new_files)
 {
 	int prev_count, new_count;
 	{
 		MutexGuard guard(&files_.mutex);
 		prev_count = files_.vec.size();
-		new_count = files.vec.size();
+		new_count = new_files.vec.size();
 	}
 	
 	beginRemoveRows(QModelIndex(), 0, prev_count);
@@ -501,7 +500,6 @@ TableModel::SwitchTo(io::Files &files)
 		MutexGuard guard(&files_.mutex);
 		for (auto *file: files_.vec)
 			delete file;
-		
 		files_.vec.clear();
 	}
 	endRemoveRows();
@@ -512,28 +510,30 @@ TableModel::SwitchTo(io::Files &files)
 		MutexGuard guard(&files_.mutex);
 		files_.dir_id++;
 		dir_id = files_.dir_id;
-		files_.dir_path = files.dir_path;
-		files_.show_hidden_files = files.show_hidden_files;
+		files_.dir_path = new_files.dir_path;
+		/// copying sorting order is logically wrong because it overwrites
+		/// the existing one.
+		files_.show_hidden_files = new_files.show_hidden_files;
 		files_.vec.resize(new_count);
 		for (int i = 0; i < new_count; i++) {
-			io::File *file = files.vec[i];
+			io::File *file = new_files.vec[i];
 			file->files_ = &files_;
 			files_.vec[i] = file;
 		}
-		files.vec.clear();
+		new_files.vec.clear();
 	}
 	endInsertRows();
 	
 	WatchArgs *args = new WatchArgs {
 		.dir_id = dir_id,
-		.dir_path = files.dir_path,
+		.dir_path = new_files.dir_path,
 		.table_model = this,
 	};
 	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, cornus::gui::WatchDir, args);
 	if (status != 0) {
-		mtl_printq(files.dir_path);
+		mtl_printq(new_files.dir_path);
 		mtl_status(status);
 	}
 }

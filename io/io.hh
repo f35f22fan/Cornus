@@ -3,6 +3,8 @@
 #include "../ByteArray.hpp"
 #include "decl.hxx"
 #include "../decl.hxx"
+#include "../err.hpp"
+#include "../gui/decl.hxx"
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -32,13 +34,29 @@ enum ListOptions : u8 {
 	HiddenFiles = 1u << 0,
 };
 
+struct SortingOrder {
+	SortingOrder() {}
+	SortingOrder(gui::Column c, bool asc): column(c), ascending(asc) {}
+	SortingOrder(const SortingOrder &rhs) {
+		column = rhs.column;
+		ascending = rhs.ascending;
+	}
+	gui::Column column = gui::Column::FileName;
+	bool ascending = true;
+};
+
 struct Files {
+	Files() {}
+	~Files() {}
 	QVector<io::File*> vec;
 	QString dir_path;
+	SortingOrder sorting_order;
 	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 	i32 dir_id = 0; // for inotify/epoll
 	bool show_hidden_files = false;
+private:
+	NO_ASSIGN_COPY_MOVE(Files);
 };
 
 enum class Err : u8 {
@@ -62,13 +80,23 @@ enum class FileType : u8 {
 };
 
 struct FileID {
-	dev_t device_id; // ID of device containing file
-	ino_t inode_number;
+	u64 inode_number;
+	u32 dev_major; // ID of device containing file
+	u32 dev_minor;
 	
 	inline static FileID New(const struct stat &st) {
 		return io::FileID {
-			.device_id = st.st_dev,
-			.inode_number = st.st_ino
+			.inode_number = st.st_ino,
+			.dev_major = major(st.st_dev),
+			.dev_minor = minor(st.st_dev),
+		};
+	}
+	
+	inline static FileID NewStx(const struct statx &stx) {
+		return io::FileID {
+			.inode_number = stx.stx_ino,
+			.dev_major = stx.stx_dev_major,
+			.dev_minor = stx.stx_dev_minor,
 		};
 	}
 	
@@ -80,12 +108,7 @@ struct FileID {
 	inline bool
 	Equals(const FileID &rhs) const {
 		return inode_number == rhs.inode_number &&
-			device_id == rhs.device_id;
-	}
-	
-	inline bool
-	Initialized() const {
-		return inode_number != 0 || device_id != 0;
+			dev_major == rhs.dev_major && dev_minor == rhs.dev_minor;
 	}
 };
 
@@ -129,6 +152,9 @@ FileTypeToString(const FileType t);
 
 void
 FillIn(io::File &file, const struct stat &st, const QString *name);
+
+void
+FillInStx(io::File &file, const struct statx &st, const QString *name);
 
 QString
 FloatToString(const float number, const int precision);

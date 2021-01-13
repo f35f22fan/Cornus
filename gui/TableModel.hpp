@@ -99,6 +99,7 @@ public slots:
 	void UpdateTable(cornus::gui::UpdateTableArgs args);
 	
 private:
+	void UpdateVisibleArea();
 	
 	cornus::App *app_ = nullptr;
 	mutable cornus::io::Files files_;

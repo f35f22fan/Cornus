@@ -336,10 +336,13 @@ TableModel::DeleteSelectedFiles() {
 		}
 	}
 	
+	beginRemoveRows(QModelIndex(), 0, delete_files.size());
 	for (io::File *file: delete_files) {
 		io::Delete(file);
 		delete file;
 	}
+	endRemoveRows();
+	UpdateVisibleArea();
 }
 
 QModelIndex
@@ -495,7 +498,7 @@ TableModel::SwitchTo(io::Files &new_files)
 		new_count = new_files.vec.size();
 	}
 	
-	beginRemoveRows(QModelIndex(), 0, prev_count);
+	beginRemoveRows(QModelIndex(), 0, prev_count - 1);
 	{
 		MutexGuard guard(&files_.mutex);
 		for (auto *file: files_.vec)
@@ -504,7 +507,7 @@ TableModel::SwitchTo(io::Files &new_files)
 	}
 	endRemoveRows();
 	
-	beginInsertRows(QModelIndex(), 0, new_count);
+	beginInsertRows(QModelIndex(), 0, new_count - 1);
 	i32 dir_id;
 	{
 		MutexGuard guard(&files_.mutex);
@@ -567,10 +570,10 @@ TableModel::UpdateTable(UpdateTableArgs args)
 	
 	// send the signals to the table UI:
 	if (added > 0) {
-		beginInsertRows(QModelIndex(), 0, added);
+		beginInsertRows(QModelIndex(), 0, added - 1);
 		endInsertRows();
 	} else if (added < 0) {
-		beginRemoveRows(QModelIndex(), 0, -added);
+		beginRemoveRows(QModelIndex(), 0, std::abs(added) - 1);
 		endRemoveRows();
 	}
 	
@@ -598,6 +601,11 @@ TableModel::UpdateTable(UpdateTableArgs args)
 	} else {
 		UpdateRowRange(min, max);
 	}
+}
+
+void
+TableModel::UpdateVisibleArea() {
+	mtl_trace();
 }
 
 }

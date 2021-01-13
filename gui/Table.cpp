@@ -325,7 +325,7 @@ Table::resizeEvent(QResizeEvent *event) {
 	const int size = 110;
 	QFont font;
 	QFontMetrics metrics(font);
-	QString sample_date = QLatin1String("2020/12/01 18:04:55");
+	QString sample_date = QLatin1String("2020-12-01 18:04");
 	const int time_w = metrics.boundingRect(sample_date).width() * 1.1;
 	int file_name = w - (icon + size + time_w + 5);
 	

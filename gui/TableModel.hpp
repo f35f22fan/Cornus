@@ -20,6 +20,7 @@ struct UpdateTableArgs {
 	QVector<int> indices;
 	i32 prev_count = -1;
 	i32 new_count = -1;
+	i32 dir_id = -1;
 };
 }
 Q_DECLARE_METATYPE(cornus::gui::UpdateTableArgs);

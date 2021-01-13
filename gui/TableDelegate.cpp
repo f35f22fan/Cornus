@@ -151,8 +151,8 @@ TableDelegate::DrawTime(QPainter *painter, io::File *file,
 	const struct statx_timestamp &stx = (col == Column::TimeCreated)
 		? file->time_created() : file->time_modified();
 	QDateTime tm = QDateTime::fromSecsSinceEpoch(stx.tv_sec);
-	static const QString format = QLatin1String("yyyy/MM/dd hh:mm:ss");
-	QString s = tm.toString(format);//Qt::SystemLocaleShortDate);
+	static const QString format = QLatin1String("yyyy-MM-dd hh:mm");
+	QString s = tm.toString(format);
 	painter->drawText(text_rect, s);
 }
 

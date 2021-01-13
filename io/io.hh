@@ -151,9 +151,6 @@ const char*
 FileTypeToString(const FileType t);
 
 void
-FillIn(io::File &file, const struct stat &st, const QString *name);
-
-void
 FillInStx(io::File &file, const struct statx &st, const QString *name);
 
 QString

@@ -103,17 +103,6 @@ FileTypeToString(const FileType t)
 }
 
 void
-FillIn(io::File &file, const struct stat &st, const QString *name)
-{
-	using io::FileType;
-	if (name != nullptr)
-		file.name(*name);
-	file.size(st.st_size);
-	file.type(MapPosixTypeToLocal(st.st_mode));
-	file.id(io::FileID::New(st));
-}
-
-void
 FillInStx(io::File &file, const struct statx &stx, const QString *name)
 {
 	using io::FileType;
@@ -397,14 +386,17 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer)
 bool ReloadMeta(io::File &file)
 {
 	auto ba = file.build_full_path().toLocal8Bit();
-//	mtl_info("%s", ba.data());
-	struct stat st;
-	if (lstat(ba.data(), &st) != 0) {
-		mtl_warn("%s", ba.data());
+	
+	struct statx stx;
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_ALL;
+	
+	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
+		mtl_warn("statx(): %s", strerror(errno));
 		return false;
 	}
 	
-	FillIn(file, st, nullptr);
+	FillInStx(file, stx, nullptr);
 	
 	return true;
 }

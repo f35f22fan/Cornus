@@ -8,6 +8,7 @@
 
 #include <sys/epoll.h>
 #include <QFont>
+#include <QScrollBar>
 #include <QTime>
 
 //#define DEBUG_INOTIFY
@@ -82,7 +83,6 @@ void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
 		return;
 	}
 
-	//mtl_info("num_read: %ld", num_read);
 	ssize_t add = 0;
 	QVector<io::File*> &files_vec = files->vec;
 	
@@ -130,7 +130,9 @@ mtl_trace("IN_DELETE: %s", ev->name);
 				update_indices.append(-1);
 				files_vec.remove(index);
 			} else {
+#ifdef DEBUG_INOTIFY
 				mtl_trace();
+#endif
 			}
 		} else if (mask & IN_DELETE_SELF) {
 			mtl_warn("IN_DELETE_SELF");
@@ -253,6 +255,7 @@ void* WatchDir(void *void_args)
 	const int seconds = 3 * 1000;
 	cornus::io::Files *files = args->table_model->files();
 	UpdateTableArgs method_args;
+	method_args.dir_id = args->dir_id;
 	QVector<Renamed> renames;
 	
 	while (true)
@@ -336,13 +339,10 @@ TableModel::DeleteSelectedFiles() {
 		}
 	}
 	
-	beginRemoveRows(QModelIndex(), 0, delete_files.size());
 	for (io::File *file: delete_files) {
 		io::Delete(file);
 		delete file;
 	}
-	endRemoveRows();
-	UpdateVisibleArea();
 }
 
 QModelIndex
@@ -562,18 +562,22 @@ TableModel::UpdateRange(int row1, Column c1, int row2, Column c2)
 void
 TableModel::UpdateTable(UpdateTableArgs args)
 {
-	const i32 added = args.new_count - args.prev_count;
+	{
+		MutexGuard guard(&files_.mutex);
+		if (args.dir_id != files_.dir_id)
+			return;
+	}
 	
-//	if (added != 0) {
-//		mtl_info("added: %d, rowCount: %d", added, rowCount());
-//	}
+	i32 added = args.new_count - args.prev_count;
 	
-	// send the signals to the table UI:
 	if (added > 0) {
+		//mtl_info("added: %d", added - 1);
 		beginInsertRows(QModelIndex(), 0, added - 1);
 		endInsertRows();
 	} else if (added < 0) {
-		beginRemoveRows(QModelIndex(), 0, std::abs(added) - 1);
+		added = std::abs(added);
+		beginRemoveRows(QModelIndex(), 0, added - 1);
+		//mtl_info("removed: %d", added - 1);
 		endRemoveRows();
 	}
 	
@@ -594,18 +598,21 @@ TableModel::UpdateTable(UpdateTableArgs args)
 	}
 	
 	if (min == -1 || max == -1) {
-		///TBD: replace new_count with visible rows count,
-		/// and zero with first visible row index
-//		mtl_info("update range: %d", args.new_count);
-		UpdateRowRange(0, args.new_count);
+		//mtl_info("(-1) update range: %d", args.new_count);
+		UpdateVisibleArea();
 	} else {
+		//mtl_info("update range min: %d, max: %d", min, max);
 		UpdateRowRange(min, max);
 	}
 }
 
 void
 TableModel::UpdateVisibleArea() {
-	mtl_trace();
+	gui::Table *table = app_->table();
+	QScrollBar *vs = table->verticalScrollBar();
+	int row_start = table->rowAt(vs->value());
+	int row_count = table->rowAt(table->height());
+	UpdateRowRange(row_start, row_start + row_count);
 }
 
 }

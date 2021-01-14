@@ -40,7 +40,6 @@ table_model_(tm)
 	setItemDelegateForColumn(int(Column::Size), d);
 	setItemDelegateForColumn(int(Column::TimeCreated), d);
 	setItemDelegateForColumn(int(Column::TimeModified), d);
-	setSelectionBehavior(QAbstractItemView::SelectRows);
 	auto *hz = horizontalHeader();
 	hz->setSortIndicatorShown(true);
 	hz->setSectionHidden(int(Column::TimeModified), true);
@@ -57,7 +56,8 @@ table_model_(tm)
 	resizeColumnsToContents();
 	//setShowGrid(false);
 //	setDragDropOverwriteMode(false);
-//	setSelectionMode(QAbstractItemView::ExtendedSelection);
+	setSelectionBehavior(QAbstractItemView::SelectRows);
+	setSelectionMode(QAbstractItemView::ExtendedSelection);
 //	setDropIndicatorShown(true);
 	
 	setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
@@ -146,43 +146,69 @@ Table::dropEvent(QDropEvent *event)
 	}
 }
 
+io::File*
+Table::GetFirstSelectedFile(int *ret_row_index)
+{
+	const int row_index = GetFirstSelectedRowIndex();
+	if (row_index == -1)
+		return nullptr;
+	
+	io::Files *files = table_model_->files();
+	MutexGuard guard(&files->mutex);
+	auto &vec = files->vec;
+	
+	if (row_index >= vec.size())
+		return nullptr;
+	
+	if (ret_row_index != nullptr)
+		*ret_row_index = row_index;
+	
+	return vec[row_index]->Clone();
+}
+
+int
+Table::GetFirstSelectedRowIndex() {
+	QItemSelectionModel *select = selectionModel();
+	
+	if (!select->hasSelection())
+		return -1;
+	
+	QModelIndexList rows = select->selectedRows();
+	
+	if (rows.isEmpty())
+		return -1;
+	
+	return rows[0].row();
+}
+
 void
 Table::keyPressEvent(QKeyEvent *event)
 {
 	const int key = event->key();
+	auto *app = table_model_->app();
+	const auto modifiers = event->modifiers();
+	const bool no_modifiers = (modifiers == Qt::NoModifier);
 	
-//	if (key == Qt::Key_Delete) {
-//		table_model_->app()->RemoveSongsFromPlaylist(Which::Selected);
-//	}
+	if (no_modifiers) {
+		if (key == Qt::Key_Return) {
+			io::File *file = GetFirstSelectedFile();
+			if (file == nullptr)
+				return;
+			app->FileDoubleClicked(file, Column::FileName);
+		} else if (key == Qt::Key_Down) {
+			SelectNextRow(1);
+		} else if (key == Qt::Key_Up) {
+			SelectNextRow(-1);
+		}
+	}
 }
 
 void
 Table::mouseDoubleClickEvent(QMouseEvent *event)
 {
-	QItemSelectionModel *select = selectionModel();
-	
-	if (!select->hasSelection())
-		return;
-	
-	QModelIndexList rows = select->selectedRows();
-	
-	if (rows.isEmpty())
-		return;
-	
 	i32 col = columnAt(event->pos().x());
 	auto *app = table_model_->app();
-	io::File *file = nullptr;
-	const int row_index = rows[0].row();
-	io::Files *files = table_model_->files();
-	{
-		MutexGuard guard(&files->mutex);
-		auto &vec = files->vec;
-		
-		if (row_index >= vec.size())
-			return;
-		
-		file = vec[row_index]->Clone();
-	}
+	io::File *file = GetFirstSelectedFile();
 	
 	if (col == i32(Column::Icon)) {
 		app->FileDoubleClicked(file, Column::Icon);
@@ -336,18 +362,25 @@ Table::resizeEvent(QResizeEvent *event) {
 }
 
 void
-Table::ScrollToAndSelect(const QString &full_path)
+Table::ScrollToAndSelect(QString full_path)
 {
+	QStringRef path_ref;
+	/// first remove trailing '/' or search will fail:
+	if (full_path.endsWith('/'))
+		path_ref = full_path.midRef(0, full_path.size() - 1);
+	else
+		path_ref = full_path.midRef(0, full_path.size());
+	
 	int row = -1;
 	{
 		auto *files = table_model_->files();
 		MutexGuard guard(&files->mutex);
 		auto &vec = files->vec;
 		
-		
 		for (int i = 0; i < vec.size(); i++) {
-			auto *file = vec[i];
-			if (file->build_full_path() == full_path) {
+			QString file_path = vec[i]->build_full_path();
+			
+			if (file_path == path_ref) {
 				row = i;
 				break;
 			}
@@ -359,7 +392,27 @@ Table::ScrollToAndSelect(const QString &full_path)
 	
 	QModelIndex index = model()->index(row, 0, QModelIndex());
 	scrollTo(index);
+	clearSelection();
 	selectRow(index.row());
+}
+
+void
+Table::SelectOneFile(const int index) {
+	selectRow(index);
+}
+
+void
+Table::SelectNextRow(const int next)
+{
+	int row_index = GetFirstSelectedRowIndex();
+	int next_index = 0;
+	if (row_index != -1)
+		next_index = row_index + next;
+	
+	if (next_index < 0 || next_index >= table_model_->rowCount())
+		return;
+	
+	selectRow(next_index);
 }
 
 void

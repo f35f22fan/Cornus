@@ -168,7 +168,9 @@ mtl_trace("IN_MOVED_TO: %s, is_dir: %d", ev->name, is_dir);
 				update_indices.append(-rem_index);
 				delete to_file;
 			} else {
+#ifdef DEBUG_INOTIFY
 				mtl_trace("%s not found", ev->name);
+#endif
 			}
 			
 			int from_index;
@@ -177,11 +179,11 @@ mtl_trace("IN_MOVED_TO: %s, is_dir: %d", ev->name, is_dir);
 			update_indices.append(from_index);
 			
 			if (from_file != nullptr) {
+				from_file->name(ev->name);
 				/// remove because it must be inserted at the proper position
 				files_vec.remove(from_index);
 				InsertFile(from_file, files_vec, &from_index);
 				update_indices.append(from_index);
-				from_file->name(ev->name);
 			} else {
 				mtl_trace();
 			}

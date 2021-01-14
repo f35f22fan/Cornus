@@ -14,10 +14,12 @@ extern "C" {
 
 #include <chrono>
 #include <QApplication>
+#include <QBoxLayout>
 #include <QClipboard>
 #include <QCoreApplication>
 #include <QDesktopServices>
 #include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -25,6 +27,7 @@ extern "C" {
 #include <QFormLayout>
 #include <QGuiApplication>
 #include <QIcon>
+#include <QInputDialog>
 #include <QMessageBox>
 #include <QProcessEnvironment>
 #include <QPushButton>
@@ -194,6 +197,9 @@ bool App::GoTo(QString dir_path, bool reload)
 	int count = files.vec.size();
 	table_model_->SwitchTo(files);
 	current_dir_ = dir_path;
+	const int row = 0;
+	QModelIndex index = table_model_->index(row, 0, QModelIndex());
+	table_->scrollTo(index);
 	auto now = std::chrono::steady_clock::now();
 	
 	const float elapsed = std::chrono::duration<float,
@@ -248,9 +254,8 @@ void App::GoToAndSelect(const QString full_path)
 	if (!same) {
 		if (!GoTo(parent_dir))
 			return;
+		table_->ScrollToAndSelect(full_path);
 	}
-	
-	table_->ScrollToAndSelect(full_path);
 }
 
 void App::GoUp() {
@@ -262,10 +267,9 @@ void App::GoUp() {
 	if (!dir.cdUp())
 		return;
 	
-	GoTo(dir.absolutePath());
-	
-	QScrollBar *sb = table_->verticalScrollBar();
-	sb->setValue(0);
+	QString select_path = current_dir_;
+	GoTo(dir.absolutePath(), false);
+	table_->ScrollToAndSelect(select_path);
 }
 
 void App::IconByTruncName(io::File &file, const QString &truncated, QIcon **ret_icon) {
@@ -332,7 +336,7 @@ void App::LoadIcon(io::File &file)
 }
 
 void App::RegisterShortcuts() {
-	auto *shortcut = new QShortcut(QKeySequence(Qt::SHIFT + Qt::Key_Up), this);
+	auto *shortcut = new QShortcut(QKeySequence(Qt::ALT + Qt::Key_Up), this);
 	shortcut->setContext(Qt::ApplicationShortcut);
 	connect(shortcut, &QShortcut::activated, this, &App::GoUp);
 	
@@ -357,6 +361,97 @@ void App::RegisterShortcuts() {
 	connect(shortcut, &QShortcut::activated, [=] {
 		table_model_->DeleteSelectedFiles();
 	});
+	
+	shortcut = new QShortcut(QKeySequence(Qt::Key_F2), this);
+	shortcut->setContext(Qt::ApplicationShortcut);
+	
+	connect(shortcut, &QShortcut::activated, [=] {
+		RenameSelectedFile();
+	});
+	
+	shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_I), this);
+	shortcut->setContext(Qt::ApplicationShortcut);
+	
+	connect(shortcut, &QShortcut::activated, [=] {
+		table_->setFocus();
+	});
+	
+	shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_L), this);
+	shortcut->setContext(Qt::ApplicationShortcut);
+	
+	connect(shortcut, &QShortcut::activated, [=] {
+		location_->setFocus();
+	});
+}
+
+void App::RenameSelectedFile()
+{
+	QItemSelectionModel *select = table_->selectionModel();
+	
+	if (!select->hasSelection())
+		return;
+	
+	QModelIndexList rows = select->selectedRows();
+	io::File *file = nullptr;
+	io::Files *files = table_model_->files();
+	AutoDelete ad(file);
+	{
+		MutexGuard guard(&files->mutex);
+		const int index = rows[0].row();
+		file = files->vec[index]->Clone();
+	}
+	
+	QDialog dialog(this);
+	dialog.setWindowTitle(tr("Rename File"));
+	dialog.setModal(true);
+	QBoxLayout *vert_layout = new QBoxLayout(QBoxLayout::TopToBottom, &dialog);
+	dialog.setLayout(vert_layout);
+	QLineEdit *le = new QLineEdit();
+	vert_layout->addWidget(le);
+	const QString text = file->name();
+	le->setText(text);
+	
+	const QString tar = QLatin1String(".tar.");
+	int index = text.lastIndexOf(tar);
+	if (index > 0) {
+		le->setSelection(0, index);
+	} else {
+		index = text.lastIndexOf('.');
+		if (index > 0 && index < (text.size() - 1)) {
+			le->setSelection(0, index);
+		} else {
+			le->setSelection(0, text.size());
+		}
+	}
+	
+	QDialogButtonBox *button_box = new QDialogButtonBox
+		(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	connect(button_box, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+	connect(button_box, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+	vert_layout->addWidget(button_box);
+	
+	QFontMetrics fm = table_->fontMetrics();
+	int w = fm.boundingRect(text).width();
+	w = std::min(800, std::max(w + 80, 400)); // between 300 and 800
+	dialog.resize(w, 100);
+	bool ok = dialog.exec();
+	if (!ok)
+		return;
+	
+	QString value = le->text().trimmed();
+	if (value.isEmpty())
+		return;
+	
+	auto old_path = file->build_full_path().toLocal8Bit();
+	auto new_path = (file->dir_path() + value).toLocal8Bit();
+	
+	if (old_path == new_path)
+		return;
+	
+	if (rename(old_path.data(), new_path.data()) != 0) {
+		QString err = QString("Failed: ") + strerror(errno);
+		QMessageBox::warning(this, "Failed", err);
+	}
 }
 
 void App::SetDefaultIcon(io::File &file) {
@@ -395,10 +490,10 @@ void App::SetupIconNames() {
 	
 	for (const auto &name: available_icon_names_) {
 		int index = name.lastIndexOf('.');
-		if (index == -1 || index == 0 || index == name.size() - 1)
-			continue;
-		
-		icon_names_.insert(name.mid(0, index), name);
+		if (index == -1)
+			icon_names_.insert(name, name);
+		else
+			icon_names_.insert(name.mid(0, index), name);
 	}
 }
 

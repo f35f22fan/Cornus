@@ -2,6 +2,7 @@
 
 #include "../decl.hxx"
 #include "decl.hxx"
+#include "../io/decl.hxx"
 #include "../err.hpp"
 
 #include <QAbstractTableModel>
@@ -12,14 +13,19 @@
 namespace cornus::gui {
 
 class Table : public QTableView {
+	Q_OBJECT
 public:
 	Table(TableModel *tm);
 	virtual ~Table();
 	
 	TableModel* model() const { return table_model_; }
 	virtual void dropEvent(QDropEvent *event) override;
+	io::File* GetFirstSelectedFile(int *ret_row_index = nullptr);
 	void ProcessAction(const QString &action);
-	void ScrollToAndSelect(const QString &full_path);
+	void SelectOneFile(const int index);
+	
+public slots:
+	void ScrollToAndSelect(QString full_path);
 	
 protected:
 	virtual void dragEnterEvent(QDragEnterEvent *event) override;
@@ -35,7 +41,9 @@ protected:
 private:
 	NO_ASSIGN_COPY_MOVE(Table);
 	
+	int GetFirstSelectedRowIndex();
 	void RemoveSongsAndDeleteFiles(const QModelIndexList &indices);
+	void SelectNextRow(const int next);
 	void ShowRightClickMenu(const QPoint &pos);
 	void SortingChanged(int logical, Qt::SortOrder order);
 	

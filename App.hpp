@@ -42,6 +42,7 @@ private:
 	void IconByTruncName(io::File &file, const QString &truncated, QIcon **icon = nullptr);
 	void IconByFileName(io::File &file, const QString &filename, QIcon **ret_icon = nullptr);
 	void RegisterShortcuts();
+	void RenameSelectedFile();
 	void SetDefaultIcon(io::File &file);
 	void SetupEnvSearchPaths();
 	void SetupIconNames();

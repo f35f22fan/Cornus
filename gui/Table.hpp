@@ -25,7 +25,7 @@ public:
 	void SelectOneFile(const int index);
 	
 public slots:
-	void ScrollToAndSelect(QString full_path);
+	bool ScrollToAndSelect(QString full_path);
 	
 protected:
 	virtual void dragEnterEvent(QDragEnterEvent *event) override;

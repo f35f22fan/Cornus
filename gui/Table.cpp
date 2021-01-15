@@ -361,7 +361,7 @@ Table::resizeEvent(QResizeEvent *event) {
 	setColumnWidth(i8(gui::Column::TimeCreated), time_w);
 }
 
-void
+bool
 Table::ScrollToAndSelect(QString full_path)
 {
 	QStringRef path_ref;
@@ -388,12 +388,14 @@ Table::ScrollToAndSelect(QString full_path)
 	}
 	
 	if (row == -1)
-		return;
+		return false;
 	
 	QModelIndex index = model()->index(row, 0, QModelIndex());
 	scrollTo(index);
 	clearSelection();
 	selectRow(index.row());
+	
+	return true;
 }
 
 void

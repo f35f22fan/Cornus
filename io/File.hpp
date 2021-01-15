@@ -27,6 +27,7 @@ public:
 	
 	QString build_full_path() const;
 	FileCache& cache() { return cache_; }
+	void ClearCache();
 		
 	bool is_dir() const { return type_ == FileType::Dir; }
 	bool is_link_to_dir() const { return is_symlink() &&

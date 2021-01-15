@@ -21,11 +21,6 @@ struct WatchArgs {
 	cornus::gui::TableModel *table_model = nullptr;
 };
 
-struct Renamed {
-	QString name;
-	u32 cookie;
-};
-
 const size_t kInotifyEventSize = sizeof (struct inotify_event);
 const size_t kInotifyEventBufLen = 256 * (kInotifyEventSize + 16);
 
@@ -70,7 +65,7 @@ void InsertFile(io::File *new_file, QVector<io::File*> &files_vec,
 }
 
 void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
-	QVector<int> &update_indices, QVector<Renamed> &renames)
+	QVector<int> &update_indices)
 {
 	const ssize_t num_read = read(inotify_fd, buf, kInotifyEventBufLen);
 	if (num_read == 0) {
@@ -142,59 +137,40 @@ mtl_trace("IN_DELETE: %s", ev->name);
 #ifdef DEBUG_INOTIFY
 mtl_trace("IN_MOVED_FROM: %s, is_dir: %d", ev->name, is_dir);
 #endif
-			renames.append(Renamed {ev->name, ev->cookie});
+			int from_index;
+			io::File *from_file = Find(files_vec, ev->name, is_dir, &from_index);
+			if (from_file != nullptr) {
+				update_indices.append(from_index);
+				files_vec.remove(from_index);
+			} else {
+				mtl_trace();
+			}
 		} else if (mask & IN_MOVED_TO) {
 #ifdef DEBUG_INOTIFY
 mtl_trace("IN_MOVED_TO: %s, is_dir: %d", ev->name, is_dir);
 #endif
-			int rename_i = 0;
-			const Renamed *old_name = nullptr;
-			for (const Renamed &r: renames) {
-				if (r.cookie == ev->cookie) {
-					old_name = &r;
-					break;
-				}
-				rename_i++;
-			}
-			if (old_name == nullptr) {
-				mtl_trace();
-				continue;
-			}
-			
-			int rem_index;
-			io::File *to_file = Find(files_vec, ev->name, is_dir, &rem_index);
+			int to_index;
+			io::File *to_file = Find(files_vec, ev->name, is_dir, &to_index);
 			if (to_file != nullptr) {
-				files_vec.remove(rem_index);
-				update_indices.append(-rem_index);
-				delete to_file;
+				update_indices.append(to_index);
+				to_file->ClearCache();
+				files_vec.remove(to_index);
 			} else {
-#ifdef DEBUG_INOTIFY
-				mtl_trace("%s not found", ev->name);
-#endif
+				to_file = new io::File(files);
 			}
-			
-			int from_index;
-			io::File *from_file = Find(files_vec, old_name->name, is_dir, &from_index);
-			renames.remove(rename_i);
-			update_indices.append(from_index);
-			
-			if (from_file != nullptr) {
-				from_file->name(ev->name);
-				/// remove because it must be inserted at the proper position
-				files_vec.remove(from_index);
-				InsertFile(from_file, files_vec, &from_index);
-				update_indices.append(from_index);
-			} else {
-				mtl_trace();
-			}
+			to_file->name(ev->name);
+			io::ReloadMeta(*to_file);
+			/// Reinsert at the proper position:
+			InsertFile(to_file, files_vec, &to_index);
+			update_indices.append(to_index);
 		} else if (mask & IN_Q_OVERFLOW) {
 			mtl_warn("IN_Q_OVERFLOW");
 		} else if (mask & IN_UNMOUNT) {
 			mtl_warn("IN_UNMOUNT");
 		} else if (mask & IN_CLOSE) {
-#ifdef DEBUG_INOTIFY
-mtl_trace("IN_CLOSE: %s", ev->name);
-#endif
+//#ifdef DEBUG_INOTIFY
+//mtl_trace("IN_CLOSE: %s", ev->name);
+//#endif
 			int update_index;
 			io::File *found = Find(files_vec, ev->name, is_dir, &update_index);
 			
@@ -258,7 +234,6 @@ void* WatchDir(void *void_args)
 	cornus::io::Files *files = args->table_model->files();
 	UpdateTableArgs method_args;
 	method_args.dir_id = args->dir_id;
-	QVector<Renamed> renames;
 	
 	while (true)
 	{
@@ -280,14 +255,14 @@ void* WatchDir(void *void_args)
 			
 			if (event_count > 0)
 				ReadEvent(poll_event.data.fd, buf, files,
-					method_args.indices, renames);
+					method_args.indices);
 			
 			method_args.new_count = files->vec.size();
 		}
 		
-		if (!renames.isEmpty()) {
-			mtl_info("Not all renames happened in one event batch");
-		}
+//		if (!renames.isEmpty()) {
+//			mtl_info("Not all renames happened in one event batch");
+//		}
 		
 		if (!method_args.indices.isEmpty()) {
 			QMetaObject::invokeMethod(args->table_model, "UpdateTable",
@@ -605,6 +580,22 @@ TableModel::UpdateTable(UpdateTableArgs args)
 	} else {
 		//mtl_info("update range min: %d, max: %d", min, max);
 		UpdateRowRange(min, max);
+	}
+	
+	if (!scroll_to_and_select_.isEmpty()) {
+/** When the user renames a file from a file rename dialog you want after
+ renaming to select the newly renamed file and scroll to it,
+ but you can't do it from the
+ rename dialog code because the tableview will only receive the new
+file name from the inotify event which is processed in another thread.
+Hence the table can't scroll to it (returns false) as long as it hasn't
+received the new file name from the inotify thread. Which means that if
+it returns true all jobs are done (rename event processed, table
+found the new file, selected and scrolled to it).
+ Plus at the end the string is cleared to avoid trying to do this
+ for no reason.*/
+		if (app_->table()->ScrollToAndSelect(scroll_to_and_select_))
+			scroll_to_and_select_.clear();
 	}
 }
 

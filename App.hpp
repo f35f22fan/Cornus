@@ -28,7 +28,7 @@ public:
 	void LoadIcon(io::File &file);
 	
 	gui::Table* table() const { return table_; }
-	
+	void TellUser(const QString &msg, const QString title = QString());
 private:
 	NO_ASSIGN_COPY_MOVE(App);
 	

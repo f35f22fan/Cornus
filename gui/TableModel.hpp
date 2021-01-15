@@ -80,6 +80,8 @@ public:
 		return true;
 	}
 	
+	void set_scroll_to_and_select(const QString &s) { scroll_to_and_select_ = s; }
+	
 	void SwitchTo(io::Files &new_files);
 	
 	void
@@ -105,6 +107,7 @@ private:
 	cornus::App *app_ = nullptr;
 	mutable cornus::io::Files files_;
 	Notify notify_ = {};
+	QString scroll_to_and_select_;
 };
 
 

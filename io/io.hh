@@ -196,7 +196,7 @@ bool ReloadMeta(io::File &file);
 Err SameFiles(const QString &path1, const QString &path2, bool &same);
 
 bool
-SortFiles(const io::File *a, const io::File *b);
+SortFiles(File *a, File *b);
 
 io::Err
 WriteToFile(const QString &full_path, const char *data, const i64 size);

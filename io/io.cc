@@ -423,7 +423,7 @@ SameFiles(const QString &path1, const QString &path2, bool &same)
 }
 
 bool
-SortFiles(const io::File *a, const io::File *b) 
+SortFiles(io::File *a, io::File *b) 
 {
 /** Note: this function MUST be implemented with strict weak ordering
   otherwise it randomly crashes (because of undefined behavior),
@@ -437,6 +437,9 @@ SortFiles(const io::File *a, const io::File *b)
 		return false;
 	
 	if (order.column == gui::Column::FileName) {
+		if (a->name_lower() == b->name_lower())
+			return false;
+		
 		bool result = a->name_lower() < b->name_lower();
 		return order.ascending ? result : !result;
 	}
@@ -460,18 +463,34 @@ SortFiles(const io::File *a, const io::File *b)
 	}
 	
 	if (order.column == gui::Column::Size) {
-		if (a->size() == b->size())
-			return false;
+		if (a->size() == b->size()) {
+			if (a->name_lower() == b->name_lower())
+				return false;
+			
+			bool result = a->name_lower() < b->name_lower();
+			return order.ascending ? result : !result;
+		}
 		const bool less_size = a->size() < b->size();
 		return order.ascending ? less_size : !less_size;
 	}
 	
 	if (order.column == gui::Column::Icon) {
 		// order by file type..
-		if (a->type() == b->type())
-			return false;
-		const bool less_type = a->type() < b->type();
-		return order.ascending ? less_type : !less_type;
+		if (a->type() != b->type()) {
+			const bool less_type = a->type() < b->type();
+			return order.ascending ? less_type : !less_type;
+		}
+		// next, order by extension:
+		if (a->cache().ext == b->cache().ext) {
+			if (a->name_lower() == b->name_lower())
+				return false;
+			
+			bool result = a->name_lower() < b->name_lower();
+			return order.ascending ? result : !result;
+		}
+		
+		const bool less_ext = a->cache().ext < b->cache().ext;
+		return order.ascending ? less_ext : !less_ext;
 	}
 	
 	mtl_trace();

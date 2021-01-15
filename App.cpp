@@ -28,11 +28,14 @@ extern "C" {
 #include <QGuiApplication>
 #include <QIcon>
 #include <QInputDialog>
+#include <QLabel>
 #include <QMessageBox>
+#include <QPixmap>
 #include <QProcessEnvironment>
 #include <QPushButton>
 #include <QScrollBar>
 #include <QShortcut>
+#include <QUrl>
 
 namespace cornus {
 
@@ -66,14 +69,6 @@ void App::CreateGui() {
 	addToolBar(toolbar_);
 }
 
-void App::DisplayMime(io::File *file)
-{
-	QString full_path = file->build_full_path();
-	QMimeType mt = mime_db_.mimeTypeForFile(full_path);
-	QString mime = mt.name();
-	QMessageBox::information(this, "Mime Type", mime);
-}
-
 void App::DisplaySymlinkInfo(io::File &file)
 {
 	io::LinkTarget *t = file.link_target();
@@ -91,12 +86,12 @@ void App::DisplaySymlinkInfo(io::File &file)
 		QRectF rect = font_metrics.boundingRect(next);
 
 		if (rect.width() > max_len) {
-			max_len = rect.width();
+			max_len = rect.width() + 50;
 		}
 	}
 	
 	// 300 <= width <= 900
-	max_len = std::min(900, std::max(300, max_len));
+	max_len = std::min(900, std::max(350, max_len));
 	static auto go_icon = QIcon::fromTheme(QLatin1String("go-jump"));
 	
 	for (auto &next: t->chain_paths_) {
@@ -126,7 +121,7 @@ void App::FileDoubleClicked(io::File *file, const gui::Column col)
 		if (file->is_symlink()) {
 			DisplaySymlinkInfo(*file);
 		} else {
-			DisplayMime(file);
+			mtl_info("Display access permissions");
 		}
 	} else if (col == gui::Column::FileName) {
 		if (file->is_dir()) {
@@ -216,21 +211,113 @@ bool App::GoTo(QString dir_path, bool reload)
 }
 
 void App::GoToInitialDir() {
-	QStringList args = QCoreApplication::arguments();
-	QString path;
+	const QStringList args = QCoreApplication::arguments();
 	
 	if (args.size() <= 1) {
-		path = QDir::homePath();
-	} else {
-		QString name = args[1];
-		if (!name.startsWith('/')) {
-			path = QCoreApplication::applicationDirPath() + '/' + name;
+		GoTo(QDir::homePath());
+		return;
+	}
+	
+	struct Commands {
+		QString select;
+		QString go_to_path;
+	} cmds = {};
+	
+	const QString SelectCmdName = QLatin1String("select");
+	const QString CmdPrefix = QLatin1String("--");
+	const int arg_count = args.size();
+	
+	QString *next_command = nullptr;
+	
+	for (int i = 1; i < arg_count; i++) {
+		const QString &next = args[i];
+		
+		if (next_command != nullptr) {
+			*next_command = next;
+			next_command = nullptr;
+			continue;
+		}
+		
+		if (next.startsWith(CmdPrefix)) {
+			if (next.endsWith(SelectCmdName)) {
+				next_command = &cmds.select;
+				continue;
+			}
 		} else {
-			path = name;
+			if (next.startsWith(QLatin1String("file://"))) {
+				cmds.go_to_path = QUrl(next).toLocalFile();
+			} else if (!next.startsWith('/')) {
+				cmds.go_to_path = QCoreApplication::applicationDirPath()
+					+ '/' + next;
+			} else {
+				cmds.go_to_path = next;
+			}
 		}
 	}
 	
-	GoTo(path);
+	if (!cmds.go_to_path.isEmpty()) {
+		io::FileType file_type;
+		if (!io::FileExists(cmds.go_to_path, &file_type)) {
+			QString msg = "Directory doesn't exist:\n\""
+				+ cmds.go_to_path + QChar('\"');
+			TellUser(msg);
+			GoHome();
+			return;
+		}
+		if (file_type == io::FileType::Dir) {
+			GoTo(cmds.go_to_path);
+		} else {
+			// go to parent dir of cmds.go_to_path and select file cmds.go_to_path
+			QDir parent_dir(cmds.go_to_path);
+			if (!parent_dir.cdUp()) {
+				QString msg = "Can't access parent dir of file:\n\"" +
+					cmds.go_to_path + QChar('\"');
+				TellUser(msg);
+				GoHome();
+				return;
+			}
+			GoTo(parent_dir.absolutePath());
+			table_->ScrollToAndSelect(cmds.go_to_path);
+			return;
+		}
+	}
+	
+	if (!cmds.select.isEmpty()) {
+		QString select_path;
+		if (cmds.go_to_path.isEmpty()) {
+			/// cmds.go_to_path should be the parent dir of cmds.select
+			if (!io::FileExists(cmds.select)) {
+				QString msg = "File to select doesn't exist:\n\""
+					+ cmds.select + QChar('\"');
+				TellUser(msg);
+				GoHome();
+				return;
+			}
+			QDir parent_dir(cmds.select);
+			if (!parent_dir.cdUp()) {
+				TellUser("Can't access parent dir of file to select");
+				GoHome();
+				return;
+			}
+			GoTo(parent_dir.absolutePath());
+			select_path = cmds.select;
+		} else {
+			/// select_path is relative to cmds.go_to_path
+			QString dir_path = cmds.go_to_path;
+			if (!dir_path.endsWith('/'))
+				dir_path.append('/');
+			select_path = dir_path + cmds.select;
+			if (!io::FileExists(select_path)) {
+				QString msg = "File to select doesn't exist:\n\""
+					+ select_path + QChar('\"');
+				TellUser(msg);
+				return;
+			}
+		}
+		
+		if (!select_path.isEmpty())
+			table_->ScrollToAndSelect(select_path);
+	}
 }
 
 void App::GoHome() {
@@ -241,21 +328,16 @@ void App::GoToAndSelect(const QString full_path)
 {
 	QFileInfo info(full_path);
 	QDir parent = info.dir();
-	
-	if (!parent.exists())
-		return;
-	
+	CHECK_TRUE_VOID(parent.exists());
 	QString parent_dir = parent.absolutePath();
 	bool same;
-
-	if (io::SameFiles(parent_dir, current_dir_, same) != io::Err::Ok)
-		return;
+	CHECK_TRUE_VOID((io::SameFiles(parent_dir, current_dir_, same) == io::Err::Ok));
 	
 	if (!same) {
-		if (!GoTo(parent_dir))
-			return;
-		table_->ScrollToAndSelect(full_path);
+		CHECK_TRUE_VOID(GoTo(parent_dir));
 	}
+	
+	table_->ScrollToAndSelect(full_path);
 }
 
 void App::GoUp() {
@@ -400,35 +482,67 @@ void App::RenameSelectedFile()
 		const int index = rows[0].row();
 		file = files->vec[index]->Clone();
 	}
+	const QString text = file->name();
 	
 	QDialog dialog(this);
 	dialog.setWindowTitle(tr("Rename File"));
 	dialog.setModal(true);
-	QBoxLayout *vert_layout = new QBoxLayout(QBoxLayout::TopToBottom, &dialog);
+	QBoxLayout *vert_layout = new QBoxLayout(QBoxLayout::TopToBottom);
 	dialog.setLayout(vert_layout);
-	QLineEdit *le = new QLineEdit();
-	vert_layout->addWidget(le);
-	const QString text = file->name();
-	le->setText(text);
 	
-	const QString tar = QLatin1String(".tar.");
-	int index = text.lastIndexOf(tar);
-	if (index > 0) {
-		le->setSelection(0, index);
-	} else {
-		index = text.lastIndexOf('.');
-		if (index > 0 && index < (text.size() - 1)) {
+	{ // icon + mime row
+		QBoxLayout *row = new QBoxLayout(QBoxLayout::LeftToRight);
+		
+		LoadIcon(*file);
+		QLabel *icon_label = new QLabel();
+		const QIcon *icon = file->cache().icon;
+		QPixmap pixmap = icon->pixmap(QSize(64, 64));
+		icon_label->setPixmap(pixmap);
+		row->addWidget(icon_label);
+		
+		QString mime;
+		if (file->is_symlink()) {
+			mime = QLatin1String("inode/symlink");
+		} else {
+			QString full_path = file->build_full_path();
+			QMimeType mt = mime_db_.mimeTypeForFile(full_path);
+			mime = mt.name();
+		}
+		QLabel *text_label = new QLabel();
+		text_label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+		text_label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+		text_label->setText("(<b>" + mime + "</b>)");
+		row->addWidget(text_label, 2);
+		
+		vert_layout->addLayout(row);
+	}
+	
+	QLineEdit *le = new QLineEdit();
+	{ // file name row
+		vert_layout->addWidget(le);
+		le->setText(text);
+		
+		const QString tar = QLatin1String(".tar.");
+		int index = text.lastIndexOf(tar);
+		if (index > 0) {
 			le->setSelection(0, index);
 		} else {
-			le->setSelection(0, text.size());
+			index = text.lastIndexOf('.');
+			if (index > 0 && index < (text.size() - 1)) {
+				le->setSelection(0, index);
+			} else {
+				le->setSelection(0, text.size());
+			}
 		}
 	}
 	
-	QDialogButtonBox *button_box = new QDialogButtonBox
-		(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-	connect(button_box, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-	connect(button_box, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
-	vert_layout->addWidget(button_box);
+	{ // ok + cancel buttons row
+		QDialogButtonBox *button_box = new QDialogButtonBox
+			(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+		connect(button_box, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+		connect(button_box, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+		vert_layout->addWidget(button_box);
+	}
 	
 	QFontMetrics fm = table_->fontMetrics();
 	int w = fm.boundingRect(text).width();
@@ -448,9 +562,12 @@ void App::RenameSelectedFile()
 	if (old_path == new_path)
 		return;
 	
+	table_model_->set_scroll_to_and_select(new_path);
+	
 	if (rename(old_path.data(), new_path.data()) != 0) {
 		QString err = QString("Failed: ") + strerror(errno);
 		QMessageBox::warning(this, "Failed", err);
+		table_model_->set_scroll_to_and_select(QString());
 	}
 }
 
@@ -549,6 +666,10 @@ void App::SetupEnvSearchPaths()
 //		}
 	}
 	
+}
+
+void App::TellUser(const QString &msg, const QString title) {
+	QMessageBox::warning(this, title, msg);
 }
 
 }

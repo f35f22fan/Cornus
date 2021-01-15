@@ -44,6 +44,12 @@ File::Clone() const
 	return file;
 }
 
+void
+File::ClearCache() {
+	cache_.icon = nullptr;
+	cache_.mime.clear();
+}
+
 bool
 File::DeleteFromDisk() {
 	auto ba = build_full_path().toLocal8Bit();

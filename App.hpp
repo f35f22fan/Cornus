@@ -11,6 +11,8 @@
 
 namespace cornus {
 
+const QString FolderIconName = QLatin1String("special_folder");
+
 struct Prefs {
 	bool show_hidden_files = false;
 };
@@ -20,7 +22,10 @@ public:
 	App();
 	virtual ~App();
 	
+	void AskCreateNewFile(io::File *file, const QString &title);
+	const QString& current_dir() const { return current_dir_; }
 	void FileDoubleClicked(io::File *file, const gui::Column col);
+	QIcon* GetIcon(const QString &str);
 	void GoBack();
 	void GoHome();
 	bool GoTo(QString dir_path, bool reload = false);

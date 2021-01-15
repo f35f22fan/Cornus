@@ -21,6 +21,8 @@ public:
 	File(const QString &dir_path);
 	virtual ~File();
 	
+	static File* NewTextFile(const QString &dir_path, const QString &name);
+	static File* NewFolder(const QString &dir_path, const QString &name);
 	bool DeleteFromDisk();
 	
 	File* Clone() const;

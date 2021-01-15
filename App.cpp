@@ -2,6 +2,12 @@
 extern "C" {
 #include <dconf.h>
 };
+#include <chrono>
+#include <fcntl.h>
+#include <iostream>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "App.hpp"
 #include "AutoDelete.hh"
@@ -12,7 +18,6 @@ extern "C" {
 #include "gui/TableModel.hpp"
 #include "gui/ToolBar.hpp"
 
-#include <chrono>
 #include <QApplication>
 #include <QBoxLayout>
 #include <QClipboard>
@@ -35,6 +40,7 @@ extern "C" {
 #include <QPushButton>
 #include <QScrollBar>
 #include <QShortcut>
+#include <QSplitter>
 #include <QUrl>
 
 namespace cornus {
@@ -59,10 +65,107 @@ App::~App() {
 	}
 }
 
+void
+App::AskCreateNewFile(io::File *file, const QString &title)
+{
+	AutoDelete ad(file);
+	const QString text = file->name();
+	
+	QDialog dialog(this);
+	dialog.setWindowTitle(title);
+	dialog.setModal(true);
+	QBoxLayout *vert_layout = new QBoxLayout(QBoxLayout::TopToBottom);
+	dialog.setLayout(vert_layout);
+	
+	{ // icon + mime row
+		QBoxLayout *row = new QBoxLayout(QBoxLayout::LeftToRight);
+		
+		LoadIcon(*file);
+		QLabel *icon_label = new QLabel();
+		const QIcon *icon = file->cache().icon;
+		QPixmap pixmap = icon->pixmap(QSize(64, 64));
+		icon_label->setPixmap(pixmap);
+		row->addWidget(icon_label);
+
+		QLabel *text_label = new QLabel();
+		text_label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+		text_label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+		text_label->setText("<b>" + tr("Name:") + "</b>");
+		row->addWidget(text_label, 2);
+		
+		vert_layout->addLayout(row);
+	}
+	
+	QLineEdit *le = new QLineEdit();
+	{ // file name row
+		vert_layout->addWidget(le);
+		le->setText(text);
+		
+		const QString tar = QLatin1String(".tar.");
+		int index = text.lastIndexOf(tar);
+		if (index > 0) {
+			le->setSelection(0, index);
+		} else {
+			index = text.lastIndexOf('.');
+			if (index > 0 && index < (text.size() - 1)) {
+				le->setSelection(0, index);
+			} else {
+				le->setSelection(0, text.size());
+			}
+		}
+	}
+	
+	{ // ok + cancel buttons row
+		QDialogButtonBox *button_box = new QDialogButtonBox
+			(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+		connect(button_box, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+		connect(button_box, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+		vert_layout->addWidget(button_box);
+	}
+	
+	QFontMetrics fm = table_->fontMetrics();
+	int w = fm.boundingRect(text).width();
+	w = std::min(800, std::max(w + 80, 400)); // between 300 and 800
+	dialog.resize(w, 100);
+	bool ok = dialog.exec();
+	if (!ok)
+		return;
+	
+	QString value = le->text().trimmed();
+	if (value.isEmpty())
+		return;
+	
+	file->name(value);
+	auto path_ba = file->build_full_path().toLocal8Bit();
+	int fd;
+	
+	if (file->is_dir()) {
+		fd = mkdir(path_ba.data(), 0775);
+	} else {
+		fd = open(path_ba.data(), O_RDWR | O_CREAT | O_EXCL, 0664);
+	}
+	
+	if (fd == -1) {
+		if (errno == EEXIST) {
+			QString name = QString("\"") + file->name();
+			TellUser(name + "\" already exists", tr("Failed"));
+		} else {
+			QString msg = QString("Couldn't create file: ") +
+				strerror(errno);
+			TellUser(msg, tr("Failed"));
+		}
+	} else {
+		::close(fd);
+	}
+}
+
 void App::CreateGui() {
+	QSplitter *splitter = new QSplitter(Qt::Vertical);
+	setCentralWidget(splitter);
 	table_model_ = new gui::TableModel(this);
 	table_ = new gui::Table(table_model_);
-	setCentralWidget(table_);
+	splitter->addWidget(table_);
+	
 	
 	toolbar_ = new gui::ToolBar(this);
 	location_ = toolbar_->location();
@@ -136,6 +239,15 @@ void App::FileDoubleClicked(io::File *file, const gui::Column col)
 			QDesktopServices::openUrl(url);
 		}
 	}
+}
+
+QIcon* App::GetIcon(const QString &str) {
+	QString s = GetIconName(str);
+	
+	if (s.isEmpty())
+		return nullptr;
+	
+	return GetOrLoadIcon(s);
 }
 
 QString App::GetIconName(const QString &trunc) {
@@ -377,7 +489,7 @@ void App::LoadIcon(io::File &file)
 {
 	if (file.is_dir_or_so()) {
 		if (icon_cache_.folder == nullptr)
-			IconByTruncName(file, QLatin1String("special_folder"), &icon_cache_.folder);
+			IconByTruncName(file, FolderIconName, &icon_cache_.folder);
 		else
 			file.cache().icon = icon_cache_.folder;
 		return;
@@ -464,6 +576,14 @@ void App::RegisterShortcuts() {
 	connect(shortcut, &QShortcut::activated, [=] {
 		location_->setFocus();
 	});
+	
+	shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_A), this);
+	shortcut->setContext(Qt::ApplicationShortcut);
+	
+	connect(shortcut, &QShortcut::activated, [=] {
+		table_->setFocus();
+		table_->selectAll();
+	});
 }
 
 void App::RenameSelectedFile()
@@ -476,12 +596,12 @@ void App::RenameSelectedFile()
 	QModelIndexList rows = select->selectedRows();
 	io::File *file = nullptr;
 	io::Files *files = table_model_->files();
-	AutoDelete ad(file);
 	{
 		MutexGuard guard(&files->mutex);
 		const int index = rows[0].row();
 		file = files->vec[index]->Clone();
 	}
+	AutoDelete ad(file);
 	const QString text = file->name();
 	
 	QDialog dialog(this);

@@ -68,6 +68,25 @@ void File::name(const QString &s)
 	ReadExtension();
 }
 
+File*
+File::NewTextFile(const QString &dir_path, const QString &name)
+{
+	auto *file = new File(dir_path);
+	file->name(name);
+	file->ReadExtension();
+	file->type_ = FileType::Regular;
+	return file;
+}
+
+File*
+File::NewFolder(const QString &dir_path, const QString &name)
+{
+	auto *file = new File(dir_path);
+	file->name(name);
+	file->type_ = FileType::Dir;
+	return file;
+}
+
 void File::ReadExtension()
 {
 	const auto &str = name_.lower;

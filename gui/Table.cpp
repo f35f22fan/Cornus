@@ -1,5 +1,6 @@
 #include "Table.hpp"
 
+#include "actions.hxx"
 #include "../App.hpp"
 #include "../io/io.hh"
 #include "../io/File.hpp"
@@ -18,6 +19,7 @@
 #include <QFontMetrics>
 #include <QGuiApplication>
 #include <QHeaderView>
+#include <QInputDialog>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMessageBox>
@@ -204,26 +206,31 @@ Table::keyPressEvent(QKeyEvent *event)
 }
 
 void
-Table::mouseDoubleClickEvent(QMouseEvent *event)
+Table::mouseDoubleClickEvent(QMouseEvent *evt)
 {
-	i32 col = columnAt(event->pos().x());
+	QTableView::mouseDoubleClickEvent(evt);
+	
+	i32 col = columnAt(evt->pos().x());
 	auto *app = table_model_->app();
 	io::File *file = GetFirstSelectedFile();
 	
-	if (col == i32(Column::Icon)) {
-		app->FileDoubleClicked(file, Column::Icon);
-	} else if (col == i32(Column::FileName)) {
-		app->FileDoubleClicked(file, Column::FileName);
+	if (evt->button() == Qt::LeftButton) {
+		if (col == i32(Column::Icon)) {
+			app->FileDoubleClicked(file, Column::Icon);
+		} else if (col == i32(Column::FileName)) {
+			app->FileDoubleClicked(file, Column::FileName);
+		}
 	}
 }
 
 void
-Table::mousePressEvent(QMouseEvent *event)
+Table::mousePressEvent(QMouseEvent *evt)
 {
-	QTableView::mousePressEvent(event);
-	
-	if (event->button() == Qt::RightButton) {
-		//ShowRightClickMenu(event->globalPos());
+	if (evt->button() == Qt::RightButton) {
+		ShowRightClickMenu(evt->globalPos());
+	}
+	if (evt->button() == Qt::LeftButton) {
+		QTableView::mousePressEvent(evt);
 	}
 }
 
@@ -269,28 +276,33 @@ Table::paintEvent(QPaintEvent *event)
 void
 Table::ProcessAction(const QString &action)
 {
-	CHECK_PTR_VOID(table_model_);
-	/**
-	QItemSelectionModel *select = selectionModel();
+	App *app = table_model_->app();
 	
-	if (select->hasSelection()) {
-		QModelIndexList rows = select->selectedRows();
+	if (action == actions::CreateNewFile) {
+		app->AskCreateNewFile(
+			io::File::NewTextFile(app->current_dir(), "File.txt"),
+			tr("Create New File"));
+	} else if (action == actions::CreateNewFolder) {
+		app->AskCreateNewFile(
+			io::File::NewFolder(app->current_dir(), "New Folder"),
+			tr("Create New Folder"));
+	} else if (action == actions::DeleteFiles) {
+		QItemSelectionModel *select = selectionModel();
 		
-		if (action == quince::actions::RemoveSongsAndDeleteFiles) {
-			RemoveSongsAndDeleteFiles(rows);
-		} else if (action == actions::ShowSongFolderPath) {
-			if (rows.isEmpty())
-				return;
-			
-			const int row_index = rows[0].row();
-			QVector<Song*> &songs = table_model_->songs();
-			
-			if (row_index >= songs.size())
-				return;
-			
-			ShowSongLocation(songs[row_index]);
-		}
-	} **/
+		if (!select->hasSelection())
+			return;
+		
+		QModelIndexList rows = select->selectedRows();
+		if (rows.size() == 0)
+			return;
+		
+		QString question = "Delete " + QString::number(rows.size()) + " files?";
+		QMessageBox::StandardButton reply = QMessageBox::question(this,
+			"Delete Files", question, QMessageBox::Yes|QMessageBox::No);
+		
+		if (reply == QMessageBox::Yes)
+			table_model_->DeleteSelectedFiles();
+	}
 }
 
 void
@@ -420,21 +432,32 @@ Table::SelectNextRow(const int next)
 void
 Table::ShowRightClickMenu(const QPoint &pos)
 {
-	/*
+	App *app = table_model_->app();
 	QMenu *menu = new QMenu();
+	
 	{
-		auto action_str = quince::actions::RemoveSongsAndDeleteFiles;
-		QAction *action = menu->addAction(action_str);
-		connect(action, &QAction::triggered, [=] {ProcessAction(action_str);});
+		QAction *action = menu->addAction(tr("Create New Folder"));
+		auto *icon = app->GetIcon(QLatin1String("special_folder"));
+		if (icon != nullptr)
+			action->setIcon(*icon);
+		connect(action, &QAction::triggered, [=] {ProcessAction(actions::CreateNewFolder);});
 	}
+	
 	{
-		auto action_str = quince::actions::ShowSongFolderPath;
-		QAction *action = menu->addAction(action_str);
-		connect(action, &QAction::triggered, [=] {ProcessAction(action_str);});
+		QAction *action = menu->addAction(tr("Create New File"));
+		connect(action, &QAction::triggered, [=] {ProcessAction(actions::CreateNewFile);});
+		auto *icon = app->GetIcon(QLatin1String("text"));
+		if (icon != nullptr)
+			action->setIcon(*icon);
+	}
+	
+	{
+		QAction *action = menu->addAction(tr("Delete Files"));
+		connect(action, &QAction::triggered, [=] {ProcessAction(actions::DeleteFiles);});
+		action->setIcon(QIcon::fromTheme(QLatin1String("edit-delete")));
 	}
 	
 	menu->popup(pos);
-	*/
 }
 
 void

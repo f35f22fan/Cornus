@@ -29,6 +29,7 @@ set(src_files main.cpp
     History.cpp History.hpp
     MutexGuard.cpp MutexGuard.hpp
     
+    gui/actions.hxx
     gui/decl.hxx
     gui/Location.cpp gui/Location.hpp
     gui/Table.cpp gui/Table.hpp

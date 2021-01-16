@@ -36,19 +36,16 @@ table_model_(tm)
 {
 	setModel(table_model_);
 	delegate_ = new TableDelegate(this);
+	setAlternatingRowColors(false);
 	auto d = static_cast<QAbstractItemDelegate*>(delegate_);
-	setItemDelegateForColumn(int(Column::Icon), d);
-	setItemDelegateForColumn(int(Column::FileName), d);
-	setItemDelegateForColumn(int(Column::Size), d);
-	setItemDelegateForColumn(int(Column::TimeCreated), d);
-	setItemDelegateForColumn(int(Column::TimeModified), d);
+	setItemDelegate(d);
 	auto *hz = horizontalHeader();
 	hz->setSortIndicatorShown(true);
 	hz->setSectionHidden(int(Column::TimeModified), true);
 	hz->setSortIndicator(int(Column::FileName), Qt::AscendingOrder);
 	connect(hz, &QHeaderView::sortIndicatorChanged, this, &Table::SortingChanged);
 	//horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-	horizontalHeader()->setSectionsMovable(true);
+	horizontalHeader()->setSectionsMovable(false);
 	verticalHeader()->setSectionsMovable(false);
 	setDragEnabled(true);
 	setAcceptDrops(true);
@@ -57,9 +54,9 @@ table_model_(tm)
 	setIconSize(QSize(32, 32));
 	resizeColumnsToContents();
 	//setShowGrid(false);
+	//setSelectionBehavior(QAbstractItemView::SelectRows);
+	setSelectionMode(QAbstractItemView::NoSelection);//QAbstractItemView::ExtendedSelection);
 //	setDragDropOverwriteMode(false);
-	setSelectionBehavior(QAbstractItemView::SelectRows);
-	setSelectionMode(QAbstractItemView::ExtendedSelection);
 //	setDropIndicatorShown(true);
 	
 	setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
@@ -89,8 +86,7 @@ void
 Table::dragMoveEvent(QDragMoveEvent *event)
 {
 	const auto &pos = event->pos();
-	QScrollBar *vscroll = verticalScrollBar();
-	drop_y_coord_ = pos.y() + vscroll->sliderPosition();
+	drop_y_coord_ = pos.y();
 	
 	// repaint() or update() don't work because
 	// the window is not raised when dragging a song
@@ -101,7 +97,7 @@ Table::dragMoveEvent(QDragMoveEvent *event)
 	int row = rowAt(pos.y());
 	
 	if (row != -1)
-		table_model_->UpdateRangeDefault(row);
+		table_model_->UpdateSingleRow(row);
 }
 
 void
@@ -149,28 +145,25 @@ Table::dropEvent(QDropEvent *event)
 }
 
 io::File*
-Table::GetFirstSelectedFile(int *ret_row_index)
+Table::GetFileAtNTS(const QPoint &pos, int *ret_file_index)
 {
-	const int row_index = GetFirstSelectedRowIndex();
-	if (row_index == -1)
+	int row = rowAt(pos.y());
+	if (row == -1)
 		return nullptr;
 	
-	io::Files *files = table_model_->files();
-	MutexGuard guard(&files->mutex);
-	auto &vec = files->vec;
-	
-	if (row_index >= vec.size())
+	auto &vec = table_model_->files()->vec;
+	if (row >= vec.size())
 		return nullptr;
 	
-	if (ret_row_index != nullptr)
-		*ret_row_index = row_index;
+	if (ret_file_index != nullptr)
+		*ret_file_index = row;
 	
-	return vec[row_index]->Clone();
+	return vec[row];
 }
 
 int
-Table::GetFirstSelectedRowIndex() {
-	QItemSelectionModel *select = selectionModel();
+Table::GetFirstSelectedFile(io::File **ret_cloned_file) {
+	/** QItemSelectionModel *select = selectionModel();
 	
 	if (!select->hasSelection())
 		return -1;
@@ -180,7 +173,59 @@ Table::GetFirstSelectedRowIndex() {
 	if (rows.isEmpty())
 		return -1;
 	
-	return rows[0].row();
+	return rows[0].row(); **/
+	auto *files = table_model_->files();
+	MutexGuard guard(&files->mutex);
+	
+	int i = 0;
+	for (auto *file: files->vec) {
+		if (file->selected()) {
+			if (ret_cloned_file != nullptr)
+				*ret_cloned_file = file->Clone();
+			return i;
+		}
+		i++;
+	}
+	
+	return -1;
+}
+
+int
+Table::GetSelectedFilesCount() {
+	io::Files *files = table_model_->files();
+	MutexGuard guard(&files->mutex);
+	int count = 0;
+	
+	for (io::File *next: files->vec) {
+		if (next->selected())
+			count++;
+	}
+	
+	return count;
+}
+
+int
+Table::IsOnFileNameStringNTS(const QPoint &pos, io::File **ret_file)
+{
+	i32 col = columnAt(pos.x());
+	if (col != (int)Column::FileName)
+		return -1;
+	
+	io::File *file = GetFileAtNTS(pos);
+	if (file == nullptr)
+		return -1;
+	
+	QFontMetrics fm = fontMetrics();
+	const int name_w = fm.boundingRect(file->name()).width();
+	const int absolute_name_end = name_w + columnViewportPosition(col);
+	
+	if (absolute_name_end < pos.x())
+		return -1;
+	
+	if (ret_file != nullptr)
+		*ret_file = file;
+	
+	return rowAt(pos.y());
 }
 
 void
@@ -189,20 +234,35 @@ Table::keyPressEvent(QKeyEvent *event)
 	const int key = event->key();
 	auto *app = table_model_->app();
 	const auto modifiers = event->modifiers();
-	const bool no_modifiers = (modifiers == Qt::NoModifier);
+	const bool any_modifiers = (modifiers != Qt::NoModifier);
+	const bool shift = (modifiers & Qt::ShiftModifier);
+	QVector<int> indices;
 	
-	if (no_modifiers) {
-		if (key == Qt::Key_Return) {
-			io::File *file = GetFirstSelectedFile();
-			if (file == nullptr)
-				return;
-			app->FileDoubleClicked(file, Column::FileName);
-		} else if (key == Qt::Key_Down) {
-			SelectNextRow(1);
-		} else if (key == Qt::Key_Up) {
-			SelectNextRow(-1);
+	if (key == Qt::Key_Return) {
+		if (any_modifiers)
+			return;
+		io::File *cloned_file = nullptr;
+		int row = GetFirstSelectedFile(&cloned_file);
+		if (row != -1) {
+			app->FileDoubleClicked(cloned_file, Column::FileName);
+			indices.append(row);
+		}
+	} else if (key == Qt::Key_Down) {
+		const bool deselect_all_others = !shift;
+		int row = SelectNextRow(1, deselect_all_others, indices);
+		if (row != -1) {
+			QModelIndex index = model()->index(row, 0, QModelIndex());
+			scrollTo(index);
+		}
+	} else if (key == Qt::Key_Up) {
+		const bool deselect_all_others = !shift;
+		int row = SelectNextRow(-1, deselect_all_others, indices);
+		if (row != -1) {
+			QModelIndex index = model()->index(row, 0, QModelIndex());
+			scrollTo(index);
 		}
 	}
+	table_model_->UpdateIndices(indices);
 }
 
 void
@@ -212,13 +272,16 @@ Table::mouseDoubleClickEvent(QMouseEvent *evt)
 	
 	i32 col = columnAt(evt->pos().x());
 	auto *app = table_model_->app();
-	io::File *file = GetFirstSelectedFile();
+	io::File *cloned_file = nullptr;
+	int row = GetFirstSelectedFile(&cloned_file);
+	if (row == -1)
+		return;
 	
 	if (evt->button() == Qt::LeftButton) {
 		if (col == i32(Column::Icon)) {
-			app->FileDoubleClicked(file, Column::Icon);
+			app->FileDoubleClicked(cloned_file, Column::Icon);
 		} else if (col == i32(Column::FileName)) {
-			app->FileDoubleClicked(file, Column::FileName);
+			app->FileDoubleClicked(cloned_file, Column::FileName);
 		}
 	}
 }
@@ -226,12 +289,34 @@ Table::mouseDoubleClickEvent(QMouseEvent *evt)
 void
 Table::mousePressEvent(QMouseEvent *evt)
 {
+	auto modif = evt->modifiers();
+	const bool ctrl_pressed = modif & Qt::ControlModifier;
+	QVector<int> indices;
+	
+	io::Files *files = table_model_->files();
+	if (!ctrl_pressed) {
+		MutexGuard guard(&files->mutex);
+		SelectAllFilesNTS(false, indices);
+	}
+	
+	{
+		MutexGuard guard(&files->mutex);
+		io::File *file = nullptr;
+		int row = IsOnFileNameStringNTS(evt->pos(), &file);
+		if (row >= 0) {
+			file->selected(true);
+			indices.append(row);
+		}
+	}
+	
 	if (evt->button() == Qt::RightButton) {
 		ShowRightClickMenu(evt->globalPos());
 	}
 	if (evt->button() == Qt::LeftButton) {
 		QTableView::mousePressEvent(evt);
 	}
+	
+	table_model_->UpdateIndices(indices);
 }
 
 void
@@ -287,72 +372,19 @@ Table::ProcessAction(const QString &action)
 			io::File::NewFolder(app->current_dir(), "New Folder"),
 			tr("Create New Folder"));
 	} else if (action == actions::DeleteFiles) {
-		QItemSelectionModel *select = selectionModel();
-		
-		if (!select->hasSelection())
+		int count = GetSelectedFilesCount();
+		if (count == 0)
 			return;
 		
-		QModelIndexList rows = select->selectedRows();
-		if (rows.size() == 0)
-			return;
-		
-		QString question = "Delete " + QString::number(rows.size()) + " files?";
+		QString question = "Delete " + QString::number(count) + " files?";
 		QMessageBox::StandardButton reply = QMessageBox::question(this,
 			"Delete Files", question, QMessageBox::Yes|QMessageBox::No);
 		
 		if (reply == QMessageBox::Yes)
 			table_model_->DeleteSelectedFiles();
+	} else if (action == actions::RenameFile) {
+		app->RenameSelectedFile();
 	}
-}
-
-void
-Table::RemoveSongsAndDeleteFiles(const QModelIndexList &indices)
-{
-	/**
-	const Qt::KeyboardModifiers mods = QGuiApplication::queryKeyboardModifiers();
-	bool confirm_delete = (mods & Qt::ShiftModifier) == 0;
-	
-	const QString url_prefix = QLatin1String("file://");
-	std::map<int, Song*> song_map;
-	QVector<Song*> &songs = table_model_->songs();
-	
-	for (QModelIndex row: indices) {
-		const int row_index = row.row();
-		song_map[row_index] = songs[row_index];
-	}
-	
-	for (auto iter = song_map.rbegin(); iter != song_map.rend(); ++iter)
-	{
-		Song *song = iter->second;
-		int row = iter->first;
-		QUrl url(song->uri());
-		
-		if (!url.isLocalFile())
-			continue;
-		
-		if (confirm_delete) {
-			QMessageBox::StandardButton reply = QMessageBox::question(this, "Confirm",
-				"Delete file(s)?", QMessageBox::Yes | QMessageBox::No);
-			
-			if (reply != QMessageBox::Yes) {
-				return;
-			}
-			
-			confirm_delete = false;
-		}
-		
-		QString full_path = url.toLocalFile();
-		
-		if (full_path.startsWith(url_prefix))
-			full_path = full_path.mid(url_prefix.size());
-		
-		auto path_ba = full_path.toLocal8Bit();
-		
-		if (remove(path_ba.data()) != 0)
-			mtl_status(errno);
-		
-		table_model_->removeRows(row, 1, QModelIndex());
-	} **/
 }
 
 void
@@ -361,8 +393,7 @@ Table::resizeEvent(QResizeEvent *event) {
 	double w = event->size().width();
 	const int icon = 50;
 	const int size = 110;
-	QFont font;
-	QFontMetrics metrics(font);
+	QFontMetrics metrics = fontMetrics();
 	QString sample_date = QLatin1String("2020-12-01 18:04");
 	const int time_w = metrics.boundingRect(sample_date).width() * 1.1;
 	int file_name = w - (icon + size + time_w + 5);
@@ -404,29 +435,94 @@ Table::ScrollToAndSelect(QString full_path)
 	
 	QModelIndex index = model()->index(row, 0, QModelIndex());
 	scrollTo(index);
-	clearSelection();
-	selectRow(index.row());
+	SelectRowSimple(row);
 	
 	return true;
 }
 
 void
-Table::SelectOneFile(const int index) {
-	selectRow(index);
+Table::SelectAllFilesNTS(const bool flag, QVector<int> &indices) {
+	int i = 0;
+	for (auto *file: table_model_->files()->vec) {
+		if (file->selected() != flag) {
+			indices.append(i);
+		}
+		file->selected(flag);
+		i++;
+	}
 }
 
 void
-Table::SelectNextRow(const int next)
+Table::SelectRowSimple(const int row) {
+	io::Files *files = table_model_->files();
+	bool update = false;
+	{
+		MutexGuard guard(&files->mutex);
+		auto &vec = files->vec;
+		
+		if (row < vec.size()) {
+			vec[row]->selected(true);
+			update = true;
+		}
+	}
+	
+	if (update)
+		table_model_->UpdateSingleRow(row);
+}
+
+int
+Table::SelectNextRow(const int relative_offset,
+	const bool deselect_all_others, QVector<int> &indices)
 {
-	int row_index = GetFirstSelectedRowIndex();
-	int next_index = 0;
-	if (row_index != -1)
-		next_index = row_index + next;
+	io::Files *files = table_model_->files();
+	MutexGuard guard(&files->mutex);
+	auto &vec = files->vec;
+	int i = 0, ret_val = -1;
 	
-	if (next_index < 0 || next_index >= table_model_->rowCount())
-		return;
+	for (io::File *next: vec) {
+		if (next->selected()) {
+			int n = i + relative_offset;
+			if (n >= 0 && n < vec.size()) {
+				vec[n]->selected(true);
+				ret_val = n;
+				break;
+			}
+		}
+		i++;
+	}
 	
-	selectRow(next_index);
+	if (deselect_all_others) {
+		i = -1;
+		for (io::File *next: vec) {
+			i++;
+			if (i == ret_val)
+				continue;
+			if (next->selected()) {
+				next->selected(false);
+				indices.append(i);
+			}
+		}
+	}
+	
+	if (ret_val != -1) {
+		indices.append(ret_val);
+		return ret_val;
+	}
+	
+	if (vec.isEmpty())
+		return -1;
+	
+	if (relative_offset >= 0) {
+		i = vec.size() - 1;
+		vec[i]->selected(true);
+		indices.append(i);
+		return i;
+	}
+	
+	vec[0]->selected(true);
+	indices.append(0);
+	
+	return 0;
 }
 
 void
@@ -457,6 +553,12 @@ Table::ShowRightClickMenu(const QPoint &pos)
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-delete")));
 	}
 	
+	{
+		QAction *action = menu->addAction(tr("Rename File"));
+		connect(action, &QAction::triggered, [=] {ProcessAction(actions::RenameFile);});
+		action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
+	}
+	
 	menu->popup(pos);
 }
 
@@ -475,5 +577,6 @@ Table::SortingChanged(int logical, Qt::SortOrder order) {
 	//emit dataChanged(QModelIndex(), QModelIndex());
 	table_model_->UpdateRowRange(0, file_count - 1);
 }
+
 } // cornus::gui::
 

@@ -22,6 +22,10 @@
 
 namespace cornus::io {
 
+namespace FileBits {
+	const u8 Selected = 1u << 0;
+}
+
 const f64 KiB = 1024;
 const f64 MiB = KiB * 1024;
 const f64 GiB = MiB * 1024;

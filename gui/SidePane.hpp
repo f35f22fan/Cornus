@@ -12,21 +12,19 @@
 
 namespace cornus::gui {
 
-class Table : public QTableView {
+class SidePane : public QTableView {
 	Q_OBJECT
 public:
-	Table(TableModel *tm);
-	virtual ~Table();
+	SidePane(SidePaneModel *tm);
+	virtual ~SidePane();
 	
-	TableModel* model() const { return table_model_; }
+	SidePaneModel* model() const { return side_pane_model_; }
 	virtual void dropEvent(QDropEvent *event) override;
-	io::File* GetFileAtNTS(const QPoint &pos, int *ret_file_index = nullptr);
-	int GetSelectedFilesCount();
+	gui::SidePaneItem* GetItemAtNTS(const QPoint &pos, int *ret_index = nullptr);
 	void ProcessAction(const QString &action);
-	void SelectAllFilesNTS(const bool flag, QVector<int> &indices);
 	void SelectRowSimple(const int row);
 public slots:
-	bool ScrollToAndSelect(QString full_path);
+	bool ScrollToAndSelect(QString name);
 	
 protected:
 	virtual void dragEnterEvent(QDragEnterEvent *event) override;
@@ -40,16 +38,11 @@ protected:
 	virtual void paintEvent(QPaintEvent *event) override;
 	virtual void resizeEvent(QResizeEvent *event) override;
 private:
-	NO_ASSIGN_COPY_MOVE(Table);
+	NO_ASSIGN_COPY_MOVE(SidePane);
 	
-	int GetFirstSelectedFile(io::File **ret_cloned_file);
-	int IsOnFileNameStringNTS(const QPoint &pos, io::File **ret_file = nullptr);
-	int SelectNextRow(const int relative_offset, const bool deselect_all_others, QVector<int> &indices); // returns newly selected row
 	void ShowRightClickMenu(const QPoint &pos);
-	void SortingChanged(int logical, Qt::SortOrder order);
 	
-	TableModel *table_model_ = nullptr;
-	TableDelegate *delegate_ = nullptr;
+	SidePaneModel *side_pane_model_ = nullptr;
 	
 	int drop_y_coord_ = -1;
 	

@@ -14,6 +14,8 @@ extern "C" {
 #include "io/io.hh"
 #include "io/File.hpp"
 #include "gui/Location.hpp"
+#include "gui/SidePane.hpp"
+#include "gui/SidePaneModel.hpp"
 #include "gui/Table.hpp"
 #include "gui/TableModel.hpp"
 #include "gui/ToolBar.hpp"
@@ -53,7 +55,7 @@ App::App(): app_icon_(QLatin1String(":/resources/cornus.png"))
 	GoToInitialDir();
 	RegisterShortcuts();
 	setWindowIcon(app_icon_);
-	resize(800, 600);
+	resize(900, 600);
 }
 
 App::~App() {
@@ -160,12 +162,20 @@ App::AskCreateNewFile(io::File *file, const QString &title)
 }
 
 void App::CreateGui() {
-	QSplitter *splitter = new QSplitter(Qt::Vertical);
+	QSplitter *splitter = new QSplitter(Qt::Horizontal);
 	setCentralWidget(splitter);
+	
+	side_pane_model_ = new gui::SidePaneModel(this);
+	side_pane_ = new gui::SidePane(side_pane_model_);
+	side_pane_model_->SetSidePane(side_pane_);
+	splitter->addWidget(side_pane_);
+	
 	table_model_ = new gui::TableModel(this);
 	table_ = new gui::Table(table_model_);
 	splitter->addWidget(table_);
 	
+	splitter->setStretchFactor(0, 1);
+	splitter->setStretchFactor(1, 5);
 	
 	toolbar_ = new gui::ToolBar(this);
 	location_ = toolbar_->location();
@@ -582,7 +592,10 @@ void App::RegisterShortcuts() {
 	
 	connect(shortcut, &QShortcut::activated, [=] {
 		table_->setFocus();
-		table_->selectAll();
+		QVector<int> indices;
+		MutexGuard guard(&table_model_->files()->mutex);
+		table_->SelectAllFilesNTS(true, indices);
+		table_model_->UpdateIndices(indices);
 	});
 }
 
@@ -616,7 +629,7 @@ void App::RenameSelectedFile()
 		LoadIcon(*file);
 		QLabel *icon_label = new QLabel();
 		const QIcon *icon = file->cache().icon;
-		QPixmap pixmap = icon->pixmap(QSize(64, 64));
+		QPixmap pixmap = icon->pixmap(QSize(48, 48));
 		icon_label->setPixmap(pixmap);
 		row->addWidget(icon_label);
 		

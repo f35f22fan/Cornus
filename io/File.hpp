@@ -30,19 +30,26 @@ public:
 	QString build_full_path() const;
 	FileCache& cache() { return cache_; }
 	void ClearCache();
-		
+	
 	bool is_dir() const { return type_ == FileType::Dir; }
 	bool is_link_to_dir() const { return is_symlink() &&
 		(link_target_ != nullptr) &&
 		(link_target_->type == FileType::Dir); }
 	bool is_dir_or_so() const { return is_dir() || is_link_to_dir(); }
-	
 	bool is_regular() const { return type_ == FileType::Regular; }
 	bool is_symlink() const { return type_ == FileType::Symlink; }
 	bool is_pipe() const { return type_ == FileType::Pipe; }
 	bool is_socket() const { return type_ == FileType::Socket; }
 	bool is_bloc_device() const { return type_ == FileType::BlockDevice; }
 	bool is_char_device() const { return type_ == FileType::CharDevice; }
+	
+	bool selected() const { return bits_ & FileBits::Selected; }
+	void selected(const bool flag) {
+		if (flag)
+			bits_ |= FileBits::Selected;
+		else
+			bits_ &= ~FileBits::Selected;
+	}
 	
 	LinkTarget *link_target() const { return link_target_; }
 	
@@ -92,10 +99,11 @@ private:
 	io::Files *files_ = nullptr;
 	QString dp_;
 	i64 size_ = -1;
-	FileType type_ = FileType::Unknown;
 	FileID id_ = {};
 	struct statx_timestamp time_created_ = {};
 	struct statx_timestamp time_modified_ = {};
+	u8 bits_ = 0;
+	FileType type_ = FileType::Unknown;
 	
 	friend io::Err io::ListFiles(io::Files &files, FilterFunc ff);
 	friend class cornus::gui::TableModel;

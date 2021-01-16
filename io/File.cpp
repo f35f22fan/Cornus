@@ -35,6 +35,7 @@ File::Clone() const
 	file->type_ = type_;
 	file->id_ = id_;
 	file->cache_ = cache_;
+	file->bits_ = bits_;
 	file->time_created_ = time_created_;
 	file->time_modified_ = time_modified_;
 	

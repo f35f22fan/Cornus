@@ -1,10 +1,10 @@
-#include "TableModel.hpp"
+#include "SidePaneModel.hpp"
 
 #include "../App.hpp"
 #include "../AutoDelete.hh"
 #include "../io/File.hpp"
 #include "../MutexGuard.hpp"
-#include "Table.hpp"
+#include "SidePane.hpp"
 
 #include <sys/epoll.h>
 #include <QFont>
@@ -18,12 +18,13 @@ namespace cornus::gui {
 struct WatchArgs {
 	i32 dir_id = 0;
 	QString dir_path;
-	cornus::gui::TableModel *table_model = nullptr;
+	cornus::gui::SidePaneModel *table_model = nullptr;
 };
 
 const size_t kInotifyEventSize = sizeof (struct inotify_event);
 const size_t kInotifyEventBufLen = 256 * (kInotifyEventSize + 16);
 
+/**
 io::File* Find(const QVector<io::File*> &vec,
 	const QString &name, const bool is_dir, int *index)
 {
@@ -277,138 +278,89 @@ void* WatchDir(void *void_args)
 	
 	return nullptr;
 }
-
-TableModel::TableModel(cornus::App *app): app_(app)
+*/
+SidePaneModel::SidePaneModel(cornus::App *app): app_(app)
 {
-	qRegisterMetaType<cornus::gui::UpdateTableArgs>();
-	
-	if (notify_.fd == -1)
-		notify_.fd = inotify_init();
+	qRegisterMetaType<cornus::gui::UpdateSidePaneArgs>();
 }
 
-TableModel::~TableModel()
+SidePaneModel::~SidePaneModel()
 {
-	MutexGuard guard(&files_.mutex);
-	for (auto *file: files_.vec)
-		delete file;
+	MutexGuard guard(&items_.mutex);
+	for (auto *item: items_.vec)
+		delete item;
 	
-	files_.vec.clear();
-}
-
-void
-TableModel::DeleteSelectedFiles() {
-	QVector<io::File*> delete_files;
-	{
-		MutexGuard guard(&files_.mutex);
-		
-		for (io::File *next: files_.vec) {
-			if (next->selected()) {
-				io::File *cloned = next->Clone();
-				cloned->files_ = nullptr;
-				cloned->dir_path(files_.dir_path);
-				delete_files.append(cloned);
-			}
-		}
-	}
-	
-	for (io::File *file: delete_files) {
-		io::Delete(file);
-		delete file;
-	}
+	items_.vec.clear();
 }
 
 QModelIndex
-TableModel::index(int row, int column, const QModelIndex &parent) const
+SidePaneModel::index(int row, int column, const QModelIndex &parent) const
 {
 	return createIndex(row, column);
 }
 
 int
-TableModel::rowCount(const QModelIndex &parent) const
+SidePaneModel::rowCount(const QModelIndex &parent) const
 {
-	MutexGuard guard(&files_.mutex);
-	return files_.vec.size();
-}
-
-int
-TableModel::columnCount(const QModelIndex &parent) const
-{
-	if (parent.isValid())
-		return 0;
-	
-	return int(Column::Count);
+	MutexGuard guard(&items_.mutex);
+	return items_.vec.size();
 }
 
 QVariant
-TableModel::data(const QModelIndex &index, int role) const
+SidePaneModel::data(const QModelIndex &index, int role) const
 {
-	/**
-	const Column col = static_cast<Column>(index.column());
+	if (index.column() != 0) {
+		mtl_trace();
+		return {};
+	}
 	
 	if (role == Qt::TextAlignmentRole) {}
 	
-	io::File *file = files_.vec[row];
+	const int row = index.row();
+	gui::SidePaneItem *item = items_.vec[row];
 	
 	if (role == Qt::DisplayRole)
 	{
-		if (col == Column::FileName) {
-			//return ColumnFileNameData(file);
-		} else if (col == Column::Size) {
-		} else if (col == Column::Icon) {
-			
-		}
+		return item->name;
 	} else if (role == Qt::FontRole) {
 	} else if (role == Qt::BackgroundRole) {
 	} else if (role == Qt::ForegroundRole) {
 	} else if (role == Qt::DecorationRole) {
 	}
-	*/
 	return {};
 }
 
 QVariant
-TableModel::headerData(int section_i, Qt::Orientation orientation, int role) const
+SidePaneModel::headerData(int section_i, Qt::Orientation orientation, int role) const
 {
 	if (role == Qt::DisplayRole)
 	{
 		if (orientation == Qt::Horizontal)
 		{
-			const Column section = static_cast<Column>(section_i);
-			
-			switch (section) {
-			case Column::Icon: return QString();
-			case Column::FileName: return QLatin1String("Name");
-			case Column::Size: return QLatin1String("Size");
-			case Column::TimeCreated: return QLatin1String("Created");
-			case Column::TimeModified: return QLatin1String("Modified");
-			default: {
-				mtl_trace();
-				return {};
-			}
-			}
+			return QString("Places");
 		}
-		return QString::number(section_i + 1);
+		return {};
 	}
 	return {};
 }
 
 bool
-TableModel::InsertRows(const i32 at, const QVector<cornus::io::File*> &files_to_add)
+SidePaneModel::InsertRows(const i32 at, const QVector<gui::SidePaneItem*> &items_to_add)
 {
-	MutexGuard guard(&files_.mutex);
+	MutexGuard guard(&items_.mutex);
 	
-	if (files_.vec.isEmpty())
+	if (items_.vec.isEmpty())
 		return false;
 	
 	const int first = at;
-	const int last = at + files_to_add.size() - 1;
+	const int last = at + items_to_add.size() - 1;
 	
 	beginInsertRows(QModelIndex(), first, last);
 	
-	for (i32 i = 0; i < files_to_add.size(); i++)
+	for (i32 i = 0; i < items_to_add.size(); i++)
 	{
-		auto *song = files_to_add[i];
-		files_.vec.insert(at + i, song);
+		auto *song = items_to_add[i];
+		items_.vec.insert(at + i, song);
 	}
 	
 	endInsertRows();
@@ -416,27 +368,8 @@ TableModel::InsertRows(const i32 at, const QVector<cornus::io::File*> &files_to_
 	return true;
 }
 
-bool TableModel::IsAt(const QString &dir_path) const
-{
-	QString old_dir_path;
-	{
-		MutexGuard guard(&files_.mutex);
-		old_dir_path = files_.dir_path;
-	}
-	
-	if (old_dir_path.isEmpty())
-		return false;
-	
-	bool same;
-	if ((io::SameFiles(dir_path, old_dir_path, same) == io::Err::Ok) && same) {
-		return true;
-	}
-	
-	return false;
-}
-
 bool
-TableModel::removeRows(int row, int count, const QModelIndex &parent)
+SidePaneModel::removeRows(int row, int count, const QModelIndex &parent)
 {
 	if (count <= 0)
 		return false;
@@ -446,8 +379,8 @@ TableModel::removeRows(int row, int count, const QModelIndex &parent)
 	const int last = row + count - 1;
 	
 	beginRemoveRows(QModelIndex(), first, last);
-	MutexGuard guard(&files_.mutex);
-	auto &vec = files_.vec;
+	MutexGuard guard(&items_.mutex);
+	auto &vec = items_.vec;
 	
 	for (int i = count - 1; i >= 0; i--) {
 		const i32 index = first + i;
@@ -460,60 +393,7 @@ TableModel::removeRows(int row, int count, const QModelIndex &parent)
 	return true;
 }
 
-void
-TableModel::SwitchTo(io::Files &new_files)
-{
-	int prev_count, new_count;
-	{
-		MutexGuard guard(&files_.mutex);
-		prev_count = files_.vec.size();
-		new_count = new_files.vec.size();
-	}
-	
-	beginRemoveRows(QModelIndex(), 0, prev_count - 1);
-	{
-		MutexGuard guard(&files_.mutex);
-		for (auto *file: files_.vec)
-			delete file;
-		files_.vec.clear();
-	}
-	endRemoveRows();
-	
-	beginInsertRows(QModelIndex(), 0, new_count - 1);
-	i32 dir_id;
-	{
-		MutexGuard guard(&files_.mutex);
-		files_.dir_id++;
-		dir_id = files_.dir_id;
-		files_.dir_path = new_files.dir_path;
-		/// copying sorting order is logically wrong because it overwrites
-		/// the existing one.
-		files_.show_hidden_files = new_files.show_hidden_files;
-		files_.vec.resize(new_count);
-		for (int i = 0; i < new_count; i++) {
-			io::File *file = new_files.vec[i];
-			file->files_ = &files_;
-			files_.vec[i] = file;
-		}
-		new_files.vec.clear();
-	}
-	endInsertRows();
-	
-	WatchArgs *args = new WatchArgs {
-		.dir_id = dir_id,
-		.dir_path = new_files.dir_path,
-		.table_model = this,
-	};
-	
-	pthread_t th;
-	int status = pthread_create(&th, NULL, cornus::gui::WatchDir, args);
-	if (status != 0) {
-		mtl_printq(new_files.dir_path);
-		mtl_status(status);
-	}
-}
-
-void TableModel::UpdateIndices(const QVector<int> indices)
+void SidePaneModel::UpdateIndices(const QVector<int> indices)
 {
 	int min = -1, max = -1;
 	bool initialize = true;
@@ -541,7 +421,7 @@ void TableModel::UpdateIndices(const QVector<int> indices)
 }
 
 void
-TableModel::UpdateRange(int row1, Column c1, int row2, Column c2)
+SidePaneModel::UpdateRange(int row1, int row2)
 {
 	int first, last;
 	
@@ -553,18 +433,18 @@ TableModel::UpdateRange(int row1, Column c1, int row2, Column c2)
 		last = row2;
 	}
 	
-	const QModelIndex top_left = createIndex(first, int(c1));
-	const QModelIndex bottom_right = createIndex(last, int(c2));
+	const QModelIndex top_left = createIndex(first, 0);
+	const QModelIndex bottom_right = createIndex(last, 0);
 	emit dataChanged(top_left, bottom_right, {Qt::DisplayRole});
 }
 
 void
-TableModel::UpdateTable(UpdateTableArgs args)
+SidePaneModel::UpdateTable(UpdateSidePaneArgs args)
 {
 	{
-		MutexGuard guard(&files_.mutex);
-		if (args.dir_id != files_.dir_id)
-			return;
+//		MutexGuard guard(&items_.mutex);
+//		if (args.dir_id != items_.dir_id)
+//			return;
 	}
 	
 	i32 added = args.new_count - args.prev_count;
@@ -581,30 +461,13 @@ TableModel::UpdateTable(UpdateTableArgs args)
 	}
 	
 	UpdateIndices(args.indices);
-	
-	if (!scroll_to_and_select_.isEmpty()) {
-/** When the user renames a file from a file rename dialog you want after
- renaming to select the newly renamed file and scroll to it,
- but you can't do it from the
- rename dialog code because the tableview will only receive the new
-file name from the inotify event which is processed in another thread.
-Hence the table can't scroll to it (returns false) as long as it hasn't
-received the new file name from the inotify thread. Which means that if
-it returns true all jobs are done (rename event processed, table
-found the new file, selected and scrolled to it).
- Plus at the end the string is cleared to avoid trying to do this
- for no reason.*/
-		if (app_->table()->ScrollToAndSelect(scroll_to_and_select_))
-			scroll_to_and_select_.clear();
-	}
 }
 
 void
-TableModel::UpdateVisibleArea() {
-	gui::Table *table = app_->table();
-	QScrollBar *vs = table->verticalScrollBar();
-	int row_start = table->rowAt(vs->value());
-	int row_count = table->rowAt(table->height());
+SidePaneModel::UpdateVisibleArea() {
+	QScrollBar *vs = side_pane_->verticalScrollBar();
+	int row_start = side_pane_->rowAt(vs->value());
+	int row_count = side_pane_->rowAt(side_pane_->height());
 	UpdateRowRange(row_start, row_start + row_count);
 }
 

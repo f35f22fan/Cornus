@@ -16,36 +16,35 @@
 
 namespace cornus::gui {
 
-struct UpdateTableArgs {
+struct UpdateSidePaneArgs {
 	QVector<int> indices;
 	i32 prev_count = -1;
 	i32 new_count = -1;
 	i32 dir_id = -1;
 };
 }
-Q_DECLARE_METATYPE(cornus::gui::UpdateTableArgs);
+
+Q_DECLARE_METATYPE(cornus::gui::UpdateSidePaneArgs);
 
 namespace cornus::gui {
 
-class TableModel: public QAbstractTableModel {
+class SidePaneModel: public QAbstractTableModel {
 	Q_OBJECT
 	
 public:
-	TableModel(cornus::App *app);
-	virtual ~TableModel();
+	SidePaneModel(cornus::App *app);
+	virtual ~SidePaneModel();
 	
-	cornus::App*
-	app() const { return app_; }
+	cornus::App* app() const { return app_; }
 	
-	void DeleteSelectedFiles();
+	cornus::gui::SidePaneItems& items() { return items_; }
+	
 	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
-	int columnCount(const QModelIndex &parent = QModelIndex()) const override;
+	int columnCount(const QModelIndex &parent = QModelIndex()) const override
+	{ return 1; }
 	
 	QVariant
 	data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
-	
-	cornus::io::Files*
-	files() { return &files_; }
 	
 	QVariant
 	headerData(int section, Qt::Orientation orientation, int role) const override;
@@ -53,7 +52,7 @@ public:
 	QModelIndex
 	index(int row, int column, const QModelIndex &parent) const override;
 	
-	bool InsertRows(const i32 at, const QVector<cornus::io::File *> &files_to_add);
+	bool InsertRows(const i32 at, const QVector<cornus::gui::SidePaneItem*> &items_to_add);
 	
 	virtual bool insertRows(int row, int count, const QModelIndex &parent) override {
 		mtl_trace();
@@ -65,38 +64,32 @@ public:
 		return true;
 	}
 	
-	bool IsAt(const QString &dir_path) const;
-	Notify& notify() { return notify_; }
-	
 	virtual bool removeRows(int row, int count, const QModelIndex &parent) override;
 	virtual bool removeColumns(int column, int count, const QModelIndex &parent) override {
 		mtl_trace();
 		return true;
 	}
 	
-	void set_scroll_to_and_select(const QString &s) { scroll_to_and_select_ = s; }
-	void SwitchTo(io::Files &new_files);
+	void SetSidePane(cornus::gui::SidePane *p) { side_pane_ = p; }
 	void UpdateIndices(const QVector<int> indices);
-	void UpdateRange(int row1, Column c1, int row2, Column c2);
+	void UpdateRange(int row1, int row2);
 	void UpdateSingleRow(int row) {
-		UpdateRange(row, Column::Icon, row, Column(i8(Column::Count) - 1));
+		UpdateRange(row, row);
 	}
 	void UpdateRowRange(int row_start, int row_end) {
-		UpdateRange(row_start, Column::Icon, row_end,
-			Column(i8(Column::Count) - 1));
+		UpdateRange(row_start, row_end);
 	}
 	
 	void UpdateVisibleArea();
 	
 public slots:
-	void UpdateTable(cornus::gui::UpdateTableArgs args);
+	void UpdateTable(cornus::gui::UpdateSidePaneArgs args);
 	
 private:
 	
 	cornus::App *app_ = nullptr;
-	mutable cornus::io::Files files_;
-	Notify notify_ = {};
-	QString scroll_to_and_select_;
+	cornus::gui::SidePane *side_pane_ = nullptr;
+	mutable cornus::gui::SidePaneItems items_ = {};
 };
 
 

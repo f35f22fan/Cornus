@@ -21,6 +21,7 @@ private:
 };
 
 namespace cornus::gui {
+const int FnOff = 2;
 
 TableDelegate::TableDelegate(gui::Table *table):
 table_(table)
@@ -36,6 +37,14 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	const QStyleOptionViewItem &option, QFontMetrics &fm,
 	const QRect &text_rect) const
 {
+	auto str_rect = fm.boundingRect(file->name());
+	
+	if (file->selected()) {
+		QRect r = option.rect;
+		r.setWidth(str_rect.width() + FnOff * 2);
+		painter->fillRect(r, option.palette.highlight());
+	}
+	
 	painter->drawText(text_rect, file->name());
 	
 	if (!file->is_symlink() || (file->link_target() == nullptr))
@@ -76,7 +85,6 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 			link_data.append(how_many);
 	}
 	
-	auto str_rect = fm.boundingRect(file->name());
 	int w = text_rect.width() - str_rect.width();
 	
 	if (w <= 10)
@@ -171,17 +179,16 @@ TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 		return;
 	
 	io::File *file = files->vec[row];
-	const int off = 2;
 	auto &r = option.rect;
-	QRect text_rect(r.x() + off, r.y(), r.width() - off, r.height());
+	QRect text_rect(r.x() + FnOff, r.y(), r.width() - FnOff, r.height());
+	auto color_role = (row % 2) ? QPalette::AlternateBase : QPalette::Base;
+	painter->fillRect(option.rect, option.palette.brush(color_role));
 	
-	auto &pal = option.palette;
 	if (option.state & QStyle::State_Selected) {
-		painter->fillRect(option.rect, pal.highlight());
-		painter->setBrush(pal.highlightedText());
+		//painter->fillRect(option.rect, option.palette.highlight());
+		painter->setBrush(option.palette.highlightedText());
 	} else {
-		auto color_role = (row % 2) ? QPalette::AlternateBase : QPalette::Base;
-		painter->fillRect(option.rect, pal.brush(color_role));
+		//painter->fillRect(option.rect, option.palette.brush(color_role));
 		painter->setBrush(option.palette.text());
 	}
 	

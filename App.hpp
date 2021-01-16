@@ -31,7 +31,7 @@ public:
 	bool GoTo(QString dir_path, bool reload = false);
 	void GoUp();
 	void LoadIcon(io::File &file);
-	
+	void RenameSelectedFile();
 	gui::Table* table() const { return table_; }
 	void TellUser(const QString &msg, const QString title = QString());
 private:
@@ -47,7 +47,6 @@ private:
 	void IconByTruncName(io::File &file, const QString &truncated, QIcon **icon = nullptr);
 	void IconByFileName(io::File &file, const QString &filename, QIcon **ret_icon = nullptr);
 	void RegisterShortcuts();
-	void RenameSelectedFile();
 	void SetDefaultIcon(io::File &file);
 	void SetupEnvSearchPaths();
 	void SetupIconNames();
@@ -74,5 +73,8 @@ private:
 	gui::ToolBar *toolbar_ = nullptr;
 	gui::Location *location_ = nullptr;
 	Prefs prefs_ = {};
+	
+	gui::SidePane *side_pane_ = nullptr;
+	gui::SidePaneModel *side_pane_model_ = nullptr;
 };
 }

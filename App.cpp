@@ -38,6 +38,7 @@ extern "C" {
 #include <QLabel>
 #include <QMessageBox>
 #include <QPixmap>
+#include <QProcess>
 #include <QProcessEnvironment>
 #include <QPushButton>
 #include <QScrollBar>
@@ -539,6 +540,23 @@ void App::LoadIcon(io::File &file)
 	SetDefaultIcon(file);
 }
 
+void App::OpenTerminal() {
+	const QString konsole_path = QLatin1String("/usr/bin/konsole");
+	const QString gnome_terminal_path = QLatin1String("/usr/bin/gnome-terminal");
+	const QString *path = nullptr;
+	
+	if (io::FileExists(konsole_path)) {
+		path = &konsole_path;
+	} else if (io::FileExists(gnome_terminal_path)) {
+		path = &gnome_terminal_path;
+	} else {
+		return;
+	}
+	
+	QStringList arguments;
+	QProcess::startDetached(*path, arguments, current_dir_);
+}
+
 void App::RegisterShortcuts() {
 	auto *shortcut = new QShortcut(QKeySequence(Qt::ALT + Qt::Key_Up), this);
 	shortcut->setContext(Qt::ApplicationShortcut);
@@ -601,19 +619,10 @@ void App::RegisterShortcuts() {
 
 void App::RenameSelectedFile()
 {
-	QItemSelectionModel *select = table_->selectionModel();
-	
-	if (!select->hasSelection())
+	io::File *file = nullptr;
+	if (table_->GetFirstSelectedFile(&file) == -1)
 		return;
 	
-	QModelIndexList rows = select->selectedRows();
-	io::File *file = nullptr;
-	io::Files *files = table_model_->files();
-	{
-		MutexGuard guard(&files->mutex);
-		const int index = rows[0].row();
-		file = files->vec[index]->Clone();
-	}
 	AutoDelete ad(file);
 	const QString text = file->name();
 	

@@ -384,6 +384,8 @@ Table::ProcessAction(const QString &action)
 			table_model_->DeleteSelectedFiles();
 	} else if (action == actions::RenameFile) {
 		app->RenameSelectedFile();
+	} else if (action == actions::OpenTerminal) {
+		app->OpenTerminal();
 	}
 }
 
@@ -557,6 +559,12 @@ Table::ShowRightClickMenu(const QPoint &pos)
 		QAction *action = menu->addAction(tr("Rename File"));
 		connect(action, &QAction::triggered, [=] {ProcessAction(actions::RenameFile);});
 		action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
+	}
+	
+	{
+		QAction *action = menu->addAction(tr("Open Terminal"));
+		connect(action, &QAction::triggered, [=] {ProcessAction(actions::OpenTerminal);});
+		action->setIcon(QIcon::fromTheme(QLatin1String("utilities-terminal")));
 	}
 	
 	menu->popup(pos);

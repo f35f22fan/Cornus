@@ -31,6 +31,7 @@ public:
 	bool GoTo(QString dir_path, bool reload = false);
 	void GoUp();
 	void LoadIcon(io::File &file);
+	void OpenTerminal();
 	void RenameSelectedFile();
 	gui::Table* table() const { return table_; }
 	void TellUser(const QString &msg, const QString title = QString());

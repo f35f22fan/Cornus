@@ -21,6 +21,7 @@ public:
 	TableModel* model() const { return table_model_; }
 	virtual void dropEvent(QDropEvent *event) override;
 	io::File* GetFileAtNTS(const QPoint &pos, int *ret_file_index = nullptr);
+	int GetFirstSelectedFile(io::File **ret_cloned_file);
 	int GetSelectedFilesCount();
 	void ProcessAction(const QString &action);
 	void SelectAllFilesNTS(const bool flag, QVector<int> &indices);
@@ -42,7 +43,6 @@ protected:
 private:
 	NO_ASSIGN_COPY_MOVE(Table);
 	
-	int GetFirstSelectedFile(io::File **ret_cloned_file);
 	int IsOnFileNameStringNTS(const QPoint &pos, io::File **ret_file = nullptr);
 	int SelectNextRow(const int relative_offset, const bool deselect_all_others, QVector<int> &indices); // returns newly selected row
 	void ShowRightClickMenu(const QPoint &pos);

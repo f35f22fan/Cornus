@@ -1,5 +1,6 @@
 #pragma once
 
+#include "decl.hxx"
 #include "err.hpp"
 #include "io/decl.hxx"
 #include "gui/decl.hxx"
@@ -32,7 +33,9 @@ public:
 	void GoUp();
 	void LoadIcon(io::File &file);
 	void OpenTerminal();
+	ExecInfo QueryExecInfo(const QString &full_path, const QString &ext);
 	void RenameSelectedFile();
+	void RunExecutable(const QString &full_path, const QString &ext);
 	gui::Table* table() const { return table_; }
 	void TellUser(const QString &msg, const QString title = QString());
 private:

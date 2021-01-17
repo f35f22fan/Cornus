@@ -346,6 +346,30 @@ void ReadLink(const char *file_path, LinkTarget &link_target,
 	link_target.type = MapPosixTypeToLocal(st.st_mode);
 }
 
+isize
+TryReadFile(const QString &full_path, char *buf, const int how_much,
+	ExecInfo &info)
+{
+	auto ba = full_path.toLocal8Bit();
+	struct statx stx;
+	const auto fields = STATX_MODE;
+	
+	if (statx(0, ba.data(), AT_SYMLINK_NOFOLLOW, fields, &stx) != 0) {
+		mtl_warn("statx(): %s", strerror(errno));
+		return -1;
+	}
+	
+	info.mode = stx.stx_mode;
+	
+	const int fd = open(ba.data(), O_RDONLY);
+	if (fd == -1)
+		return -1;
+	
+	isize ret = read(fd, buf, how_much);
+	close(fd);
+	return ret;
+}
+
 io::Err
 ReadFile(const QString &full_path, cornus::ByteArray &buffer)
 {

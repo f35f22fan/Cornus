@@ -557,6 +557,82 @@ void App::OpenTerminal() {
 	QProcess::startDetached(*path, arguments, current_dir_);
 }
 
+ExecInfo App::QueryExecInfo(const QString &full_path, const QString &ext)
+{
+/// ls -ls ./2to3-2.7 
+/// 4 -rwxr-xr-x 1 root root 96 Aug 24 22:12 ./2to3-2.7
+
+///#! /bin/sh
+	const int size = 32;
+	char buf[size];
+	ExecInfo ret = {};
+	
+	if (io::TryReadFile(full_path, buf, size, ret) < size)
+		return ret;
+	
+	if (buf[0] == 0x7F && buf[1] == 'E' && buf[2] == 'L' && buf[3] == 'F') {
+		ret.type |= ExecType::Elf;
+		return ret;
+	}
+	
+	if (buf[0] == '#' && buf[1] == '!') {
+		ret.type |= ExecType::Script;
+		{
+			QString s = QString::fromLocal8Bit(buf, size);
+			const QString bin = QLatin1String("bin/");
+			int index = s.indexOf(bin);
+			if (index == -1)
+				return ret;
+			QStringRef ref = s.midRef(index + bin.size());
+			if (ref.startsWith(QLatin1String("sh"))) {
+				ret.type |= ExecType::ScriptSh;
+			} else if (ref.startsWith(QLatin1String("python"))) {
+				ret.type |= ExecType::ScriptPython;
+			} else if (ref.startsWith(QLatin1String("bash"))) {
+				ret.type |= ExecType::ScriptBash;
+			}
+		}
+	}
+	
+	if (!ext.isEmpty()) {
+		if (ext == QLatin1String("sh")) {
+			ret.type |= (ExecType::Script | ExecType::ScriptSh);
+		} else if (ext == QLatin1String("py")) {
+			ret.type |= (ExecType::Script | ExecType::ScriptPython);
+		} else if (ext == QLatin1String("bat")) {
+			ret.type |= ExecType::ScriptBat;
+		}
+	}
+	
+	return ret;
+	
+/** struct stat fileStat;
+    if(stat(argv[1], &fileStat) < 0)    
+        return 1;
+
+    printf("Information for %s\n", argv[1]);
+    printf("---------------------------\n");
+    printf("File Size: \t\t%d bytes\n", fileStat.st_size);
+    printf("Number of Links: \t%d\n", fileStat.st_nlink);
+    printf("File inode: \t\t%d\n", fileStat.st_ino);
+
+    printf("File Permissions: \t");
+    printf( (S_ISDIR(fileStat.st_mode)) ? "d" : "-");
+    printf( (fileStat.st_mode & S_IRUSR) ? "r" : "-");
+    printf( (fileStat.st_mode & S_IWUSR) ? "w" : "-");
+    printf( (fileStat.st_mode & S_IXUSR) ? "x" : "-");
+    printf( (fileStat.st_mode & S_IRGRP) ? "r" : "-");
+    printf( (fileStat.st_mode & S_IWGRP) ? "w" : "-");
+    printf( (fileStat.st_mode & S_IXGRP) ? "x" : "-");
+    printf( (fileStat.st_mode & S_IROTH) ? "r" : "-");
+    printf( (fileStat.st_mode & S_IWOTH) ? "w" : "-");
+    printf( (fileStat.st_mode & S_IXOTH) ? "x" : "-");
+    printf("\n\n");
+
+    printf("The file %s a symbolic link\n", (S_ISLNK(fileStat.st_mode)) ? "is" : "is not");
+	  **/
+}
+
 void App::RegisterShortcuts() {
 	auto *shortcut = new QShortcut(QKeySequence(Qt::ALT + Qt::Key_Up), this);
 	shortcut->setContext(Qt::ApplicationShortcut);
@@ -710,6 +786,35 @@ void App::RenameSelectedFile()
 		QString err = QString("Failed: ") + strerror(errno);
 		QMessageBox::warning(this, "Failed", err);
 		table_model_->set_scroll_to_and_select(QString());
+	}
+}
+
+void App::RunExecutable(const QString &full_path, const QString &ext)
+{
+	ExecInfo info = QueryExecInfo(full_path, ext);
+	if (false) {
+		if (info.is_elf())
+			mtl_info("ELF executable");
+		if (info.is_script())
+			mtl_info("Script");
+		if (info.is_script_sh())
+			mtl_info("Script SH");
+		if (info.is_script_bash())
+			mtl_info("Script Bash");
+		if (info.is_script_python())
+			mtl_info("Script Python");
+		if (info.has_exec_bit())
+			mtl_info("Has exec bit");
+		
+		if (info.is_regular_file())
+			mtl_info("Regular");
+		if (info.is_symlink())
+			mtl_info("Symlink");
+	}
+	
+	if (info.has_exec_bit() && info.is_elf()) {
+		QStringList arguments;
+		QProcess::startDetached(full_path, arguments, current_dir_);
 	}
 }
 

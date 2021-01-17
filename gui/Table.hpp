@@ -20,8 +20,9 @@ public:
 	
 	TableModel* model() const { return table_model_; }
 	virtual void dropEvent(QDropEvent *event) override;
-	io::File* GetFileAtNTS(const QPoint &pos, int *ret_file_index = nullptr);
+	io::File* GetFileAtNTS(const QPoint &pos, const bool clone, int *ret_file_index = nullptr);
 	int GetFirstSelectedFile(io::File **ret_cloned_file);
+	QString GetFirstSelectedFileFullPath(QString *ext);
 	int GetSelectedFilesCount();
 	void ProcessAction(const QString &action);
 	void SelectAllFilesNTS(const bool flag, QVector<int> &indices);

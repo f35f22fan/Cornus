@@ -202,6 +202,8 @@ Err SameFiles(const QString &path1, const QString &path2, bool &same);
 bool
 SortFiles(File *a, File *b);
 
+isize TryReadFile(const QString &full_path, char *buf, const int how_much, ExecInfo &info);
+
 io::Err
 WriteToFile(const QString &full_path, const char *data, const i64 size);
 

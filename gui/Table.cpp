@@ -145,7 +145,7 @@ Table::dropEvent(QDropEvent *event)
 }
 
 io::File*
-Table::GetFileAtNTS(const QPoint &pos, int *ret_file_index)
+Table::GetFileAtNTS(const QPoint &pos, const bool clone, int *ret_file_index)
 {
 	int row = rowAt(pos.y());
 	if (row == -1)
@@ -158,22 +158,12 @@ Table::GetFileAtNTS(const QPoint &pos, int *ret_file_index)
 	if (ret_file_index != nullptr)
 		*ret_file_index = row;
 	
-	return vec[row];
+	io::File *file = vec[row];
+	return clone ? file->Clone() : file;
 }
 
 int
 Table::GetFirstSelectedFile(io::File **ret_cloned_file) {
-	/** QItemSelectionModel *select = selectionModel();
-	
-	if (!select->hasSelection())
-		return -1;
-	
-	QModelIndexList rows = select->selectedRows();
-	
-	if (rows.isEmpty())
-		return -1;
-	
-	return rows[0].row(); **/
 	auto *files = table_model_->files();
 	MutexGuard guard(&files->mutex);
 	
@@ -188,6 +178,22 @@ Table::GetFirstSelectedFile(io::File **ret_cloned_file) {
 	}
 	
 	return -1;
+}
+
+QString
+Table::GetFirstSelectedFileFullPath(QString *ext) {
+	auto *files = table_model_->files();
+	MutexGuard guard(&files->mutex);
+	
+	for (io::File *file: files->vec) {
+		if (file->selected()) {
+			if (ext != nullptr)
+				*ext = file->cache().ext.toString();
+			return file->build_full_path();
+		}
+	}
+	
+	return QString();
 }
 
 int
@@ -211,7 +217,7 @@ Table::IsOnFileNameStringNTS(const QPoint &pos, io::File **ret_file)
 	if (col != (int)Column::FileName)
 		return -1;
 	
-	io::File *file = GetFileAtNTS(pos);
+	io::File *file = GetFileAtNTS(pos, false);
 	if (file == nullptr)
 		return -1;
 	
@@ -269,19 +275,24 @@ void
 Table::mouseDoubleClickEvent(QMouseEvent *evt)
 {
 	QTableView::mouseDoubleClickEvent(evt);
-	
 	i32 col = columnAt(evt->pos().x());
 	auto *app = table_model_->app();
-	io::File *cloned_file = nullptr;
-	int row = GetFirstSelectedFile(&cloned_file);
-	if (row == -1)
-		return;
 	
 	if (evt->button() == Qt::LeftButton) {
 		if (col == i32(Column::Icon)) {
-			app->FileDoubleClicked(cloned_file, Column::Icon);
+			io::Files *files = table_model_->files();
+			io::File *cloned_file = nullptr;
+			{
+				MutexGuard guard(&files->mutex);
+				cloned_file = GetFileAtNTS(evt->pos(), true);
+			}
+			if (cloned_file != nullptr)
+				app->FileDoubleClicked(cloned_file, Column::Icon);
 		} else if (col == i32(Column::FileName)) {
-			app->FileDoubleClicked(cloned_file, Column::FileName);
+			io::File *cloned_file = nullptr;
+			int row = GetFirstSelectedFile(&cloned_file);
+			if (row != -1)
+				app->FileDoubleClicked(cloned_file, Column::FileName);
 		}
 	}
 }
@@ -386,6 +397,11 @@ Table::ProcessAction(const QString &action)
 		app->RenameSelectedFile();
 	} else if (action == actions::OpenTerminal) {
 		app->OpenTerminal();
+	} else if (action == actions::RunExecutable) {
+		QString ext;
+		QString full_path = GetFirstSelectedFileFullPath(&ext);
+		if (!full_path.isEmpty())
+			app->RunExecutable(full_path, ext);
 	}
 }
 
@@ -534,7 +550,7 @@ Table::ShowRightClickMenu(const QPoint &pos)
 	QMenu *menu = new QMenu();
 	
 	{
-		QAction *action = menu->addAction(tr("Create New Folder"));
+		QAction *action = menu->addAction(tr("New Folder"));
 		auto *icon = app->GetIcon(QLatin1String("special_folder"));
 		if (icon != nullptr)
 			action->setIcon(*icon);
@@ -542,7 +558,7 @@ Table::ShowRightClickMenu(const QPoint &pos)
 	}
 	
 	{
-		QAction *action = menu->addAction(tr("Create New File"));
+		QAction *action = menu->addAction(tr("New Text File"));
 		connect(action, &QAction::triggered, [=] {ProcessAction(actions::CreateNewFile);});
 		auto *icon = app->GetIcon(QLatin1String("text"));
 		if (icon != nullptr)
@@ -559,6 +575,12 @@ Table::ShowRightClickMenu(const QPoint &pos)
 		QAction *action = menu->addAction(tr("Rename File"));
 		connect(action, &QAction::triggered, [=] {ProcessAction(actions::RenameFile);});
 		action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
+	}
+	
+	{
+		QAction *action = menu->addAction(tr("Run Executable"));
+		connect(action, &QAction::triggered, [=] {ProcessAction(actions::RunExecutable);});
+		action->setIcon(QIcon::fromTheme(QLatin1String("system-run")));
 	}
 	
 	{

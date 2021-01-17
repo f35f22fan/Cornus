@@ -15,6 +15,7 @@ extern "C" {
 #include "io/File.hpp"
 #include "gui/Location.hpp"
 #include "gui/SidePane.hpp"
+#include "gui/SidePaneItem.hpp"
 #include "gui/SidePaneModel.hpp"
 #include "gui/Table.hpp"
 #include "gui/TableModel.hpp"
@@ -43,7 +44,6 @@ extern "C" {
 #include <QPushButton>
 #include <QScrollBar>
 #include <QShortcut>
-#include <QSplitter>
 #include <QUrl>
 
 namespace cornus {
@@ -55,8 +55,10 @@ App::App(): app_icon_(QLatin1String(":/resources/cornus.png"))
 	CreateGui();
 	GoToInitialDir();
 	RegisterShortcuts();
+	LoadSidePaneItems();
 	setWindowIcon(app_icon_);
-	resize(900, 600);
+	resize(900, 700);
+	table_->setFocus();
 }
 
 App::~App() {
@@ -171,9 +173,19 @@ void App::CreateGui() {
 	side_pane_model_->SetSidePane(side_pane_);
 	splitter->addWidget(side_pane_);
 	
-	table_model_ = new gui::TableModel(this);
-	table_ = new gui::Table(table_model_);
-	splitter->addWidget(table_);
+	{
+		table_model_ = new gui::TableModel(this);
+		table_ = new gui::Table(table_model_);
+		
+		notepad_.splitter = new QSplitter(Qt::Vertical);
+		splitter->addWidget(notepad_.splitter);
+		notepad_.splitter->addWidget(table_);
+		notepad_.editor = new QPlainTextEdit();
+//		notepad_.editor->setAcceptRichText(false);
+//		notepad_.editor->setAutoFormatting(QTextEdit::AutoNone);
+		notepad_.splitter->addWidget(notepad_.editor);
+		notepad_.splitter->setSizes({1000, 0});
+	}
 	
 	splitter->setStretchFactor(0, 1);
 	splitter->setStretchFactor(1, 5);
@@ -181,6 +193,49 @@ void App::CreateGui() {
 	toolbar_ = new gui::ToolBar(this);
 	location_ = toolbar_->location();
 	addToolBar(toolbar_);
+}
+
+void App::DisplayFileContents(const int row, io::File *cloned_file)
+{
+	if (cloned_file == nullptr) {
+		cloned_file = table_->GetFileAt(row);
+		if (cloned_file == nullptr)
+			return;
+	}
+	
+	AutoDelete ad(cloned_file);
+	
+	if (cloned_file->is_dir_or_so())
+		return;
+	
+	if (cloned_file->id() == notepad_.last_id) {
+		notepad_.last_id = {};
+		auto sizes = notepad_.splitter->sizes();
+		if (sizes[1] > 20)
+			notepad_.sizes = sizes;
+		notepad_.splitter->setSizes({1, 0});
+		return;
+	}
+	
+	notepad_.last_id = cloned_file->id();
+	ByteArray buf;
+	const i64 MAX = 500 * 1024 ; // 500 KiB
+	if (io::ReadFile(cloned_file->build_full_path(), buf, MAX) != io::Err::Ok) {
+		mtl_warn("Read %ld bytes", buf.size());
+		return;
+	}
+	
+	QString s = QString::fromLocal8Bit(buf.data(), buf.size());
+	notepad_.editor->setPlainText(s);
+	notepad_.editor->moveCursor(QTextCursor::Start);
+	auto sp_sizes = notepad_.splitter->sizes();
+	if (sp_sizes[1] < 20) {
+		if (notepad_.sizes.isEmpty())
+			notepad_.splitter->setSizes({1000, 200});
+		else
+			notepad_.splitter->setSizes(notepad_.sizes);
+	}
+	table_->ScrollToAndSelectRow(row, true);
 }
 
 void App::DisplaySymlinkInfo(io::File &file)
@@ -245,9 +300,16 @@ void App::FileDoubleClicked(io::File *file, const gui::Column col)
 			if (file->link_target() != nullptr) {
 				GoTo(file->link_target()->path);
 			}
-		} else if (file->is_regular()) {
-			QUrl url = QUrl::fromLocalFile(file->build_full_path());
-			QDesktopServices::openUrl(url);
+		} else if (file->is_regular() || file->is_symlink()) {
+			
+			QString full_path = file->build_full_path();
+			ExecInfo info = QueryExecInfo(full_path, file->cache().ext.toString());
+			if (info.is_elf() || info.is_script()) {
+				RunExecutable(full_path, info);
+			} else {
+				QUrl url = QUrl::fromLocalFile(full_path);
+				QDesktopServices::openUrl(url);
+			}
 		}
 	}
 }
@@ -324,9 +386,9 @@ bool App::GoTo(QString dir_path, bool reload)
 		std::chrono::milliseconds::period>(now - start_time).count();
 	QString diff_str = io::FloatToString(elapsed, 2);
 	
-	QString title = QDir(dir_path).dirName() + QLatin1String(" [") +
-		QString::number(count) + QLatin1String(" files in ") +
-		diff_str + QLatin1String(" ms]");
+	QString title = QDir(dir_path).dirName() + QLatin1String(" (") +
+		QString::number(count) + QLatin1String("/") +
+		diff_str + QLatin1String(" ms)");
 	location_->SetLocation(dir_path);
 	setWindowTitle(title);
 	
@@ -540,6 +602,42 @@ void App::LoadIcon(io::File &file)
 	SetDefaultIcon(file);
 }
 
+void App::LoadSidePaneItems()
+{
+	ByteArray buf;
+	if (io::ReadFile(QLatin1String("/proc/mounts"), buf) != io::Err::Ok)
+		return;
+	
+/// mtl_info("Have read: %ld bytes", buf.size());
+	QString s = QString::fromLocal8Bit(buf.data(), buf.size());
+	auto list = s.splitRef('\n');
+	const QString prefix = QLatin1String("/dev/sd");
+	const QString skip_mount = QLatin1String("/boot/");
+	QVector<gui::SidePaneItem*> vec;
+	
+	for (auto &line: list)
+	{
+		if (!line.startsWith(prefix))
+			continue;
+		
+		auto args = line.split(" ");
+		QStringRef mount_path = args[1];
+		
+		if (mount_path.startsWith(skip_mount))
+			continue;
+		
+		auto *p = new gui::SidePaneItem();
+		p->dev_path(args[0].toString());
+		p->mount_path(mount_path.toString());
+		p->fs(args[2].toString());
+		p->type(gui::SidePaneItemType::Partition);
+		p->Init();
+		vec.append(p);
+	}
+	
+	side_pane_model_->InsertRows(0, vec);
+}
+
 void App::OpenTerminal() {
 	const QString konsole_path = QLatin1String("/usr/bin/konsole");
 	const QString gnome_terminal_path = QLatin1String("/usr/bin/gnome-terminal");
@@ -557,6 +655,10 @@ void App::OpenTerminal() {
 	QProcess::startDetached(*path, arguments, current_dir_);
 }
 
+ExecInfo App::QueryExecInfo(io::File &file) {
+	return QueryExecInfo(file.build_full_path(), file.cache().ext.toString());
+}
+
 ExecInfo App::QueryExecInfo(const QString &full_path, const QString &ext)
 {
 /// ls -ls ./2to3-2.7 
@@ -567,7 +669,7 @@ ExecInfo App::QueryExecInfo(const QString &full_path, const QString &ext)
 	char buf[size];
 	ExecInfo ret = {};
 	
-	if (io::TryReadFile(full_path, buf, size, ret) < size)
+	if (io::TryReadFile(full_path, buf, size, &ret) < size)
 		return ret;
 	
 	if (buf[0] == 0x7F && buf[1] == 'E' && buf[2] == 'L' && buf[3] == 'F') {
@@ -691,6 +793,23 @@ void App::RegisterShortcuts() {
 		table_->SelectAllFilesNTS(true, indices);
 		table_model_->UpdateIndices(indices);
 	});
+	
+	shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_E), this);
+	shortcut->setContext(Qt::ApplicationShortcut);
+	
+	connect(shortcut, &QShortcut::activated, [=] {
+		SwitchExecBitOfSelectedFiles();
+	});
+	
+	shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_R), this);
+	shortcut->setContext(Qt::ApplicationShortcut);
+	
+	connect(shortcut, &QShortcut::activated, [=] {
+		io::File *cloned_file = nullptr;
+		int row = table_->GetFirstSelectedFile(&cloned_file);
+		if (row != -1)
+			DisplayFileContents(row, cloned_file);
+	});
 }
 
 void App::RenameSelectedFile()
@@ -789,9 +908,9 @@ void App::RenameSelectedFile()
 	}
 }
 
-void App::RunExecutable(const QString &full_path, const QString &ext)
+void App::RunExecutable(const QString &full_path,
+	const ExecInfo &info)
 {
-	ExecInfo info = QueryExecInfo(full_path, ext);
 	if (false) {
 		if (info.is_elf())
 			mtl_info("ELF executable");
@@ -917,6 +1036,26 @@ void App::SetupEnvSearchPaths()
 
 void App::TellUser(const QString &msg, const QString title) {
 	QMessageBox::warning(this, title, msg);
+}
+
+void App::SwitchExecBitOfSelectedFiles() {
+	io::Files *files = table_model_->files();
+	MutexGuard guard(&files->mutex);
+	const auto ExecBits = S_IXUSR | S_IXGRP | S_IXOTH;
+	for (io::File *next: files->vec) {
+		if (next->selected()) {
+			mode_t mode = next->mode();
+			if (mode & ExecBits)
+				mode &= ~ExecBits;
+			else
+				mode |= ExecBits;
+			
+			auto ba = next->build_full_path().toLocal8Bit();
+			if (chmod(ba.data(), mode) != 0) {
+				mtl_warn("chmod error: %s", strerror(errno));
+			}
+		}
+	}
 }
 
 }

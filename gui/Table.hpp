@@ -21,12 +21,14 @@ public:
 	TableModel* model() const { return table_model_; }
 	virtual void dropEvent(QDropEvent *event) override;
 	io::File* GetFileAtNTS(const QPoint &pos, const bool clone, int *ret_file_index = nullptr);
+	io::File* GetFileAt(const int row); // returns cloned file
 	int GetFirstSelectedFile(io::File **ret_cloned_file);
 	QString GetFirstSelectedFileFullPath(QString *ext);
 	int GetSelectedFilesCount();
 	void ProcessAction(const QString &action);
+	void ScrollToAndSelectRow(const int row, const bool deselect_others);
 	void SelectAllFilesNTS(const bool flag, QVector<int> &indices);
-	void SelectRowSimple(const int row);
+	void SelectRowSimple(const int row, const bool deselect_others = false);
 public slots:
 	bool ScrollToAndSelect(QString full_path);
 	

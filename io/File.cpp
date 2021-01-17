@@ -62,6 +62,14 @@ File::DeleteFromDisk() {
 	return status == 0;
 }
 
+bool
+File::has_exec_bit() const {
+	const auto ExecBits = S_IXUSR | S_IXGRP | S_IXOTH;
+	if (is_symlink())
+		return link_target()->mode & ExecBits;
+	return mode_ & ExecBits;
+}
+
 void File::name(const QString &s)
 {
 	name_.orig = s;

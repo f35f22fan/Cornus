@@ -5,8 +5,9 @@
 #include "../io/io.hh"
 #include "../io/File.hpp"
 #include "../MutexGuard.hpp"
-#include "TableDelegate.hpp"
+#include "SidePaneItem.hpp"
 #include "SidePaneModel.hpp"
+#include "TableDelegate.hpp"
 
 #include <map>
 
@@ -32,9 +33,9 @@
 namespace cornus::gui {
 
 SidePane::SidePane(SidePaneModel *tm) :
-side_pane_model_(tm)
+model_(tm)
 {
-	setModel(side_pane_model_);
+	setModel(model_);
 	setAlternatingRowColors(true);
 	auto *hz = horizontalHeader();
 	hz->setSortIndicatorShown(false);
@@ -57,7 +58,7 @@ side_pane_model_(tm)
 }
 
 SidePane::~SidePane() {
-	delete side_pane_model_;
+	delete model_;
 }
 
 void
@@ -91,14 +92,14 @@ SidePane::dragMoveEvent(QDragMoveEvent *event)
 	int row = rowAt(pos.y());
 	
 	if (row != -1)
-		side_pane_model_->UpdateSingleRow(row);
+		model_->UpdateSingleRow(row);
 }
 
 void
 SidePane::dropEvent(QDropEvent *event)
 {
 	drop_y_coord_ = -1;
-	App *app = side_pane_model_->app();
+	App *app = model_->app();
 	
 	if (event->mimeData()->hasUrls()) {
 		/**
@@ -139,19 +140,21 @@ SidePane::dropEvent(QDropEvent *event)
 }
 
 gui::SidePaneItem*
-SidePane::GetItemAtNTS(const QPoint &pos, int *ret_index)
+SidePane::GetItemAtNTS(const QPoint &pos, bool clone, int *ret_index)
 {
 	int row = rowAt(pos.y());
 	if (row == -1)
 		return nullptr;
 	
-	auto &vec = side_pane_model_->items().vec;
+	auto &vec = model_->items().vec;
 	if (row >= vec.size())
 		return nullptr;
 	
 	if (ret_index != nullptr)
 		*ret_index = row;
 	
+	if (clone)
+		return vec[row]->Clone();
 	return vec[row];
 }
 
@@ -159,13 +162,13 @@ void
 SidePane::keyPressEvent(QKeyEvent *event)
 {
 	const int key = event->key();
-	auto *app = side_pane_model_->app();
+	auto *app = model_->app();
 	const auto modifiers = event->modifiers();
 	const bool any_modifiers = (modifiers != Qt::NoModifier);
 	const bool shift = (modifiers & Qt::ShiftModifier);
 	QVector<int> indices;
 	
-	side_pane_model_->UpdateIndices(indices);
+	model_->UpdateIndices(indices);
 }
 
 void
@@ -174,7 +177,7 @@ SidePane::mouseDoubleClickEvent(QMouseEvent *evt)
 	QTableView::mouseDoubleClickEvent(evt);
 	
 	i32 col = columnAt(evt->pos().x());
-	auto *app = side_pane_model_->app();
+	auto *app = model_->app();
 	
 	if (evt->button() == Qt::LeftButton) {
 		
@@ -186,8 +189,22 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 {
 	auto modif = evt->modifiers();
 	const bool ctrl_pressed = modif & Qt::ControlModifier;
+	
+	int row;
+	SidePaneItem *cloned_item = nullptr;
+	{
+		auto &items = model_->items();
+		MutexGuard guard(&items.mutex);
+		cloned_item = GetItemAtNTS(evt->pos(), true &row);
+		
+		if (cloned_item == nullptr)
+			return;
+	}
+	
+	model_->app()->GoTo(cloned_item->mount_path());
+	
 	QVector<int> indices;
-	side_pane_model_->UpdateIndices(indices);
+	model_->UpdateIndices(indices);
 }
 
 void
@@ -233,18 +250,18 @@ SidePane::ProcessAction(const QString &action)
 void
 SidePane::resizeEvent(QResizeEvent *event) {
 	QTableView::resizeEvent(event);
-	double w = event->size().width();
-	const int icon = 50;
-	const int size = 110;
-	QFontMetrics metrics = fontMetrics();
-	QString sample_date = QLatin1String("2020-12-01 18:04");
-	const int time_w = metrics.boundingRect(sample_date).width() * 1.1;
-	int file_name = w - (icon + size + time_w + 5);
+//	double w = event->size().width();
+//	const int icon = 50;
+//	const int size = 110;
+//	QFontMetrics metrics = fontMetrics();
+//	QString sample_date = QLatin1String("2020-12-01 18:04");
+//	const int time_w = metrics.boundingRect(sample_date).width() * 1.1;
+//	int file_name = w - (icon + size + time_w + 5);
 	
-	setColumnWidth(i8(gui::Column::Icon), icon);// 45);
-	setColumnWidth(i8(gui::Column::FileName), file_name);// 500);
-	setColumnWidth(i8(gui::Column::Size), size);
-	setColumnWidth(i8(gui::Column::TimeCreated), time_w);
+//	setColumnWidth(i8(gui::Column::Icon), icon);// 45);
+//	setColumnWidth(i8(gui::Column::FileName), file_name);// 500);
+//	setColumnWidth(i8(gui::Column::Size), size);
+//	setColumnWidth(i8(gui::Column::TimeCreated), time_w);
 }
 
 bool
@@ -252,12 +269,12 @@ SidePane::ScrollToAndSelect(QString name)
 {
 	int row = -1;
 	{
-		auto &items = side_pane_model_->items();
+		auto &items = model_->items();
 		MutexGuard guard(&items.mutex);
 		auto &vec = items.vec;
 		
 		for (int i = 0; i < vec.size(); i++) {
-			if (vec[i]->name == name) {
+			if (vec[i]->table_name() == name) {
 				row = i;
 				break;
 			}
@@ -276,7 +293,7 @@ SidePane::ScrollToAndSelect(QString name)
 
 void
 SidePane::SelectRowSimple(const int row) {
-	SidePaneItems &items = side_pane_model_->items();
+	SidePaneItems &items = model_->items();
 	bool update = false;
 	{
 		MutexGuard guard(&items.mutex);
@@ -290,13 +307,13 @@ SidePane::SelectRowSimple(const int row) {
 	}
 	
 	if (update)
-		side_pane_model_->UpdateSingleRow(row);
+		model_->UpdateSingleRow(row);
 }
 
 void
 SidePane::ShowRightClickMenu(const QPoint &pos)
 {
-	App *app = side_pane_model_->app();
+	App *app = model_->app();
 	QMenu *menu = new QMenu();
 	
 	{
@@ -313,18 +330,6 @@ SidePane::ShowRightClickMenu(const QPoint &pos)
 		auto *icon = app->GetIcon(QLatin1String("text"));
 		if (icon != nullptr)
 			action->setIcon(*icon);
-	}
-	
-	{
-		QAction *action = menu->addAction(tr("Delete Files"));
-		connect(action, &QAction::triggered, [=] {ProcessAction(actions::DeleteFiles);});
-		action->setIcon(QIcon::fromTheme(QLatin1String("edit-delete")));
-	}
-	
-	{
-		QAction *action = menu->addAction(tr("Rename File"));
-		connect(action, &QAction::triggered, [=] {ProcessAction(actions::RenameFile);});
-		action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
 	}
 	
 	menu->popup(pos);

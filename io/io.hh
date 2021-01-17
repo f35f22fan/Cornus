@@ -83,43 +83,11 @@ enum class FileType : u8 {
 	CharDevice
 };
 
-struct FileID {
-	u64 inode_number;
-	u32 dev_major; // ID of device containing file
-	u32 dev_minor;
-	
-	inline static FileID New(const struct stat &st) {
-		return io::FileID {
-			.inode_number = st.st_ino,
-			.dev_major = major(st.st_dev),
-			.dev_minor = minor(st.st_dev),
-		};
-	}
-	
-	inline static FileID NewStx(const struct statx &stx) {
-		return io::FileID {
-			.inode_number = stx.stx_ino,
-			.dev_major = stx.stx_dev_major,
-			.dev_minor = stx.stx_dev_minor,
-		};
-	}
-	
-	inline bool
-	operator == (const FileID &rhs) const {
-		return Equals(rhs);
-	}
-	
-	inline bool
-	Equals(const FileID &rhs) const {
-		return inode_number == rhs.inode_number &&
-			dev_major == rhs.dev_major && dev_minor == rhs.dev_minor;
-	}
-};
-
 struct LinkTarget {
 	QString path;
 	QVector<FileID> chain_ids_; // for detecting circular symlinks
 	QVector<QString> chain_paths_;
+	mode_t mode = 0;
 	FileType type = FileType::Unknown;
 	i8 cycles = 1; // @cycles is set negative when circular symlink detected.
 	static const i8 MaxCycles = 6;
@@ -189,7 +157,8 @@ MapPosixTypeToLocal(const mode_t mode) {
 }
 
 io::Err
-ReadFile(const QString &full_path, cornus::ByteArray &buffer);
+ReadFile(const QString &full_path, cornus::ByteArray &buffer,
+	const i64 read_max = -1);
 
 void
 ReadLink(const char *file_path, LinkTarget &link_target,
@@ -202,7 +171,8 @@ Err SameFiles(const QString &path1, const QString &path2, bool &same);
 bool
 SortFiles(File *a, File *b);
 
-isize TryReadFile(const QString &full_path, char *buf, const int how_much, ExecInfo &info);
+isize TryReadFile(const QString &full_path, char *buf,
+	const i64 how_much, ExecInfo *info = nullptr);
 
 io::Err
 WriteToFile(const QString &full_path, const char *data, const i64 size);

@@ -47,6 +47,9 @@ table_model_(tm)
 	//horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 	horizontalHeader()->setSectionsMovable(false);
 	verticalHeader()->setSectionsMovable(false);
+	connect(verticalHeader(), &QHeaderView::sectionClicked, [=](int index) {
+		table_model_->app()->DisplayFileContents(index);
+	});
 	setDragEnabled(true);
 	setAcceptDrops(true);
 	setDefaultDropAction(Qt::MoveAction);
@@ -145,6 +148,18 @@ Table::dropEvent(QDropEvent *event)
 }
 
 io::File*
+Table::GetFileAt(const int row)
+{
+	io::Files *files = table_model_->files();
+	MutexGuard guard(&files->mutex);
+	auto &vec = files->vec;
+	if (row < 0 | row >= vec.size())
+		return nullptr;
+	
+	return vec[row]->Clone();
+}
+
+io::File*
 Table::GetFileAtNTS(const QPoint &pos, const bool clone, int *ret_file_index)
 {
 	int row = rowAt(pos.y());
@@ -188,7 +203,7 @@ Table::GetFirstSelectedFileFullPath(QString *ext) {
 	for (io::File *file: files->vec) {
 		if (file->selected()) {
 			if (ext != nullptr)
-				*ext = file->cache().ext.toString();
+				*ext = file->cache().ext.toString().toLower();
 			return file->build_full_path();
 		}
 	}
@@ -400,8 +415,13 @@ Table::ProcessAction(const QString &action)
 	} else if (action == actions::RunExecutable) {
 		QString ext;
 		QString full_path = GetFirstSelectedFileFullPath(&ext);
-		if (!full_path.isEmpty())
-			app->RunExecutable(full_path, ext);
+		if (!full_path.isEmpty()) {
+			ExecInfo info = app->QueryExecInfo(full_path, ext);
+			if (info.is_elf() || info.is_script())
+				app->RunExecutable(full_path, info);
+		}
+	} else if (action == actions::SwitchExecBit) {
+		app->SwitchExecBitOfSelectedFiles();
 	}
 }
 
@@ -459,6 +479,13 @@ Table::ScrollToAndSelect(QString full_path)
 }
 
 void
+Table::ScrollToAndSelectRow(const int row, const bool deselect_others) {
+	QModelIndex index = model()->index(row, 0, QModelIndex());
+	scrollTo(index);
+	SelectRowSimple(row, deselect_others);
+}
+
+void
 Table::SelectAllFilesNTS(const bool flag, QVector<int> &indices) {
 	int i = 0;
 	for (auto *file: table_model_->files()->vec) {
@@ -471,21 +498,33 @@ Table::SelectAllFilesNTS(const bool flag, QVector<int> &indices) {
 }
 
 void
-Table::SelectRowSimple(const int row) {
+Table::SelectRowSimple(const int row, const bool deselect_others)
+{
 	io::Files *files = table_model_->files();
-	bool update = false;
+	QVector<int> indices;
 	{
 		MutexGuard guard(&files->mutex);
 		auto &vec = files->vec;
 		
-		if (row < vec.size()) {
+		if (deselect_others) {
+			int i = 0;
+			for (io::File *next: vec) {
+				if (next->selected()) {
+					next->selected(false);
+					indices.append(i);
+				}
+				i++;
+			}
+		}
+		
+		if (row >= 0 && row < vec.size()) {
 			vec[row]->selected(true);
-			update = true;
+			indices.append(row);
 		}
 	}
 	
-	if (update)
-		table_model_->UpdateSingleRow(row);
+	if (indices.size() > 0)
+		table_model_->UpdateIndices(indices);
 }
 
 int
@@ -546,6 +585,7 @@ Table::SelectNextRow(const int relative_offset,
 void
 Table::ShowRightClickMenu(const QPoint &pos)
 {
+	const int selected_count = GetSelectedFilesCount();
 	App *app = table_model_->app();
 	QMenu *menu = new QMenu();
 	
@@ -565,19 +605,19 @@ Table::ShowRightClickMenu(const QPoint &pos)
 			action->setIcon(*icon);
 	}
 	
-	{
+	if (selected_count > 0) {
 		QAction *action = menu->addAction(tr("Delete Files"));
 		connect(action, &QAction::triggered, [=] {ProcessAction(actions::DeleteFiles);});
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-delete")));
 	}
 	
-	{
+	if (selected_count > 0) {
 		QAction *action = menu->addAction(tr("Rename File"));
 		connect(action, &QAction::triggered, [=] {ProcessAction(actions::RenameFile);});
 		action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
 	}
 	
-	{
+	if (selected_count > 0) {
 		QAction *action = menu->addAction(tr("Run Executable"));
 		connect(action, &QAction::triggered, [=] {ProcessAction(actions::RunExecutable);});
 		action->setIcon(QIcon::fromTheme(QLatin1String("system-run")));
@@ -587,6 +627,12 @@ Table::ShowRightClickMenu(const QPoint &pos)
 		QAction *action = menu->addAction(tr("Open Terminal"));
 		connect(action, &QAction::triggered, [=] {ProcessAction(actions::OpenTerminal);});
 		action->setIcon(QIcon::fromTheme(QLatin1String("utilities-terminal")));
+	}
+	
+	if (selected_count > 0) {
+		QAction *action = menu->addAction(tr("Switch Exec Bit"));
+		connect(action, &QAction::triggered, [=] {ProcessAction(actions::SwitchExecBit);});
+		action->setIcon(QIcon::fromTheme(QLatin1String("edit-undo")));
 	}
 	
 	menu->popup(pos);

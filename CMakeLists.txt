@@ -33,6 +33,7 @@ set(src_files main.cpp
     gui/decl.hxx
     gui/Location.cpp gui/Location.hpp
     gui/SidePane.cpp gui/SidePane.hpp
+    gui/SidePaneItem.cpp gui/SidePaneItem.hpp
     gui/SidePaneModel.cpp gui/SidePaneModel.hpp
     gui/Table.cpp gui/Table.hpp
     gui/TableDelegate.cpp gui/TableDelegate.hpp

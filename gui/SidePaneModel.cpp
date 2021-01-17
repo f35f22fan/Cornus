@@ -5,6 +5,7 @@
 #include "../io/File.hpp"
 #include "../MutexGuard.hpp"
 #include "SidePane.hpp"
+#include "SidePaneItem.hpp"
 
 #include <sys/epoll.h>
 #include <QFont>
@@ -321,7 +322,7 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 	
 	if (role == Qt::DisplayRole)
 	{
-		return item->name;
+		return item->table_name();
 	} else if (role == Qt::FontRole) {
 	} else if (role == Qt::BackgroundRole) {
 	} else if (role == Qt::ForegroundRole) {
@@ -347,24 +348,27 @@ SidePaneModel::headerData(int section_i, Qt::Orientation orientation, int role) 
 bool
 SidePaneModel::InsertRows(const i32 at, const QVector<gui::SidePaneItem*> &items_to_add)
 {
-	MutexGuard guard(&items_.mutex);
-	
-	if (items_.vec.isEmpty())
-		return false;
-	
+	{
+		MutexGuard guard(&items_.mutex);
+		if (at > items_.vec.size()) {
+			mtl_trace();
+			return false;
+		}
+	}
 	const int first = at;
 	const int last = at + items_to_add.size() - 1;
-	
 	beginInsertRows(QModelIndex(), first, last);
-	
-	for (i32 i = 0; i < items_to_add.size(); i++)
+
 	{
-		auto *song = items_to_add[i];
-		items_.vec.insert(at + i, song);
+		MutexGuard guard(&items_.mutex);
+		for (i32 i = 0; i < items_to_add.size(); i++)
+		{
+			auto *song = items_to_add[i];
+			items_.vec.insert(at + i, song);
+		}
 	}
 	
 	endInsertRows();
-	
 	return true;
 }
 

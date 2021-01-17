@@ -18,9 +18,9 @@ public:
 	SidePane(SidePaneModel *tm);
 	virtual ~SidePane();
 	
-	SidePaneModel* model() const { return side_pane_model_; }
+	SidePaneModel* model() const { return model_; }
 	virtual void dropEvent(QDropEvent *event) override;
-	gui::SidePaneItem* GetItemAtNTS(const QPoint &pos, int *ret_index = nullptr);
+	gui::SidePaneItem* GetItemAtNTS(const QPoint &pos, bool clone, int *ret_index = nullptr);
 	void ProcessAction(const QString &action);
 	void SelectRowSimple(const int row);
 public slots:
@@ -42,7 +42,7 @@ private:
 	
 	void ShowRightClickMenu(const QPoint &pos);
 	
-	SidePaneModel *side_pane_model_ = nullptr;
+	SidePaneModel *model_ = nullptr;
 	
 	int drop_y_coord_ = -1;
 	

@@ -9,6 +9,8 @@
 #include <QMainWindow>
 #include <QMap>
 #include <QMimeDatabase>
+#include <QSplitter>
+#include <QPlainTextEdit>
 
 namespace cornus {
 
@@ -25,6 +27,7 @@ public:
 	
 	void AskCreateNewFile(io::File *file, const QString &title);
 	const QString& current_dir() const { return current_dir_; }
+	void DisplayFileContents(const int row, io::File *cloned_file = nullptr);
 	void FileDoubleClicked(io::File *file, const gui::Column col);
 	QIcon* GetIcon(const QString &str);
 	void GoBack();
@@ -33,11 +36,14 @@ public:
 	void GoUp();
 	void LoadIcon(io::File &file);
 	void OpenTerminal();
+	inline ExecInfo QueryExecInfo(io::File &file);
 	ExecInfo QueryExecInfo(const QString &full_path, const QString &ext);
 	void RenameSelectedFile();
-	void RunExecutable(const QString &full_path, const QString &ext);
+	void RunExecutable(const QString &full_path, const ExecInfo &info);
+	void SwitchExecBitOfSelectedFiles();
 	gui::Table* table() const { return table_; }
 	void TellUser(const QString &msg, const QString title = QString());
+	
 private:
 	NO_ASSIGN_COPY_MOVE(App);
 	
@@ -50,6 +56,7 @@ private:
 	void GoToAndSelect(const QString full_path);
 	void IconByTruncName(io::File &file, const QString &truncated, QIcon **icon = nullptr);
 	void IconByFileName(io::File &file, const QString &filename, QIcon **ret_icon = nullptr);
+	void LoadSidePaneItems();
 	void RegisterShortcuts();
 	void SetDefaultIcon(io::File &file);
 	void SetupEnvSearchPaths();
@@ -80,5 +87,14 @@ private:
 	
 	gui::SidePane *side_pane_ = nullptr;
 	gui::SidePaneModel *side_pane_model_ = nullptr;
+	
+	struct Notepad {
+		QSplitter *splitter = nullptr;
+		QPlainTextEdit *editor = nullptr;
+		io::FileID last_id = {};
+		QList<int> sizes = {};
+	};
+	
+	Notepad notepad_ = {};
 };
 }

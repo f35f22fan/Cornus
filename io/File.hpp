@@ -30,6 +30,7 @@ public:
 	QString build_full_path() const;
 	FileCache& cache() { return cache_; }
 	void ClearCache();
+	bool has_exec_bit() const;
 	
 	bool is_dir() const { return type_ == FileType::Dir; }
 	bool is_link_to_dir() const { return is_symlink() &&
@@ -52,7 +53,8 @@ public:
 	}
 	
 	LinkTarget *link_target() const { return link_target_; }
-	
+	void mode(mode_t m) { mode_ = m; }
+	mode_t mode() const { return mode_; }
 	const QString& name() const { return name_.orig; }
 	const QString& name_lower() const { return name_.lower; }
 	void name(const QString &s);
@@ -102,6 +104,7 @@ private:
 	FileID id_ = {};
 	struct statx_timestamp time_created_ = {};
 	struct statx_timestamp time_modified_ = {};
+	mode_t mode_;
 	u8 bits_ = 0;
 	FileType type_ = FileType::Unknown;
 	

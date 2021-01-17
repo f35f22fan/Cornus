@@ -39,6 +39,11 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 {
 	auto str_rect = fm.boundingRect(file->name());
 	
+	if (!file->is_dir_or_so() && file->has_exec_bit()) {
+		QPen pen(QColor(0, 120, 0));
+		painter->setPen(pen);
+	}
+	
 	if (file->selected()) {
 		QRect r = option.rect;
 		r.setWidth(str_rect.width() + FnOff * 2);

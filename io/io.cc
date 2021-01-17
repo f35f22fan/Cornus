@@ -108,6 +108,7 @@ FillInStx(io::File &file, const struct statx &stx, const QString *name)
 	using io::FileType;
 	if (name != nullptr)
 		file.name(*name);
+	file.mode(stx.stx_mode);
 	file.size(stx.stx_size);
 	file.type(MapPosixTypeToLocal(stx.stx_mode));
 	file.id(io::FileID::NewStx(stx));
@@ -343,23 +344,25 @@ void ReadLink(const char *file_path, LinkTarget &link_target,
 	
 	link_target.chain_paths_.append(full_target_path);
 	link_target.path = full_target_path;
+	link_target.mode = st.st_mode;
 	link_target.type = MapPosixTypeToLocal(st.st_mode);
 }
 
 isize
-TryReadFile(const QString &full_path, char *buf, const int how_much,
-	ExecInfo &info)
+TryReadFile(const QString &full_path, char *buf, const i64 how_much,
+	ExecInfo *info)
 {
 	auto ba = full_path.toLocal8Bit();
 	struct statx stx;
 	const auto fields = STATX_MODE;
 	
 	if (statx(0, ba.data(), AT_SYMLINK_NOFOLLOW, fields, &stx) != 0) {
-		mtl_warn("statx(): %s", strerror(errno));
+		//mtl_warn("statx(): %s", strerror(errno));
 		return -1;
 	}
 	
-	info.mode = stx.stx_mode;
+	if (info != nullptr)
+		info->mode = stx.stx_mode;
 	
 	const int fd = open(ba.data(), O_RDONLY);
 	if (fd == -1)
@@ -371,32 +374,46 @@ TryReadFile(const QString &full_path, char *buf, const int how_much,
 }
 
 io::Err
-ReadFile(const QString &full_path, cornus::ByteArray &buffer)
+ReadFile(const QString &full_path, cornus::ByteArray &buffer,
+	const i64 read_max)
 {
+	// This function follows links, it makes no sense not to
+	// because I already show the link target in the table view.
 	struct stat st;
 	auto path = full_path.toLocal8Bit();
 	
-	if (lstat(path.data(), &st) != 0)
+	if (stat(path.data(), &st) != 0)
 		return MapPosixError(errno);
 	
-	buffer.alloc(st.st_size);
+	i64 MAX = (read_max == -1) ? st.st_size :
+		std::min(read_max, st.st_size);
+	
+	if (MAX <= 0) {
+		MAX = 1024 * 64;
+	}
+	
+	buffer.alloc(MAX);
 	char *buf = buffer.data();
 	const int fd = open(path.data(), O_RDONLY);
 	
 	if (fd == -1)
 		return MapPosixError(errno);
 	
-	usize so_far = 0;
+	isize so_far = 0;
 	
-	while (so_far < st.st_size) {
-		isize ret = read(fd, buf + so_far, st.st_size - so_far);
+	while (so_far < MAX) {
+		isize ret = read(fd, buf + so_far, MAX - so_far);
 		
 		if (ret == -1) {
 			if (errno == EAGAIN)
 				continue;
 			io::Err e = MapPosixError(errno);
+			mtl_warn("ReadFile: %s", strerror(errno));
 			close(fd);
 			return e;
+		} else if (ret == 0) {
+			// zero indicates the end of file
+			break;
 		}
 		
 		so_far += ret;

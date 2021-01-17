@@ -8,15 +8,12 @@
 namespace cornus::gui {
 class Location;
 class SidePane;
+class SidePaneItem;
 class SidePaneModel;
 class Table;
 class TableDelegate;
 class TableModel;
 class ToolBar;
-
-struct SidePaneItem {
-	QString name;
-};
 
 struct SidePaneItems {
 	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;

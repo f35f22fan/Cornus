@@ -79,7 +79,7 @@ void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
 	}
 
 	ssize_t add = 0;
-	QVector<io::File*> &files_vec = files->vec;
+	QVector<io::File*> &files_vec = files->data.vec;
 	
 	for (char *p = buf; p < buf + num_read; p += add) {
 		struct inotify_event *ev = (struct inotify_event*) p;
@@ -102,7 +102,7 @@ void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
 mtl_trace("IN_CREATE: %s", ev->name);
 #endif
 			QString name(ev->name);
-			if (!files->show_hidden_files && name.startsWith('.'))
+			if (!files->data.show_hidden_files && name.startsWith('.'))
 				continue;
 			
 			io::File *new_file = new io::File(files);
@@ -195,6 +195,7 @@ void* WatchDir(void *void_args)
 	CHECK_PTR_NULL(void_args);
 	
 	WatchArgs *args = (WatchArgs*)void_args;
+	App *app = args->table_model->app();
 	AutoDelete ad_args(args);
 	//mtl_info("kInotifyEventBufLen: %ld", kInotifyEventBufLen);
 	char *buf = new char[kInotifyEventBufLen];
@@ -231,33 +232,33 @@ void* WatchDir(void *void_args)
 	
 	struct epoll_event poll_event;
 	const int seconds = 3 * 1000;
-	cornus::io::Files *files = args->table_model->files();
+	io::Files &files = app->view_files();
 	UpdateTableArgs method_args;
 	method_args.dir_id = args->dir_id;
 	
 	while (true)
 	{
 		{
-			MutexGuard guard(&files->mutex);
+			MutexGuard guard(&files.mutex);
 			
-			if (args->dir_id != files->dir_id)
+			if (args->dir_id != files.data.dir_id)
 				break;
 		}
 		
 		int event_count = epoll_wait(epfd, &poll_event, 1, seconds);
 		{
-			MutexGuard guard(&files->mutex);
+			MutexGuard guard(&files.mutex);
 			
-			if (args->dir_id != files->dir_id)
+			if (args->dir_id != files.data.dir_id)
 				break;
 			
-			method_args.prev_count = files->vec.size();
+			method_args.prev_count = files.data.vec.size();
 			
 			if (event_count > 0)
-				ReadEvent(poll_event.data.fd, buf, files,
+				ReadEvent(poll_event.data.fd, buf, &files,
 					method_args.indices);
 			
-			method_args.new_count = files->vec.size();
+			method_args.new_count = files.data.vec.size();
 		}
 		
 //		if (!renames.isEmpty()) {
@@ -287,25 +288,20 @@ TableModel::TableModel(cornus::App *app): app_(app)
 }
 
 TableModel::~TableModel()
-{
-	MutexGuard guard(&files_.mutex);
-	for (auto *file: files_.vec)
-		delete file;
-	
-	files_.vec.clear();
-}
+{}
 
 void
 TableModel::DeleteSelectedFiles() {
 	QVector<io::File*> delete_files;
 	{
-		MutexGuard guard(&files_.mutex);
+		io::Files &files = app_->view_files();
+		MutexGuard guard(&files.mutex);
 		
-		for (io::File *next: files_.vec) {
+		for (io::File *next: files.data.vec) {
 			if (next->selected()) {
 				io::File *cloned = next->Clone();
 				cloned->files_ = nullptr;
-				cloned->dir_path(files_.dir_path);
+				cloned->dir_path(files.data.dir_path);
 				delete_files.append(cloned);
 			}
 		}
@@ -326,8 +322,9 @@ TableModel::index(int row, int column, const QModelIndex &parent) const
 int
 TableModel::rowCount(const QModelIndex &parent) const
 {
-	MutexGuard guard(&files_.mutex);
-	return files_.vec.size();
+	io::Files &files = app_->view_files();
+	MutexGuard guard(&files.mutex);
+	return files.data.vec.size();
 }
 
 int
@@ -395,44 +392,29 @@ TableModel::headerData(int section_i, Qt::Orientation orientation, int role) con
 bool
 TableModel::InsertRows(const i32 at, const QVector<cornus::io::File*> &files_to_add)
 {
-	MutexGuard guard(&files_.mutex);
-	
-	if (files_.vec.isEmpty())
-		return false;
+	io::Files &files = app_->view_files();
+	{
+		MutexGuard guard(&files.mutex);
+		
+		if (files.data.vec.isEmpty())
+			return false;
+	}
 	
 	const int first = at;
 	const int last = at + files_to_add.size() - 1;
 	
 	beginInsertRows(QModelIndex(), first, last);
-	
-	for (i32 i = 0; i < files_to_add.size(); i++)
 	{
-		auto *song = files_to_add[i];
-		files_.vec.insert(at + i, song);
+		MutexGuard guard(&files.mutex);
+		for (i32 i = 0; i < files_to_add.size(); i++)
+		{
+			auto *song = files_to_add[i];
+			files.data.vec.insert(at + i, song);
+		}
 	}
-	
 	endInsertRows();
 	
 	return true;
-}
-
-bool TableModel::IsAt(const QString &dir_path) const
-{
-	QString old_dir_path;
-	{
-		MutexGuard guard(&files_.mutex);
-		old_dir_path = files_.dir_path;
-	}
-	
-	if (old_dir_path.isEmpty())
-		return false;
-	
-	bool same;
-	if ((io::SameFiles(dir_path, old_dir_path, same) == io::Err::Ok) && same) {
-		return true;
-	}
-	
-	return false;
 }
 
 bool
@@ -444,16 +426,19 @@ TableModel::removeRows(int row, int count, const QModelIndex &parent)
 	CHECK_TRUE((count == 1));
 	const int first = row;
 	const int last = row + count - 1;
+	io::Files &files = app_->view_files();
 	
 	beginRemoveRows(QModelIndex(), first, last);
-	MutexGuard guard(&files_.mutex);
-	auto &vec = files_.vec;
-	
-	for (int i = count - 1; i >= 0; i--) {
-		const i32 index = first + i;
-		auto *item = vec[index];
-		vec.erase(vec.begin() + index);
-		delete item;
+	{
+		MutexGuard guard(&files.mutex);
+		auto &vec = files.data.vec;
+		
+		for (int i = count - 1; i >= 0; i--) {
+			const i32 index = first + i;
+			auto *item = vec[index];
+			vec.erase(vec.begin() + index);
+			delete item;
+		}
 	}
 	
 	endRemoveRows();
@@ -461,60 +446,61 @@ TableModel::removeRows(int row, int count, const QModelIndex &parent)
 }
 
 void
-TableModel::SwitchTo(io::Files &new_files)
+TableModel::SwitchTo(io::FilesData *new_data)
 {
+	io::Files &files = app_->view_files();
 	int prev_count, new_count;
 	{
-		MutexGuard guard(&files_.mutex);
-		prev_count = files_.vec.size();
-		new_count = new_files.vec.size();
+		MutexGuard guard(&files.mutex);
+		prev_count = files.data.vec.size();
+		new_count = new_data->vec.size();
 	}
 	
 	beginRemoveRows(QModelIndex(), 0, prev_count - 1);
 	{
-		MutexGuard guard(&files_.mutex);
-		for (auto *file: files_.vec)
+		MutexGuard guard(&files.mutex);
+		for (auto *file: files.data.vec)
 			delete file;
-		files_.vec.clear();
+		files.data.vec.clear();
 	}
 	endRemoveRows();
 	
 	beginInsertRows(QModelIndex(), 0, new_count - 1);
 	i32 dir_id;
 	{
-		MutexGuard guard(&files_.mutex);
-		files_.dir_id++;
-		dir_id = files_.dir_id;
-		files_.dir_path = new_files.dir_path;
+		MutexGuard guard(&files.mutex);
+		dir_id = ++files.data.dir_id;
+		files.data.dir_path = new_data->dir_path;
 		/// copying sorting order is logically wrong because it overwrites
 		/// the existing one.
-		files_.show_hidden_files = new_files.show_hidden_files;
-		files_.vec.resize(new_count);
-		for (int i = 0; i < new_count; i++) {
-			io::File *file = new_files.vec[i];
-			file->files_ = &files_;
-			files_.vec[i] = file;
-		}
-		new_files.vec.clear();
+		files.data.show_hidden_files = new_data->show_hidden_files;
+		files.data.vec = new_data->vec;
+		new_data->vec.clear();
 	}
 	endInsertRows();
 	
 	WatchArgs *args = new WatchArgs {
 		.dir_id = dir_id,
-		.dir_path = new_files.dir_path,
+		.dir_path = new_data->dir_path,
 		.table_model = this,
 	};
 	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, cornus::gui::WatchDir, args);
 	if (status != 0) {
-		mtl_printq(new_files.dir_path);
 		mtl_status(status);
+	}
+	
+	if (!new_data->scroll_to_and_select.isEmpty()) {
+		app_->table()->ScrollToAndSelect(new_data->scroll_to_and_select);
 	}
 }
 
-void TableModel::UpdateIndices(const QVector<int> indices)
+void TableModel::UpdateIndices(const QVector<int> &indices)
 {
+	if (indices.isEmpty())
+		return;
+	
 	int min = -1, max = -1;
 	bool initialize = true;
 	
@@ -561,9 +547,10 @@ TableModel::UpdateRange(int row1, Column c1, int row2, Column c2)
 void
 TableModel::UpdateTable(UpdateTableArgs args)
 {
+	io::Files &files = app_->view_files();
 	{
-		MutexGuard guard(&files_.mutex);
-		if (args.dir_id != files_.dir_id)
+		MutexGuard guard(&files.mutex);
+		if (args.dir_id != files.data.dir_id)
 			return;
 	}
 	

@@ -23,7 +23,7 @@ private:
 namespace cornus::gui {
 const int FnOff = 2;
 
-TableDelegate::TableDelegate(gui::Table *table):
+TableDelegate::TableDelegate(gui::Table *table, App *app): app_(app),
 table_(table)
 {
 	
@@ -177,13 +177,13 @@ TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 	QFontMetrics fm(option.font);
 	const Column col = static_cast<Column>(index.column());
 	initStyleOption(const_cast<QStyleOptionViewItem*>(&option), index);
-	auto *files = table_->model()->files();
-	MutexGuard guard(&files->mutex);
+	io::Files &files = app_->view_files();
+	MutexGuard guard(&files.mutex);
 	const int row = index.row();
-	if (row >= files->vec.size())
+	if (row >= files.data.vec.size())
 		return;
 	
-	io::File *file = files->vec[row];
+	io::File *file = files.data.vec[row];
 	auto &r = option.rect;
 	QRect text_rect(r.x() + FnOff, r.y(), r.width() - FnOff, r.height());
 	auto color_role = (row % 2) ? QPalette::AlternateBase : QPalette::Base;

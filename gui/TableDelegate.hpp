@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../decl.hxx"
 #include "decl.hxx"
 #include "../err.hpp"
 #include "../io/decl.hxx"
@@ -13,7 +14,7 @@ namespace cornus::gui {
 
 class TableDelegate: public QStyledItemDelegate {
 public:
-	TableDelegate(gui::Table *table);
+	TableDelegate(gui::Table *table, App *app);
 	virtual ~TableDelegate();
 	
 	virtual void paint(QPainter *painter, const QStyleOptionViewItem &option,
@@ -37,6 +38,7 @@ private:
 		const QRect &text_rect, const Column col) const;
 	
 	gui::Table *table_ = nullptr;
+	App *app_ = nullptr;
 };
 
 }

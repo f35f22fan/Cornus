@@ -3,6 +3,7 @@
 #include "decl.hxx"
 #include "err.hpp"
 #include "io/decl.hxx"
+#include "io/io.hh"
 #include "gui/decl.hxx"
 
 #include <QIcon>
@@ -21,6 +22,7 @@ struct Prefs {
 };
 
 class App : public QMainWindow {
+	Q_OBJECT
 public:
 	App();
 	virtual ~App();
@@ -32,10 +34,13 @@ public:
 	QIcon* GetIcon(const QString &str);
 	void GoBack();
 	void GoHome();
-	bool GoTo(QString dir_path, bool reload = false);
+	bool GoTo(QString dir_path, bool reload = false,
+		QString scroll_to_and_select = QString());
 	void GoUp();
 	void LoadIcon(io::File &file);
+	gui::Location* location() { return location_; }
 	void OpenTerminal();
+	Prefs& prefs() { return prefs_; }
 	inline ExecInfo QueryExecInfo(io::File &file);
 	ExecInfo QueryExecInfo(const QString &full_path, const QString &ext);
 	void RenameSelectedFile();
@@ -45,7 +50,12 @@ public:
 	void SwitchExecBitOfSelectedFiles();
 	gui::Table* table() const { return table_; }
 	void TellUser(const QString &msg, const QString title = QString());
-
+	io::Files& view_files() { return view_files_; }
+	bool ViewIsAt(const QString &dir_path) const;
+	
+public slots:
+	void GoToFinish(cornus::io::FilesData *new_data);
+	
 private:
 	NO_ASSIGN_COPY_MOVE(App);
 	
@@ -66,6 +76,8 @@ private:
 	
 	gui::Table *table_ = nullptr; // owned by QMainWindow
 	gui::TableModel *table_model_ = nullptr; // owned by table_
+	mutable io::Files view_files_ = {};
+	
 	QVector<QString> search_icons_dirs_;
 	QVector<QString> xdg_data_dirs_;
 	QString theme_name_;
@@ -77,6 +89,7 @@ private:
 		QIcon *lib = nullptr;
 		QIcon *unknown = nullptr;
 	};
+	
 	IconCache icon_cache_ = {};
 	QVector<QString> available_icon_names_;
 	QMap<QString, QIcon*> icon_set_;

@@ -24,7 +24,7 @@ void* LoadItems(void *args)
 	if (io::ReadFile(QLatin1String("/proc/mounts"), buf) != io::Err::Ok)
 		return nullptr;
 	
- mtl_info("Have read: %ld bytes", buf.size());
+/// mtl_info("Have read: %ld bytes", buf.size());
 	QString s = QString::fromLocal8Bit(buf.data(), buf.size());
 	auto list = s.splitRef('\n');
 	const QString prefix = QLatin1String("/dev/sd");
@@ -60,7 +60,6 @@ void* LoadItems(void *args)
 			break;
 		}
 	}
-	//mtl_info("widgets created: %s", items.widgets_created ? "true": "false");
 	items.Unlock();
 	
 	QMetaObject::invokeMethod(app->side_pane_model(),

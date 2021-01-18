@@ -48,17 +48,85 @@ extern "C" {
 
 namespace cornus {
 
+struct GoToParams {
+	App *app = nullptr;
+	QString dir_path;
+	QString scroll_to_and_select;
+	bool reload;
+};
+
+void* ListFilesTh(void *p)
+{
+	pthread_detach(pthread_self());
+
+	GoToParams *params = (GoToParams*)p;
+	App *app = params->app;
+
+	if (!params->reload) {
+		if (app->ViewIsAt(params->dir_path)) {
+			delete params;
+			return nullptr;
+		}
+	}
+
+	if (!params->dir_path.endsWith('/'))
+		params->dir_path.append('/');
+	
+	io::FilesData *new_data = new io::FilesData();
+	io::Files &view_files = app->view_files();
+	{
+		MutexGuard guard(&view_files.mutex);
+		new_data->sorting_order = view_files.data.sorting_order;
+	}
+
+	new_data->start_time = std::chrono::steady_clock::now();
+	new_data->show_hidden_files = app->prefs().show_hidden_files;
+	new_data->dir_path = params->dir_path;
+	new_data->scroll_to_and_select = params->scroll_to_and_select;
+
+	if (io::ListFiles(*new_data, &view_files) != io::Err::Ok) {
+		delete params;
+		delete new_data;
+		return nullptr;
+	}
+
+	view_files.Lock();
+	while (!view_files.data.widgets_created)
+	{
+		using Clock = std::chrono::steady_clock;
+		new_data->start_time = std::chrono::time_point<Clock>::max();
+		int status = pthread_cond_wait(&view_files.cond, &view_files.mutex);
+		if (status != 0) {
+			mtl_warn("pthread_cond_wait: %s", strerror(status));
+			break;
+		}
+/**		auto now = std::chrono::steady_clock::now();
+		const float elapsed = std::chrono::duration<float,
+			std::chrono::milliseconds::period>(now - start_time).count();
+		mtl_info("Waited: %.5f ms", elapsed); */
+	}
+	view_files.Unlock();
+	
+	QMetaObject::invokeMethod(app, "GoToFinish",
+		Q_ARG(cornus::io::FilesData*, new_data));
+
+	delete params;
+	return nullptr;
+}
+
 App::App(): app_icon_(QLatin1String(":/resources/cornus.png"))
- {
+{
+	qRegisterMetaType<cornus::io::FilesData*>();
+	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, gui::sidepane::LoadItems, this);
 	if (status != 0)
 		mtl_warn("%s", strerror(status));
 	
+	GoToInitialDir();
 	SetupIconNames();
 	SetupEnvSearchPaths();
 	CreateGui();
-	GoToInitialDir();
 	RegisterShortcuts();
 	setWindowIcon(app_icon_);
 	resize(900, 700);
@@ -197,7 +265,7 @@ void App::CreateGui() {
 	
 	{
 		table_model_ = new gui::TableModel(this);
-		table_ = new gui::Table(table_model_);
+		table_ = new gui::Table(table_model_, this);
 		
 		notepad_.splitter = new QSplitter(Qt::Vertical);
 		splitter->addWidget(notepad_.splitter);
@@ -207,6 +275,14 @@ void App::CreateGui() {
 //		notepad_.editor->setAutoFormatting(QTextEdit::AutoNone);
 		notepad_.splitter->addWidget(notepad_.editor);
 		notepad_.splitter->setSizes({1000, 0});
+		
+		{
+			MutexGuard guard(&view_files_.mutex);
+			view_files_.data.widgets_created = true;
+			int status = pthread_cond_signal(&view_files_.cond);
+			if (status != 0)
+				mtl_warn("%s", strerror(status));
+		}
 	}
 	
 	splitter->setStretchFactor(0, 1);
@@ -372,52 +448,106 @@ void App::GoBack() {
 	mtl_info();
 }
 
-bool App::GoTo(QString dir_path, bool reload)
+void App::GoHome() { GoTo(QDir::homePath()); }
+
+bool App::GoTo(QString dir_path, bool reload, QString scroll_to_and_select)
 {
-	if (!reload) {
-		if (table_model_->IsAt(dir_path))
-			return false;
-	}
+	GoToParams *params = new GoToParams();
+	params->app = this;
+	params->dir_path = dir_path;
+	params->reload = reload;
+	params->scroll_to_and_select = scroll_to_and_select;
 	
-	if (!dir_path.endsWith('/'))
-		dir_path.append('/');
-	
-	const auto start_time = std::chrono::steady_clock::now();
-	io::Files files;
-	io::Files *tfiles = table_model_->files();
-	{
-		MutexGuard guard(&tfiles->mutex);
-		files.sorting_order = tfiles->sorting_order;
-	}
-	files.show_hidden_files = prefs_.show_hidden_files;
-	files.dir_path = dir_path;
-	
-	if (io::ListFiles(files) != io::Err::Ok) {
-		return false;
-	}
-	
-	int count = files.vec.size();
-	table_model_->SwitchTo(files);
-	current_dir_ = dir_path;
-	const int row = 0;
-	QModelIndex index = table_model_->index(row, 0, QModelIndex());
-	table_->scrollTo(index);
-	auto now = std::chrono::steady_clock::now();
-	
-	const float elapsed = std::chrono::duration<float,
-		std::chrono::milliseconds::period>(now - start_time).count();
-	QString diff_str = io::FloatToString(elapsed, 2);
-	
-	QString title = QDir(dir_path).dirName() + QLatin1String(" (") +
-		QString::number(count) + QLatin1String("/") +
-		diff_str + QLatin1String(" ms)");
-	location_->SetLocation(dir_path);
-	setWindowTitle(title);
+	pthread_t th;
+	int status = pthread_create(&th, NULL, cornus::ListFilesTh, params);
+	if (status != 0)
+		mtl_warn("pthread_create: %s", strerror(errno));
 	
 	return true;
 }
 
-void App::GoToInitialDir() {
+void
+App::GoToFinish(cornus::io::FilesData *new_data)
+{
+	AutoDelete ad(new_data);
+	int count = new_data->vec.size();
+	table_model_->SwitchTo(new_data);
+	current_dir_ = new_data->dir_path;
+	
+	if (new_data->scroll_to_and_select.isEmpty())
+		table_->ScrollToRow(0);
+	
+	const QString dir_name = QDir(new_data->dir_path).dirName();
+	using Clock = std::chrono::steady_clock;
+	
+	if (new_data->start_time != std::chrono::time_point<Clock>::max())
+	{
+		auto now = std::chrono::steady_clock::now();
+		const float elapsed = std::chrono::duration<float,
+			std::chrono::milliseconds::period>(now - new_data->start_time).count();
+		QString diff_str = io::FloatToString(elapsed, 2);
+		
+		QString title = dir_name
+			+ QLatin1String(" (") + QString::number(count)
+			+ QChar('/') + diff_str + QLatin1String(" ms)");
+		setWindowTitle(title);
+	} else {
+		setWindowTitle(dir_name);
+	}
+	
+	location_->SetLocation(new_data->dir_path);
+	
+}
+
+void FigureOutSelectPath(QString &select_path, QString &go_to_path)
+{
+	if (select_path.isEmpty())
+		return;
+	
+	if (go_to_path.isEmpty()) {
+/// @go_to_path is empty
+/// @select_path is absolute path
+		if (!io::FileExists(select_path)) {
+			QString msg = "File to select doesn't exist:\n\""
+				+ select_path + QChar('\"');
+			mtl_printq(msg);
+			select_path.clear();
+			return;
+		}
+		
+		QDir parent_dir(select_path);
+		if (!parent_dir.cdUp()) {
+			mtl_warn("Can't access parent dir of file to select");
+			go_to_path = QDir::homePath();
+			select_path.clear();
+			return;
+		}
+		go_to_path = parent_dir.absolutePath();
+		return;
+	}
+	
+/// @go_to_path is NOT Empty
+	if (select_path.startsWith('/')) {
+		return;
+	}
+	
+	if (!go_to_path.endsWith('/'))
+		go_to_path.append('/');
+	
+	QString test_path = go_to_path + select_path;
+	
+	if (io::FileExists(test_path)) {
+		select_path = test_path;
+		return;
+	}
+	
+	if (!io::FileExists(go_to_path))
+		go_to_path = QDir::homePath();
+	select_path.clear();
+}
+
+void App::GoToInitialDir()
+{
 	const QStringList args = QCoreApplication::arguments();
 	
 	if (args.size() <= 1) {
@@ -462,73 +592,32 @@ void App::GoToInitialDir() {
 		}
 	}
 	
+	FigureOutSelectPath(cmds.select, cmds.go_to_path);
+	
 	if (!cmds.go_to_path.isEmpty()) {
 		io::FileType file_type;
 		if (!io::FileExists(cmds.go_to_path, &file_type)) {
 			QString msg = "Directory doesn't exist:\n\""
 				+ cmds.go_to_path + QChar('\"');
-			TellUser(msg);
-			GoHome();
+			mtl_printq(msg);
+			GoTo(QDir::homePath(), false, cmds.select);
 			return;
 		}
 		if (file_type == io::FileType::Dir) {
-			GoTo(cmds.go_to_path);
+			GoTo(cmds.go_to_path, false, cmds.select);
 		} else {
-			// go to parent dir of cmds.go_to_path and select file cmds.go_to_path
 			QDir parent_dir(cmds.go_to_path);
 			if (!parent_dir.cdUp()) {
 				QString msg = "Can't access parent dir of file:\n\"" +
 					cmds.go_to_path + QChar('\"');
-				TellUser(msg);
+				mtl_printq(msg);
 				GoHome();
 				return;
 			}
-			GoTo(parent_dir.absolutePath());
-			table_->ScrollToAndSelect(cmds.go_to_path);
+			GoTo(parent_dir.absolutePath(), false, cmds.go_to_path);
 			return;
 		}
 	}
-	
-	if (!cmds.select.isEmpty()) {
-		QString select_path;
-		if (cmds.go_to_path.isEmpty()) {
-			/// cmds.go_to_path should be the parent dir of cmds.select
-			if (!io::FileExists(cmds.select)) {
-				QString msg = "File to select doesn't exist:\n\""
-					+ cmds.select + QChar('\"');
-				TellUser(msg);
-				GoHome();
-				return;
-			}
-			QDir parent_dir(cmds.select);
-			if (!parent_dir.cdUp()) {
-				TellUser("Can't access parent dir of file to select");
-				GoHome();
-				return;
-			}
-			GoTo(parent_dir.absolutePath());
-			select_path = cmds.select;
-		} else {
-			/// select_path is relative to cmds.go_to_path
-			QString dir_path = cmds.go_to_path;
-			if (!dir_path.endsWith('/'))
-				dir_path.append('/');
-			select_path = dir_path + cmds.select;
-			if (!io::FileExists(select_path)) {
-				QString msg = "File to select doesn't exist:\n\""
-					+ select_path + QChar('\"');
-				TellUser(msg);
-				return;
-			}
-		}
-		
-		if (!select_path.isEmpty())
-			table_->ScrollToAndSelect(select_path);
-	}
-}
-
-void App::GoHome() {
-	GoTo(QDir::homePath());
 }
 
 void App::GoToAndSelect(const QString full_path)
@@ -537,14 +626,12 @@ void App::GoToAndSelect(const QString full_path)
 	QDir parent = info.dir();
 	CHECK_TRUE_VOID(parent.exists());
 	QString parent_dir = parent.absolutePath();
-	bool same;
-	CHECK_TRUE_VOID((io::SameFiles(parent_dir, current_dir_, same) == io::Err::Ok));
 	
-	if (!same) {
-		CHECK_TRUE_VOID(GoTo(parent_dir));
+	if (!io::SameFiles(parent_dir, current_dir_)) {
+		CHECK_TRUE_VOID(GoTo(parent_dir, false, full_path));
 	}
 	
-	table_->ScrollToAndSelect(full_path);
+//	table_->ScrollToAndSelect(full_path);
 }
 
 void App::GoUp() {
@@ -557,8 +644,8 @@ void App::GoUp() {
 		return;
 	
 	QString select_path = current_dir_;
-	GoTo(dir.absolutePath(), false);
-	table_->ScrollToAndSelect(select_path);
+	GoTo(dir.absolutePath(), false, select_path);
+	//table_->ScrollToAndSelect();
 }
 
 void App::IconByTruncName(io::File &file, const QString &truncated, QIcon **ret_icon) {
@@ -775,7 +862,7 @@ void App::RegisterShortcuts() {
 	connect(shortcut, &QShortcut::activated, [=] {
 		table_->setFocus();
 		QVector<int> indices;
-		MutexGuard guard(&table_model_->files()->mutex);
+		MutexGuard guard(&view_files_.mutex);
 		table_->SelectAllFilesNTS(true, indices);
 		table_model_->UpdateIndices(indices);
 	});
@@ -1020,15 +1107,10 @@ void App::SetupEnvSearchPaths()
 	
 }
 
-void App::TellUser(const QString &msg, const QString title) {
-	QMessageBox::warning(this, title, msg);
-}
-
 void App::SwitchExecBitOfSelectedFiles() {
-	io::Files *files = table_model_->files();
-	MutexGuard guard(&files->mutex);
+	MutexGuard guard(&view_files_.mutex);
 	const auto ExecBits = S_IXUSR | S_IXGRP | S_IXOTH;
-	for (io::File *next: files->vec) {
+	for (io::File *next: view_files_.data.vec) {
 		if (next->selected()) {
 			mode_t mode = next->mode();
 			if (mode & ExecBits)
@@ -1042,6 +1124,26 @@ void App::SwitchExecBitOfSelectedFiles() {
 			}
 		}
 	}
+}
+
+void App::TellUser(const QString &msg, const QString title) {
+	QMessageBox::warning(this, title, msg);
+}
+
+bool App::ViewIsAt(const QString &dir_path) const
+{
+	QString old_dir_path;
+	{
+		MutexGuard guard(&view_files_.mutex);
+		old_dir_path = view_files_.data.dir_path;
+		
+	}
+	
+	if (old_dir_path.isEmpty()) {
+		return false;
+	}
+	
+	return io::SameFiles(dir_path, old_dir_path);
 }
 
 }

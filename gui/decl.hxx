@@ -28,7 +28,7 @@ struct SidePaneItems {
 		return status;
 	}
 	
-	int Unlock() {
+	inline int Unlock() {
 		return pthread_mutex_unlock(&mutex);
 	}
 };

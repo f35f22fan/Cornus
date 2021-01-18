@@ -44,9 +44,6 @@ public:
 	QVariant
 	data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 	
-	cornus::io::Files*
-	files() { return &files_; }
-	
 	QVariant
 	headerData(int section, Qt::Orientation orientation, int role) const override;
 	
@@ -65,7 +62,6 @@ public:
 		return true;
 	}
 	
-	bool IsAt(const QString &dir_path) const;
 	Notify& notify() { return notify_; }
 	
 	virtual bool removeRows(int row, int count, const QModelIndex &parent) override;
@@ -75,8 +71,8 @@ public:
 	}
 	
 	void set_scroll_to_and_select(const QString &s) { scroll_to_and_select_ = s; }
-	void SwitchTo(io::Files &new_files);
-	void UpdateIndices(const QVector<int> indices);
+	void SwitchTo(io::FilesData *new_data);
+	void UpdateIndices(const QVector<int> &indices);
 	void UpdateRange(int row1, Column c1, int row2, Column c2);
 	void UpdateSingleRow(int row) {
 		UpdateRange(row, Column::Icon, row, Column(i8(Column::Count) - 1));
@@ -94,7 +90,6 @@ public slots:
 private:
 	
 	cornus::App *app_ = nullptr;
-	mutable cornus::io::Files files_;
 	Notify notify_ = {};
 	QString scroll_to_and_select_;
 };

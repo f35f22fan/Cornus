@@ -24,11 +24,11 @@ void Delete(io::File *file) {
 	}
 	
 	io::Files files;
-	files.dir_path = file->build_full_path();
-	files.show_hidden_files = true;
-	CHECK_TRUE_VOID((ListFiles(files) == io::Err::Ok));
+	files.data.dir_path = file->build_full_path();
+	files.data.show_hidden_files = true;
+	CHECK_TRUE_VOID((ListFiles(files.data, &files) == io::Err::Ok));
 	
-	for (io::File *next: files.vec) {
+	for (io::File *next: files.data.vec) {
 		if (next->is_dir()) {
 			Delete(next);
 		}
@@ -179,20 +179,20 @@ ListFileNames(const QString &full_dir_path, QVector<QString> &vec)
 }
 
 io::Err
-ListFiles(io::Files &files, FilterFunc ff)
+ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 {
-	if (!files.dir_path.endsWith('/'))
-		files.dir_path.append('/');
+	if (!data.dir_path.endsWith('/'))
+		data.dir_path.append('/');
 	
-	auto dir_path_ba = files.dir_path.toLocal8Bit();
+	auto dir_path_ba = data.dir_path.toLocal8Bit();
 	DIR *dp = opendir(dir_path_ba.data());
 	
 	if (dp == NULL) {
-		mtl_printq2("Can't list dir: ", files.dir_path);
+		mtl_printq2("Can't list dir: ", data.dir_path);
 		return MapPosixError(errno);
 	}
 	
-	const bool hide_hidden_files = !files.show_hidden_files;
+	const bool hide_hidden_files = !data.show_hidden_files;
 	struct dirent *entry;
 	struct statx stx;
 	const auto flags = AT_SYMLINK_NOFOLLOW;
@@ -209,10 +209,10 @@ ListFiles(io::Files &files, FilterFunc ff)
 		if (hide_hidden_files && name.startsWith('.'))
 			continue;
 		
-		if (ff != nullptr && !ff(files.dir_path, name))
+		if (ff != nullptr && !ff(data.dir_path, name))
 			continue;
 		
-		QString full_path = files.dir_path + name;
+		QString full_path = data.dir_path + name;
 		auto ba = full_path.toLocal8Bit();
 		
 		if (statx(0, ba.data(), flags, fields, &stx) != 0) {
@@ -220,20 +220,20 @@ ListFiles(io::Files &files, FilterFunc ff)
 			continue;
 		}
 		
-		auto *file = new io::File(&files);
+		auto *file = new io::File(ptr);
 		FillInStx(*file, stx, &name);
 		
 		if (file->is_symlink()) {
 			auto *target = new LinkTarget();
-			ReadLink(ba.data(), *target, files.dir_path);
+			ReadLink(ba.data(), *target, data.dir_path);
 			file->link_target_ = target;
 		}
 		
-		files.vec.append(file);
+		data.vec.append(file);
 	}
 	
 	closedir(dp);
-	std::sort(files.vec.begin(), files.vec.end(), cornus::io::SortFiles);
+	std::sort(data.vec.begin(), data.vec.end(), cornus::io::SortFiles);
 	
 	return Err::Ok;
 }
@@ -403,7 +403,7 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	
 	while (so_far < MAX) {
 		isize ret = read(fd, buf + so_far, MAX - so_far);
-		mtl_info("Read: %ld", ret);
+//		mtl_info("Read: %ld", ret);
 		if (ret == -1) {
 			if (errno == EAGAIN)
 				continue;
@@ -412,8 +412,8 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 			close(fd);
 			return e;
 		} else if (ret == 0) {
-			// zero indicates the end of file
-			mtl_info("GOT zero!!!!");
+			// zero indicates the end of file, happens with
+			// virtual kernel generated files.
 			break;
 		}
 		
@@ -444,25 +444,32 @@ bool ReloadMeta(io::File &file)
 	return true;
 }
 
-io::Err
-SameFiles(const QString &path1, const QString &path2, bool &same)
+bool
+SameFiles(const QString &path1, const QString &path2, io::Err *ret_error)
 {
 	struct stat st;
 	auto ba = path1.toLocal8Bit();
 	
-	if (lstat(ba.data(), &st) == -1)
-		return MapPosixError(errno);
+	if (lstat(ba.data(), &st) == -1) {
+		if (ret_error != nullptr)
+			*ret_error = MapPosixError(errno);
+		return false;
+	}
 	
 	auto id1 = FileID::New(st);
 	ba = path2.toLocal8Bit();
 	
-	if (lstat(ba.data(), &st) == -1)
-		return MapPosixError(errno);
+	if (lstat(ba.data(), &st) == -1) {
+		if (ret_error != nullptr)
+			*ret_error = MapPosixError(errno);
+		return false;
+	}
+	
+	if (ret_error != nullptr)
+		*ret_error = io::Err::Ok;
 	
 	auto id2 = FileID::New(st);
-	same = id1 == id2;
-	
-	return io::Err::Ok;
+	return id1 == id2;
 }
 
 bool
@@ -472,7 +479,7 @@ SortFiles(io::File *a, io::File *b)
   otherwise it randomly crashes (because of undefined behavior),
   more info here:
  https://stackoverflow.com/questions/979759/operator-and-strict-weak-ordering/981299#981299 */
-	const SortingOrder order = a->files()->sorting_order;
+	const SortingOrder order = a->files()->data.sorting_order;
 	
 	if (a->is_dir_or_so() && !b->is_dir_or_so())
 		return true;

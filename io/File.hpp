@@ -62,7 +62,7 @@ public:
 	void dir_path(const QString &s) { dp_ = s; }
 	
 	const QString& dir_path() const {
-		return (files_ == nullptr) ? dp_ : files_->dir_path; }
+		return (files_ == nullptr) ? dp_ : files_->data.dir_path; }
 	
 	io::Files* files() const { return files_; }
 	
@@ -108,7 +108,7 @@ private:
 	u8 bits_ = 0;
 	FileType type_ = FileType::Unknown;
 	
-	friend io::Err io::ListFiles(io::Files &files, FilterFunc ff);
+	friend io::Err io::ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff);
 	friend class cornus::gui::TableModel;
 };
 

@@ -15,7 +15,7 @@ namespace cornus::gui {
 class Table : public QTableView {
 	Q_OBJECT
 public:
-	Table(TableModel *tm);
+	Table(TableModel *tm, App *app);
 	virtual ~Table();
 	
 	TableModel* model() const { return table_model_; }
@@ -26,6 +26,7 @@ public:
 	QString GetFirstSelectedFileFullPath(QString *ext);
 	int GetSelectedFilesCount();
 	void ProcessAction(const QString &action);
+	void ScrollToRow(const int row);
 	void ScrollToAndSelectRow(const int row, const bool deselect_others);
 	void SelectAllFilesNTS(const bool flag, QVector<int> &indices);
 	void SelectRowSimple(const int row, const bool deselect_others = false);
@@ -51,6 +52,7 @@ private:
 	void ShowRightClickMenu(const QPoint &pos);
 	void SortingChanged(int logical, Qt::SortOrder order);
 	
+	App *app_ = nullptr;
 	TableModel *table_model_ = nullptr;
 	TableDelegate *delegate_ = nullptr;
 	

@@ -15,6 +15,9 @@
 #include <type_traits>
 
 namespace cornus::gui {
+namespace sidepane {
+	void* LoadItems(void *args);
+}
 
 struct UpdateSidePaneArgs {
 	QVector<int> indices;
@@ -22,9 +25,14 @@ struct UpdateSidePaneArgs {
 	i32 new_count = -1;
 	i32 dir_id = -1;
 };
+
+struct InsertArgs {
+	QVector<gui::SidePaneItem*> vec;
+};
 }
 
 Q_DECLARE_METATYPE(cornus::gui::UpdateSidePaneArgs);
+Q_DECLARE_METATYPE(cornus::gui::InsertArgs);
 
 namespace cornus::gui {
 
@@ -36,9 +44,6 @@ public:
 	virtual ~SidePaneModel();
 	
 	cornus::App* app() const { return app_; }
-	
-	cornus::gui::SidePaneItems& items() { return items_; }
-	
 	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
 	int columnCount(const QModelIndex &parent = QModelIndex()) const override
 	{ return 1; }
@@ -84,12 +89,12 @@ public:
 	
 public slots:
 	void UpdateTable(cornus::gui::UpdateSidePaneArgs args);
+	void InsertFromAnotherThread(cornus::gui::InsertArgs args);
 	
 private:
 	
 	cornus::App *app_ = nullptr;
 	cornus::gui::SidePane *side_pane_ = nullptr;
-	mutable cornus::gui::SidePaneItems items_ = {};
 };
 
 

@@ -15,6 +15,61 @@
 //#define DEBUG_INOTIFY
 
 namespace cornus::gui {
+namespace sidepane {
+void* LoadItems(void *args)
+{
+	pthread_detach(pthread_self());
+	cornus::App *app = (cornus::App*) args;
+	ByteArray buf;
+	if (io::ReadFile(QLatin1String("/proc/mounts"), buf) != io::Err::Ok)
+		return nullptr;
+	
+ mtl_info("Have read: %ld bytes", buf.size());
+	QString s = QString::fromLocal8Bit(buf.data(), buf.size());
+	auto list = s.splitRef('\n');
+	const QString prefix = QLatin1String("/dev/sd");
+	const QString skip_mount = QLatin1String("/boot/");
+	InsertArgs method_args;
+	
+	for (auto &line: list)
+	{
+		if (!line.startsWith(prefix))
+			continue;
+		
+		auto args = line.split(" ");
+		QStringRef mount_path = args[1];
+		
+		if (mount_path.startsWith(skip_mount))
+			continue;
+		
+		auto *p = new gui::SidePaneItem();
+		p->dev_path(args[0].toString());
+		p->mount_path(mount_path.toString());
+		p->fs(args[2].toString());
+		p->type(gui::SidePaneItemType::Partition);
+		p->Init();
+		method_args.vec.append(p);
+	}
+	
+	SidePaneItems &items = app->side_pane_items();
+	items.Lock();
+	while (!items.widgets_created) {
+		int status = pthread_cond_wait(&items.cond, &items.mutex);
+		if (status != 0) {
+			mtl_warn("pthread_cond_wait: %s", strerror(status));
+			break;
+		}
+	}
+	//mtl_info("widgets created: %s", items.widgets_created ? "true": "false");
+	items.Unlock();
+	
+	QMetaObject::invokeMethod(app->side_pane_model(),
+		"InsertFromAnotherThread",
+		Q_ARG(cornus::gui::InsertArgs, method_args));
+	
+	return nullptr;
+}
+}
 
 struct WatchArgs {
 	i32 dir_id = 0;
@@ -283,15 +338,11 @@ void* WatchDir(void *void_args)
 SidePaneModel::SidePaneModel(cornus::App *app): app_(app)
 {
 	qRegisterMetaType<cornus::gui::UpdateSidePaneArgs>();
+	qRegisterMetaType<cornus::gui::InsertArgs>();
 }
 
 SidePaneModel::~SidePaneModel()
 {
-	MutexGuard guard(&items_.mutex);
-	for (auto *item: items_.vec)
-		delete item;
-	
-	items_.vec.clear();
 }
 
 QModelIndex
@@ -303,8 +354,9 @@ SidePaneModel::index(int row, int column, const QModelIndex &parent) const
 int
 SidePaneModel::rowCount(const QModelIndex &parent) const
 {
-	MutexGuard guard(&items_.mutex);
-	return items_.vec.size();
+	gui::SidePaneItems &items = app_->side_pane_items();
+	MutexGuard guard(&items.mutex);
+	return items.vec.size();
 }
 
 QVariant
@@ -318,7 +370,8 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 	if (role == Qt::TextAlignmentRole) {}
 	
 	const int row = index.row();
-	gui::SidePaneItem *item = items_.vec[row];
+	gui::SidePaneItems &items = app_->side_pane_items();
+	gui::SidePaneItem *item = items.vec[row];
 	
 	if (role == Qt::DisplayRole)
 	{
@@ -345,12 +398,19 @@ SidePaneModel::headerData(int section_i, Qt::Orientation orientation, int role) 
 	return {};
 }
 
+void
+SidePaneModel::InsertFromAnotherThread(cornus::gui::InsertArgs args)
+{
+	InsertRows(0, args.vec);
+}
+
 bool
 SidePaneModel::InsertRows(const i32 at, const QVector<gui::SidePaneItem*> &items_to_add)
 {
 	{
-		MutexGuard guard(&items_.mutex);
-		if (at > items_.vec.size()) {
+		gui::SidePaneItems &items = app_->side_pane_items();
+		MutexGuard guard(&items.mutex);
+		if (at > items.vec.size()) {
 			mtl_trace();
 			return false;
 		}
@@ -360,11 +420,12 @@ SidePaneModel::InsertRows(const i32 at, const QVector<gui::SidePaneItem*> &items
 	beginInsertRows(QModelIndex(), first, last);
 
 	{
-		MutexGuard guard(&items_.mutex);
+		gui::SidePaneItems &items = app_->side_pane_items();
+		MutexGuard guard(&items.mutex);
 		for (i32 i = 0; i < items_to_add.size(); i++)
 		{
-			auto *song = items_to_add[i];
-			items_.vec.insert(at + i, song);
+			auto *item = items_to_add[i];
+			items.vec.insert(at + i, item);
 		}
 	}
 	
@@ -383,8 +444,9 @@ SidePaneModel::removeRows(int row, int count, const QModelIndex &parent)
 	const int last = row + count - 1;
 	
 	beginRemoveRows(QModelIndex(), first, last);
-	MutexGuard guard(&items_.mutex);
-	auto &vec = items_.vec;
+	gui::SidePaneItems &items = app_->side_pane_items();
+	MutexGuard guard(&items.mutex);
+	auto &vec = items.vec;
 	
 	for (int i = count - 1; i >= 0; i--) {
 		const i32 index = first + i;
@@ -445,12 +507,6 @@ SidePaneModel::UpdateRange(int row1, int row2)
 void
 SidePaneModel::UpdateTable(UpdateSidePaneArgs args)
 {
-	{
-//		MutexGuard guard(&items_.mutex);
-//		if (args.dir_id != items_.dir_id)
-//			return;
-	}
-	
 	i32 added = args.new_count - args.prev_count;
 	
 	if (added > 0) {

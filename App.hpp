@@ -40,10 +40,12 @@ public:
 	ExecInfo QueryExecInfo(const QString &full_path, const QString &ext);
 	void RenameSelectedFile();
 	void RunExecutable(const QString &full_path, const ExecInfo &info);
+	gui::SidePaneItems& side_pane_items() { return side_pane_items_; }
+	gui::SidePaneModel* side_pane_model() const { return side_pane_model_; }
 	void SwitchExecBitOfSelectedFiles();
 	gui::Table* table() const { return table_; }
 	void TellUser(const QString &msg, const QString title = QString());
-	
+
 private:
 	NO_ASSIGN_COPY_MOVE(App);
 	
@@ -87,6 +89,13 @@ private:
 	
 	gui::SidePane *side_pane_ = nullptr;
 	gui::SidePaneModel *side_pane_model_ = nullptr;
+	mutable cornus::gui::SidePaneItems side_pane_items_ = {};
+//	struct SidePane {
+//		gui::SidePane *pane = nullptr;
+//		gui::SidePaneModel *model = nullptr;
+//		pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+//		pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+//	};
 	
 	struct Notepad {
 		QSplitter *splitter = nullptr;

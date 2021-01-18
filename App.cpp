@@ -50,12 +50,16 @@ namespace cornus {
 
 App::App(): app_icon_(QLatin1String(":/resources/cornus.png"))
  {
+	pthread_t th;
+	int status = pthread_create(&th, NULL, gui::sidepane::LoadItems, this);
+	if (status != 0)
+		mtl_warn("%s", strerror(status));
+	
 	SetupIconNames();
 	SetupEnvSearchPaths();
 	CreateGui();
 	GoToInitialDir();
 	RegisterShortcuts();
-	LoadSidePaneItems();
 	setWindowIcon(app_icon_);
 	resize(900, 700);
 	table_->setFocus();
@@ -68,6 +72,12 @@ App::~App() {
 		QIcon *icon = i.value();
 		delete icon;
 	}
+	
+	MutexGuard guard(&side_pane_items_.mutex);
+	for (auto *item: side_pane_items_.vec)
+		delete item;
+	
+	side_pane_items_.vec.clear();
 }
 
 void
@@ -168,10 +178,22 @@ void App::CreateGui() {
 	QSplitter *splitter = new QSplitter(Qt::Horizontal);
 	setCentralWidget(splitter);
 	
-	side_pane_model_ = new gui::SidePaneModel(this);
-	side_pane_ = new gui::SidePane(side_pane_model_);
-	side_pane_model_->SetSidePane(side_pane_);
-	splitter->addWidget(side_pane_);
+	{
+		side_pane_model_ = new gui::SidePaneModel(this);
+		side_pane_ = new gui::SidePane(side_pane_model_, this);
+		side_pane_model_->SetSidePane(side_pane_);
+		splitter->addWidget(side_pane_);
+		{
+			auto &items = side_pane_items();
+			MutexGuard guard(&items.mutex);
+			items.widgets_created = true;
+			int status = pthread_cond_signal(&items.cond);
+			if (status != 0)
+				mtl_warn("pthread_cond_signal: %s", strerror(status));
+		}
+		
+		// pthread was created here
+	}
 	
 	{
 		table_model_ = new gui::TableModel(this);
@@ -600,42 +622,6 @@ void App::LoadIcon(io::File &file)
 	}
 	
 	SetDefaultIcon(file);
-}
-
-void App::LoadSidePaneItems()
-{
-	ByteArray buf;
-	if (io::ReadFile(QLatin1String("/proc/mounts"), buf) != io::Err::Ok)
-		return;
-	
-/// mtl_info("Have read: %ld bytes", buf.size());
-	QString s = QString::fromLocal8Bit(buf.data(), buf.size());
-	auto list = s.splitRef('\n');
-	const QString prefix = QLatin1String("/dev/sd");
-	const QString skip_mount = QLatin1String("/boot/");
-	QVector<gui::SidePaneItem*> vec;
-	
-	for (auto &line: list)
-	{
-		if (!line.startsWith(prefix))
-			continue;
-		
-		auto args = line.split(" ");
-		QStringRef mount_path = args[1];
-		
-		if (mount_path.startsWith(skip_mount))
-			continue;
-		
-		auto *p = new gui::SidePaneItem();
-		p->dev_path(args[0].toString());
-		p->mount_path(mount_path.toString());
-		p->fs(args[2].toString());
-		p->type(gui::SidePaneItemType::Partition);
-		p->Init();
-		vec.append(p);
-	}
-	
-	side_pane_model_->InsertRows(0, vec);
 }
 
 void App::OpenTerminal() {

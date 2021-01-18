@@ -42,7 +42,9 @@ public:
 	double next_f64();
 	QString next_string();
 	
-	usize size() const { return size_; }
+	usize alloc_size() const { return size_; }
+	usize size() const { return at_; }
+	void size(usize n) { at_ = n; } // called from inside io::ReadFile(..);
 	void to(const usize n) { at_ = n; }
 
 private:

@@ -94,6 +94,26 @@ ByteArray::alloc(const usize exact_size)
 }
 
 void
+ByteArray::make_sure(const usize more_bytes)
+{
+	const usize new_size = at_ + more_bytes;
+	
+	if (new_size > heap_size_) {
+		if (data_ == nullptr) {
+			heap_size_ = more_bytes;// * 64;
+			data_ = new char[heap_size_];
+		} else {
+			heap_size_ = new_size * 1.3;
+			char *p = new char[heap_size_];
+			memcpy(p, data_, at_);
+			delete[] data_;
+			data_ = p;
+		}
+		
+	}
+}
+
+void
 ByteArray::next(char *p, const usize sz) {
 	memcpy(p, data_ + at_, sz);
 	at_ += sz;
@@ -180,26 +200,6 @@ ByteArray::next_string()
 	at_ += size;
 	size_ += size;
 	return s;
-}
-
-void
-ByteArray::make_sure(const usize more_bytes)
-{
-	const usize new_size = at_ + more_bytes;
-	
-	if (new_size > heap_size_) {
-		if (data_ == nullptr) {
-			heap_size_ = more_bytes;// * 64;
-			data_ = new char[heap_size_];
-		} else {
-			heap_size_ = new_size * 1.3;
-			char *p = new char[heap_size_];
-			memcpy(p, data_, at_);
-			delete[] data_;
-			data_ = p;
-		}
-		
-	}
 }
 
 }

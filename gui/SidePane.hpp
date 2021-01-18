@@ -15,7 +15,7 @@ namespace cornus::gui {
 class SidePane : public QTableView {
 	Q_OBJECT
 public:
-	SidePane(SidePaneModel *tm);
+	SidePane(SidePaneModel *tm, App *app);
 	virtual ~SidePane();
 	
 	SidePaneModel* model() const { return model_; }
@@ -43,7 +43,7 @@ private:
 	void ShowRightClickMenu(const QPoint &pos);
 	
 	SidePaneModel *model_ = nullptr;
-	
+	App *app_ = nullptr;
 	int drop_y_coord_ = -1;
 	
 };

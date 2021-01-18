@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../types.hxx"
+#include "../err.hpp"
 
 #include <QMap>
 #include <pthread.h>
@@ -17,9 +17,21 @@ class ToolBar;
 
 struct SidePaneItems {
 	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+	bool widgets_created = false;
 	QVector<SidePaneItem*> vec;
+	
+	inline int Lock() {
+		int status = pthread_mutex_lock(&mutex);
+		if (status != 0)
+			mtl_warn("pthreads_mutex_lock: %s", strerror(status));
+		return status;
+	}
+	
+	int Unlock() {
+		return pthread_mutex_unlock(&mutex);
+	}
 };
-
 
 enum class Column : i8 {
 	Icon = 0,

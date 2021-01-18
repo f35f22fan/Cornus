@@ -389,7 +389,7 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 		std::min(read_max, st.st_size);
 	
 	if (MAX <= 0) {
-		MAX = 1024 * 64;
+		MAX = 1024 * 10;
 	}
 	
 	buffer.alloc(MAX);
@@ -403,7 +403,7 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	
 	while (so_far < MAX) {
 		isize ret = read(fd, buf + so_far, MAX - so_far);
-		
+		mtl_info("Read: %ld", ret);
 		if (ret == -1) {
 			if (errno == EAGAIN)
 				continue;
@@ -413,6 +413,7 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 			return e;
 		} else if (ret == 0) {
 			// zero indicates the end of file
+			mtl_info("GOT zero!!!!");
 			break;
 		}
 		
@@ -420,6 +421,7 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	}
 	
 	close(fd);
+	buffer.size(so_far);
 	
 	return Err::Ok;
 }

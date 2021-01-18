@@ -32,8 +32,8 @@
 
 namespace cornus::gui {
 
-SidePane::SidePane(SidePaneModel *tm) :
-model_(tm)
+SidePane::SidePane(SidePaneModel *tm, App *app) :
+model_(tm), app_(app)
 {
 	setModel(model_);
 	setAlternatingRowColors(true);
@@ -146,7 +146,8 @@ SidePane::GetItemAtNTS(const QPoint &pos, bool clone, int *ret_index)
 	if (row == -1)
 		return nullptr;
 	
-	auto &vec = model_->items().vec;
+	SidePaneItems &items = app_->side_pane_items();
+	auto &vec = items.vec;
 	if (row >= vec.size())
 		return nullptr;
 	
@@ -193,7 +194,7 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 	int row;
 	SidePaneItem *cloned_item = nullptr;
 	{
-		auto &items = model_->items();
+		SidePaneItems &items = app_->side_pane_items();
 		MutexGuard guard(&items.mutex);
 		cloned_item = GetItemAtNTS(evt->pos(), true &row);
 		
@@ -269,7 +270,7 @@ SidePane::ScrollToAndSelect(QString name)
 {
 	int row = -1;
 	{
-		auto &items = model_->items();
+		SidePaneItems &items = app_->side_pane_items();
 		MutexGuard guard(&items.mutex);
 		auto &vec = items.vec;
 		
@@ -293,7 +294,7 @@ SidePane::ScrollToAndSelect(QString name)
 
 void
 SidePane::SelectRowSimple(const int row) {
-	SidePaneItems &items = model_->items();
+	SidePaneItems &items = app_->side_pane_items();
 	bool update = false;
 	{
 		MutexGuard guard(&items.mutex);

@@ -114,7 +114,7 @@ void* ListFilesTh(void *p)
 	return nullptr;
 }
 
-App::App(): app_icon_(QLatin1String(":/resources/cornus.png"))
+App::App(): app_icon_(QLatin1String(":/resources/cornus.webp"))
 {
 	qRegisterMetaType<cornus::io::FilesData*>();
 	
@@ -242,15 +242,16 @@ App::AskCreateNewFile(io::File *file, const QString &title)
 	}
 }
 
-void App::CreateGui() {
-	QSplitter *splitter = new QSplitter(Qt::Horizontal);
-	setCentralWidget(splitter);
+void App::CreateGui()
+{
+	main_splitter_ = new QSplitter(Qt::Horizontal);
+	setCentralWidget(main_splitter_);
 	
 	{
 		side_pane_model_ = new gui::SidePaneModel(this);
 		side_pane_ = new gui::SidePane(side_pane_model_, this);
 		side_pane_model_->SetSidePane(side_pane_);
-		splitter->addWidget(side_pane_);
+		main_splitter_->addWidget(side_pane_);
 		{
 			auto &items = side_pane_items();
 			MutexGuard guard(&items.mutex);
@@ -259,8 +260,6 @@ void App::CreateGui() {
 			if (status != 0)
 				mtl_warn("pthread_cond_signal: %s", strerror(status));
 		}
-		
-		// pthread was created here
 	}
 	
 	{
@@ -268,7 +267,7 @@ void App::CreateGui() {
 		table_ = new gui::Table(table_model_, this);
 		
 		notepad_.splitter = new QSplitter(Qt::Vertical);
-		splitter->addWidget(notepad_.splitter);
+		main_splitter_->addWidget(notepad_.splitter);
 		notepad_.splitter->addWidget(table_);
 		notepad_.editor = new QPlainTextEdit();
 //		notepad_.editor->setAcceptRichText(false);
@@ -285,8 +284,9 @@ void App::CreateGui() {
 		}
 	}
 	
-	splitter->setStretchFactor(0, 1);
-	splitter->setStretchFactor(1, 5);
+	main_splitter_->setStretchFactor(0, 0);
+	main_splitter_->setStretchFactor(1, 1);
+	main_splitter_->setSizes({170, 1000});
 	
 	toolbar_ = new gui::ToolBar(this);
 	location_ = toolbar_->location();
@@ -477,7 +477,10 @@ App::GoToFinish(cornus::io::FilesData *new_data)
 	if (new_data->scroll_to_and_select.isEmpty())
 		table_->ScrollToRow(0);
 	
-	const QString dir_name = QDir(new_data->dir_path).dirName();
+	QString dir_name = QDir(new_data->dir_path).dirName();
+	if (dir_name.isEmpty())
+		dir_name = new_data->dir_path; // likely "/"
+	
 	using Clock = std::chrono::steady_clock;
 	
 	if (new_data->start_time != std::chrono::time_point<Clock>::max())
@@ -496,7 +499,7 @@ App::GoToFinish(cornus::io::FilesData *new_data)
 	}
 	
 	location_->SetLocation(new_data->dir_path);
-	
+	side_pane_->SelectItemByFilePath(new_data->dir_path);
 }
 
 void FigureOutSelectPath(QString &select_path, QString &go_to_path)

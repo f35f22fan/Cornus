@@ -16,9 +16,11 @@ public:
 	gui::Location* location() const { return location_; }
 	
 private:
+	void Add(QMenu *menu, const QString &icon_name, const QString &text, const QString &action_name);
 	QAction *Add(const QString &icon_name, const QString &action_name);
 	void CreateGui();
 	void ProcessAction(const QString &action);
+	void ShowAboutThisAppDialog();
 	
 	QVector<QAction*> actions_;
 	cornus::App *app_ = nullptr;

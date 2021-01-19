@@ -39,13 +39,14 @@ public:
 	void GoUp();
 	void LoadIcon(io::File &file);
 	gui::Location* location() { return location_; }
+	QSplitter* main_splitter() const { return main_splitter_; }
 	void OpenTerminal();
 	Prefs& prefs() { return prefs_; }
 	inline ExecInfo QueryExecInfo(io::File &file);
 	ExecInfo QueryExecInfo(const QString &full_path, const QString &ext);
 	void RenameSelectedFile();
 	void RunExecutable(const QString &full_path, const ExecInfo &info);
-	gui::SidePaneItems& side_pane_items() { return side_pane_items_; }
+	gui::SidePaneItems& side_pane_items() const { return side_pane_items_; }
 	gui::SidePaneModel* side_pane_model() const { return side_pane_model_; }
 	void SwitchExecBitOfSelectedFiles();
 	gui::Table* table() const { return table_; }
@@ -103,12 +104,7 @@ private:
 	gui::SidePane *side_pane_ = nullptr;
 	gui::SidePaneModel *side_pane_model_ = nullptr;
 	mutable cornus::gui::SidePaneItems side_pane_items_ = {};
-//	struct SidePane {
-//		gui::SidePane *pane = nullptr;
-//		gui::SidePaneModel *model = nullptr;
-//		pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-//		pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-//	};
+	QSplitter *main_splitter_ = nullptr;
 	
 	struct Notepad {
 		QSplitter *splitter = nullptr;

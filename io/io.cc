@@ -472,6 +472,32 @@ SameFiles(const QString &path1, const QString &path2, io::Err *ret_error)
 	return id1 == id2;
 }
 
+QString
+SizeToString(const i64 sz)
+{
+	float rounded;
+	QString type;
+	if (sz >= io::TiB) {
+		rounded = sz / io::TiB;
+		type = QLatin1String(" TiB");
+	}
+	else if (sz >= io::GiB) {
+		rounded = sz / io::GiB;
+		type = QLatin1String(" GiB");
+	} else if (sz >= io::MiB) {
+		rounded = sz / io::MiB;
+		type = QLatin1String(" MiB");
+	} else if (sz >= io::KiB) {
+		rounded = sz / io::KiB;
+		type = QLatin1String(" KiB");
+	} else {
+		rounded = sz;
+		type = QLatin1String(" bytes");
+	}
+	
+	return io::FloatToString(rounded, 1) + type;
+}
+
 bool
 SortFiles(io::File *a, io::File *b) 
 {

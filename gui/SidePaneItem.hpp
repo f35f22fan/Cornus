@@ -28,6 +28,9 @@ public:
 	const QString& mount_path() const { return mount_path_; }
 	void mount_path(const QString &s) { mount_path_ = s;}
 	
+	bool selected() const { return selected_; }
+	void selected(const bool flag) { selected_ = flag; }
+	
 	QString table_name() { return table_name_; }
 	void table_name(const QString &s) { table_name_ = s; }
 	
@@ -35,10 +38,15 @@ public:
 	
 private:
 	
+	void ReadSize();
+	
 	QString table_name_;
 	QString dev_path_;
 	QString mount_path_;
 	QString fs_;
+	i64 size_ = -1;
+	QString size_str_;
 	SidePaneItemType type_ = SidePaneItemType::None;
+	bool selected_ = false;
 };
 }

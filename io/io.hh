@@ -124,6 +124,9 @@ bool ReloadMeta(io::File &file);
 bool SameFiles(const QString &path1, const QString &path2,
 	io::Err *ret_error = nullptr);
 
+QString
+SizeToString(const i64 sz);
+
 bool
 SortFiles(File *a, File *b);
 

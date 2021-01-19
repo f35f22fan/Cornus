@@ -8,4 +8,9 @@ static const QString RenameFile = QLatin1String("RenameFile"); // also used for 
 static const QString OpenTerminal = QLatin1String("OpenTerminal");
 static const QString RunExecutable = QLatin1String("RunExecutable");
 static const QString SwitchExecBit = QLatin1String("SwitchExecBit");
+static const QString AboutThisApp = QLatin1String("AboutThisApp");
+static const QString GoHome = QLatin1String("Go Home");
+static const QString GoBack = QLatin1String("Go Back");
+static const QString GoUp = QLatin1String("Go Up");
+static const QString Preferences = QLatin1String("Prefs");
 }

@@ -50,7 +50,7 @@ model_(tm), app_(app)
 	resizeColumnsToContents();
 	//setShowGrid(false);
 	setSelectionBehavior(QAbstractItemView::SelectRows);
-	setSelectionMode(QAbstractItemView::ExtendedSelection);
+	setSelectionMode(QAbstractItemView::NoSelection);//ExtendedSelection);
 //	setDragDropOverwriteMode(false);
 //	setDropIndicatorShown(true);
 	
@@ -59,6 +59,27 @@ model_(tm), app_(app)
 
 SidePane::~SidePane() {
 	delete model_;
+}
+
+void SidePane::DeselectAllItems(const int except_row, const bool row_flag,
+QVector<int> &indices) {
+	auto &items = this->items();
+	MutexGuard guard(&items.mutex);
+	
+	int i = 0;
+	for (SidePaneItem *next: items.vec) {
+		if (i == except_row) {
+			next->selected(row_flag);
+			indices.append(i);
+		} else {
+			if (next->selected()) {
+				next->selected(false);
+				indices.append(i);
+			}
+		}
+		
+		i++;
+	}
 }
 
 void
@@ -159,6 +180,9 @@ SidePane::GetItemAtNTS(const QPoint &pos, bool clone, int *ret_index)
 	return vec[row];
 }
 
+gui::SidePaneItems&
+SidePane::items() const { return app_->side_pane_items(); }
+
 void
 SidePane::keyPressEvent(QKeyEvent *event)
 {
@@ -188,15 +212,19 @@ SidePane::mouseDoubleClickEvent(QMouseEvent *evt)
 void
 SidePane::mousePressEvent(QMouseEvent *evt)
 {
+	QTableView::mousePressEvent(evt);
+	QVector<int> indices;
+	int row = rowAt(evt->pos().y());
+	DeselectAllItems(row, true, indices);
+	
 	auto modif = evt->modifiers();
 	const bool ctrl_pressed = modif & Qt::ControlModifier;
 	
-	int row;
 	SidePaneItem *cloned_item = nullptr;
 	{
 		SidePaneItems &items = app_->side_pane_items();
 		MutexGuard guard(&items.mutex);
-		cloned_item = GetItemAtNTS(evt->pos(), true &row);
+		cloned_item = GetItemAtNTS(evt->pos(), true, &row);
 		
 		if (cloned_item == nullptr)
 			return;
@@ -204,7 +232,7 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 	
 	model_->app()->GoTo(cloned_item->mount_path());
 	
-	QVector<int> indices;
+	
 	model_->UpdateIndices(indices);
 }
 
@@ -290,6 +318,58 @@ SidePane::ScrollToAndSelect(QString name)
 	SelectRowSimple(row);
 	
 	return true;
+}
+
+void
+SidePane::SelectItemByFilePath(const QString &full_path)
+{
+	SidePaneItems &items = app_->side_pane_items();
+	MutexGuard guard(&items.mutex);
+	auto &vec = items.vec;
+	SidePaneItem *root_item = nullptr;
+	int root_index = -1;
+	bool found = false;
+	QVector<int> indices;
+	int i = -1;
+	for (SidePaneItem *next: vec)
+	{
+		i++;
+		if (!next->is_partition())
+			continue;
+		
+		if (root_item == nullptr) {
+			if (next->mount_path() == QLatin1String("/")) {
+				root_item = next;
+				root_index = i;
+			}
+		}
+		
+		if (next == root_item)
+			continue;
+		
+		if (full_path.startsWith(next->mount_path())) {
+			if (!next->selected()) {
+				indices.append(i);
+				next->selected(true);
+			}
+			found = true;
+		} else {
+			if (next->selected()) {
+				next->selected(false);
+				indices.append(i);
+			}
+		}
+	}
+	
+	if (root_item != nullptr) {
+		bool do_select = !found;
+		if (root_item->selected() != do_select) {
+			root_item->selected(do_select);
+			indices.append(root_index);
+		}
+	}
+	
+	model_->UpdateIndices(indices);
 }
 
 void

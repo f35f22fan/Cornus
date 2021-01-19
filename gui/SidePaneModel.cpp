@@ -29,6 +29,7 @@ void* LoadItems(void *args)
 	auto list = s.splitRef('\n');
 	const QString prefix = QLatin1String("/dev/sd");
 	const QString skip_mount = QLatin1String("/boot/");
+	const QString skip_mount2 = QLatin1String("/home");
 	InsertArgs method_args;
 	
 	for (auto &line: list)
@@ -39,7 +40,7 @@ void* LoadItems(void *args)
 		auto args = line.split(" ");
 		QStringRef mount_path = args[1];
 		
-		if (mount_path.startsWith(skip_mount))
+		if (mount_path.startsWith(skip_mount) || mount_path == skip_mount2)
 			continue;
 		
 		auto *p = new gui::SidePaneItem();
@@ -377,6 +378,9 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 		return item->table_name();
 	} else if (role == Qt::FontRole) {
 	} else if (role == Qt::BackgroundRole) {
+		QStyleOptionViewItem option = table_->option();
+		if (item->selected())
+			return option.palette.highlight();
 	} else if (role == Qt::ForegroundRole) {
 	} else if (role == Qt::DecorationRole) {
 	}
@@ -400,6 +404,25 @@ SidePaneModel::headerData(int section_i, Qt::Orientation orientation, int role) 
 void
 SidePaneModel::InsertFromAnotherThread(cornus::gui::InsertArgs args)
 {
+	static bool set_size = true;
+	
+	if (set_size) {
+		set_size = false;
+		auto *splitter = app_->main_splitter();
+		QFont font = table_->option().font;
+		QFontMetrics fm(font);
+		int widest = 0;
+		for (SidePaneItem *next: args.vec) {
+			int n = fm.boundingRect(next->table_name()).width();
+			if (n > widest) {
+				widest = n;
+			}
+		}
+		
+		widest += 20;
+		splitter->setSizes({widest, 1000});
+	}
+	
 	InsertRows(0, args.vec);
 }
 
@@ -524,9 +547,9 @@ SidePaneModel::UpdateTable(UpdateSidePaneArgs args)
 
 void
 SidePaneModel::UpdateVisibleArea() {
-	QScrollBar *vs = side_pane_->verticalScrollBar();
-	int row_start = side_pane_->rowAt(vs->value());
-	int row_count = side_pane_->rowAt(side_pane_->height());
+	QScrollBar *vs = table_->verticalScrollBar();
+	int row_start = table_->rowAt(vs->value());
+	int row_count = table_->rowAt(table_->height());
 	UpdateRowRange(row_start, row_start + row_count);
 }
 

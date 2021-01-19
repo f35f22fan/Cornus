@@ -75,7 +75,7 @@ public:
 		return true;
 	}
 	
-	void SetSidePane(cornus::gui::SidePane *p) { side_pane_ = p; }
+	void SetSidePane(cornus::gui::SidePane *p) { table_ = p; }
 	void UpdateIndices(const QVector<int> indices);
 	void UpdateRange(int row1, int row2);
 	void UpdateSingleRow(int row) {
@@ -94,7 +94,7 @@ public slots:
 private:
 	
 	cornus::App *app_ = nullptr;
-	cornus::gui::SidePane *side_pane_ = nullptr;
+	cornus::gui::SidePane *table_ = nullptr;
 };
 
 

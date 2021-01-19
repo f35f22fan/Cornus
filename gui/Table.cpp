@@ -482,17 +482,27 @@ Table::ScrollToAndSelect(QString full_path)
 }
 
 void
-Table::ScrollToRow(const int row) {
+Table::ScrollToRow(int row) {
 	const int rh = verticalHeader()->defaultSectionSize();
 	int visible_rows = height() / rh;
-	int total = rh * (row - visible_rows / 2); /// scroll to middle
+	const int row_count = table_model_->rowCount();
+//	mtl_info("row: %d, visible_rows: %d, row_count: %d",
+//		row, visible_rows, row_count);
+	row -= visible_rows / 2;
+	
+	int total = rh * row;
 	if (total < 0)
 		total = 0;
 	
-	const int max = (table_model_->rowCount() - visible_rows + 1) * rh;
+	int max = (row_count - visible_rows) * rh;
+	if (max < 0) {
+		max = 0;
+		return; // no need to scroll
+	}
 	auto *vs = verticalScrollBar();
 	vs->setMaximum(max);
 	vs->setValue(total);
+	table_model_->UpdateVisibleArea();
 }
 
 void

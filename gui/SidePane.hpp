@@ -25,7 +25,7 @@ public:
 	virtual void dropEvent(QDropEvent *event) override;
 	gui::SidePaneItem* GetItemAtNTS(const QPoint &pos, bool clone, int *ret_index = nullptr);
 	void ProcessAction(const QString &action);
-	void SelectItemByFilePath(const QString &full_path);
+	void SelectProperPartition(const QString &full_path);
 	void SelectRowSimple(const int row);
 public slots:
 	void DeselectAllItems(const int except_row, const bool row_flag, QVector<int> &indices);

@@ -321,7 +321,7 @@ SidePane::ScrollToAndSelect(QString name)
 }
 
 void
-SidePane::SelectItemByFilePath(const QString &full_path)
+SidePane::SelectProperPartition(const QString &full_path)
 {
 	SidePaneItems &items = app_->side_pane_items();
 	MutexGuard guard(&items.mutex);

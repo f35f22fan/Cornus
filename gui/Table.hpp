@@ -26,7 +26,7 @@ public:
 	QString GetFirstSelectedFileFullPath(QString *ext);
 	int GetSelectedFilesCount();
 	void ProcessAction(const QString &action);
-	void ScrollToRow(const int row);
+	void ScrollToRow(int row);
 	void ScrollToAndSelectRow(const int row, const bool deselect_others);
 	void SelectAllFilesNTS(const bool flag, QVector<int> &indices);
 	void SelectRowSimple(const int row, const bool deselect_others = false);

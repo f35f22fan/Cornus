@@ -499,7 +499,7 @@ App::GoToFinish(cornus::io::FilesData *new_data)
 	}
 	
 	location_->SetLocation(new_data->dir_path);
-	side_pane_->SelectItemByFilePath(new_data->dir_path);
+	side_pane_->SelectProperPartition(new_data->dir_path);
 }
 
 void FigureOutSelectPath(QString &select_path, QString &go_to_path)

@@ -11,9 +11,11 @@ SidePaneItem::Clone()
 	SidePaneItem *p = new SidePaneItem();
 	p->table_name_ = table_name_;
 	p->dev_path_ = dev_path_;
+	p->bookmark_name_ = bookmark_name_;
 	p->mount_path_ = mount_path_;
 	p->fs_ = fs_;
 	p->type_ = type_;
+	p->selected_ = selected_;
 	
 	return p;
 }
@@ -23,6 +25,11 @@ SidePaneItem::Init()
 {
 	if (is_partition())
 		ReadSize();
+	
+	if (is_bookmark()) {
+		table_name_ = bookmark_name_;
+		return;
+	}
 	
 	QString s;
 	int index = dev_path_.lastIndexOf('/');

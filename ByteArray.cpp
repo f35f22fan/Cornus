@@ -89,7 +89,7 @@ ByteArray::alloc(const usize exact_size)
 	if (data_ != nullptr)
 		mtl_trace();
 	
-	heap_size_ = size_ = exact_size;
+	heap_size_ = exact_size;
 	data_ = new char[exact_size];
 }
 
@@ -109,7 +109,6 @@ ByteArray::make_sure(const usize more_bytes)
 			delete[] data_;
 			data_ = p;
 		}
-		
 	}
 }
 
@@ -117,7 +116,6 @@ void
 ByteArray::next(char *p, const usize sz) {
 	memcpy(p, data_ + at_, sz);
 	at_ += sz;
-	size_ += sz;
 }
 
 i8
@@ -163,7 +161,7 @@ ByteArray::next_u32() {
 }
 
 i64
-ByteArray::next_i64() {
+ByteArray::next_i64() { 
 	i64 n;
 	next(reinterpret_cast<char*>(&n), sizeof n);
 	return n;
@@ -198,7 +196,6 @@ ByteArray::next_string()
 	i32 size = next_i32();
 	auto s = QString::fromLocal8Bit(data_ + at_, size);
 	at_ += size;
-	size_ += size;
 	return s;
 }
 

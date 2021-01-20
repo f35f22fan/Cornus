@@ -28,6 +28,7 @@ set(src_files main.cpp
     err.hpp
     History.cpp History.hpp
     MutexGuard.cpp MutexGuard.hpp
+    prefs.cc prefs.hh
     
     gui/actions.hxx
     gui/decl.hxx

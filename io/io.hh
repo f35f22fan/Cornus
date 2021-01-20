@@ -74,6 +74,9 @@ FileExists(const QString &path, FileType *file_type = nullptr) {
 	return FileExistsCstr(ba.data(), file_type);
 }
 
+io::File*
+FileFromPath(const QString &full_path, io::Err *ret_error = nullptr);
+
 const char*
 FileTypeToString(const FileType t);
 

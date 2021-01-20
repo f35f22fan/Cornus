@@ -20,6 +20,7 @@ extern "C" {
 #include "gui/Table.hpp"
 #include "gui/TableModel.hpp"
 #include "gui/ToolBar.hpp"
+#include "prefs.hh"
 
 #include <QApplication>
 #include <QBoxLayout>
@@ -44,6 +45,7 @@ extern "C" {
 #include <QPushButton>
 #include <QScrollBar>
 #include <QShortcut>
+#include <QStandardPaths>
 #include <QUrl>
 
 namespace cornus {
@@ -876,16 +878,6 @@ void App::RegisterShortcuts() {
 	connect(shortcut, &QShortcut::activated, [=] {
 		SwitchExecBitOfSelectedFiles();
 	});
-	
-	shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_R), this);
-	shortcut->setContext(Qt::ApplicationShortcut);
-	
-	connect(shortcut, &QShortcut::activated, [=] {
-		io::File *cloned_file = nullptr;
-		int row = table_->GetFirstSelectedFile(&cloned_file);
-		if (row != -1)
-			DisplayFileContents(row, cloned_file);
-	});
 }
 
 void App::RenameSelectedFile()
@@ -1010,6 +1002,55 @@ void App::RunExecutable(const QString &full_path,
 	if (info.has_exec_bit() && info.is_elf()) {
 		QStringList arguments;
 		QProcess::startDetached(full_path, arguments, current_dir_);
+	}
+}
+
+void App::SaveBookmarks()
+{
+	QVector<gui::SidePaneItem*> item_vec;
+	{
+		auto &items = side_pane_items();
+		MutexGuard guard(&items.mutex);
+		
+		for (gui::SidePaneItem *next: items.vec) {
+			if (next->is_bookmark()) {
+				item_vec.append(next->Clone());
+			}
+		}
+	}
+	
+	QString parent_dir = prefs::QueryAppConfigPath();
+	parent_dir.append('/');
+	CHECK_TRUE_VOID(!parent_dir.isEmpty());
+	const QString full_path = parent_dir + prefs::BookmarksFileName;
+	const QByteArray path_ba = full_path.toLocal8Bit();
+	
+	if (!io::FileExists(full_path)) {
+		int fd = open(path_ba.data(), O_RDWR | O_CREAT | O_EXCL, 0664);
+		if (fd == -1) {
+			if (errno == EEXIST) {
+				mtl_warn("File already exists");
+			} else {
+				mtl_warn("Can't create file at: \"%s\", reason: %s",
+					path_ba.data(), strerror(errno));
+			}
+			return;
+		} else {
+			::close(fd);
+		}
+	}
+	
+	ByteArray buf;
+	buf.add_u16(prefs::BookmarksFormatVersion);
+	
+	for (gui::SidePaneItem *next: item_vec) {
+		buf.add_u8(u8(next->type()));
+		buf.add_string(next->mount_path());
+		buf.add_string(next->bookmark_name());
+	}
+	
+	if (io::WriteToFile(full_path, buf.data(), buf.size()) != io::Err::Ok) {
+		mtl_trace("Failed to save bookmarks");
 	}
 }
 

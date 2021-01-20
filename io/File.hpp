@@ -53,8 +53,11 @@ public:
 	}
 	
 	LinkTarget *link_target() const { return link_target_; }
+	void link_target(LinkTarget *p) { link_target_ = p; }
+	
 	void mode(mode_t m) { mode_ = m; }
 	mode_t mode() const { return mode_; }
+	
 	const QString& name() const { return name_.orig; }
 	const QString& name_lower() const { return name_.lower; }
 	void name(const QString &s);

@@ -12,6 +12,7 @@
 #include <QToolButton>
 
 namespace cornus::gui {
+const QString SaveBookmarksAction = "SaveBookmarksAction";
 
 ToolBar::ToolBar(cornus::App *app): app_(app) {
 	CreateGui();
@@ -58,6 +59,7 @@ void ToolBar::CreateGui()
 	prefs_menu_btn->setMenu(prefs_menu);
 	
 	Add(prefs_menu, QLatin1String("help-about"), tr("About"), actions::AboutThisApp);
+	Add(prefs_menu, QLatin1String("document-save"), tr("Save Bookmarks"), SaveBookmarksAction);
 }
 
 void ToolBar::ProcessAction(const QString &action)
@@ -70,6 +72,8 @@ void ToolBar::ProcessAction(const QString &action)
 		app_->GoBack();
 	} else if (action == actions::AboutThisApp) {
 		ShowAboutThisAppDialog();
+	} else if (action == SaveBookmarksAction) {
+		app_->SaveBookmarks();
 	}
 }
 

@@ -40,6 +40,7 @@ protected:
 	
 	virtual void keyPressEvent(QKeyEvent *event) override;
 	virtual void mouseDoubleClickEvent(QMouseEvent *event) override;
+	virtual void mouseMoveEvent(QMouseEvent *evt) override;
 	virtual void mousePressEvent(QMouseEvent *event) override;
 	
 	virtual void paintEvent(QPaintEvent *event) override;
@@ -47,7 +48,10 @@ protected:
 private:
 	NO_ASSIGN_COPY_MOVE(Table);
 	
+	void FinishDropOperation(QVector<io::File *> *files_vec, io::File *to_dir,
+		Qt::DropAction drop_action);
 	int IsOnFileNameStringNTS(const QPoint &pos, io::File **ret_file = nullptr);
+	void ListSelectedFiles(QList<QUrl> &list);
 	int SelectNextRow(const int relative_offset, const bool deselect_all_others, QVector<int> &indices); // returns newly selected row
 	void ShowRightClickMenu(const QPoint &pos);
 	void SortingChanged(int logical, Qt::SortOrder order);
@@ -57,6 +61,7 @@ private:
 	TableDelegate *delegate_ = nullptr;
 	
 	int drop_y_coord_ = -1;
+	QPoint drag_start_pos_ = {-1, -1};
 	
 };
 

@@ -2,8 +2,10 @@
 
 #include "../App.hpp"
 #include "../AutoDelete.hh"
+#include "../ByteArray.hpp"
 #include "../io/File.hpp"
 #include "../MutexGuard.hpp"
+#include "../prefs.hh"
 #include "SidePane.hpp"
 #include "SidePaneItem.hpp"
 
@@ -16,6 +18,29 @@
 
 namespace cornus::gui {
 namespace sidepane {
+
+void LoadBookmarks(QVector<SidePaneItem*> &vec)
+{
+	const QString full_path = prefs::QueryAppConfigPath() + '/'
+		+ prefs::BookmarksFileName;
+	
+	ByteArray buf;
+	if (io::ReadFile(full_path, buf) != io::Err::Ok)
+		return;
+	
+	u16 version = buf.next_u16();
+	CHECK_TRUE_VOID((version == prefs::BookmarksFormatVersion));
+	
+	while (buf.has_more()) {
+		SidePaneItem *p = new SidePaneItem();
+		p->type(SidePaneItemType(buf.next_u8()));
+		p->mount_path(buf.next_string());
+		p->bookmark_name(buf.next_string());
+		p->Init();
+		vec.append(p);
+	}
+}
+
 void* LoadItems(void *args)
 {
 	pthread_detach(pthread_self());
@@ -51,6 +76,15 @@ void* LoadItems(void *args)
 		p->Init();
 		method_args.vec.append(p);
 	}
+	
+	LoadBookmarks(method_args.vec);
+	
+//	SidePaneItem *sp = new SidePaneItem();
+//	sp->type(SidePaneItemType::Bookmark);
+//	sp->mount_path("/media/data/Torrents");
+//	sp->bookmark_name("MyTorrents");
+//	sp->Init();
+//	method_args.vec.append(sp);
 	
 	SidePaneItems &items = app->side_pane_items();
 	items.Lock();

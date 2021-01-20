@@ -29,6 +29,8 @@ public:
 	
 	char *data() { return data_; }
 	
+	bool has_more() const { return at_ < size_; }
+	
 	void next(char *p, const usize sz);
 	i8 next_i8();
 	u8 next_u8();
@@ -43,8 +45,10 @@ public:
 	QString next_string();
 	
 	usize alloc_size() const { return size_; }
-	usize size() const { return at_; }
-	void size(usize n) { at_ = n; } // called from inside io::ReadFile(..);
+	usize at() const { return at_; }
+	usize size() const { return size_; }
+	void size(usize n) { size_ = n; } // called from inside io::ReadFile(..);
+	//usize reset() { auto n = at_; at_ = 0; return n; }
 	void to(const usize n) { at_ = n; }
 
 private:

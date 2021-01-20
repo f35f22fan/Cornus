@@ -81,6 +81,49 @@ FileExistsCstr(const char *path, FileType *file_type)
 	return true;
 }
 
+io::File*
+FileFromPath(const QString &full_path, io::Err *ret_error)
+{
+	struct statx stx;
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_ALL;
+	QString name;
+	QString dir_path;
+	if (full_path != QLatin1String("/")) {
+		int index = full_path.lastIndexOf('/');
+		if (index == -1) {
+			if (ret_error != nullptr)
+				*ret_error = io::Err::Other;
+			mtl_trace();
+			return nullptr;
+		}
+		dir_path = full_path.mid(0, index + 1);
+		name = full_path.mid(index + 1);
+	} else {
+		name = full_path;
+	}
+	
+	auto ba = full_path.toLocal8Bit();
+	
+	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
+		mtl_warn("statx(): %s", strerror(errno));
+		if (ret_error != nullptr)
+			*ret_error = MapPosixError(errno);
+		return nullptr;
+	}
+	
+	auto *file = new io::File(dir_path);
+	FillInStx(*file, stx, &name);
+	
+	if (file->is_symlink()) {
+		auto *target = new LinkTarget();
+		ReadLink(ba.data(), *target, dir_path);
+		file->link_target(target);
+	}
+	
+	return file;
+}
+
 const char*
 FileTypeToString(const FileType t)
 {
@@ -403,7 +446,6 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	
 	while (so_far < MAX) {
 		isize ret = read(fd, buf + so_far, MAX - so_far);
-//		mtl_info("Read: %ld", ret);
 		if (ret == -1) {
 			if (errno == EAGAIN)
 				continue;
@@ -422,6 +464,7 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	
 	close(fd);
 	buffer.size(so_far);
+	buffer.to(0);
 	
 	return Err::Ok;
 }

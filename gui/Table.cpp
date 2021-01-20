@@ -12,8 +12,10 @@
 
 #include <QAbstractItemView>
 #include <QAction>
+#include <QApplication>
 #include <QClipboard>
 #include <QDialog>
+#include <QDrag>
 #include <QDragEnterEvent>
 #include <QFormLayout>
 #include <QFontMetrics>
@@ -50,18 +52,19 @@ table_model_(tm)
 	connect(verticalHeader(), &QHeaderView::sectionClicked, [=](int index) {
 		table_model_->app()->DisplayFileContents(index);
 	});
-	setDragEnabled(true);
-	setAcceptDrops(true);
+	{
+		setDragEnabled(true);
+		setAcceptDrops(true);
+		setDragDropOverwriteMode(false);
+		setDropIndicatorShown(true);
+	}
 	setDefaultDropAction(Qt::MoveAction);
 	setUpdatesEnabled(true);
 	setIconSize(QSize(32, 32));
 	resizeColumnsToContents();
-	//setShowGrid(false);
-	//setSelectionBehavior(QAbstractItemView::SelectRows);
-	setSelectionMode(QAbstractItemView::NoSelection);//QAbstractItemView::ExtendedSelection);
-//	setDragDropOverwriteMode(false);
-//	setDropIndicatorShown(true);
-	
+	///setShowGrid(false);
+	setSelectionMode(QAbstractItemView::ExtendedSelection);//ExtendedSelection);
+	setSelectionBehavior(QAbstractItemView::SelectRows);
 	setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
 }
 
@@ -72,6 +75,7 @@ Table::~Table() {
 void
 Table::dragEnterEvent(QDragEnterEvent *event)
 {
+mtl_trace();
 	const QMimeData *mimedata = event->mimeData();
 	
 	if (mimedata->hasUrls())
@@ -81,6 +85,7 @@ Table::dragEnterEvent(QDragEnterEvent *event)
 void
 Table::dragLeaveEvent(QDragLeaveEvent *event)
 {
+mtl_trace();
 	drop_y_coord_ = -1;
 	update();
 }
@@ -92,11 +97,9 @@ Table::dragMoveEvent(QDragMoveEvent *event)
 	drop_y_coord_ = pos.y();
 	
 	// repaint() or update() don't work because
-	// the window is not raised when dragging a song
-	// on top of the playlist and the repaint
-	// requests are ignored.
-	// repaint(0, y - h / 2, width(), y + h / 2);
-	// using a hack:
+	// the window is not raised when dragging an item
+	// on top of the table and the repaint
+	// requests are ignored. Repaint using a hack:
 	int row = rowAt(pos.y());
 	
 	if (row != -1)
@@ -104,47 +107,54 @@ Table::dragMoveEvent(QDragMoveEvent *event)
 }
 
 void
-Table::dropEvent(QDropEvent *event)
+Table::dropEvent(QDropEvent *evt)
 {
 	drop_y_coord_ = -1;
 	App *app = table_model_->app();
 	
-	if (event->mimeData()->hasUrls()) {
-		/**
-		gui::Playlist *playlist = app->GetComboCurrentPlaylist();
-		CHECK_PTR_VOID(playlist);
-		QVector<io::File> files;
+	if (evt->mimeData()->hasUrls()) {
+		QVector<io::File*> *files_vec = new QVector<io::File*>();
 		
-		for (const QUrl &url: event->mimeData()->urls())
+		for (const QUrl &url: evt->mimeData()->urls())
 		{
-			QString path = url.path();
-			io::File file;
-			
-			if (io::FileFromPath(file, path) == io::Err::Ok)
-				files.append(file);
+			io::File *file = io::FileFromPath(url.path());
+			if (file != nullptr)
+				files_vec->append(file);
 		}
 		
-		int index = 0;
-		const int row_h = rowHeight(0);
-		int drop_at_y = event->pos().y() + verticalScrollBar()->sliderPosition();;
-		
-		if (row_h > 0 && drop_at_y > 0)
+		io::File *to_dir = nullptr;
 		{
-			int rem = drop_at_y % row_h;
+			auto &files = app->view_files();
+			MutexGuard guard(&files.mutex);
 			
-			if (rem < row_h / 2)
-				drop_at_y -= rem;
-			else
-				drop_at_y += row_h - rem;
-			
-			index = drop_at_y / row_h;
+			if (IsOnFileNameStringNTS(evt->pos(), &to_dir) != -1 && to_dir->is_dir_or_so()) {
+				to_dir = to_dir->Clone();
+			} else {
+				/// Otherwise drop onto current directory:
+				to_dir = io::FileFromPath(files.data.dir_path);
+			}
 		}
 		
-		if (index != -1) {
-			mtl_trace();
-		//	app->AddFilesToPlaylist(files, playlist, index);
-		} **/
+		if (to_dir == nullptr) {
+			delete files_vec;
+			return;
+		}
+		
+		FinishDropOperation(files_vec, to_dir, evt->dropAction());
 	}
+}
+
+void
+Table::FinishDropOperation(QVector<io::File*> *files_vec,
+	io::File *to_dir, Qt::DropAction drop_action)
+{
+//	mtl_info("Drop op: %d", drop_action);
+//	mtl_printq2("Drop to: ", to_dir->build_full_path());
+	for (io::File *next: *files_vec) {
+		auto ba = next->build_full_path().toLocal8Bit();
+//		mtl_info("Drop file: %s", ba.data());
+	}
+	
 }
 
 io::File*
@@ -283,8 +293,33 @@ Table::keyPressEvent(QKeyEvent *event)
 			QModelIndex index = model()->index(row, 0, QModelIndex());
 			scrollTo(index);
 		}
+	} else if (key == Qt::Key_R) {
+		mtl_trace();
+		if (any_modifiers)
+			return;
+		mtl_trace();
+		io::File *cloned_file = nullptr;
+		int row = GetFirstSelectedFile(&cloned_file);
+		if (row != -1)
+			app_->DisplayFileContents(row, cloned_file);
+		else
+			mtl_trace();
 	}
 	table_model_->UpdateIndices(indices);
+}
+
+void
+Table::ListSelectedFiles(QList<QUrl> &list)
+{
+	auto &files = app_->view_files();
+	MutexGuard guard(&files.mutex);
+	
+	for (io::File *next: files.data.vec) {
+		if (next->selected()) {
+			QString s = next->build_full_path();
+			list.append(QUrl::fromLocalFile(s));
+		}
+	}
 }
 
 void
@@ -314,8 +349,51 @@ Table::mouseDoubleClickEvent(QMouseEvent *evt)
 }
 
 void
+Table::mouseMoveEvent(QMouseEvent *evt)
+{
+	if (drag_start_pos_.x() >= 0 || drag_start_pos_.y() >= 0) {
+		auto diff = (evt->pos() - drag_start_pos_).manhattanLength();
+		if (diff >= QApplication::startDragDistance())
+		{
+mtl_trace();
+			QMimeData *mimedata = new QMimeData();
+			QList<QUrl> urls;
+			ListSelectedFiles(urls);
+			if (urls.isEmpty())
+				return;
+			
+			mimedata->setUrls(urls);
+			
+			QDrag *drag = new QDrag(this);
+			drag->setMimeData(mimedata);
+/// Set a pixmap that will be shown alongside the cursor during the operation:
+			//drag->setPixmap(pixmap);
+			
+			drag->exec(Qt::CopyAction | Qt::MoveAction, Qt::CopyAction);
+			
+//			if (drop_action == Qt::MoveAction) {
+//				mtl_trace("Move");
+//				//child->close();
+//			} else if (drop_action == Qt::CopyAction) {
+//				mtl_trace("Copy");
+//			} else {
+//				mtl_trace("Other");
+//			}
+		}
+	}
+}
+
+void
 Table::mousePressEvent(QMouseEvent *evt)
 {
+	QTableView::mousePressEvent(evt);
+	
+	if (evt->button() == Qt::LeftButton) {
+		drag_start_pos_ = evt->pos();
+	} else {
+		drag_start_pos_ = {-1, -1};
+	}
+	
 	auto modif = evt->modifiers();
 	const bool ctrl_pressed = modif & Qt::ControlModifier;
 	QVector<int> indices;
@@ -502,7 +580,6 @@ Table::ScrollToRow(int row) {
 	auto *vs = verticalScrollBar();
 	vs->setMaximum(max);
 	vs->setValue(total);
-	table_model_->UpdateVisibleArea();
 }
 
 void

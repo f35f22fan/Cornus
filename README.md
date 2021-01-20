@@ -18,7 +18,7 @@
 * Ctrl+L => Focus address bar
 * Ctrl+A => Select all files
 * Ctrl+E => Toggle exec bit of selected file(s)
-* Ctrl+R => Display contents of selected file
+* R => Display contents of selected file
 
 ---
 ##### BTC: bc1qzs8ux6m0t4jj98furra8pvx2ll80qchr5v4ru6

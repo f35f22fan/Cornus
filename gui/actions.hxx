@@ -13,4 +13,6 @@ static const QString GoHome = QLatin1String("Go Home");
 static const QString GoBack = QLatin1String("Go Back");
 static const QString GoUp = QLatin1String("Go Up");
 static const QString Preferences = QLatin1String("Prefs");
+static const QString RenameBookmark = QLatin1String("RenameBookmark");
+static const QString DeleteBookmark = QLatin1String("DeleteBookmark");
 }

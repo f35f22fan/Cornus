@@ -2,6 +2,7 @@
 
 #include "actions.hxx"
 #include "../App.hpp"
+#include "../AutoDelete.hh"
 #include "../io/io.hh"
 #include "../io/File.hpp"
 #include "../MutexGuard.hpp"
@@ -16,6 +17,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QDialog>
+#include <QDrag>
 #include <QDragEnterEvent>
 #include <QFormLayout>
 #include <QFontMetrics>
@@ -32,6 +34,8 @@
 #include <QUrl>
 
 namespace cornus::gui {
+
+const QString BookmarkMime = QLatin1String("app/cornus_bookmark");
 
 SidePane::SidePane(SidePaneModel *tm, App *app) :
 model_(tm), app_(app)
@@ -50,7 +54,7 @@ model_(tm), app_(app)
 	resizeColumnsToContents();
 	//setShowGrid(false);
 	setSelectionBehavior(QAbstractItemView::SelectRows);
-	setSelectionMode(QAbstractItemView::NoSelection);//ExtendedSelection);
+	setSelectionMode(QAbstractItemView::ExtendedSelection);
 	{
 		setDragEnabled(true);
 		setAcceptDrops(true);
@@ -64,7 +68,8 @@ SidePane::~SidePane() {
 	delete model_;
 }
 
-void SidePane::DeselectAllItems(const int except_row, const bool row_flag,
+void
+SidePane::DeselectAllItems(const int except_row, const bool row_flag,
 QVector<int> &indices) {
 	auto &items = this->items();
 	MutexGuard guard(&items.mutex);
@@ -92,6 +97,8 @@ SidePane::dragEnterEvent(QDragEnterEvent *event)
 	
 	if (mimedata->hasUrls())
 		event->acceptProposedAction();
+	else if (!mimedata->data(BookmarkMime).isEmpty())
+		event->acceptProposedAction();
 }
 
 void
@@ -115,8 +122,13 @@ SidePane::dragMoveEvent(QDragMoveEvent *event)
 	// using a hack:
 	int row = rowAt(pos.y());
 	
-	if (row != -1)
-		model_->UpdateSingleRow(row);
+	if (row != -1) {
+		int start = row;
+		if (row > 0)
+			start--;
+		int end = row + 1;
+		model_->UpdateRowRange(start, end);
+	}
 }
 
 void
@@ -135,30 +147,35 @@ SidePane::dropEvent(QDropEvent *evt)
 				files_vec->append(file);
 		}
 		
-		gui::SidePaneItem *to = nullptr;
 		int row;
 		{
 			SidePaneItems &items = app->side_pane_items();
 			MutexGuard guard(&items.mutex);
+			const int y = evt->pos().y();
+			const int rh = verticalHeader()->defaultSectionSize();
+			row = rowAt(y);
+			if (y % rh >= (rh/2))
+				row++;
 			
-			row = rowAt(evt->pos().y());
 			if (row == -1) {
-mtl_trace();
 				row = items.vec.size() - 1;
 			}
-			to = items.vec[row];
 		}
 		
-		if (to == nullptr) {
-mtl_trace();
-			for (auto *next: *files_vec)
-				delete next;
-			delete files_vec;
-			return;
-		}
-		
-		model_->FinishDropOperation(files_vec, to, row);
+		model_->FinishDropOperation(files_vec, row);
+		return;
 	}
+	
+	
+	QByteArray ba = evt->mimeData()->data(BookmarkMime);
+	if (ba.isEmpty())
+		return;
+	
+	QDataStream dataStreamRead(ba);
+	QStringList str_list;
+	dataStreamRead >> str_list;
+	
+	model_->MoveBookmarks(str_list, evt->pos());
 }
 
 gui::SidePaneItem*
@@ -179,6 +196,39 @@ SidePane::GetItemAtNTS(const QPoint &pos, bool clone, int *ret_index)
 	if (clone)
 		return vec[row]->Clone();
 	return vec[row];
+}
+
+int
+SidePane::GetSelectedBookmarkCount() {
+	gui::SidePaneItems &items = app_->side_pane_items();
+	MutexGuard guard(&items.mutex);
+	int count = 0;
+	
+	for (gui::SidePaneItem *next: items.vec) {
+		if (next->selected() && next->is_bookmark())
+			count++;
+	}
+	
+	return count;
+}
+
+SidePaneItem*
+SidePane::GetSelectedBookmark(int *index)
+{
+	SidePaneItems &items = this->items();
+	MutexGuard guard(&items.mutex);
+	int i = 0;
+	for (SidePaneItem *next: items.vec)
+	{
+		if (next->selected() && next->is_bookmark()) {
+			if (index != nullptr)
+				*index = i;
+			return next->Clone();
+		}
+		i++;
+	}
+	
+	return nullptr;
 }
 
 gui::SidePaneItems&
@@ -213,14 +263,9 @@ SidePane::mouseDoubleClickEvent(QMouseEvent *evt)
 void
 SidePane::mouseMoveEvent(QMouseEvent *evt)
 {
-	if (drag_start_pos_.x() >= 0 || drag_start_pos_.y() >= 0) {
-		auto diff = (evt->pos() - drag_start_pos_).manhattanLength();
-		if (diff >= QApplication::startDragDistance())
-		{
-			QMimeData *mimedata = new QMimeData();
-			QList<QUrl> urls;
-			mtl_trace("TBD");
-		}
+	if (drag_start_pos_.x() >= 0 || drag_start_pos_.y() >= 0)
+	{
+		StartDrag(evt->pos());
 	}
 }
 
@@ -228,12 +273,29 @@ void
 SidePane::mousePressEvent(QMouseEvent *evt)
 {
 	QTableView::mousePressEvent(evt);
+	
+	if (evt->button() == Qt::LeftButton) {
+		drag_start_pos_ = evt->pos();
+	} else {
+		drag_start_pos_ = {-1, -1};
+	}
+	const auto modif = evt->modifiers();
+	const bool ctrl = modif & Qt::ControlModifier;
+	
 	QVector<int> indices;
 	int row = rowAt(evt->pos().y());
-	DeselectAllItems(row, true, indices);
 	
-	auto modif = evt->modifiers();
-	const bool ctrl_pressed = modif & Qt::ControlModifier;
+	if (ctrl) {
+		SelectRowSimple(row, true);
+	} else {
+		DeselectAllItems(row, true, indices);
+	}
+	
+	if (evt->button() == Qt::RightButton) {
+		ShowRightClickMenu(evt->globalPos());
+		model_->UpdateIndices(indices);
+		return;
+	}
 	
 	SidePaneItem *cloned_item = nullptr;
 	{
@@ -246,8 +308,6 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 	}
 	
 	model_->app()->GoTo(cloned_item->mount_path());
-	
-	
 	model_->UpdateIndices(indices);
 }
 
@@ -288,7 +348,54 @@ SidePane::paintEvent(QPaintEvent *event)
 void
 SidePane::ProcessAction(const QString &action)
 {
-	mtl_trace("TBD");
+	if (action == actions::RenameBookmark) {
+		RenameSelectedBookmark();
+	} else if (action == actions::DeleteBookmark) {
+		model_->DeleteSelectedBookmarks();
+	}
+}
+
+void
+SidePane::RenameSelectedBookmark()
+{
+	int index;
+	SidePaneItem *item = GetSelectedBookmark(&index);
+	
+	if (item == nullptr)
+		return;
+	
+	cornus::AutoDelete ad(item);
+	bool ok;
+	QString text;
+	{
+		auto *dialog = new QInputDialog(this);
+		dialog->setWindowTitle(tr("Rename Bookmark"));
+		dialog->setInputMode(QInputDialog::TextInput);
+		dialog->setLabelText(tr("Name:"));
+		dialog->setTextValue(item->bookmark_name());
+		dialog->resize(350, 100);
+		ok = dialog->exec();
+		if (!ok)
+			return;
+		text = dialog->textValue();
+		if (text.isEmpty())
+			return;
+	}
+//	QString text = QInputDialog::getText(this, tr("Rename Bookmark"),
+//		tr("Name:"), QLineEdit::Normal, item->bookmark_name(), &ok);
+	
+	{
+		auto &items = this->items();
+		MutexGuard guard(&items.mutex);
+		
+		if (index < 0 || index >= items.vec.size())
+			return;
+		
+		SidePaneItem *bookmark = items.vec[index];
+		bookmark->bookmark_name(text);
+	}
+	model_->UpdateSingleRow(index);
+	app_->SaveBookmarks();
 }
 
 void
@@ -318,7 +425,7 @@ SidePane::ScrollToAndSelect(QString name)
 		auto &vec = items.vec;
 		
 		for (int i = 0; i < vec.size(); i++) {
-			if (vec[i]->table_name() == name) {
+			if (vec[i]->DisplayString() == name) {
 				row = i;
 				break;
 			}
@@ -388,7 +495,9 @@ SidePane::SelectProperPartition(const QString &full_path)
 }
 
 void
-SidePane::SelectRowSimple(const int row) {
+SidePane::SelectRowSimple(const int row, const bool skip_update)
+{
+	CHECK_TRUE_VOID((row >= 0));
 	SidePaneItems &items = app_->side_pane_items();
 	bool update = false;
 	{
@@ -396,39 +505,71 @@ SidePane::SelectRowSimple(const int row) {
 		auto &vec = items.vec;
 		
 		if (row < vec.size()) {
-			//vec[row]->selected(true);
-			mtl_trace("select(true) TBD");
+			vec[row]->selected(true);
 			update = true;
 		}
 	}
 	
-	if (update)
+	if (!skip_update && update)
 		model_->UpdateSingleRow(row);
 }
 
 void
 SidePane::ShowRightClickMenu(const QPoint &pos)
 {
-	App *app = model_->app();
-	QMenu *menu = new QMenu();
+	const int selected_bookmarks = GetSelectedBookmarkCount();
+	if (menu_ == nullptr)
+		menu_ = new QMenu(this);
+	else
+		menu_->clear();
 	
+	if (selected_bookmarks > 0) 
 	{
-		QAction *action = menu->addAction(tr("Create New Folder"));
-		auto *icon = app->GetIcon(QLatin1String("special_folder"));
-		if (icon != nullptr)
-			action->setIcon(*icon);
-		connect(action, &QAction::triggered, [=] {ProcessAction(actions::CreateNewFolder);});
+		QAction *action = menu_->addAction(tr("&Delete"));
+		action->setIcon(QIcon::fromTheme(QLatin1String("edit-delete")));
+		connect(action, &QAction::triggered, [=] {ProcessAction(actions::DeleteBookmark);});
+		
+		action = menu_->addAction(tr("&Rename.."));
+		connect(action, &QAction::triggered, [=] {ProcessAction(actions::RenameBookmark);});
+		action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
 	}
 	
+	menu_->popup(pos);
+}
+
+void
+SidePane::StartDrag(const QPoint &pos)
+{
+	auto diff = (pos - drag_start_pos_).manhattanLength();
+	if (diff < QApplication::startDragDistance())
+		return;
+
+	drag_start_pos_ = {-1, -1};
+	QStringList str_list;
+	
 	{
-		QAction *action = menu->addAction(tr("Create New File"));
-		connect(action, &QAction::triggered, [=] {ProcessAction(actions::CreateNewFile);});
-		auto *icon = app->GetIcon(QLatin1String("text"));
-		if (icon != nullptr)
-			action->setIcon(*icon);
+		auto &items = this->items();
+		MutexGuard guard(&items.mutex);
+		
+		for (SidePaneItem *next: items.vec) {
+			if (next->is_bookmark() && next->selected()) {
+				str_list.append(next->bookmark_name());
+			}
+		}
 	}
 	
-	menu->popup(pos);
+	if (str_list.isEmpty())
+		return;
+	
+	QMimeData *mimedata = new QMimeData();
+	QByteArray ba;
+	QDataStream dataStreamWrite(&ba, QIODevice::WriteOnly);
+	dataStreamWrite << str_list;
+	mimedata->setData(BookmarkMime, ba);
+	
+	QDrag *drag = new QDrag(this);
+	drag->setMimeData(mimedata);
+	drag->exec(Qt::MoveAction);
 }
 
 } // cornus::gui::

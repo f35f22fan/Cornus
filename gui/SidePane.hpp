@@ -24,9 +24,10 @@ public:
 	
 	virtual void dropEvent(QDropEvent *event) override;
 	gui::SidePaneItem* GetItemAtNTS(const QPoint &pos, bool clone, int *ret_index = nullptr);
+	int GetSelectedBookmarkCount();
 	void ProcessAction(const QString &action);
 	void SelectProperPartition(const QString &full_path);
-	void SelectRowSimple(const int row);
+	void SelectRowSimple(const int row, const bool skip_update = false);
 public slots:
 	void DeselectAllItems(const int except_row, const bool row_flag, QVector<int> &indices);
 	bool ScrollToAndSelect(QString name);
@@ -46,12 +47,16 @@ protected:
 private:
 	NO_ASSIGN_COPY_MOVE(SidePane);
 	
+	SidePaneItem* GetSelectedBookmark(int *index = nullptr);
+	void RenameSelectedBookmark();
 	void ShowRightClickMenu(const QPoint &pos);
+	void StartDrag(const QPoint &pos);
 	
 	SidePaneModel *model_ = nullptr;
 	App *app_ = nullptr;
 	int drop_y_coord_ = -1;
 	QPoint drag_start_pos_ = {-1, -1};
+	QMenu *menu_ = nullptr;
 	
 };
 

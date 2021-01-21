@@ -24,6 +24,8 @@ public:
 	const QString& bookmark_name() const { return bookmark_name_; }
 	void bookmark_name(const QString &s) { bookmark_name_ = s; }
 	
+	QString DisplayString();
+	
 	bool is_bookmark() const { return type_ == SidePaneItemType::Bookmark; }
 	bool is_partition() const { return type_ == SidePaneItemType::Partition; }
 	
@@ -42,16 +44,12 @@ public:
 	i64 size() const { return size_; }
 	void size(i64 n) { size_ = n; }
 	
-	QString table_name() { return table_name_; }
-	void table_name(const QString &s) { table_name_ = s; }
-	
 	void type(SidePaneItemType t) { type_ = t; }
 	SidePaneItemType type() const { return type_; }
 private:
 	
 	void ReadSize();
 	
-	QString table_name_;
 	QString dev_path_;
 	QString bookmark_name_;
 	QString mount_path_;

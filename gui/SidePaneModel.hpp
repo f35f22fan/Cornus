@@ -51,8 +51,10 @@ public:
 	QVariant
 	data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 	
+	void DeleteSelectedBookmarks();
+	
 	void
-	FinishDropOperation(QVector<io::File*> *files_vec, SidePaneItem *to, int row);
+	FinishDropOperation(QVector<io::File*> *files_vec, int row);
 	
 	QVariant
 	headerData(int section, Qt::Orientation orientation, int role) const override;
@@ -71,7 +73,7 @@ public:
 		mtl_trace();
 		return true;
 	}
-	
+	void MoveBookmarks(QStringList str_list, const QPoint &pos);
 	virtual bool removeRows(int row, int count, const QModelIndex &parent) override;
 	virtual bool removeColumns(int column, int count, const QModelIndex &parent) override {
 		mtl_trace();

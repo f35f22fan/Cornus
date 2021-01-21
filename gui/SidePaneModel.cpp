@@ -12,6 +12,7 @@
 #include <sys/epoll.h>
 #include <QFont>
 #include <QScrollBar>
+#include <QHeaderView>
 #include <QTime>
 
 //#define DEBUG_INOTIFY
@@ -409,7 +410,7 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 	
 	if (role == Qt::DisplayRole)
 	{
-		return item->table_name();
+		return item->DisplayString();
 	} else if (role == Qt::FontRole) {
 	} else if (role == Qt::BackgroundRole) {
 		QStyleOptionViewItem option = table_->option();
@@ -424,17 +425,45 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 }
 
 void
-SidePaneModel::FinishDropOperation(QVector<io::File*> *files_vec,
-	SidePaneItem *to, int row)
+SidePaneModel::DeleteSelectedBookmarks()
+{
+	int count = table_->GetSelectedBookmarkCount();
+	
+	if (count <= 0)
+		return;
+	
+	beginRemoveRows(QModelIndex(), 0, count - 1);
+	{
+		auto &items = app_->side_pane_items();
+		MutexGuard guard(&items.mutex);
+		int item_count = items.vec.size();
+		for (int i = item_count - 1; i >= 0; i--)
+		{
+			SidePaneItem *next = items.vec[i];
+			if (next->is_bookmark() && next->selected()) {
+				items.vec.remove(i);
+				delete next;
+			}
+		}
+	}
+	endRemoveRows();
+	UpdateVisibleArea();
+	app_->SaveBookmarks();
+}
+
+void
+SidePaneModel::FinishDropOperation(QVector<io::File*> *files_vec, int row)
 {
 	auto &items = app_->side_pane_items();
 	beginInsertRows(QModelIndex(), 0, files_vec->size() - 1);
 	{
 		MutexGuard guard(&items.mutex);
-		
+		int add = 0;
 		for (io::File *file: *files_vec) {
-			items.vec.append(SidePaneItem::NewBookmark(*file));
+			auto *p = SidePaneItem::NewBookmark(*file);
+			items.vec.insert(row + add, p);
 			delete file;
+			add++;
 		}
 	}
 	endInsertRows();
@@ -469,7 +498,7 @@ SidePaneModel::InsertFromAnotherThread(cornus::gui::InsertArgs args)
 		QFontMetrics fm(font);
 		int widest = 0;
 		for (SidePaneItem *next: args.vec) {
-			int n = fm.boundingRect(next->table_name()).width();
+			int n = fm.boundingRect(next->DisplayString()).width();
 			if (n > widest) {
 				widest = n;
 			}
@@ -509,6 +538,54 @@ SidePaneModel::InsertRows(const i32 at, const QVector<gui::SidePaneItem*> &items
 	
 	endInsertRows();
 	return true;
+}
+
+void
+SidePaneModel::MoveBookmarks(QStringList str_list, const QPoint &pos)
+{
+	if (str_list.isEmpty())
+		return;
+	const int y = pos.y();
+	const int rh = table_->verticalHeader()->defaultSectionSize();
+	int insert_at_row = table_->rowAt(y);
+	
+	if (y % rh >= (rh/2))
+		insert_at_row++;
+	
+	QVector<SidePaneItem*> taken_items;
+	
+	auto &items = app_->side_pane_items();
+	{
+		MutexGuard guard(&items.mutex);
+		int before_row_count = 0;
+		const int count = items.vec.size();
+		
+		for (int i = count - 1; i >= 0; i--)
+		{
+			SidePaneItem *next = items.vec[i];
+			
+			if (!next->is_bookmark())
+				continue;
+			
+			if (str_list.contains(next->bookmark_name())) {
+				taken_items.append(next);
+				items.vec.removeAt(i);
+				
+				if (i < insert_at_row)
+					before_row_count++;
+			}
+		}
+		
+		int insert_at = insert_at_row - before_row_count;
+		
+		for (int i = taken_items.size() - 1; i >= 0; i--) {
+			auto *next = taken_items[i];
+			items.vec.insert(insert_at++, next);
+		}
+	}
+	
+	UpdateVisibleArea();
+	app_->SaveBookmarks();
 }
 
 bool
@@ -576,7 +653,6 @@ SidePaneModel::UpdateRange(int row1, int row2)
 		first = row1;
 		last = row2;
 	}
-	
 	const QModelIndex top_left = createIndex(first, 0);
 	const QModelIndex bottom_right = createIndex(last, 0);
 	emit dataChanged(top_left, bottom_right, {Qt::DisplayRole});

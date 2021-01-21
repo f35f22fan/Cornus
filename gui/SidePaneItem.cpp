@@ -22,7 +22,6 @@ SidePaneItem*
 SidePaneItem::Clone()
 {
 	SidePaneItem *p = new SidePaneItem();
-	p->table_name_ = table_name_;
 	p->dev_path_ = dev_path_;
 	p->bookmark_name_ = bookmark_name_;
 	p->mount_path_ = mount_path_;
@@ -33,15 +32,11 @@ SidePaneItem::Clone()
 	return p;
 }
 
-void
-SidePaneItem::Init()
+QString
+SidePaneItem::DisplayString()
 {
-	if (is_partition())
-		ReadSize();
-	
 	if (is_bookmark()) {
-		table_name_ = bookmark_name_;
-		return;
+		return bookmark_name_;
 	}
 	
 	QString s;
@@ -63,7 +58,14 @@ SidePaneItem::Init()
 	if (!size_str_.isEmpty())
 		s += QLatin1String(" (") + size_str_ + ')';
 	
-	table_name_ = s;
+	return s;
+}
+
+void
+SidePaneItem::Init()
+{
+	if (is_partition())
+		ReadSize();
 }
 
 void
@@ -85,4 +87,5 @@ SidePaneItem::ReadSize() {
 		size_str_ = io::SizeToString(size_);
 	}
 }
+
 }

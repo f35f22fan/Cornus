@@ -34,9 +34,9 @@
 namespace cornus::gui {
 
 Table::Table(TableModel *tm, App *app) : app_(app),
-table_model_(tm)
+model_(tm)
 {
-	setModel(table_model_);
+	setModel(model_);
 	delegate_ = new TableDelegate(this, app_);
 	setAlternatingRowColors(false);
 	auto d = static_cast<QAbstractItemDelegate*>(delegate_);
@@ -50,7 +50,7 @@ table_model_(tm)
 	horizontalHeader()->setSectionsMovable(false);
 	verticalHeader()->setSectionsMovable(false);
 	connect(verticalHeader(), &QHeaderView::sectionClicked, [=](int index) {
-		table_model_->app()->DisplayFileContents(index);
+		model_->app()->DisplayFileContents(index);
 	});
 	{
 		setDragEnabled(true);
@@ -69,13 +69,12 @@ table_model_(tm)
 }
 
 Table::~Table() {
-	delete table_model_;
+	delete model_;
 }
 
 void
 Table::dragEnterEvent(QDragEnterEvent *event)
 {
-mtl_trace();
 	const QMimeData *mimedata = event->mimeData();
 	
 	if (mimedata->hasUrls())
@@ -85,7 +84,6 @@ mtl_trace();
 void
 Table::dragLeaveEvent(QDragLeaveEvent *event)
 {
-mtl_trace();
 	drop_y_coord_ = -1;
 	update();
 }
@@ -102,15 +100,20 @@ Table::dragMoveEvent(QDragMoveEvent *event)
 	// requests are ignored. Repaint using a hack:
 	int row = rowAt(pos.y());
 	
-	if (row != -1)
-		table_model_->UpdateSingleRow(row);
+	if (row != -1) {
+		int start = row;
+		if (row > 0)
+			start--;
+		int end = row + 1;
+		model_->UpdateRowRange(start, end);
+	}
 }
 
 void
 Table::dropEvent(QDropEvent *evt)
 {
 	drop_y_coord_ = -1;
-	App *app = table_model_->app();
+	App *app = model_->app();
 	
 	if (evt->mimeData()->hasUrls()) {
 		QVector<io::File*> *files_vec = new QVector<io::File*>();
@@ -264,7 +267,7 @@ void
 Table::keyPressEvent(QKeyEvent *event)
 {
 	const int key = event->key();
-	auto *app = table_model_->app();
+	auto *app = model_->app();
 	const auto modifiers = event->modifiers();
 	const bool any_modifiers = (modifiers != Qt::NoModifier);
 	const bool shift = (modifiers & Qt::ShiftModifier);
@@ -305,7 +308,7 @@ Table::keyPressEvent(QKeyEvent *event)
 		else
 			mtl_trace();
 	}
-	table_model_->UpdateIndices(indices);
+	model_->UpdateIndices(indices);
 }
 
 void
@@ -327,7 +330,7 @@ Table::mouseDoubleClickEvent(QMouseEvent *evt)
 {
 	QTableView::mouseDoubleClickEvent(evt);
 	i32 col = columnAt(evt->pos().x());
-	auto *app = table_model_->app();
+	auto *app = model_->app();
 	
 	if (evt->button() == Qt::LeftButton) {
 		if (col == i32(Column::Icon)) {
@@ -355,7 +358,6 @@ Table::mouseMoveEvent(QMouseEvent *evt)
 		auto diff = (evt->pos() - drag_start_pos_).manhattanLength();
 		if (diff >= QApplication::startDragDistance())
 		{
-mtl_trace();
 			QMimeData *mimedata = new QMimeData();
 			QList<QUrl> urls;
 			ListSelectedFiles(urls);
@@ -370,15 +372,6 @@ mtl_trace();
 			//drag->setPixmap(pixmap);
 			
 			drag->exec(Qt::CopyAction | Qt::MoveAction, Qt::CopyAction);
-			
-//			if (drop_action == Qt::MoveAction) {
-//				mtl_trace("Move");
-//				//child->close();
-//			} else if (drop_action == Qt::CopyAction) {
-//				mtl_trace("Copy");
-//			} else {
-//				mtl_trace("Other");
-//			}
 		}
 	}
 }
@@ -421,7 +414,7 @@ Table::mousePressEvent(QMouseEvent *evt)
 		QTableView::mousePressEvent(evt);
 	}
 	
-	table_model_->UpdateIndices(indices);
+	model_->UpdateIndices(indices);
 }
 
 void
@@ -462,7 +455,7 @@ Table::paintEvent(QPaintEvent *event)
 void
 Table::ProcessAction(const QString &action)
 {
-	App *app = table_model_->app();
+	App *app = model_->app();
 	
 	if (action == actions::CreateNewFile) {
 		app->AskCreateNewFile(
@@ -482,7 +475,7 @@ Table::ProcessAction(const QString &action)
 			"Delete Files", question, QMessageBox::Yes|QMessageBox::No);
 		
 		if (reply == QMessageBox::Yes)
-			table_model_->DeleteSelectedFiles();
+			model_->DeleteSelectedFiles();
 	} else if (action == actions::RenameFile) {
 		app->RenameSelectedFile();
 	} else if (action == actions::OpenTerminal) {
@@ -559,7 +552,7 @@ void
 Table::ScrollToRow(int row) {
 	const int rh = verticalHeader()->defaultSectionSize();
 	int visible_rows = height() / rh;
-	const int row_count = table_model_->rowCount();
+	const int row_count = model_->rowCount();
 //	mtl_info("row: %d, visible_rows: %d, row_count: %d",
 //		row, visible_rows, row_count);
 	row -= visible_rows / 2;
@@ -623,7 +616,7 @@ Table::SelectRowSimple(const int row, const bool deselect_others)
 		}
 	}
 	
-	table_model_->UpdateIndices(indices);
+	model_->UpdateIndices(indices);
 }
 
 int
@@ -685,7 +678,7 @@ void
 Table::ShowRightClickMenu(const QPoint &pos)
 {
 	const int selected_count = GetSelectedFilesCount();
-	App *app = table_model_->app();
+	App *app = model_->app();
 	QMenu *menu = new QMenu();
 	
 	{
@@ -748,7 +741,7 @@ Table::SortingChanged(int logical, Qt::SortOrder order) {
 		files.data.sorting_order = sorder;
 		std::sort(files.data.vec.begin(), files.data.vec.end(), cornus::io::SortFiles);
 	}
-	table_model_->UpdateRowRange(0, file_count - 1);
+	model_->UpdateRowRange(0, file_count - 1);
 }
 
 } // cornus::gui::

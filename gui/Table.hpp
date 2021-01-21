@@ -18,7 +18,7 @@ public:
 	Table(TableModel *tm, App *app);
 	virtual ~Table();
 	
-	TableModel* model() const { return table_model_; }
+	TableModel* model() const { return model_; }
 	virtual void dropEvent(QDropEvent *event) override;
 	io::File* GetFileAtNTS(const QPoint &pos, const bool clone, int *ret_file_index = nullptr);
 	io::File* GetFileAt(const int row); // returns cloned file
@@ -57,7 +57,7 @@ private:
 	void SortingChanged(int logical, Qt::SortOrder order);
 	
 	App *app_ = nullptr;
-	TableModel *table_model_ = nullptr;
+	TableModel *model_ = nullptr;
 	TableDelegate *delegate_ = nullptr;
 	
 	int drop_y_coord_ = -1;

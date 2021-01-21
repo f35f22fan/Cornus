@@ -97,15 +97,16 @@ void* ListFilesTh(void *p)
 	{
 		using Clock = std::chrono::steady_clock;
 		new_data->start_time = std::chrono::time_point<Clock>::max();
+		auto start_time = std::chrono::steady_clock::now();
 		int status = pthread_cond_wait(&view_files.cond, &view_files.mutex);
 		if (status != 0) {
 			mtl_warn("pthread_cond_wait: %s", strerror(status));
 			break;
 		}
-/**		auto now = std::chrono::steady_clock::now();
+		auto now = std::chrono::steady_clock::now();
 		const float elapsed = std::chrono::duration<float,
 			std::chrono::milliseconds::period>(now - start_time).count();
-		mtl_info("Waited: %.5f ms", elapsed); */
+		//mtl_info("Waited: %.5f ms", elapsed);
 	}
 	view_files.Unlock();
 	

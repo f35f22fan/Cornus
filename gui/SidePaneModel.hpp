@@ -51,6 +51,9 @@ public:
 	QVariant
 	data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 	
+	void
+	FinishDropOperation(QVector<io::File*> *files_vec, SidePaneItem *to, int row);
+	
 	QVariant
 	headerData(int section, Qt::Orientation orientation, int role) const override;
 	

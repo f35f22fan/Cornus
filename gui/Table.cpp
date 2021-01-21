@@ -63,7 +63,7 @@ table_model_(tm)
 	setIconSize(QSize(32, 32));
 	resizeColumnsToContents();
 	///setShowGrid(false);
-	setSelectionMode(QAbstractItemView::ExtendedSelection);//ExtendedSelection);
+	setSelectionMode(QAbstractItemView::NoSelection);//ExtendedSelection);
 	setSelectionBehavior(QAbstractItemView::SelectRows);
 	setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
 }
@@ -444,8 +444,7 @@ Table::paintEvent(QPaintEvent *event)
 	pen.setWidthF(2.0);
 	painter.setPen(pen);
 	
-	const i32 slider_pos = verticalScrollBar()->sliderPosition();
-	int y = drop_y_coord_;// - slider_pos;
+	int y = drop_y_coord_;
 	
 	int rem = y % row_h;
 	
@@ -454,12 +453,9 @@ Table::paintEvent(QPaintEvent *event)
 	else
 		y += row_h - rem;
 	
-	y -= slider_pos;
-	
 	if (y > 0)
 		y -= 1;
 	
-	//mtl_info("y: %d, slider: %d", y, slider_pos);
 	painter.drawLine(0, y, width(), y);
 }
 

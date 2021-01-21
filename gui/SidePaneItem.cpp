@@ -1,9 +1,22 @@
 #include "SidePaneItem.hpp"
 
+#include "../io/File.hpp"
 #include "../io/io.hh"
 #include "../ByteArray.hpp"
 
 namespace cornus::gui {
+
+SidePaneItem*
+SidePaneItem::NewBookmark(io::File &file)
+{
+	SidePaneItem *p = new SidePaneItem();
+	p->type(SidePaneItemType::Bookmark);
+	p->mount_path(file.is_dir_or_so() ? file.build_full_path()
+		: file.dir_path());
+	p->bookmark_name(file.name());
+	p->Init();
+	return p;
+}
 
 SidePaneItem*
 SidePaneItem::Clone()

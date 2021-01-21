@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../io/decl.hxx"
 #include "../err.hpp"
 
 #include<QString>
@@ -17,6 +18,8 @@ public:
 	~SidePaneItem() {}
 	SidePaneItem* Clone();
 	void Init();
+	
+	static SidePaneItem* NewBookmark(io::File &file);
 	
 	const QString& bookmark_name() const { return bookmark_name_; }
 	void bookmark_name(const QString &s) { bookmark_name_ = s; }

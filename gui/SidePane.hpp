@@ -38,6 +38,7 @@ protected:
 	
 	virtual void keyPressEvent(QKeyEvent *event) override;
 	virtual void mouseDoubleClickEvent(QMouseEvent *event) override;
+	virtual void mouseMoveEvent(QMouseEvent *evt) override;
 	virtual void mousePressEvent(QMouseEvent *event) override;
 	
 	virtual void paintEvent(QPaintEvent *event) override;
@@ -50,6 +51,7 @@ private:
 	SidePaneModel *model_ = nullptr;
 	App *app_ = nullptr;
 	int drop_y_coord_ = -1;
+	QPoint drag_start_pos_ = {-1, -1};
 	
 };
 

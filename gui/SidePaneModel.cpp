@@ -413,12 +413,34 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 	} else if (role == Qt::FontRole) {
 	} else if (role == Qt::BackgroundRole) {
 		QStyleOptionViewItem option = table_->option();
-		if (item->selected())
+		if (item->selected() && item->is_partition())
 			return option.palette.highlight();
 	} else if (role == Qt::ForegroundRole) {
+		if (item->is_partition())
+			return QColor(0, 0, 155);
 	} else if (role == Qt::DecorationRole) {
 	}
 	return {};
+}
+
+void
+SidePaneModel::FinishDropOperation(QVector<io::File*> *files_vec,
+	SidePaneItem *to, int row)
+{
+	auto &items = app_->side_pane_items();
+	beginInsertRows(QModelIndex(), 0, files_vec->size() - 1);
+	{
+		MutexGuard guard(&items.mutex);
+		
+		for (io::File *file: *files_vec) {
+			items.vec.append(SidePaneItem::NewBookmark(*file));
+			delete file;
+		}
+	}
+	endInsertRows();
+	delete files_vec;
+	//model_->UpdateVisibleArea();
+	app_->SaveBookmarks();
 }
 
 QVariant

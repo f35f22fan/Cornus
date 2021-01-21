@@ -13,6 +13,7 @@
 
 #include <QAbstractItemView>
 #include <QAction>
+#include <QApplication>
 #include <QClipboard>
 #include <QDialog>
 #include <QDragEnterEvent>
@@ -42,8 +43,7 @@ model_(tm), app_(app)
 	horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 	horizontalHeader()->setSectionsMovable(false);
 	verticalHeader()->setSectionsMovable(false);
-	setDragEnabled(true);
-	setAcceptDrops(true);
+	
 	setDefaultDropAction(Qt::MoveAction);
 	setUpdatesEnabled(true);
 	setIconSize(QSize(32, 32));
@@ -51,9 +51,12 @@ model_(tm), app_(app)
 	//setShowGrid(false);
 	setSelectionBehavior(QAbstractItemView::SelectRows);
 	setSelectionMode(QAbstractItemView::NoSelection);//ExtendedSelection);
-//	setDragDropOverwriteMode(false);
-//	setDropIndicatorShown(true);
-	
+	{
+		setDragEnabled(true);
+		setAcceptDrops(true);
+		setDragDropOverwriteMode(false);
+		setDropIndicatorShown(true);
+	}
 	setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
 }
 
@@ -117,46 +120,44 @@ SidePane::dragMoveEvent(QDragMoveEvent *event)
 }
 
 void
-SidePane::dropEvent(QDropEvent *event)
+SidePane::dropEvent(QDropEvent *evt)
 {
 	drop_y_coord_ = -1;
 	App *app = model_->app();
 	
-	if (event->mimeData()->hasUrls()) {
-		/**
-		gui::Playlist *playlist = app->GetComboCurrentPlaylist();
-		CHECK_PTR_VOID(playlist);
-		QVector<io::File> files;
+	if (evt->mimeData()->hasUrls()) {
+		QVector<io::File*> *files_vec = new QVector<io::File*>();
 		
-		for (const QUrl &url: event->mimeData()->urls())
+		for (const QUrl &url: evt->mimeData()->urls())
 		{
-			QString path = url.path();
-			io::File file;
-			
-			if (io::FileFromPath(file, path) == io::Err::Ok)
-				files.append(file);
+			io::File *file = io::FileFromPath(url.path());
+			if (file != nullptr)
+				files_vec->append(file);
 		}
 		
-		int index = 0;
-		const int row_h = rowHeight(0);
-		int drop_at_y = event->pos().y() + verticalScrollBar()->sliderPosition();;
-		
-		if (row_h > 0 && drop_at_y > 0)
+		gui::SidePaneItem *to = nullptr;
+		int row;
 		{
-			int rem = drop_at_y % row_h;
+			SidePaneItems &items = app->side_pane_items();
+			MutexGuard guard(&items.mutex);
 			
-			if (rem < row_h / 2)
-				drop_at_y -= rem;
-			else
-				drop_at_y += row_h - rem;
-			
-			index = drop_at_y / row_h;
+			row = rowAt(evt->pos().y());
+			if (row == -1) {
+mtl_trace();
+				row = items.vec.size() - 1;
+			}
+			to = items.vec[row];
 		}
 		
-		if (index != -1) {
-			mtl_trace();
-		//	app->AddFilesToPlaylist(files, playlist, index);
-		} **/
+		if (to == nullptr) {
+mtl_trace();
+			for (auto *next: *files_vec)
+				delete next;
+			delete files_vec;
+			return;
+		}
+		
+		model_->FinishDropOperation(files_vec, to, row);
 	}
 }
 
@@ -206,6 +207,20 @@ SidePane::mouseDoubleClickEvent(QMouseEvent *evt)
 	
 	if (evt->button() == Qt::LeftButton) {
 		
+	}
+}
+
+void
+SidePane::mouseMoveEvent(QMouseEvent *evt)
+{
+	if (drag_start_pos_.x() >= 0 || drag_start_pos_.y() >= 0) {
+		auto diff = (evt->pos() - drag_start_pos_).manhattanLength();
+		if (diff >= QApplication::startDragDistance())
+		{
+			QMimeData *mimedata = new QMimeData();
+			QList<QUrl> urls;
+			mtl_trace("TBD");
+		}
 	}
 }
 

@@ -355,7 +355,7 @@ void ReadLink(const char *file_path, LinkTarget &link_target,
 	}
 	
 	buf[nbytes] = 0;
-	QString full_target_path = QString::fromUtf8(buf);
+	QString full_target_path = QString::fromLocal8Bit(buf, nbytes);
 	if (!full_target_path.startsWith('/')) {
 		QString s = parent_dir;
 		if (!parent_dir.endsWith('/'))
@@ -377,14 +377,17 @@ void ReadLink(const char *file_path, LinkTarget &link_target,
 			}
 			QString parent_dir2 = dir.absolutePath();
 			link_target.cycles++;
+//			mtl_info("%s", ba.data());
+//			mtl_printq2("parent_dir2: ", parent_dir2);
 			ReadLink(ba.data(), link_target, parent_dir2);
 			return;
 		}
 	} else {
-		//mtl_trace("lstat: %s, file: \"%s\"", strerror(errno), ba.data());
-		return;
+//		mtl_trace("lstat: %s, file: \"%s\"", strerror(errno), ba.data());
+//		return;
 	}
 	
+//	mtl_printq2("full_target_path: ", full_target_path);
 	link_target.chain_paths_.append(full_target_path);
 	link_target.path = full_target_path;
 	link_target.mode = st.st_mode;

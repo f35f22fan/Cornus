@@ -24,6 +24,7 @@ public:
 	io::File* GetFileAt(const int row); // returns cloned file
 	int GetFirstSelectedFile(io::File **ret_cloned_file);
 	QString GetFirstSelectedFileFullPath(QString *ext);
+	inline int GetIconSize();
 	int GetSelectedFilesCount();
 	void ProcessAction(const QString &action);
 	void ScrollToRow(int row);

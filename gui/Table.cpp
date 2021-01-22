@@ -60,12 +60,14 @@ model_(tm)
 	}
 	setDefaultDropAction(Qt::MoveAction);
 	setUpdatesEnabled(true);
-	setIconSize(QSize(32, 32));
 	resizeColumnsToContents();
 	///setShowGrid(false);
 	setSelectionMode(QAbstractItemView::NoSelection);//ExtendedSelection);
 	setSelectionBehavior(QAbstractItemView::SelectRows);
 	setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+	
+	int sz = GetIconSize();
+	setIconSize(QSize(sz, sz));
 }
 
 Table::~Table() {
@@ -223,6 +225,11 @@ Table::GetFirstSelectedFileFullPath(QString *ext) {
 	}
 	
 	return QString();
+}
+
+int
+Table::GetIconSize() {
+	return verticalHeader()->defaultSectionSize();
 }
 
 int

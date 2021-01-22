@@ -289,7 +289,7 @@ void App::CreateGui()
 	
 	main_splitter_->setStretchFactor(0, 0);
 	main_splitter_->setStretchFactor(1, 1);
-	main_splitter_->setSizes({170, 1000});
+	//main_splitter_->setSizes({170, 1000});
 	
 	toolbar_ = new gui::ToolBar(this);
 	location_ = toolbar_->location();
@@ -469,8 +469,7 @@ bool App::GoTo(QString dir_path, bool reload, QString scroll_to_and_select)
 	return true;
 }
 
-void
-App::GoToFinish(cornus::io::FilesData *new_data)
+void App::GoToFinish(cornus::io::FilesData *new_data)
 {
 	AutoDelete ad(new_data);
 	int count = new_data->vec.size();

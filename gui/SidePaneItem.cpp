@@ -25,9 +25,10 @@ SidePaneItem::Clone()
 	p->dev_path_ = dev_path_;
 	p->bookmark_name_ = bookmark_name_;
 	p->mount_path_ = mount_path_;
+	p->size_ = size_;
 	p->fs_ = fs_;
 	p->type_ = type_;
-	p->selected_ = selected_;
+	p->bits_ = bits_;
 	
 	return p;
 }
@@ -41,13 +42,22 @@ SidePaneItem::DisplayString()
 	
 	QString s;
 	
-	if (!size_str_.isEmpty())
-		s += QChar('[') + size_str_ + QLatin1String("] ");
-	
-	int index = dev_path_.lastIndexOf('/');
+	if (!mounted()) {
+		int index = dev_path_.lastIndexOf('/');
+		if (index == -1) {
+			mtl_trace();
+			return s;
+		}
+		
+		s += dev_path_.mid(index + 1);
+		
+		if (!size_str_.isEmpty())
+			s += ' ' + size_str_;
+		return s;
+	}
 	
 	QString name;
-	index = mount_path_.lastIndexOf('/');
+	int index = mount_path_.lastIndexOf('/');
 	if (index >= 0 && mount_path_.size() > 1)
 		name = mount_path_.mid(index + 1);
 	else
@@ -58,6 +68,9 @@ SidePaneItem::DisplayString()
 	} else {
 		s += name;
 	}
+	
+	if (!size_str_.isEmpty())
+		s += ' ' + size_str_;
 	
 	return s;
 }

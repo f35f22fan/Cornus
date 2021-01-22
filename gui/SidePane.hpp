@@ -6,6 +6,7 @@
 #include "../err.hpp"
 
 #include <QAbstractTableModel>
+#include <QHeaderView>
 #include <QMouseEvent>
 #include <QPoint>
 #include <QTableView>
@@ -24,6 +25,7 @@ public:
 	
 	virtual void dropEvent(QDropEvent *event) override;
 	gui::SidePaneItem* GetItemAtNTS(const QPoint &pos, bool clone, int *ret_index = nullptr);
+	inline int GetIconSize() { return verticalHeader()->defaultSectionSize(); }
 	int GetSelectedBookmarkCount();
 	void ProcessAction(const QString &action);
 	void SelectProperPartition(const QString &full_path);

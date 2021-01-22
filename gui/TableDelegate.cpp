@@ -9,6 +9,7 @@
 
 #include <mutex>
 #include <QDateTime>
+#include <QHeaderView>
 #include <QPainter>
 
 class RestorePainter {
@@ -37,6 +38,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	const QStyleOptionViewItem &option, QFontMetrics &fm,
 	const QRect &text_rect) const
 {
+	int rh = table_->verticalHeader()->defaultSectionSize();
 	auto str_rect = fm.boundingRect(file->name());
 	
 	if (!file->is_dir_or_so() && file->has_exec_bit()) {
@@ -49,8 +51,8 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 		r.setWidth(str_rect.width() + FnOff * 2);
 		painter->fillRect(r, option.palette.highlight());
 	}
-	
-	painter->drawText(text_rect, file->name());
+	int text_y = text_rect.y() + str_rect.height();
+	painter->drawText(text_rect.x(), text_y, file->name());
 	
 	if (!file->is_symlink() || (file->link_target() == nullptr))
 		return;

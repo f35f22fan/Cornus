@@ -42,6 +42,54 @@ void LoadBookmarks(QVector<SidePaneItem*> &vec)
 	}
 }
 
+void LoadDrivePartition(const QString &dir_path, const QString &name,
+	QVector<SidePaneItem*> &vec)
+{
+/// Check if this partition hasn't been loaded previously as a mounted one:
+	for (SidePaneItem *next: vec) {
+		if (next->dev_path().endsWith(name)) {
+			return;
+		}
+	}
+	
+	const QString dev_path = QLatin1String("/dev/") + name;
+	SidePaneItem *p = new SidePaneItem();
+	p->dev_path(dev_path);
+	p->type(SidePaneItemType::Partition);
+	p->mounted(false);
+	p->Init();
+	vec.append(p);
+}
+
+void LoadDrivePartitions(QString dir_path, QVector<SidePaneItem*> &vec)
+{
+	if (!dir_path.endsWith('/'))
+		dir_path.append('/');
+	
+	QVector<QString> names;
+	CHECK_TRUE_VOID((io::ListFileNames(dir_path, names) == io::Err::Ok));
+	const QString sda = QLatin1String("sda");
+	
+	for (const QString &name: names) {
+		if (name.startsWith(sda))
+			LoadDrivePartition(dir_path, name, vec);
+	}
+}
+
+void LoadUnmountedPartitions(QVector<SidePaneItem*> &vec)
+{
+	QVector<QString> names;
+	const QString dir = QLatin1String("/sys/block/");
+	CHECK_TRUE_VOID((io::ListFileNames(dir, names) == io::Err::Ok));
+	const QString prefix = QLatin1String("sd");
+	
+	for (const QString &name: names) {
+		if (name.startsWith(prefix)) {
+			LoadDrivePartitions(dir + name, vec);
+		}
+	}
+}
+
 void* LoadItems(void *args)
 {
 	pthread_detach(pthread_self());
@@ -72,20 +120,16 @@ void* LoadItems(void *args)
 		auto *p = new gui::SidePaneItem();
 		p->dev_path(args[0].toString());
 		p->mount_path(mount_path.toString());
+		p->mounted(true);
 		p->fs(args[2].toString());
 		p->type(gui::SidePaneItemType::Partition);
 		p->Init();
 		method_args.vec.append(p);
 	}
 	
-	LoadBookmarks(method_args.vec);
+	LoadUnmountedPartitions(method_args.vec);
 	
-//	SidePaneItem *sp = new SidePaneItem();
-//	sp->type(SidePaneItemType::Bookmark);
-//	sp->mount_path("/media/data/Torrents");
-//	sp->bookmark_name("MyTorrents");
-//	sp->Init();
-//	method_args.vec.append(sp);
+	LoadBookmarks(method_args.vec);
 	
 	SidePaneItems &items = app->side_pane_items();
 	items.Lock();
@@ -138,6 +182,8 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 		return {};
 	}
 	
+	static QIcon hard_drive_icon = QIcon::fromTheme("drive-harddisk");
+	
 	if (role == Qt::TextAlignmentRole) {}
 	
 	const int row = index.row();
@@ -156,12 +202,17 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 		}
 	} else if (role == Qt::BackgroundRole) {
 //		QStyleOptionViewItem option = table_->option();
-//		if (item->selected() && item->is_partition())
+//		if (item->is_partition())
+//			return QColor(255, 255, 240);
 //			return option.palette.highlight();
 	} else if (role == Qt::ForegroundRole) {
-//		if (item->is_partition())
-//			return QColor(0, 0, 155);
+		if (item->is_partition() && !item->mounted()) {
+			const int c = 100;
+			return QColor(c, c, c);
+		}
 	} else if (role == Qt::DecorationRole) {
+		if (item->is_partition())
+			return hard_drive_icon;
 	}
 	return {};
 }
@@ -236,6 +287,7 @@ SidePaneModel::InsertFromAnotherThread(cornus::gui::InsertArgs args)
 		set_size = false;
 		auto *splitter = app_->main_splitter();
 		QFont font = table_->option().font;
+		font.setBold(true);
 		QFontMetrics fm(font);
 		int widest = 0;
 		for (SidePaneItem *next: args.vec) {
@@ -245,7 +297,7 @@ SidePaneModel::InsertFromAnotherThread(cornus::gui::InsertArgs args)
 			}
 		}
 		
-		widest += 20;
+		widest += 20 + table_->GetIconSize();
 		splitter->setSizes({widest, 1000});
 	}
 	

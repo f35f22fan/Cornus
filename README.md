@@ -10,8 +10,8 @@
 ##### Application Shortcuts:
 
 * Alt+Up => Move one directory up
-* Alt+H => Toggle show hidden files
-* Alt+Q => Quit app
+* Ctrl+H => Toggle show hidden files
+* Ctrl+Q => Quit app
 * Shift+Delete => Delete selected files
 * F2 => Rename selected file
 * Ctrl+I => Focus table
@@ -24,5 +24,8 @@
 ##### BTC: bc1qzs8ux6m0t4jj98furra8pvx2ll80qchr5v4ru6
 
 ---
-### Screenshot (or see resources/Screenshot.webp):
-![](resources/Screenshot.webp)
+### Screenshot with dark theme:
+![](resources/Screenshot_dark.webp)
+
+### Screenshot with light theme:
+![](resources/Screenshot_light.webp)

@@ -50,7 +50,6 @@ model_(tm), app_(app)
 	
 	setDefaultDropAction(Qt::MoveAction);
 	setUpdatesEnabled(true);
-	setIconSize(QSize(32, 32));
 	resizeColumnsToContents();
 	//setShowGrid(false);
 	setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -62,6 +61,9 @@ model_(tm), app_(app)
 		setDropIndicatorShown(true);
 	}
 	setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+	
+	int sz = GetIconSize();
+	setIconSize(QSize(sz, sz));
 }
 
 SidePane::~SidePane() {
@@ -306,9 +308,14 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 		SidePaneItems &items = app_->side_pane_items();
 		MutexGuard guard(&items.mutex);
 		cloned_item = GetItemAtNTS(evt->pos(), true, &row);
-		
-		if (cloned_item == nullptr)
-			return;
+	}
+	
+	if (cloned_item == nullptr)
+		return;
+	
+	if (cloned_item->is_partition() && !cloned_item->mounted()) {
+		delete cloned_item;
+		return;
 	}
 	
 	model_->app()->GoTo(cloned_item->mount_path());
@@ -402,18 +409,6 @@ SidePane::RenameSelectedBookmark()
 void
 SidePane::resizeEvent(QResizeEvent *event) {
 	QTableView::resizeEvent(event);
-//	double w = event->size().width();
-//	const int icon = 50;
-//	const int size = 110;
-//	QFontMetrics metrics = fontMetrics();
-//	QString sample_date = QLatin1String("2020-12-01 18:04");
-//	const int time_w = metrics.boundingRect(sample_date).width() * 1.1;
-//	int file_name = w - (icon + size + time_w + 5);
-	
-//	setColumnWidth(i8(gui::Column::Icon), icon);// 45);
-//	setColumnWidth(i8(gui::Column::FileName), file_name);// 500);
-//	setColumnWidth(i8(gui::Column::Size), size);
-//	setColumnWidth(i8(gui::Column::TimeCreated), time_w);
 }
 
 bool
@@ -468,6 +463,9 @@ SidePane::SelectProperPartition(const QString &full_path)
 		}
 		
 		if (next == root_item)
+			continue;
+		
+		if (!next->mounted())
 			continue;
 		
 		if (full_path.startsWith(next->mount_path())) {

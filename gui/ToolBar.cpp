@@ -90,7 +90,8 @@ void ToolBar::ShowAboutThisAppDialog()
 	vert_layout->addWidget(te);
 	QString str = "<center><b>Cornus Mas</b><br/>A fast file browser"
 	" for Linux written in C++17 & Qt5<hr/>"
-	"Author: f35f22fan@gmail.com<br/><br/><br/><br/>"
+	"Author: f35f22fan@gmail.com<br/>"
+	"GitHub: https://github.com/f35f22fan/Cornus<br/><br/><br/>"
 	"<img src=\":resources/cornus.webp\" width=256 height=256></img>"
 	"<br/><br/><i><small>Cornus Mas is also a wild and "
 	"relatively rare tree & fruit that the author of this app happens "

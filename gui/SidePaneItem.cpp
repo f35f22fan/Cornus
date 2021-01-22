@@ -40,6 +40,10 @@ SidePaneItem::DisplayString()
 	}
 	
 	QString s;
+	
+	if (!size_str_.isEmpty())
+		s += QChar('[') + size_str_ + QLatin1String("] ");
+	
 	int index = dev_path_.lastIndexOf('/');
 	
 	QString name;
@@ -54,9 +58,6 @@ SidePaneItem::DisplayString()
 	} else {
 		s += name;
 	}
-	
-	if (!size_str_.isEmpty())
-		s += QLatin1String(" (") + size_str_ + ')';
 	
 	return s;
 }

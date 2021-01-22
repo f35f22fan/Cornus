@@ -469,7 +469,8 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	return Err::Ok;
 }
 
-bool ReloadMeta(io::File &file)
+bool
+ReloadMeta(io::File &file)
 {
 	auto ba = file.build_full_path().toLocal8Bit();
 	
@@ -483,6 +484,13 @@ bool ReloadMeta(io::File &file)
 	}
 	
 	FillInStx(file, stx, nullptr);
+	
+	if (file.is_symlink()) {
+		auto *target = new LinkTarget();
+		ReadLink(ba.data(), *target, file.dir_path());
+		delete file.link_target();
+		file.link_target(target);
+	}
 	
 	return true;
 }

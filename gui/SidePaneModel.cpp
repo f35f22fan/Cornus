@@ -106,270 +106,6 @@ void* LoadItems(void *args)
 }
 }
 
-struct WatchArgs {
-	i32 dir_id = 0;
-	QString dir_path;
-	cornus::gui::SidePaneModel *table_model = nullptr;
-};
-
-const size_t kInotifyEventSize = sizeof (struct inotify_event);
-const size_t kInotifyEventBufLen = 256 * (kInotifyEventSize + 16);
-
-/**
-io::File* Find(const QVector<io::File*> &vec,
-	const QString &name, const bool is_dir, int *index)
-{
-	int i = -1;
-	for (io::File *file : vec)
-	{
-		i++;
-		if (is_dir != file->is_dir())
-			continue;
-		
-		if (file->name() == name) {
-			if (index != nullptr)
-				*index = i;
-			return file;
-		}
-	}
-	
-	return nullptr;
-}
-
-void InsertFile(io::File *new_file, QVector<io::File*> &files_vec,
-	int *inserted_at)
-{
-	for (int i = files_vec.size() - 1; i >= 0; i--) {
-		io::File *next = files_vec[i];
-		if (!io::SortFiles(new_file, next)) {
-			i++;
-			files_vec.insert(i, new_file);
-			if (inserted_at != nullptr)
-				*inserted_at = i;
-			return;
-		}
-	}
-	
-	if (inserted_at != nullptr)
-		*inserted_at = 0;
-	
-	files_vec.insert(0, new_file);
-}
-
-void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
-	QVector<int> &update_indices)
-{
-	const ssize_t num_read = read(inotify_fd, buf, kInotifyEventBufLen);
-	if (num_read == 0) {
-		mtl_trace();
-		return;
-	}
-	
-	if (num_read == -1) {
-		mtl_status(errno);
-		return;
-	}
-
-	ssize_t add = 0;
-	QVector<io::File*> &files_vec = files->vec;
-	
-	for (char *p = buf; p < buf + num_read; p += add) {
-		struct inotify_event *ev = (struct inotify_event*) p;
-		add = sizeof(struct inotify_event) + ev->len;
-		const auto mask = ev->mask;
-		const bool has_name = ev->len > 0;
-		const bool is_dir = mask & IN_ISDIR;
-		
-		if (mask & IN_ATTRIB) {
-			if (has_name) {
-				int update_index;
-				io::File *found = Find(files_vec, ev->name, is_dir, &update_index);
-				if (found != nullptr) {
-					io::ReloadMeta(*found);
-					update_indices.append(update_index);
-				}
-			}
-		} else if (mask & IN_CREATE) {
-#ifdef DEBUG_INOTIFY
-mtl_trace("IN_CREATE: %s", ev->name);
-#endif
-			QString name(ev->name);
-			if (!files->show_hidden_files && name.startsWith('.'))
-				continue;
-			
-			io::File *new_file = new io::File(files);
-			new_file->name(name);
-			if (io::ReloadMeta(*new_file)) {
-				int inserted_at;
-				InsertFile(new_file, files_vec, &inserted_at);
-				update_indices.append(inserted_at);
-			} else {
-				delete new_file;
-				mtl_warn();
-			}
-		} else if (mask & IN_DELETE) {
-#ifdef DEBUG_INOTIFY
-mtl_trace("IN_DELETE: %s", ev->name);
-#endif
-			int index;
-			auto *found = Find(files_vec, ev->name, is_dir, &index);
-			if (found != nullptr) {
-				update_indices.append(-1);
-				files_vec.remove(index);
-			} else {
-#ifdef DEBUG_INOTIFY
-				mtl_trace();
-#endif
-			}
-		} else if (mask & IN_DELETE_SELF) {
-			mtl_warn("IN_DELETE_SELF");
-		} else if (mask & IN_MOVE_SELF) {
-			mtl_warn("IN_MOVE_SELF");
-		} else if (mask & IN_MOVED_FROM) {
-#ifdef DEBUG_INOTIFY
-mtl_trace("IN_MOVED_FROM: %s, is_dir: %d", ev->name, is_dir);
-#endif
-			int from_index;
-			io::File *from_file = Find(files_vec, ev->name, is_dir, &from_index);
-			if (from_file != nullptr) {
-				update_indices.append(from_index);
-				files_vec.remove(from_index);
-			} else {
-				mtl_trace();
-			}
-		} else if (mask & IN_MOVED_TO) {
-#ifdef DEBUG_INOTIFY
-mtl_trace("IN_MOVED_TO: %s, is_dir: %d", ev->name, is_dir);
-#endif
-			int to_index;
-			io::File *to_file = Find(files_vec, ev->name, is_dir, &to_index);
-			if (to_file != nullptr) {
-				update_indices.append(to_index);
-				to_file->ClearCache();
-				files_vec.remove(to_index);
-			} else {
-				to_file = new io::File(files);
-			}
-			to_file->name(ev->name);
-			io::ReloadMeta(*to_file);
-			/// Reinsert at the proper position:
-			InsertFile(to_file, files_vec, &to_index);
-			update_indices.append(to_index);
-		} else if (mask & IN_Q_OVERFLOW) {
-			mtl_warn("IN_Q_OVERFLOW");
-		} else if (mask & IN_UNMOUNT) {
-			mtl_warn("IN_UNMOUNT");
-		} else if (mask & IN_CLOSE) {
-//#ifdef DEBUG_INOTIFY
-//mtl_trace("IN_CLOSE: %s", ev->name);
-//#endif
-			int update_index;
-			io::File *found = Find(files_vec, ev->name, is_dir, &update_index);
-			
-			if (found == nullptr)
-				continue;
-			
-			if (io::ReloadMeta(*found)) {
-				update_indices.append(update_index);
-			} else {
-				mtl_trace();
-			}
-		} else if (mask & IN_IGNORED) {
-		} else {
-			mtl_warn("Unhandled inotify event: %u", mask);
-		}
-	}
-}
-
-void* WatchDir(void *void_args)
-{
-	pthread_detach(pthread_self());
-	CHECK_PTR_NULL(void_args);
-	
-	WatchArgs *args = (WatchArgs*)void_args;
-	AutoDelete ad_args(args);
-	//mtl_info("kInotifyEventBufLen: %ld", kInotifyEventBufLen);
-	char *buf = new char[kInotifyEventBufLen];
-	AutoDeleteArr ad_arr(buf);
-	cornus::gui::Notify &notify = args->table_model->notify();
-	
-	auto path = args->dir_path.toLocal8Bit();
-	auto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE | IN_DELETE_SELF
-		| IN_MOVE_SELF | IN_CLOSE | IN_MOVE;// | IN_MODIFY;
-	int wd = inotify_add_watch(notify.fd, path.data(), event_types);
-	if (wd == -1) {
-		mtl_status(errno);
-		return nullptr;
-	}
-	AutoRemoveWatch arw(notify, wd);
-	//mtl_info("Watching %s using wd %d", path.data(), wd);
-	
-	int epfd = epoll_create(1);
-	
-	if (epfd == -1) {
-		mtl_status(errno);
-		return 0;
-	}
-	
-	struct epoll_event pev;
-	pev.events = EPOLLIN;
-	pev.data.fd = notify.fd;
-	
-	if (epoll_ctl(epfd, EPOLL_CTL_ADD, notify.fd, &pev)) {
-		mtl_status(errno);
-		close(epfd);
-		return nullptr;
-	}
-	
-	struct epoll_event poll_event;
-	const int seconds = 3 * 1000;
-	cornus::io::Files *files = args->table_model->files();
-	UpdateTableArgs method_args;
-	method_args.dir_id = args->dir_id;
-	
-	while (true)
-	{
-		{
-			MutexGuard guard(&files->mutex);
-			
-			if (args->dir_id != files->dir_id)
-				break;
-		}
-		
-		int event_count = epoll_wait(epfd, &poll_event, 1, seconds);
-		{
-			MutexGuard guard(&files->mutex);
-			
-			if (args->dir_id != files->dir_id)
-				break;
-			
-			method_args.prev_count = files->vec.size();
-			
-			if (event_count > 0)
-				ReadEvent(poll_event.data.fd, buf, files,
-					method_args.indices);
-			
-			method_args.new_count = files->vec.size();
-		}
-		
-//		if (!renames.isEmpty()) {
-//			mtl_info("Not all renames happened in one event batch");
-//		}
-		
-		if (!method_args.indices.isEmpty()) {
-			QMetaObject::invokeMethod(args->table_model, "UpdateTable",
-				Q_ARG(cornus::gui::UpdateTableArgs, method_args));
-			method_args.indices.clear();
-		}
-	}
-	
-	if (close(epfd)) {
-		mtl_status(errno);
-	}
-	
-	return nullptr;
-}
-*/
 SidePaneModel::SidePaneModel(cornus::App *app): app_(app)
 {
 	qRegisterMetaType<cornus::gui::UpdateSidePaneArgs>();
@@ -412,13 +148,19 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 	{
 		return item->DisplayString();
 	} else if (role == Qt::FontRole) {
-	} else if (role == Qt::BackgroundRole) {
 		QStyleOptionViewItem option = table_->option();
-		if (item->selected() && item->is_partition())
-			return option.palette.highlight();
+		if (item->selected() && item->is_partition()) {
+			QFont f = option.font;
+			f.setBold(true);
+			return f;
+		}
+	} else if (role == Qt::BackgroundRole) {
+//		QStyleOptionViewItem option = table_->option();
+//		if (item->selected() && item->is_partition())
+//			return option.palette.highlight();
 	} else if (role == Qt::ForegroundRole) {
-		if (item->is_partition())
-			return QColor(0, 0, 155);
+//		if (item->is_partition())
+//			return QColor(0, 0, 155);
 	} else if (role == Qt::DecorationRole) {
 	}
 	return {};
@@ -468,7 +210,6 @@ SidePaneModel::FinishDropOperation(QVector<io::File*> *files_vec, int row)
 	}
 	endInsertRows();
 	delete files_vec;
-	//model_->UpdateVisibleArea();
 	app_->SaveBookmarks();
 }
 

@@ -54,7 +54,7 @@ model_(tm), app_(app)
 	resizeColumnsToContents();
 	//setShowGrid(false);
 	setSelectionBehavior(QAbstractItemView::SelectRows);
-	setSelectionMode(QAbstractItemView::ExtendedSelection);
+	setSelectionMode(QAbstractItemView::NoSelection);//ExtendedSelection);
 	{
 		setDragEnabled(true);
 		setAcceptDrops(true);
@@ -70,12 +70,18 @@ SidePane::~SidePane() {
 
 void
 SidePane::DeselectAllItems(const int except_row, const bool row_flag,
-QVector<int> &indices) {
+QVector<int> &indices)
+{
 	auto &items = this->items();
 	MutexGuard guard(&items.mutex);
 	
-	int i = 0;
-	for (SidePaneItem *next: items.vec) {
+	int i = -1;
+	for (SidePaneItem *next: items.vec)
+	{
+		i++;
+		if (!next->is_bookmark())
+			continue;
+		
 		if (i == except_row) {
 			next->selected(row_flag);
 			indices.append(i);
@@ -85,8 +91,6 @@ QVector<int> &indices) {
 				indices.append(i);
 			}
 		}
-		
-		i++;
 	}
 }
 
@@ -381,9 +385,6 @@ SidePane::RenameSelectedBookmark()
 		if (text.isEmpty())
 			return;
 	}
-//	QString text = QInputDialog::getText(this, tr("Rename Bookmark"),
-//		tr("Name:"), QLineEdit::Normal, item->bookmark_name(), &ok);
-	
 	{
 		auto &items = this->items();
 		MutexGuard guard(&items.mutex);

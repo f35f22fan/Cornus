@@ -65,8 +65,9 @@ File::DeleteFromDisk() {
 bool
 File::has_exec_bit() const {
 	const auto ExecBits = S_IXUSR | S_IXGRP | S_IXOTH;
-	if (is_symlink())
-		return link_target()->mode & ExecBits;
+	if (is_symlink()) {
+		return link_target_->mode & ExecBits;
+	}
 	return mode_ & ExecBits;
 }
 

@@ -420,8 +420,6 @@ Table::mousePressEvent(QMouseEvent *evt)
 void
 Table::paintEvent(QPaintEvent *event)
 {
-//	static int cc = 0;
-//	printf("%d \n", cc++);
 	QTableView::paintEvent(event);
 	
 	if (drop_y_coord_ == -1)
@@ -494,14 +492,17 @@ Table::ProcessAction(const QString &action)
 }
 
 void
-Table::resizeEvent(QResizeEvent *event) {
+Table::resizeEvent(QResizeEvent *event)
+{
 	QTableView::resizeEvent(event);
+	
 	double w = event->size().width();
-	const int icon = 50;
-	const int size = 110;
-	QFontMetrics metrics = fontMetrics();
+	QFontMetrics fm = fontMetrics();
+	const int icon = fm.boundingRect(QLatin1String("Steam")).width();
+	const int size = fm.boundingRect(QLatin1String("1023.9 GiB")).width() + 10;
+	
 	QString sample_date = QLatin1String("2020-12-01 18:04");
-	const int time_w = metrics.boundingRect(sample_date).width() * 1.1;
+	const int time_w = fm.boundingRect(sample_date).width() + 10;
 	int file_name = w - (icon + size + time_w + 5);
 	
 	setColumnWidth(i8(gui::Column::Icon), icon);// 45);

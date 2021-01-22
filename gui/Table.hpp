@@ -39,6 +39,7 @@ protected:
 	virtual void dragMoveEvent(QDragMoveEvent *event) override;
 	
 	virtual void keyPressEvent(QKeyEvent *event) override;
+	virtual void keyReleaseEvent(QKeyEvent *evt) override;
 	virtual void mouseDoubleClickEvent(QMouseEvent *event) override;
 	virtual void mouseMoveEvent(QMouseEvent *evt) override;
 	virtual void mousePressEvent(QMouseEvent *event) override;
@@ -50,8 +51,10 @@ private:
 	
 	void FinishDropOperation(QVector<io::File *> *files_vec, io::File *to_dir,
 		Qt::DropAction drop_action);
+	void HandleMouseSelection(QMouseEvent *evt, QVector<int> &indices);
 	int IsOnFileNameStringNTS(const QPoint &pos, io::File **ret_file = nullptr);
 	void ListSelectedFiles(QList<QUrl> &list);
+	void SelectFileRangeNTS(const int row_start, const int row_end, QVector<int> &indices);
 	int SelectNextRow(const int relative_offset, const bool deselect_all_others, QVector<int> &indices); // returns newly selected row
 	void ShowRightClickMenu(const QPoint &pos);
 	void SortingChanged(int logical, Qt::SortOrder order);
@@ -60,6 +63,12 @@ private:
 	TableModel *model_ = nullptr;
 	TableDelegate *delegate_ = nullptr;
 	
+	struct ShiftSelect {
+		int starting_row = -1;
+		bool do_restart = false;
+		
+	} shift_select_ = {};
+
 	int drop_y_coord_ = -1;
 	QPoint drag_start_pos_ = {-1, -1};
 	

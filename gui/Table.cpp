@@ -239,6 +239,45 @@ Table::GetSelectedFilesCount() {
 	return count;
 }
 
+void
+Table::HandleMouseSelection(QMouseEvent *evt, QVector<int> &indices)
+{
+	auto modif = evt->modifiers();
+	const bool ctrl = modif & Qt::ControlModifier;
+	const bool shift = modif & Qt::ShiftModifier;
+	
+	io::Files &files = app_->view_files();
+	{
+		MutexGuard guard(&files.mutex);
+		
+		if (!ctrl) {
+			SelectAllFilesNTS(false, indices);
+		}
+		
+		if (shift) {
+			int row = rowAt(evt->pos().y());
+			SelectFileRangeNTS(shift_select_.starting_row, row, indices);
+			model_->UpdateIndices(indices);
+			
+			return;
+		}
+		
+		io::File *file = nullptr;
+		int row = IsOnFileNameStringNTS(evt->pos(), &file);
+		if (row >= 0) {
+			shift_select_.starting_row = row;
+			shift_select_.do_restart = true;
+			if (ctrl)
+				file->selected(!file->selected());
+			else
+				file->selected(true);
+			indices.append(row);
+		} else {
+			shift_select_.starting_row = -1;
+		}
+	}
+}
+
 int
 Table::IsOnFileNameStringNTS(const QPoint &pos, io::File **ret_file)
 {
@@ -309,6 +348,15 @@ Table::keyPressEvent(QKeyEvent *event)
 			mtl_trace();
 	}
 	model_->UpdateIndices(indices);
+}
+
+void
+Table::keyReleaseEvent(QKeyEvent *evt) {
+	bool shift = evt->modifiers() & Qt::ShiftModifier;
+	
+	if (!shift) {
+		shift_select_ = {};
+	}
 }
 
 void
@@ -387,31 +435,11 @@ Table::mousePressEvent(QMouseEvent *evt)
 		drag_start_pos_ = {-1, -1};
 	}
 	
-	auto modif = evt->modifiers();
-	const bool ctrl_pressed = modif & Qt::ControlModifier;
 	QVector<int> indices;
-	
-	io::Files &files = app_->view_files();
-	if (!ctrl_pressed) {
-		MutexGuard guard(&files.mutex);
-		SelectAllFilesNTS(false, indices);
-	}
-	
-	{
-		MutexGuard guard(&files.mutex);
-		io::File *file = nullptr;
-		int row = IsOnFileNameStringNTS(evt->pos(), &file);
-		if (row >= 0) {
-			file->selected(true);
-			indices.append(row);
-		}
-	}
+	HandleMouseSelection(evt, indices);
 	
 	if (evt->button() == Qt::RightButton) {
 		ShowRightClickMenu(evt->globalPos());
-	}
-	if (evt->button() == Qt::LeftButton) {
-		QTableView::mousePressEvent(evt);
 	}
 	
 	model_->UpdateIndices(indices);
@@ -588,6 +616,32 @@ Table::SelectAllFilesNTS(const bool flag, QVector<int> &indices) {
 		}
 		file->selected(flag);
 		i++;
+	}
+}
+
+void
+Table::SelectFileRangeNTS(const int row1, const int row2, QVector<int> &indices)
+{
+	io::Files &files = app_->view_files();
+	QVector<io::File*> &vec = files.data.vec;
+	
+	if (row1 < 0 || row1 >= vec.size() || row2 < 0 || row2 >= vec.size()) {
+///		mtl_warn("row1: %d, row2: %d", row1, row2);
+		return;
+	}
+	
+	int row_start = row1;
+	int row_end = row2;
+	if (row_start > row_end) {
+		row_start = row2;
+		row_end = row1;
+	}
+	
+///	mtl_warn("row_start: %d, row_end: %d", row_start, row_end);
+	
+	for (int i = row_start; i <= row_end; i++) {
+		vec[i]->selected(true);
+		indices.append(i);
 	}
 }
 

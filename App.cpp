@@ -332,7 +332,7 @@ void App::DisplayFileContents(const int row, io::File *cloned_file)
 	auto sp_sizes = notepad_.splitter->sizes();
 	if (sp_sizes[1] < 20) {
 		if (notepad_.sizes.isEmpty())
-			notepad_.splitter->setSizes({1000, 200});
+			notepad_.splitter->setSizes({1000, 250});
 		else
 			notepad_.splitter->setSizes(notepad_.sizes);
 	}

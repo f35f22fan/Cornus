@@ -634,9 +634,9 @@ void App::GoToAndSelect(const QString full_path)
 	
 	if (!io::SameFiles(parent_dir, current_dir_)) {
 		CHECK_TRUE_VOID(GoTo(parent_dir, false, full_path));
+	} else {
+		table_->ScrollToAndSelect(full_path);
 	}
-	
-//	table_->ScrollToAndSelect(full_path);
 }
 
 void App::GoUp() {

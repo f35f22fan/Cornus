@@ -38,11 +38,11 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	const QStyleOptionViewItem &option, QFontMetrics &fm,
 	const QRect &text_rect) const
 {
-	int rh = table_->verticalHeader()->defaultSectionSize();
+	//int rh = table_->verticalHeader()->defaultSectionSize();
 	auto str_rect = fm.boundingRect(file->name());
 	
 	if (!file->is_dir_or_so() && file->has_exec_bit()) {
-		QPen pen(QColor(0, 120, 0));
+		QPen pen(QColor(0, 100, 0));
 		painter->setPen(pen);
 	}
 	

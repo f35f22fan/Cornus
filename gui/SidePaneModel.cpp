@@ -207,7 +207,7 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 //			return option.palette.highlight();
 	} else if (role == Qt::ForegroundRole) {
 		if (item->is_partition() && !item->mounted()) {
-			const int c = 100;
+			const int c = 110;
 			return QColor(c, c, c);
 		}
 	} else if (role == Qt::DecorationRole) {

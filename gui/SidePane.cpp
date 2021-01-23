@@ -318,7 +318,7 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 		return;
 	}
 	
-	model_->app()->GoTo(cloned_item->mount_path());
+	model_->app()->GoTo({cloned_item->mount_path(), false});
 	model_->UpdateIndices(indices);
 }
 

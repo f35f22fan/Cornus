@@ -65,7 +65,7 @@ public:
 	void dir_path(const QString &s) { dp_ = s; }
 	
 	const QString& dir_path() const {
-		return (files_ == nullptr) ? dp_ : files_->data.dir_path; }
+		return (files_ == nullptr) ? dp_ : files_->data.processed_dir_path; }
 	
 	io::Files* files() const { return files_; }
 	

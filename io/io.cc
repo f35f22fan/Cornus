@@ -24,7 +24,7 @@ void Delete(io::File *file) {
 	}
 	
 	io::Files files;
-	files.data.dir_path = file->build_full_path();
+	files.data.processed_dir_path = file->build_full_path();
 	files.data.show_hidden_files = true;
 	CHECK_TRUE_VOID((ListFiles(files.data, &files) == io::Err::Ok));
 	
@@ -224,14 +224,21 @@ ListFileNames(const QString &full_dir_path, QVector<QString> &vec)
 io::Err
 ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 {
-	if (!data.dir_path.endsWith('/'))
-		data.dir_path.append('/');
+	if (!data.unprocessed_dir_path.isEmpty()) {
+		auto ret = RefactorDirPath(data);
+		if (ret != io::Err::Ok) {
+			mtl_trace();
+			return ret;
+		}
+	} else {
+		//mtl_printq2("Not refactoring: ", data.processed_dir_path);
+	}
 	
-	auto dir_path_ba = data.dir_path.toLocal8Bit();
+	auto dir_path_ba = data.processed_dir_path.toLocal8Bit();
 	DIR *dp = opendir(dir_path_ba.data());
 	
 	if (dp == NULL) {
-		mtl_printq2("Can't list dir: ", data.dir_path);
+		mtl_printq2("Can't list dir: ", data.processed_dir_path);
 		return MapPosixError(errno);
 	}
 	
@@ -252,10 +259,10 @@ ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 		if (hide_hidden_files && name.startsWith('.'))
 			continue;
 		
-		if (ff != nullptr && !ff(data.dir_path, name))
+		if (ff != nullptr && !ff(data.processed_dir_path, name))
 			continue;
 		
-		QString full_path = data.dir_path + name;
+		QString full_path = data.processed_dir_path + name;
 		auto ba = full_path.toLocal8Bit();
 		
 		if (statx(0, ba.data(), flags, fields, &stx) != 0) {
@@ -268,7 +275,7 @@ ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 		
 		if (file->is_symlink()) {
 			auto *target = new LinkTarget();
-			ReadLink(ba.data(), *target, data.dir_path);
+			ReadLink(ba.data(), *target, data.processed_dir_path);
 			file->link_target_ = target;
 		}
 		
@@ -293,13 +300,13 @@ MapPosixError(int e)
 	}
 }
 
-void ReadLink(const char *file_path, LinkTarget &link_target,
-	const QString &parent_dir) {
-	
+bool
+ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_dir)
+{
 	if (link_target.cycles == LinkTarget::MaxCycles) {
 		link_target.cycles *= -1;
 		mtl_warn("Symlink chain too large");
-		return;
+		return false;
 	}
 	
 	link_target.chain_paths_.append(file_path);
@@ -308,13 +315,13 @@ void ReadLink(const char *file_path, LinkTarget &link_target,
 	
 	if (lstat(file_path, &st) == -1) {
 		mtl_trace("lstat: %s, file: \"%s\"", strerror(errno), file_path);
-		return;
+		return false;
 	}
 	
 	FileID file_id = FileID::New(st);
 	if (link_target.chain_ids_.contains(file_id)) {
 		link_target.cycles *= -1;
-		return;
+		return false;
 	} else {
 		link_target.chain_ids_.append(file_id);
 	}
@@ -333,7 +340,7 @@ void ReadLink(const char *file_path, LinkTarget &link_target,
 	
 	if (buf == NULL) {
 		mtl_trace("malloc: %s", strerror(errno));
-		return;
+		return false;
 	}
 	
 	auto nbytes = readlink(file_path, buf, bufsize);
@@ -341,7 +348,7 @@ void ReadLink(const char *file_path, LinkTarget &link_target,
 	if (nbytes == -1) {
 		free(buf);
 		mtl_trace("readlink: %s, file_path: \"%s\"", strerror(errno), file_path);
-		return;
+		return false;
 	}
 	
 	/* If the return value was equal to the buffer size, then the
@@ -351,7 +358,6 @@ void ReadLink(const char *file_path, LinkTarget &link_target,
 	been truncated. */
 	if (nbytes == bufsize) {
 		mtl_warn("Returned buffer may have been truncated");
-		return;
 	}
 	
 	buf[nbytes] = 0;
@@ -373,14 +379,13 @@ void ReadLink(const char *file_path, LinkTarget &link_target,
 			QDir dir(full_target_path);
 			if (!dir.cdUp()) {
 				mtl_trace();
-				return;
+				return false;
 			}
 			QString parent_dir2 = dir.absolutePath();
 			link_target.cycles++;
 //			mtl_info("%s", ba.data());
 //			mtl_printq2("parent_dir2: ", parent_dir2);
-			ReadLink(ba.data(), link_target, parent_dir2);
-			return;
+			return ReadLink(ba.data(), link_target, parent_dir2);
 		}
 	} else {
 //		mtl_trace("lstat: %s, file: \"%s\"", strerror(errno), ba.data());
@@ -392,31 +397,8 @@ void ReadLink(const char *file_path, LinkTarget &link_target,
 	link_target.path = full_target_path;
 	link_target.mode = st.st_mode;
 	link_target.type = MapPosixTypeToLocal(st.st_mode);
-}
-
-isize
-TryReadFile(const QString &full_path, char *buf, const i64 how_much,
-	ExecInfo *info)
-{
-	auto ba = full_path.toLocal8Bit();
-	struct statx stx;
-	const auto fields = STATX_MODE;
 	
-	if (statx(0, ba.data(), AT_SYMLINK_NOFOLLOW, fields, &stx) != 0) {
-		//mtl_warn("statx(): %s", strerror(errno));
-		return -1;
-	}
-	
-	if (info != nullptr)
-		info->mode = stx.stx_mode;
-	
-	const int fd = open(ba.data(), O_RDONLY);
-	if (fd == -1)
-		return -1;
-	
-	isize ret = read(fd, buf, how_much);
-	close(fd);
-	return ret;
+	return true;
 }
 
 io::Err
@@ -468,6 +450,57 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	close(fd);
 	buffer.size(so_far);
 	buffer.to(0);
+	
+	return Err::Ok;
+}
+
+io::Err
+RefactorDirPath(io::FilesData &data)
+{
+	QString dir_path = QDir::cleanPath(data.unprocessed_dir_path);
+	
+	if (dir_path == QLatin1String("/"))
+	{
+		data.processed_dir_path = dir_path;
+		return Err::Ok;
+	}
+	
+	auto list = dir_path.splitRef('/', QString::SkipEmptyParts);
+//	mtl_printq2("Dir path: ", dir_path);
+//	for (auto &item: list) {
+//		mtl_printq2("Item: ", item.toString());
+//	}
+	
+	struct statx stx;
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_MODE;//STATX_ALL;
+	QString full_long_path;
+	
+	for (auto &item: list) {
+		QString parent_dir = full_long_path;
+		full_long_path += '/' + item;
+		auto ba = full_long_path.toLocal8Bit();
+		
+		if (statx(0, ba.data(), flags, fields, &stx) != 0) {
+			mtl_warn("statx(): %s", strerror(errno));
+			continue;
+		}
+		
+		if (S_ISLNK(stx.stx_mode)) {
+			LinkTarget target;
+			if (ReadLink(ba.data(), target, parent_dir)) {
+				full_long_path = target.path;
+			} else {
+				return io::Err::Other;
+			}
+		}
+	}
+	
+	if (!full_long_path.endsWith('/'))
+		full_long_path.append('/');
+	
+	data.processed_dir_path = full_long_path;
+	data.unprocessed_dir_path.clear();
 	
 	return Err::Ok;
 }
@@ -625,6 +658,31 @@ SortFiles(io::File *a, io::File *b)
 	
 	mtl_trace();
 	return false;
+}
+
+isize
+TryReadFile(const QString &full_path, char *buf, const i64 how_much,
+	ExecInfo *info)
+{
+	auto ba = full_path.toLocal8Bit();
+	struct statx stx;
+	const auto fields = STATX_MODE;
+	
+	if (statx(0, ba.data(), AT_SYMLINK_NOFOLLOW, fields, &stx) != 0) {
+		//mtl_warn("statx(): %s", strerror(errno));
+		return -1;
+	}
+	
+	if (info != nullptr)
+		info->mode = stx.stx_mode;
+	
+	const int fd = open(ba.data(), O_RDONLY);
+	if (fd == -1)
+		return -1;
+	
+	isize ret = read(fd, buf, how_much);
+	close(fd);
+	return ret;
 }
 
 io::Err

@@ -17,7 +17,7 @@ QString
 File::build_full_path() const
 {
 	if (files_ != nullptr)
-		return files_->data.dir_path + name_.orig;
+		return files_->data.processed_dir_path + name_.orig;
 	QString s = dp_;
 	
 	if (!dp_.endsWith('/'))

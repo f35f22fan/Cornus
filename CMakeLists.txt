@@ -12,6 +12,7 @@ include(FindPkgConfig)
 
 find_package(PkgConfig REQUIRED)
 pkg_search_module(DCONF REQUIRED dconf)
+pkg_search_module(UDISKS REQUIRED udisks2)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -42,6 +43,7 @@ set(src_files main.cpp
     gui/ToolBar.cpp gui/ToolBar.hpp
     
     io/decl.hxx
+    io/disks.cc io/disks.hh
     io/File.cpp io/File.hpp
     io/io.cc io/io.hh
 )
@@ -54,5 +56,7 @@ endforeach()
    
 set (exe_name "cornus")
 add_executable(${exe_name} ${src_files} resources.qrc)
-target_include_directories(${exe_name} PRIVATE ${DCONF_INCLUDE_DIRS})
-target_link_libraries(${exe_name}  Qt5::Core Qt5::Gui Qt5::Widgets ${DCONF_LDFLAGS} pthread)
+target_include_directories(${exe_name} PRIVATE
+    ${UDISKS_INCLUDE_DIRS} ${DCONF_INCLUDE_DIRS})
+target_link_libraries(${exe_name}  Qt5::Core Qt5::Gui Qt5::Widgets
+    ${UDISKS_LDFLAGS} ${DCONF_LDFLAGS} pthread)

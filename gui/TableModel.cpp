@@ -301,7 +301,7 @@ TableModel::DeleteSelectedFiles() {
 			if (next->selected()) {
 				io::File *cloned = next->Clone();
 				cloned->files_ = nullptr;
-				cloned->dir_path(files.data.dir_path);
+				cloned->dir_path(files.data.processed_dir_path);
 				delete_files.append(cloned);
 			}
 		}
@@ -470,7 +470,7 @@ TableModel::SwitchTo(io::FilesData *new_data)
 	{
 		MutexGuard guard(&files.mutex);
 		dir_id = ++files.data.dir_id;
-		files.data.dir_path = new_data->dir_path;
+		files.data.processed_dir_path = new_data->processed_dir_path;
 		/// copying sorting order is logically wrong because it overwrites
 		/// the existing one.
 		files.data.show_hidden_files = new_data->show_hidden_files;
@@ -481,7 +481,7 @@ TableModel::SwitchTo(io::FilesData *new_data)
 	
 	WatchArgs *args = new WatchArgs {
 		.dir_id = dir_id,
-		.dir_path = new_data->dir_path,
+		.dir_path = new_data->processed_dir_path,
 		.table_model = this,
 	};
 	

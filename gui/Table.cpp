@@ -136,7 +136,7 @@ Table::dropEvent(QDropEvent *evt)
 				to_dir = to_dir->Clone();
 			} else {
 				/// Otherwise drop onto current directory:
-				to_dir = io::FileFromPath(files.data.dir_path);
+				to_dir = io::FileFromPath(files.data.processed_dir_path);
 			}
 		}
 		

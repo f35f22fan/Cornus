@@ -24,7 +24,7 @@ void Location::HitEnter() {
 	
 	io::FileType ft;
 	if (io::FileExists(str, &ft) && ft == io::FileType::Dir) {
-		app_->GoTo(str);
+		app_->GoTo({str, false});
 	}
 }
 

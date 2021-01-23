@@ -30,7 +30,8 @@ struct FilesData {
 	FilesData(const FilesData &rhs) = delete;
 	std::chrono::time_point<std::chrono::steady_clock> start_time;
 	QVector<io::File*> vec;
-	QString dir_path;
+	QString processed_dir_path;
+	QString unprocessed_dir_path;
 	SortingOrder sorting_order;
 	i32 dir_id = 0;/// for inotify/epoll
 	bool show_hidden_files = false;
@@ -118,9 +119,11 @@ io::Err
 ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	const i64 read_max = -1);
 
-void
-ReadLink(const char *file_path, LinkTarget &link_target,
+bool ReadLink(const char *file_path, LinkTarget &link_target,
 	const QString &parent_dir);
+
+io::Err
+RefactorDirPath(io::FilesData &data);
 
 bool ReloadMeta(io::File &file);
 

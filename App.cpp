@@ -11,6 +11,7 @@ extern "C" {
 
 #include "App.hpp"
 #include "AutoDelete.hh"
+#include "io/disks.hh"
 #include "io/io.hh"
 #include "io/File.hpp"
 #include "gui/Location.hpp"
@@ -170,6 +171,8 @@ void FigureOutSelectPath(QString &select_path, QString &go_to_path)
 App::App(): app_icon_(QLatin1String(":/resources/cornus.webp"))
 {
 	qRegisterMetaType<cornus::io::FilesData*>();
+	qRegisterMetaType<cornus::PartitionEvent*>();
+	qDBusRegisterMetaType<QMap<QString, QVariant>>();
 	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, gui::sidepane::LoadItems, this);

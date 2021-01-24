@@ -15,6 +15,7 @@ enum class SidePaneItemType: u8 {
 namespace sidepaneitem {
 const u8 SelectedBit = 1u << 0;
 const u8 MountedBit = 1u << 1;
+const u8 EventInProgressBit = 1u << 2;
 }
 
 class SidePaneItem {
@@ -31,11 +32,20 @@ public:
 	
 	QString DisplayString();
 	
+	bool event_in_progress() const { return bits_ & sidepaneitem::EventInProgressBit; }
+	void event_in_progress(const bool flag) {
+		if (flag)
+			bits_ |= sidepaneitem::EventInProgressBit;
+		else
+			bits_ &= ~sidepaneitem::EventInProgressBit;
+	}
+	
 	bool is_bookmark() const { return type_ == SidePaneItemType::Bookmark; }
 	bool is_partition() const { return type_ == SidePaneItemType::Partition; }
 	
 	const QString& dev_path() const { return dev_path_; }
 	void dev_path(const QString &s) { dev_path_ = s;}
+	QString GetDevName() const;
 	
 	const QString& fs() const { return fs_; }
 	void fs(const QString &s) { fs_ = s; }

@@ -7,19 +7,19 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-find_package(Qt5 COMPONENTS Core Gui Widgets REQUIRED)
+find_package(Qt5 COMPONENTS Core Gui Widgets DBus REQUIRED)
 include(FindPkgConfig)
 
 find_package(PkgConfig REQUIRED)
 pkg_search_module(DCONF REQUIRED dconf)
 pkg_search_module(UDISKS REQUIRED udisks2)
+#libdbus-c++-dev
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
 message(STATUS "C++ Compiler: " ${CMAKE_CXX_COMPILER})
-message(STATUS "Qt5Core: " ${Qt5Core_VERSION} ", Gui: "
- ${Qt5Gui_VERSION} ", Widgets: " ${Qt5Widgets_VERSION})
+message(STATUS "Qt5Core: " ${Qt5Core_VERSION})
 
 set(src_files main.cpp
     App.cpp App.hpp
@@ -58,5 +58,5 @@ set (exe_name "cornus")
 add_executable(${exe_name} ${src_files} resources.qrc)
 target_include_directories(${exe_name} PRIVATE
     ${UDISKS_INCLUDE_DIRS} ${DCONF_INCLUDE_DIRS})
-target_link_libraries(${exe_name}  Qt5::Core Qt5::Gui Qt5::Widgets
+target_link_libraries(${exe_name}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
     ${UDISKS_LDFLAGS} ${DCONF_LDFLAGS} pthread)

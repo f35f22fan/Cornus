@@ -2,12 +2,30 @@
 
 #include "types.hxx"
 #include <sys/stat.h>
+#include <QString>
+#include <QMetaType> /// Q_DECLARE_METATYPE()
 
 namespace cornus {
 class App;
 class ByteArray;
 class History;
 class MutexGuard;
+
+enum class PartitionEventType: u8 {
+	None = 0,
+	Mount,
+};
+
+struct PartitionEvent {
+	QString dev_path;
+	QString mount_path;
+	PartitionEventType type = PartitionEventType::None;
+};
+}
+
+Q_DECLARE_METATYPE(cornus::PartitionEvent*);
+
+namespace cornus {
 
 namespace ExecType {
 	const u16 None = 0;

@@ -68,6 +68,52 @@ EnsureDir(const QString &dir_path, const QString &subdir)
 }
 
 bool
+ExpandLinksInDirPath(QString &unprocessed_dir_path, QString &processed_dir_path)
+{
+	QString dir_path = QDir::cleanPath(unprocessed_dir_path);
+	
+	if (dir_path == QLatin1String("/"))
+	{
+		processed_dir_path = dir_path;
+		return true;
+	}
+	
+	auto list = dir_path.splitRef('/', QString::SkipEmptyParts);
+	struct statx stx;
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_MODE;//STATX_ALL;
+	QString full_long_path;
+	
+	for (auto &item: list) {
+		QString parent_dir = full_long_path;
+		full_long_path += '/' + item;
+		auto ba = full_long_path.toLocal8Bit();
+		
+		if (statx(0, ba.data(), flags, fields, &stx) != 0) {
+			mtl_warn("statx(): %s", strerror(errno));
+			return false;
+		}
+		
+		if (S_ISLNK(stx.stx_mode)) {
+			LinkTarget target;
+			if (ReadLink(ba.data(), target, parent_dir)) {
+				full_long_path = target.path;
+			} else {
+				return false;
+			}
+		}
+	}
+	
+	if (!full_long_path.endsWith('/'))
+		full_long_path.append('/');
+	
+	processed_dir_path = full_long_path;
+	unprocessed_dir_path.clear();
+	
+	return true;
+}
+
+bool
 FileExistsCstr(const char *path, FileType *file_type)
 {
 	struct stat st;
@@ -225,13 +271,11 @@ io::Err
 ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 {
 	if (!data.unprocessed_dir_path.isEmpty()) {
-		auto ret = RefactorDirPath(data);
-		if (ret != io::Err::Ok) {
+		if (!ExpandLinksInDirPath(data.unprocessed_dir_path, data.processed_dir_path))
+		{
 			mtl_trace();
-			return ret;
+			return io::Err::Other;
 		}
-	} else {
-		//mtl_printq2("Not refactoring: ", data.processed_dir_path);
 	}
 	
 	auto dir_path_ba = data.processed_dir_path.toLocal8Bit();
@@ -450,57 +494,6 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	close(fd);
 	buffer.size(so_far);
 	buffer.to(0);
-	
-	return Err::Ok;
-}
-
-io::Err
-RefactorDirPath(io::FilesData &data)
-{
-	QString dir_path = QDir::cleanPath(data.unprocessed_dir_path);
-	
-	if (dir_path == QLatin1String("/"))
-	{
-		data.processed_dir_path = dir_path;
-		return Err::Ok;
-	}
-	
-	auto list = dir_path.splitRef('/', QString::SkipEmptyParts);
-//	mtl_printq2("Dir path: ", dir_path);
-//	for (auto &item: list) {
-//		mtl_printq2("Item: ", item.toString());
-//	}
-	
-	struct statx stx;
-	const auto flags = AT_SYMLINK_NOFOLLOW;
-	const auto fields = STATX_MODE;//STATX_ALL;
-	QString full_long_path;
-	
-	for (auto &item: list) {
-		QString parent_dir = full_long_path;
-		full_long_path += '/' + item;
-		auto ba = full_long_path.toLocal8Bit();
-		
-		if (statx(0, ba.data(), flags, fields, &stx) != 0) {
-			mtl_warn("statx(): %s", strerror(errno));
-			continue;
-		}
-		
-		if (S_ISLNK(stx.stx_mode)) {
-			LinkTarget target;
-			if (ReadLink(ba.data(), target, parent_dir)) {
-				full_long_path = target.path;
-			} else {
-				return io::Err::Other;
-			}
-		}
-	}
-	
-	if (!full_long_path.endsWith('/'))
-		full_long_path.append('/');
-	
-	data.processed_dir_path = full_long_path;
-	data.unprocessed_dir_path.clear();
 	
 	return Err::Ok;
 }

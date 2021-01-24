@@ -31,8 +31,10 @@ public:
 	void SelectProperPartition(const QString &full_path);
 	void SelectRowSimple(const int row, const bool skip_update = false);
 public slots:
+	void ClearEventInProgress(QString dev_path, QString error_msg);
 	void DeselectAllItems(const int except_row, const bool row_flag, QVector<int> &indices);
 	bool ScrollToAndSelect(QString name);
+	void ReceivedPartitionEvent(cornus::PartitionEvent *p);
 	
 protected:
 	virtual void dragEnterEvent(QDragEnterEvent *event) override;

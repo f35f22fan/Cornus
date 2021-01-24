@@ -52,6 +52,7 @@ public:
 	void RenameSelectedFile();
 	void RunExecutable(const QString &full_path, const ExecInfo &info);
 	void SaveBookmarks();
+	gui::SidePane* side_pane() const { return side_pane_; }
 	gui::SidePaneItems& side_pane_items() const { return side_pane_items_; }
 	gui::SidePaneModel* side_pane_model() const { return side_pane_model_; }
 	void SwitchExecBitOfSelectedFiles();

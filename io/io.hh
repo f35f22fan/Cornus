@@ -66,6 +66,8 @@ void Delete(io::File *file);
 bool
 EnsureDir(const QString &dir_path, const QString &subdir);
 
+bool ExpandLinksInDirPath(QString &unprocessed_dir_path, QString &processed_dir_path);
+
 bool
 FileExistsCstr(const char *path, FileType *file_type = nullptr);
 
@@ -121,9 +123,6 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 
 bool ReadLink(const char *file_path, LinkTarget &link_target,
 	const QString &parent_dir);
-
-io::Err
-RefactorDirPath(io::FilesData &data);
 
 bool ReloadMeta(io::File &file);
 

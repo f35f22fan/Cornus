@@ -75,6 +75,18 @@ SidePaneItem::DisplayString()
 	return s;
 }
 
+QString
+SidePaneItem::GetDevName() const
+{
+	int index = dev_path_.lastIndexOf('/');
+	if (index == -1) {
+		mtl_trace();
+		return QString();
+	}
+	
+	return dev_path_.mid(index + 1);
+}
+
 void
 SidePaneItem::Init()
 {

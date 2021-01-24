@@ -3,6 +3,7 @@
 #include "actions.hxx"
 #include "../App.hpp"
 #include "../AutoDelete.hh"
+#include "../io/disks.hh"
 #include "../io/io.hh"
 #include "../io/File.hpp"
 #include "../MutexGuard.hpp"
@@ -68,6 +69,31 @@ model_(tm), app_(app)
 
 SidePane::~SidePane() {
 	delete model_;
+}
+
+void
+SidePane::ClearEventInProgress(QString dev_path, QString error_msg)
+{
+	//mtl_printq2("Clear event: ", dev_path);
+	int row = 0;
+	SidePaneItems &items = app_->side_pane_items();
+	{
+		MutexGuard guard(&items.mutex);
+		
+		for (SidePaneItem *next: items.vec) {
+			if (next->is_partition() && next->dev_path() == dev_path) {
+				next->event_in_progress(false);
+				break;
+			}
+			row++;
+		}
+	}
+	
+	model_->UpdateSingleRow(row);
+	
+	if (!error_msg.isEmpty()) {
+		QMessageBox::warning(app_, "Partition event", error_msg);
+	}
 }
 
 void
@@ -307,18 +333,31 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 	{
 		SidePaneItems &items = app_->side_pane_items();
 		MutexGuard guard(&items.mutex);
-		cloned_item = GetItemAtNTS(evt->pos(), true, &row);
+		auto *item = GetItemAtNTS(evt->pos(), false, &row);
+		if (item != nullptr) {
+			cloned_item = item->Clone();
+			item->event_in_progress(true);
+		}
 	}
 	
 	if (cloned_item == nullptr)
 		return;
 	
-	if (cloned_item->is_partition() && !cloned_item->mounted()) {
-		delete cloned_item;
-		return;
+	if (cloned_item->is_partition() && !cloned_item->event_in_progress()) {
+		if (!cloned_item->mounted()) {
+			io::disks::MountPartitionStruct *mps = new io::disks::MountPartitionStruct();
+			mps->app = app_;
+			mps->partition = cloned_item;
+			pthread_t th;
+			int status = pthread_create(&th, NULL, io::disks::MountPartitionTh, mps);
+			if (status != 0)
+				mtl_status(status);
+			return;
+		}
 	}
 	
-	model_->app()->GoTo({cloned_item->mount_path(), false});
+	if (!cloned_item->is_partition() || cloned_item->mounted())
+		model_->app()->GoTo({cloned_item->mount_path(), false});
 	model_->UpdateIndices(indices);
 }
 
@@ -354,6 +393,43 @@ SidePane::paintEvent(QPaintEvent *event)
 	
 	//mtl_info("y: %d, slider: %d", y, slider_pos);
 	painter.drawLine(0, y, width(), y);
+}
+
+void
+SidePane::ReceivedPartitionEvent(cornus::PartitionEvent *p)
+{
+	AutoDelete ad(p);
+/** struct PartitionEvent {
+	QString dev_path;
+	QString mount_path;
+	PartitionEventType type = PartitionEventType::None;
+}; */
+	const bool mount_event = p->type == PartitionEventType::Mount;
+	int row = 0;
+	SidePaneItems &items = app_->side_pane_items();
+	{
+		MutexGuard guard(&items.mutex);
+		
+		for (SidePaneItem *next: items.vec) {
+			if (mount_event) {
+				if (next->dev_path() == p->dev_path) {
+					next->mounted(true);
+					next->mount_path(p->mount_path);
+					next->event_in_progress(false);
+					break;
+				}
+			} else {
+				mtl_trace();
+			}
+			row++;
+		}
+	}
+	
+	model_->UpdateSingleRow(row);
+	
+	if (mount_event) {
+		app_->GoTo({p->mount_path, false});
+	}
 }
 
 void

@@ -11,7 +11,7 @@
 #include <QMap>
 #include <QMimeDatabase>
 #include <QSplitter>
-#include <QPlainTextEdit>
+#include <QStackedWidget>
 
 namespace cornus {
 
@@ -42,6 +42,7 @@ public:
 	bool GoTo(DirPath dir_path, bool reload = false,
 		QString scroll_to_and_select = QString());
 	void GoUp();
+	void HideTextEditor();
 	void LoadIcon(io::File &file);
 	gui::Location* location() { return location_; }
 	QSplitter* main_splitter() const { return main_splitter_; }
@@ -58,6 +59,7 @@ public:
 	void SwitchExecBitOfSelectedFiles();
 	gui::Table* table() const { return table_; }
 	void TellUser(const QString &msg, const QString title = QString());
+	bool TestExecBuf(const char *buf, const isize size, ExecInfo &ret);
 	io::Files& view_files() { return view_files_; }
 	bool ViewIsAt(const QString &dir_path) const;
 	
@@ -114,10 +116,10 @@ private:
 	QSplitter *main_splitter_ = nullptr;
 	
 	struct Notepad {
-		QSplitter *splitter = nullptr;
-		QPlainTextEdit *editor = nullptr;
-		io::FileID last_id = {};
-		QList<int> sizes = {};
+		QStackedWidget *stack = nullptr;
+		gui::TextEdit *editor = nullptr;
+		int window_index = -1;
+		int editor_index = -1;
 	};
 	
 	Notepad notepad_ = {};

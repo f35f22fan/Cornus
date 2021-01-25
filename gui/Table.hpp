@@ -35,18 +35,18 @@ public slots:
 	bool ScrollToAndSelect(QString full_path);
 	
 protected:
-	virtual void dragEnterEvent(QDragEnterEvent *event) override;
-	virtual void dragLeaveEvent(QDragLeaveEvent *event) override;
-	virtual void dragMoveEvent(QDragMoveEvent *event) override;
+	virtual void dragEnterEvent(QDragEnterEvent *evt) override;
+	virtual void dragLeaveEvent(QDragLeaveEvent *evt) override;
+	virtual void dragMoveEvent(QDragMoveEvent *evt) override;
 	
-	virtual void keyPressEvent(QKeyEvent *event) override;
+	virtual void keyPressEvent(QKeyEvent *evt) override;
 	virtual void keyReleaseEvent(QKeyEvent *evt) override;
-	virtual void mouseDoubleClickEvent(QMouseEvent *event) override;
+	virtual void mouseDoubleClickEvent(QMouseEvent *evt) override;
 	virtual void mouseMoveEvent(QMouseEvent *evt) override;
-	virtual void mousePressEvent(QMouseEvent *event) override;
+	virtual void mousePressEvent(QMouseEvent *evt) override;
 	
-	virtual void paintEvent(QPaintEvent *event) override;
-	virtual void resizeEvent(QResizeEvent *event) override;
+	virtual void paintEvent(QPaintEvent *evt) override;
+	virtual void resizeEvent(QResizeEvent *evt) override;
 private:
 	NO_ASSIGN_COPY_MOVE(Table);
 	

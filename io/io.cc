@@ -682,7 +682,7 @@ io::Err
 WriteToFile(const QString &full_path, const char *data, const i64 size)
 {
 	auto path = full_path.toLocal8Bit();
-	const int fd = open(path.data(), O_WRONLY | O_CREAT | O_TRUNC,
+	const int fd = open(path.data(), O_LARGEFILE | O_WRONLY | O_CREAT | O_TRUNC,
 		io::FilePermissions);
 	
 	if (fd == -1)

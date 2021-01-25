@@ -20,6 +20,7 @@ extern "C" {
 #include "gui/SidePaneModel.hpp"
 #include "gui/Table.hpp"
 #include "gui/TableModel.hpp"
+#include "gui/TextEdit.hpp"
 #include "gui/ToolBar.hpp"
 #include "prefs.hh"
 
@@ -300,8 +301,18 @@ App::AskCreateNewFile(io::File *file, const QString &title)
 
 void App::CreateGui()
 {
+	toolbar_ = new gui::ToolBar(this);
+	location_ = toolbar_->location();
+	addToolBar(toolbar_);
+	
+	notepad_.stack = new QStackedWidget();
+	setCentralWidget(notepad_.stack);
+	notepad_.editor = new gui::TextEdit(this);
+	notepad_.editor_index = notepad_.stack->addWidget(notepad_.editor);
+	
 	main_splitter_ = new QSplitter(Qt::Horizontal);
-	setCentralWidget(main_splitter_);
+	notepad_.window_index = notepad_.stack->addWidget(main_splitter_);
+	notepad_.stack->setCurrentIndex(notepad_.window_index);
 	
 	{
 		side_pane_model_ = new gui::SidePaneModel(this);
@@ -321,16 +332,7 @@ void App::CreateGui()
 	{
 		table_model_ = new gui::TableModel(this);
 		table_ = new gui::Table(table_model_, this);
-		
-		notepad_.splitter = new QSplitter(Qt::Vertical);
-		main_splitter_->addWidget(notepad_.splitter);
-		notepad_.splitter->addWidget(table_);
-		notepad_.editor = new QPlainTextEdit();
-//		notepad_.editor->setAcceptRichText(false);
-//		notepad_.editor->setAutoFormatting(QTextEdit::AutoNone);
-		notepad_.splitter->addWidget(notepad_.editor);
-		notepad_.splitter->setSizes({1000, 0});
-		
+		main_splitter_->addWidget(table_);
 		{
 			MutexGuard guard(&view_files_.mutex);
 			view_files_.data.widgets_created = true;
@@ -343,53 +345,22 @@ void App::CreateGui()
 	main_splitter_->setStretchFactor(0, 0);
 	main_splitter_->setStretchFactor(1, 1);
 	//main_splitter_->setSizes({170, 1000});
-	
-	toolbar_ = new gui::ToolBar(this);
-	location_ = toolbar_->location();
-	addToolBar(toolbar_);
 }
 
 void App::DisplayFileContents(const int row, io::File *cloned_file)
 {
-	if (cloned_file == nullptr) {
+	if (row == -1) {
+		HideTextEditor();
+		return;
+	}
+	
+	if (cloned_file == nullptr)
 		cloned_file = table_->GetFileAt(row);
-		if (cloned_file == nullptr)
-			return;
-	}
-	
-	AutoDelete ad(cloned_file);
-	
-	if (cloned_file->is_dir_or_so())
+	if (cloned_file == nullptr)
 		return;
 	
-	if (cloned_file->id() == notepad_.last_id) {
-		notepad_.last_id = {};
-		auto sizes = notepad_.splitter->sizes();
-		if (sizes[1] > 20)
-			notepad_.sizes = sizes;
-		notepad_.splitter->setSizes({1, 0});
-		return;
-	}
-	
-	notepad_.last_id = cloned_file->id();
-	ByteArray buf;
-	const i64 MAX = 500 * 1024 ; // 500 KiB
-	if (io::ReadFile(cloned_file->build_full_path(), buf, MAX) != io::Err::Ok) {
-		mtl_warn("Read %ld bytes", buf.size());
-		return;
-	}
-	
-	QString s = QString::fromLocal8Bit(buf.data(), buf.size());
-	notepad_.editor->setPlainText(s);
-	notepad_.editor->moveCursor(QTextCursor::Start);
-	auto sp_sizes = notepad_.splitter->sizes();
-	if (sp_sizes[1] < 20) {
-		if (notepad_.sizes.isEmpty())
-			notepad_.splitter->setSizes({1000, 250});
-		else
-			notepad_.splitter->setSizes(notepad_.sizes);
-	}
-	table_->ScrollToAndSelectRow(row, true);
+	if (notepad_.editor->Display(cloned_file))
+		notepad_.stack->setCurrentIndex(notepad_.editor_index);
 }
 
 void App::DisplaySymlinkInfo(io::File &file)
@@ -659,6 +630,10 @@ void App::GoUp()
 	GoTo({dir.absolutePath(), true}, false, select_path);
 }
 
+void App::HideTextEditor() {
+	notepad_.stack->setCurrentIndex(notepad_.window_index);
+}
+
 void App::IconByTruncName(io::File &file, const QString &truncated, QIcon **ret_icon) {
 	QString real_name = GetIconName(truncated);
 	CHECK_TRUE_VOID((!real_name.isEmpty()));
@@ -749,36 +724,15 @@ ExecInfo App::QueryExecInfo(const QString &full_path, const QString &ext)
 /// 4 -rwxr-xr-x 1 root root 96 Aug 24 22:12 ./2to3-2.7
 
 ///#! /bin/sh
-	const int size = 32;
+	const isize size = 32;
 	char buf[size];
 	ExecInfo ret = {};
 	
 	if (io::TryReadFile(full_path, buf, size, &ret) < size)
 		return ret;
 	
-	if (buf[0] == 0x7F && buf[1] == 'E' && buf[2] == 'L' && buf[3] == 'F') {
-		ret.type |= ExecType::Elf;
+	if (TestExecBuf(buf, size, ret))
 		return ret;
-	}
-	
-	if (buf[0] == '#' && buf[1] == '!') {
-		ret.type |= ExecType::Script;
-		{
-			QString s = QString::fromLocal8Bit(buf, size);
-			const QString bin = QLatin1String("bin/");
-			int index = s.indexOf(bin);
-			if (index == -1)
-				return ret;
-			QStringRef ref = s.midRef(index + bin.size());
-			if (ref.startsWith(QLatin1String("sh"))) {
-				ret.type |= ExecType::ScriptSh;
-			} else if (ref.startsWith(QLatin1String("python"))) {
-				ret.type |= ExecType::ScriptPython;
-			} else if (ref.startsWith(QLatin1String("bash"))) {
-				ret.type |= ExecType::ScriptBash;
-			}
-		}
-	}
 	
 	if (!ext.isEmpty()) {
 		if (ext == QLatin1String("sh")) {
@@ -791,32 +745,36 @@ ExecInfo App::QueryExecInfo(const QString &full_path, const QString &ext)
 	}
 	
 	return ret;
+}
+
+bool App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
+{
+	// returns true if no more querying is needed
 	
-/** struct stat fileStat;
-    if(stat(argv[1], &fileStat) < 0)    
-        return 1;
+	if (buf[0] == 0x7F && buf[1] == 'E' && buf[2] == 'L' && buf[3] == 'F') {
+		ret.type |= ExecType::Elf;
+		return true;
+	}
+	
+	if (buf[0] == '#' && buf[1] == '!') {
+		ret.type |= ExecType::Script;
+		QString s = QString::fromLocal8Bit(buf, size);
+		const QString bin = QLatin1String("bin/");
+		int index = s.indexOf(bin);
+		if (index == -1)
+			return true;
 
-    printf("Information for %s\n", argv[1]);
-    printf("---------------------------\n");
-    printf("File Size: \t\t%d bytes\n", fileStat.st_size);
-    printf("Number of Links: \t%d\n", fileStat.st_nlink);
-    printf("File inode: \t\t%d\n", fileStat.st_ino);
-
-    printf("File Permissions: \t");
-    printf( (S_ISDIR(fileStat.st_mode)) ? "d" : "-");
-    printf( (fileStat.st_mode & S_IRUSR) ? "r" : "-");
-    printf( (fileStat.st_mode & S_IWUSR) ? "w" : "-");
-    printf( (fileStat.st_mode & S_IXUSR) ? "x" : "-");
-    printf( (fileStat.st_mode & S_IRGRP) ? "r" : "-");
-    printf( (fileStat.st_mode & S_IWGRP) ? "w" : "-");
-    printf( (fileStat.st_mode & S_IXGRP) ? "x" : "-");
-    printf( (fileStat.st_mode & S_IROTH) ? "r" : "-");
-    printf( (fileStat.st_mode & S_IWOTH) ? "w" : "-");
-    printf( (fileStat.st_mode & S_IXOTH) ? "x" : "-");
-    printf("\n\n");
-
-    printf("The file %s a symbolic link\n", (S_ISLNK(fileStat.st_mode)) ? "is" : "is not");
-	  **/
+		QStringRef ref = s.midRef(index + bin.size());
+		if (ref.startsWith(QLatin1String("sh"))) {
+			ret.type |= ExecType::ScriptSh;
+		} else if (ref.startsWith(QLatin1String("python"))) {
+			ret.type |= ExecType::ScriptPython;
+		} else if (ref.startsWith(QLatin1String("bash"))) {
+			ret.type |= ExecType::ScriptBash;
+		}
+	}
+	
+	return false;
 }
 
 void App::RegisterShortcuts() {

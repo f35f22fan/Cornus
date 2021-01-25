@@ -84,10 +84,24 @@ Table::dragEnterEvent(QDragEnterEvent *event)
 }
 
 void
-Table::dragLeaveEvent(QDragLeaveEvent *event)
+Table::dragLeaveEvent(QDragLeaveEvent *evt)
 {
-	drop_y_coord_ = -1;
-	update();
+	{ /// fix repaint issue
+		// repaint() or update() don't work because
+		// the window is not raised when dragging an item
+		// on top of the table and the repaint
+		// requests are ignored. Repaint using a hack:
+		int row = rowAt(drop_y_coord_);
+		drop_y_coord_ = -1;
+		
+		if (row != -1) {
+			int start = row;
+			if (row > 0)
+				start--;
+			int end = row + 1;
+			model_->UpdateRowRange(start, end);
+		}
+	}
 }
 
 void
@@ -96,18 +110,20 @@ Table::dragMoveEvent(QDragMoveEvent *event)
 	const auto &pos = event->pos();
 	drop_y_coord_ = pos.y();
 	
-	// repaint() or update() don't work because
-	// the window is not raised when dragging an item
-	// on top of the table and the repaint
-	// requests are ignored. Repaint using a hack:
-	int row = rowAt(pos.y());
-	
-	if (row != -1) {
-		int start = row;
-		if (row > 0)
-			start--;
-		int end = row + 1;
-		model_->UpdateRowRange(start, end);
+	{
+		// repaint() or update() don't work because
+		// the window is not raised when dragging an item
+		// on top of the table and the repaint
+		// requests are ignored. Repaint using a hack:
+		int row = rowAt(pos.y());
+		
+		if (row != -1) {
+			int start = row;
+			if (row > 0)
+				start--;
+			int end = row + 1;
+			model_->UpdateRowRange(start, end);
+		}
 	}
 }
 
@@ -342,17 +358,18 @@ Table::keyPressEvent(QKeyEvent *event)
 			QModelIndex index = model()->index(row, 0, QModelIndex());
 			scrollTo(index);
 		}
-	} else if (key == Qt::Key_R) {
-		mtl_trace();
+	} else if (key == Qt::Key_D) {
 		if (any_modifiers)
 			return;
-		mtl_trace();
 		io::File *cloned_file = nullptr;
 		int row = GetFirstSelectedFile(&cloned_file);
 		if (row != -1)
 			app_->DisplayFileContents(row, cloned_file);
-		else
-			mtl_trace();
+		else {
+			app_->HideTextEditor();
+		}
+	} else if (key == Qt::Key_Escape) {
+		app_->HideTextEditor();
 	}
 	model_->UpdateIndices(indices);
 }

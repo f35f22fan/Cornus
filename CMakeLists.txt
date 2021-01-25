@@ -33,6 +33,7 @@ set(src_files main.cpp
     
     gui/actions.hxx
     gui/decl.hxx
+    gui/Hiliter.cpp gui/Hiliter.hpp
     gui/Location.cpp gui/Location.hpp
     gui/SidePane.cpp gui/SidePane.hpp
     gui/SidePaneItem.cpp gui/SidePaneItem.hpp
@@ -40,6 +41,7 @@ set(src_files main.cpp
     gui/Table.cpp gui/Table.hpp
     gui/TableDelegate.cpp gui/TableDelegate.hpp
     gui/TableModel.cpp gui/TableModel.hpp
+    gui/TextEdit.cpp gui/TextEdit.hpp
     gui/ToolBar.cpp gui/ToolBar.hpp
     
     io/decl.hxx

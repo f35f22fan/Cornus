@@ -27,7 +27,8 @@ public:
 	void add_f64(const double n);
 	void add_string(const QString &s);
 	
-	char *data() { return data_; }
+	char *data() const { return data_; }
+	const char *constData() const { return data_; }
 	
 	bool has_more() const { return at_ < size_; }
 	

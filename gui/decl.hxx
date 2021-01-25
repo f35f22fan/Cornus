@@ -6,6 +6,7 @@
 #include <pthread.h>
 
 namespace cornus::gui {
+class Hiliter;
 class Location;
 class SidePane;
 class SidePaneItem;
@@ -13,7 +14,19 @@ class SidePaneModel;
 class Table;
 class TableDelegate;
 class TableModel;
+class TextEdit;
 class ToolBar;
+
+enum class HiliteMode: i16 {
+	None = -1,
+/// First viable mode must start at zero because these are
+/// also used as indices into a vector:
+	C_CPP = 0,
+	PlainText,
+	Python,
+	SH,
+	Count
+};
 
 struct SidePaneItems {
 	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;

@@ -65,7 +65,7 @@ void InsertFile(io::File *new_file, QVector<io::File*> &files_vec,
 }
 
 void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
-	QVector<int> &update_indices)
+	QVector<int> &update_indices, bool &has_been_unmounted)
 {
 	const ssize_t num_read = read(inotify_fd, buf, kInotifyEventBufLen);
 	if (num_read == 0) {
@@ -166,7 +166,8 @@ mtl_trace("IN_MOVED_TO: %s, is_dir: %d", ev->name, is_dir);
 		} else if (mask & IN_Q_OVERFLOW) {
 			mtl_warn("IN_Q_OVERFLOW");
 		} else if (mask & IN_UNMOUNT) {
-			mtl_warn("IN_UNMOUNT");
+			has_been_unmounted = true;
+			break;
 		} else if (mask & IN_CLOSE) {
 //#ifdef DEBUG_INOTIFY
 //mtl_trace("IN_CLOSE: %s", ev->name);
@@ -197,7 +198,6 @@ void* WatchDir(void *void_args)
 	WatchArgs *args = (WatchArgs*)void_args;
 	App *app = args->table_model->app();
 	AutoDelete ad_args(args);
-	//mtl_info("kInotifyEventBufLen: %ld", kInotifyEventBufLen);
 	char *buf = new char[kInotifyEventBufLen];
 	AutoDeleteArr ad_arr(buf);
 	cornus::gui::Notify &notify = args->table_model->notify();
@@ -206,13 +206,13 @@ void* WatchDir(void *void_args)
 	auto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE | IN_DELETE_SELF
 		| IN_MOVE_SELF | IN_CLOSE | IN_MOVE;// | IN_MODIFY;
 	int wd = inotify_add_watch(notify.fd, path.data(), event_types);
+	
 	if (wd == -1) {
 		mtl_status(errno);
 		return nullptr;
 	}
-	AutoRemoveWatch arw(notify, wd);
-	//mtl_info("Watching %s using wd %d", path.data(), wd);
 	
+	AutoRemoveWatch arw(notify, wd);
 	int epfd = epoll_create(1);
 	
 	if (epfd == -1) {
@@ -253,17 +253,18 @@ void* WatchDir(void *void_args)
 				break;
 			
 			method_args.prev_count = files.data.vec.size();
+			bool has_been_unmounted = false;
 			
 			if (event_count > 0)
 				ReadEvent(poll_event.data.fd, buf, &files,
-					method_args.indices);
+					method_args.indices, has_been_unmounted);
 			
+			if (has_been_unmounted) {
+				arw.RemoveWatch(wd);
+				break;
+			}
 			method_args.new_count = files.data.vec.size();
 		}
-		
-//		if (!renames.isEmpty()) {
-//			mtl_info("Not all renames happened in one event batch");
-//		}
 		
 		if (!method_args.indices.isEmpty()) {
 			QMetaObject::invokeMethod(args->table_model, "UpdateTable",

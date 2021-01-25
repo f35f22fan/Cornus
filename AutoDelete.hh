@@ -15,22 +15,31 @@ public:
 		int count = notify.watches.value(wd_, 0);
 		notify.watches[wd_] = count + 1;
 	}
+	
+	void RemoveWatch(int wd) {
+		notify_.watches.remove(wd); /// needed on IN_UNMOUNT event
+	}
+	
 	~AutoRemoveWatch() {
+		bool contains_wd = false;
 		{
 			MutexGuard guard(&notify_.watches_mutex);
+			contains_wd = notify_.watches.contains(wd_);
 			int count = notify_.watches.value(wd_) - 1;
 			
 			if (count > 0) {
-				//mtl_info("Skipped removing %d, new count: %d", wd_, count);
 				notify_.watches[wd_] = count;
 				return;
 			}
 			
 			notify_.watches.remove(wd_);
 		}
-		int status = inotify_rm_watch(notify_.fd, wd_);
-		if (status != 0)
-			mtl_warn("%s: %d", strerror(errno), wd_);
+		
+		if (contains_wd) {
+			int status = inotify_rm_watch(notify_.fd, wd_);
+			if (status != 0)
+				mtl_warn("%s: %d", strerror(errno), wd_);
+		}
 	}
 private:
 	cornus::gui::Notify &notify_;

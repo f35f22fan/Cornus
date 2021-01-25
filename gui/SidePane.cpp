@@ -280,6 +280,19 @@ SidePane::keyPressEvent(QKeyEvent *event)
 }
 
 void
+SidePane::MountPartition(SidePaneItem *partition)
+{
+	auto *arg = new io::disks::MountPartitionData();
+	arg->app = app_;
+	arg->partition = partition;
+	pthread_t th;
+	int status = pthread_create(&th, NULL,
+		cornus::io::disks::MountPartitionTh, arg);
+	if (status != 0)
+		mtl_status(status);
+}
+
+void
 SidePane::mouseDoubleClickEvent(QMouseEvent *evt)
 {
 	QTableView::mouseDoubleClickEvent(evt);
@@ -324,8 +337,8 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 	}
 	
 	if (evt->button() == Qt::RightButton) {
-		ShowRightClickMenu(evt->globalPos());
 		model_->UpdateIndices(indices);
+		ShowRightClickMenu(evt->globalPos(), evt->pos());
 		return;
 	}
 	
@@ -345,7 +358,7 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 	
 	if (cloned_item->is_partition() && !cloned_item->event_in_progress()) {
 		if (!cloned_item->mounted()) {
-			io::disks::MountPartitionStruct *mps = new io::disks::MountPartitionStruct();
+			io::disks::MountPartitionData *mps = new io::disks::MountPartitionData();
 			mps->app = app_;
 			mps->partition = cloned_item;
 			pthread_t th;
@@ -396,6 +409,16 @@ SidePane::paintEvent(QPaintEvent *event)
 }
 
 void
+SidePane::ProcessAction(const QString &action)
+{
+	if (action == actions::RenameBookmark) {
+		RenameSelectedBookmark();
+	} else if (action == actions::DeleteBookmark) {
+		model_->DeleteSelectedBookmarks();
+	}
+}
+
+void
 SidePane::ReceivedPartitionEvent(cornus::PartitionEvent *p)
 {
 	AutoDelete ad(p);
@@ -405,23 +428,29 @@ SidePane::ReceivedPartitionEvent(cornus::PartitionEvent *p)
 	PartitionEventType type = PartitionEventType::None;
 }; */
 	const bool mount_event = p->type == PartitionEventType::Mount;
-	int row = 0;
+	const bool unmount_event = p->type == PartitionEventType::Unmount;
+	int row = -1;
+	QString saved_mount_path;
 	SidePaneItems &items = app_->side_pane_items();
 	{
 		MutexGuard guard(&items.mutex);
 		
-		for (SidePaneItem *next: items.vec) {
-			if (mount_event) {
-				if (next->dev_path() == p->dev_path) {
-					next->mounted(true);
-					next->mount_path(p->mount_path);
-					next->event_in_progress(false);
-					break;
-				}
-			} else {
-				mtl_trace();
-			}
+		for (SidePaneItem *next: items.vec)
+		{
 			row++;
+			if (next->dev_path() != p->dev_path)
+				continue;
+			
+			next->event_in_progress(false);
+			if (mount_event) {
+				next->mounted(true);
+				next->mount_path(p->mount_path);
+				break;
+			} else if (unmount_event) {
+				next->mounted(false);
+				saved_mount_path = next->mount_path();
+				next->mount_path(QString());
+			}
 		}
 	}
 	
@@ -429,16 +458,10 @@ SidePane::ReceivedPartitionEvent(cornus::PartitionEvent *p)
 	
 	if (mount_event) {
 		app_->GoTo({p->mount_path, false});
-	}
-}
-
-void
-SidePane::ProcessAction(const QString &action)
-{
-	if (action == actions::RenameBookmark) {
-		RenameSelectedBookmark();
-	} else if (action == actions::DeleteBookmark) {
-		model_->DeleteSelectedBookmarks();
+	} else if (unmount_event) {
+		if (app_->current_dir().startsWith(saved_mount_path)) {
+			app_->GoHome();
+		}
 	}
 }
 
@@ -590,15 +613,24 @@ SidePane::SelectRowSimple(const int row, const bool skip_update)
 }
 
 void
-SidePane::ShowRightClickMenu(const QPoint &pos)
+SidePane::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 {
-	const int selected_bookmarks = GetSelectedBookmarkCount();
+	int row = 0;
+	gui::SidePaneItem *cloned_item = nullptr;
+	{
+		MutexGuard guard(&app_->side_pane_items().mutex);
+		cloned_item = GetItemAtNTS(local_pos, true, &row);
+	}
+	
+	if (cloned_item == nullptr)
+		return;
+	
 	if (menu_ == nullptr)
 		menu_ = new QMenu(this);
 	else
 		menu_->clear();
 	
-	if (selected_bookmarks > 0) 
+	if (cloned_item->is_bookmark()) 
 	{
 		QAction *action = menu_->addAction(tr("&Delete"));
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-delete")));
@@ -607,9 +639,24 @@ SidePane::ShowRightClickMenu(const QPoint &pos)
 		action = menu_->addAction(tr("&Rename.."));
 		connect(action, &QAction::triggered, [=] {ProcessAction(actions::RenameBookmark);});
 		action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
+		delete cloned_item;
+	} else if (cloned_item->is_partition()) {
+		if (cloned_item->mounted()) {
+			QAction *action = menu_->addAction(tr("&Unmount"));
+			action->setIcon(QIcon::fromTheme(QLatin1String("media-eject")));
+			connect(action, &QAction::triggered, [=] () {
+				UnmountPartition(cloned_item);
+			});
+		} else {
+			delete cloned_item;
+//			action = menu_->addAction(tr("&Rename.."));
+//			connect(action, &QAction::triggered, [=] {ProcessAction(actions::RenameBookmark);});
+//			action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
+		}
 	}
 	
-	menu_->popup(pos);
+	// delete cloned_item!!!!!!!!!!
+	menu_->popup(global_pos);
 }
 
 void
@@ -645,6 +692,19 @@ SidePane::StartDrag(const QPoint &pos)
 	QDrag *drag = new QDrag(this);
 	drag->setMimeData(mimedata);
 	drag->exec(Qt::MoveAction);
+}
+
+void
+SidePane::UnmountPartition(SidePaneItem *partition)
+{
+	auto *arg = new io::disks::MountPartitionData();
+	arg->app = app_;
+	arg->partition = partition;
+	pthread_t th;
+	int status = pthread_create(&th, NULL,
+		cornus::io::disks::UnmountPartitionTh, arg);
+	if (status != 0)
+		mtl_status(status);
 }
 
 } // cornus::gui::

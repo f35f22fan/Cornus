@@ -52,9 +52,11 @@ private:
 	NO_ASSIGN_COPY_MOVE(SidePane);
 	
 	SidePaneItem* GetSelectedBookmark(int *index = nullptr);
+	void MountPartition(SidePaneItem *partition);
 	void RenameSelectedBookmark();
-	void ShowRightClickMenu(const QPoint &pos);
+	void ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos);
 	void StartDrag(const QPoint &pos);
+	void UnmountPartition(SidePaneItem *partition);
 	
 	SidePaneModel *model_ = nullptr;
 	App *app_ = nullptr;

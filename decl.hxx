@@ -14,6 +14,7 @@ class MutexGuard;
 enum class PartitionEventType: u8 {
 	None = 0,
 	Mount,
+	Unmount,
 };
 
 struct PartitionEvent {

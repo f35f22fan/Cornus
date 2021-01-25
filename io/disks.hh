@@ -9,11 +9,11 @@
 
 namespace cornus::io::disks {
 
-struct MountPartitionStruct {
+struct MountPartitionData {
 	gui::SidePaneItem *partition = nullptr;
 	App *app = nullptr;
 };
 
 void* MountPartitionTh(void *p);
-
+void* UnmountPartitionTh(void *p);
 }

@@ -21,7 +21,7 @@ set(CMAKE_AUTORCC ON)
 message(STATUS "C++ Compiler: " ${CMAKE_CXX_COMPILER})
 message(STATUS "Qt5Core: " ${Qt5Core_VERSION})
 
-set(src_files main.cpp
+set(cornus_src_files main.cpp
     App.cpp App.hpp
     AutoDelete.hh
     ByteArray.cpp ByteArray.hpp
@@ -48,17 +48,37 @@ set(src_files main.cpp
     io/disks.cc io/disks.hh
     io/File.cpp io/File.hpp
     io/io.cc io/io.hh
+    io/socket.cc io/socket.hh
 )
-   
-foreach(f IN LISTS src_files)
+
+foreach(f IN LISTS cornus_src_files)
+	get_filename_component(b ${f} NAME)
+	set_source_files_properties(${f} PROPERTIES
+		COMPILE_DEFINITIONS "SRC_FILE_NAME=\"${b}\"")
+endforeach()
+
+set(cornus_io_src_files main_io.cpp
+    err.hpp
+    ByteArray.cpp ByteArray.hpp
+    io/socket.cc io/socket.hh)
+
+foreach(f IN LISTS cornus_io_src_files)
 	get_filename_component(b ${f} NAME)
 	set_source_files_properties(${f} PROPERTIES
 		COMPILE_DEFINITIONS "SRC_FILE_NAME=\"${b}\"")
 endforeach()
    
-set (exe_name "cornus")
-add_executable(${exe_name} ${src_files} resources.qrc)
-target_include_directories(${exe_name} PRIVATE
+set (cornus_exe "cornus")
+add_executable(${cornus_exe} ${cornus_src_files} resources.qrc)
+target_include_directories(${cornus_exe} PRIVATE
     ${UDISKS_INCLUDE_DIRS} ${DCONF_INCLUDE_DIRS})
-target_link_libraries(${exe_name}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
+target_link_libraries(${cornus_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
     ${UDISKS_LDFLAGS} ${DCONF_LDFLAGS} pthread)
+   
+set (cornus_io_exe "cornus_io")
+add_executable(${cornus_io_exe} ${cornus_io_src_files} resources.qrc)
+target_include_directories(${cornus_io_exe} PRIVATE
+    ${UDISKS_INCLUDE_DIRS} ${DCONF_INCLUDE_DIRS})
+target_link_libraries(${cornus_io_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
+    ${UDISKS_LDFLAGS} ${DCONF_LDFLAGS} pthread)   
+

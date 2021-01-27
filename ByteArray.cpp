@@ -94,21 +94,22 @@ ByteArray::alloc(const usize exact_size)
 }
 
 void
-ByteArray::make_sure(const usize more_bytes)
+ByteArray::make_sure(const usize more_bytes, const bool exact_size)
 {
 	const usize new_size = at_ + more_bytes;
 	
-	if (new_size > heap_size_) {
-		if (data_ == nullptr) {
-			heap_size_ = more_bytes;// * 64;
-			data_ = new char[heap_size_];
-		} else {
-			heap_size_ = new_size * 1.3;
-			char *p = new char[heap_size_];
-			memcpy(p, data_, at_);
-			delete[] data_;
-			data_ = p;
-		}
+	if (heap_size_ >= new_size)
+		return;
+	
+	if (data_ == nullptr) {
+		heap_size_ = new_size;
+		data_ = new char[heap_size_];
+	} else {
+		heap_size_ = new_size * (exact_size ? 1 : 1.3);
+		char *p = new char[heap_size_];
+		memcpy(p, data_, at_);
+		delete[] data_;
+		data_ = p;
 	}
 }
 
@@ -197,6 +198,84 @@ ByteArray::next_string()
 	auto s = QString::fromLocal8Bit(data_ + at_, size);
 	at_ += size;
 	return s;
+}
+
+bool
+ByteArray::Receive(int fd, bool close_socket)
+{
+	isize total_bytes;
+	if (read(fd, (char*)&total_bytes, sizeof(total_bytes)) != sizeof(total_bytes))
+		return false;
+	
+	make_sure(total_bytes, true);
+	
+	isize so_far = 0;
+	
+	while (true) {
+		isize count = read(fd, data_ + so_far, total_bytes - so_far);
+		if (count == -1) {
+			perror("read");
+			so_far = -errno;
+			break;
+		} else if (count == 0) {
+			break; // EOF
+		}
+		
+		so_far += count;
+	}
+	
+	done_reading();
+	
+	if (close_socket) {
+		int status = ::close(fd);
+		if (status != 0)
+			mtl_status(errno);
+	}
+	
+	return so_far == total_bytes;
+}
+
+bool
+ByteArray::Send(int fd, bool close_socket)
+{
+	CHECK_TRUE((fd != -1));
+	isize so_far = write(fd, (char*)&size_, sizeof(size_));
+	
+	if (so_far != sizeof(size_)) {
+		if (close_socket)
+			::close(fd);
+		return false;
+	}
+	
+	so_far = 0;
+	
+	while (so_far < size_)
+	{
+		isize count = write(fd, data_ + so_far, size_ - so_far);
+		
+		if (count == -1) {
+			if (errno == EAGAIN)
+				continue;
+			
+			mtl_status(errno);
+			if (close_socket)
+				::close(fd);
+			
+			return false;
+		} else if (count == 0) { // EOF
+			break;
+		}
+		
+		so_far += count;
+	}
+	
+	if (close_socket) {
+		int status = ::close(fd);
+		if (status != 0)
+			mtl_status(errno);
+	}
+	
+	return so_far == size_;
 }
 
 }

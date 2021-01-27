@@ -547,20 +547,19 @@ void
 Table::resizeEvent(QResizeEvent *event)
 {
 	QTableView::resizeEvent(event);
-	
-	double w = event->size().width();
 	QFontMetrics fm = fontMetrics();
-	const int icon = fm.boundingRect(QLatin1String("Steam")).width();
-	const int size = fm.boundingRect(QLatin1String("1023.9 GiB")).width() + 10;
-	
 	QString sample_date = QLatin1String("2020-12-01 18:04");
-	const int time_w = fm.boundingRect(sample_date).width() + 10;
-	int file_name = w - (icon + size + time_w + 5);
 	
-	setColumnWidth(i8(gui::Column::Icon), icon);// 45);
-	setColumnWidth(i8(gui::Column::FileName), file_name);// 500);
-	setColumnWidth(i8(gui::Column::Size), size);
-	setColumnWidth(i8(gui::Column::TimeCreated), time_w);
+	const int w = event->size().width();
+	const int icon_col_w = fm.boundingRect(QLatin1String("Steam")).width();
+	const int size_col_w = fm.boundingRect(QLatin1String("1023.9 GiB")).width() + 10;
+	const int time_col_w = fm.boundingRect(sample_date).width() + 10;
+	const int filename_col_w = w - (icon_col_w + size_col_w + time_col_w) - 2;
+	
+	setColumnWidth(i8(gui::Column::Icon), icon_col_w);
+	setColumnWidth(i8(gui::Column::FileName), filename_col_w);
+	setColumnWidth(i8(gui::Column::Size), size_col_w);
+	setColumnWidth(i8(gui::Column::TimeCreated), time_col_w);
 }
 
 bool

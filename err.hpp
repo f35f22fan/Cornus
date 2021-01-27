@@ -97,13 +97,13 @@
 	__LINE__, strerror(status), MTL_COLOR_DEFAULT)
 
 #define mtl_printq(s) {\
-	auto ba = s.toLocal8Bit();\
-	mtl_info("%s", ba.data());\
+	auto __FILE____LINE__ = s.toLocal8Bit();\
+	mtl_info("%s", __FILE____LINE__.data());\
 }
 
 #define mtl_printq2(msg, s) {\
-	auto ba = s.toLocal8Bit();\
-	mtl_info("%s\"%s\"", msg, ba.data());\
+	auto __FILE____LINE__ = s.toLocal8Bit();\
+	mtl_info("%s\"%s\"", msg, __FILE____LINE__.data());\
 }
 
 #define NO_ASSIGN_COPY_MOVE(TypeName)	\
@@ -239,3 +239,6 @@
 		continue;\
 	}\
 }
+
+#define MTL_PTR_TO_INT(a) { (int)(i64)a }
+#define MTL_INT_TO_PTR(i) { (isize*)(isize)i }

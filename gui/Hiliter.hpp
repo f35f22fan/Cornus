@@ -28,6 +28,7 @@ private:
 	
 	void SetupC_CPP();
 	void SetupPlainText();
+	void SetupShellScript();
 	
 	struct HighlightingRule
 	{
@@ -40,7 +41,16 @@ private:
 	QRegularExpression comment_start_expression_;
 	QRegularExpression comment_end_expression_;
 	
+	struct Formats {
+		QTextCharFormat keyword;
+		QTextCharFormat klass;
+		QTextCharFormat single_line_comment;
+		QTextCharFormat quotation;
+		QTextCharFormat function;
+	} formats_;
+
 	QTextCharFormat multiline_comment_format_;
+	HiliteMode mode_ = HiliteMode::None;
 };
 
 } // cornus::gui

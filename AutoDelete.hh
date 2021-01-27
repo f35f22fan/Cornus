@@ -6,6 +6,14 @@
 
 namespace cornus {
 
+class AutoCloseFd {
+public:
+	AutoCloseFd(int fd): fd_(fd) {}
+	~AutoCloseFd() { ::close(fd_); }
+private:
+int fd_ = -1;
+};
+
 class AutoRemoveWatch {
 public:
 	AutoRemoveWatch(cornus::gui::Notify &notify, int wd):

@@ -11,6 +11,8 @@ class ByteArray;
 class History;
 class MutexGuard;
 
+const char *const SocketPath = "\0cornus_socket";
+
 enum class PartitionEventType: u8 {
 	None = 0,
 	Mount,

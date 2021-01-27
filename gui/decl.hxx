@@ -24,7 +24,7 @@ enum class HiliteMode: i16 {
 	C_CPP = 0,
 	PlainText,
 	Python,
-	SH,
+	ShellScript,
 	Count
 };
 

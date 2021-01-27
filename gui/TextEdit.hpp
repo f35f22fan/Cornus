@@ -5,11 +5,11 @@
 #include "../io/decl.hxx"
 #include "../err.hpp"
 
-#include <QTextEdit>
+#include <QPlainTextEdit>
 
 namespace cornus::gui {
 
-class TextEdit: public QTextEdit {
+class TextEdit: public QPlainTextEdit {
 public:
 	TextEdit(App *app);
 	virtual ~TextEdit();

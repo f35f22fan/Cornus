@@ -474,26 +474,27 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	isize so_far = 0;
 	
 	while (so_far < MAX) {
-		isize ret = read(fd, buf + so_far, MAX - so_far);
-		if (ret == -1) {
+		isize count = read(fd, buf + so_far, MAX - so_far);
+		if (count == -1) {
 			if (errno == EAGAIN)
 				continue;
+			buffer.size(so_far);
 			io::Err e = MapPosixError(errno);
 			mtl_warn("ReadFile: %s", strerror(errno));
 			close(fd);
 			return e;
-		} else if (ret == 0) {
+		} else if (count == 0) {
 			// zero indicates the end of file, happens with
 			// virtual kernel generated files.
 			break;
 		}
 		
-		so_far += ret;
+		so_far += count;
 	}
 	
 	close(fd);
 	buffer.size(so_far);
-	buffer.to(0);
+	buffer.done_reading();
 	
 	return Err::Ok;
 }

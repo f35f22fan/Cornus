@@ -8,12 +8,17 @@ extern "C" {
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "App.hpp"
 #include "AutoDelete.hh"
 #include "io/disks.hh"
 #include "io/io.hh"
 #include "io/File.hpp"
+#include "io/socket.hh"
 #include "gui/Location.hpp"
 #include "gui/SidePane.hpp"
 #include "gui/SidePaneItem.hpp"
@@ -188,6 +193,13 @@ App::App(): app_icon_(QLatin1String(":/resources/cornus.webp"))
 	setWindowIcon(app_icon_);
 	resize(900, 700);
 	table_->setFocus();
+	
+	auto *ba = new ByteArray();
+	ba->add_u8(255);
+	ba->add_i8(127);
+	ba->add_string("hello!");
+	ba->add_i32(-124555);
+	io::socket::SendAsync(ba, cornus::SocketPath);
 }
 
 App::~App() {
@@ -410,7 +422,7 @@ void App::DisplaySymlinkInfo(io::File &file)
 void App::FileDoubleClicked(io::File *file, const gui::Column col)
 {
 	cornus::AutoDelete ad(file);
-	
+
 	if (col == gui::Column::Icon) {
 		if (file->is_symlink()) {
 			DisplaySymlinkInfo(*file);
@@ -426,7 +438,6 @@ void App::FileDoubleClicked(io::File *file, const gui::Column col)
 				GoTo({file->link_target()->path, true});
 			}
 		} else if (file->is_regular() || file->is_symlink()) {
-			
 			QString full_path = file->build_full_path();
 			ExecInfo info = QueryExecInfo(full_path, file->cache().ext.toString());
 			if (info.is_elf() || info.is_script()) {
@@ -731,9 +742,6 @@ ExecInfo App::QueryExecInfo(const QString &full_path, const QString &ext)
 	if (io::TryReadFile(full_path, buf, size, &ret) < size)
 		return ret;
 	
-	if (TestExecBuf(buf, size, ret))
-		return ret;
-	
 	if (!ext.isEmpty()) {
 		if (ext == QLatin1String("sh")) {
 			ret.type |= (ExecType::Script | ExecType::ScriptSh);
@@ -742,6 +750,10 @@ ExecInfo App::QueryExecInfo(const QString &full_path, const QString &ext)
 		} else if (ext == QLatin1String("bat")) {
 			ret.type |= ExecType::ScriptBat;
 		}
+	}
+	
+	if(ext.isEmpty()) {
+		TestExecBuf(buf, size, ret);
 	}
 	
 	return ret;
@@ -767,10 +779,13 @@ bool App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 		QStringRef ref = s.midRef(index + bin.size());
 		if (ref.startsWith(QLatin1String("sh"))) {
 			ret.type |= ExecType::ScriptSh;
+			return true;
 		} else if (ref.startsWith(QLatin1String("python"))) {
 			ret.type |= ExecType::ScriptPython;
+			return true;
 		} else if (ref.startsWith(QLatin1String("bash"))) {
 			ret.type |= ExecType::ScriptBash;
+			return true;
 		}
 	}
 	

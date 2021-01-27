@@ -23,9 +23,11 @@ TextEdit::TextEdit(App *app): app_(app)
 {
 	setEnabled(true);
 	setReadOnly(false);
-	setAcceptRichText(false);
-	setAutoFormatting(QTextEdit::AutoNone);
+	//setAcceptRichText(false);
+//	setAutoFormatting(QTextEdit::AutoNone);
+//	setLineWrapMode(QTextEdit::NoWrap);
 	hiliter_ = new Hiliter(document());
+	//hiliter_ = new Hiliter(new QTextDocument());
 	
 	QFont font;
 	font.setFamily("Hack");
@@ -43,10 +45,13 @@ TextEdit::~TextEdit() {
 
 bool TextEdit::Display(io::File *cloned_file)
 {
-	AutoDelete ad(cloned_file);
+	clear();
 	
-	if (cloned_file->is_dir_or_so())
+	AutoDelete ad(cloned_file);
+
+	if (cloned_file->is_dir_or_so()) {
 		return false;
+	}
 	
 	ByteArray buf;
 	const i64 MAX = 1024 * 1024; // 1 MiB
@@ -61,7 +66,7 @@ bool TextEdit::Display(io::File *cloned_file)
 	hiliter_->SwitchTo(hilite_mode_);
 	setReadOnly(hilite_mode_ == HiliteMode::None);
 	QString s = QString::fromLocal8Bit(buf.data(), buf.size());
-	setText(s);
+	setPlainText(s);
 	moveCursor(QTextCursor::Start);
 	
 	return true;
@@ -77,7 +82,7 @@ TextEdit::GetHiliteMode(const ByteArray &buf, io::File *file)
 		app_->TestExecBuf(buf.constData(), buf.size(), exec);
 		
 		if (exec.is_script_bash() || exec.is_script_sh()) {
-			return HiliteMode::SH;
+			return HiliteMode::ShellScript;
 		} else if (exec.is_script_python()) {
 			return HiliteMode::Python;
 		}
@@ -93,12 +98,15 @@ TextEdit::GetHiliteMode(const ByteArray &buf, io::File *file)
 			return HiliteMode::C_CPP;
 	}
 	
+	if (ext == QLatin1String("sh") || ext == QLatin1String("run"))
+		return HiliteMode::ShellScript;
+	
 	return HiliteMode::None;
 }
 
 void TextEdit::keyPressEvent(QKeyEvent *evt)
 {
-	QTextEdit::keyPressEvent(evt);
+	QPlainTextEdit::keyPressEvent(evt);
 	
 	const auto key = evt->key();
 	const bool ctrl = evt->modifiers() & Qt::ControlModifier;
@@ -106,7 +114,6 @@ void TextEdit::keyPressEvent(QKeyEvent *evt)
 	if (ctrl) {
 		if (key == Qt::Key_S) {
 			if (Save()) {
-				clear();
 				app_->HideTextEditor();
 			}
 		}
@@ -115,7 +122,6 @@ void TextEdit::keyPressEvent(QKeyEvent *evt)
 	}
 	
 	if (key == Qt::Key_Escape) {
-		clear();
 		app_->HideTextEditor();
 	}
 }

@@ -18,7 +18,9 @@ public:
 	Table(TableModel *tm, App *app);
 	virtual ~Table();
 	
+	bool CheckIsOnFileName(io::File *file, const int file_row, const QPoint &pos) const;
 	TableModel* model() const { return model_; }
+	const QPoint& drop_coord() const { return drop_coord_; }
 	virtual void dropEvent(QDropEvent *event) override;
 	io::File* GetFileAtNTS(const QPoint &pos, const bool clone, int *ret_file_index = nullptr);
 	io::File* GetFileAt(const int row); // returns cloned file
@@ -50,6 +52,7 @@ protected:
 private:
 	NO_ASSIGN_COPY_MOVE(Table);
 	
+	void ClearDndAnimation(const QPoint &drop_coord);
 	void FinishDropOperation(QVector<io::File *> *files_vec, io::File *to_dir,
 		Qt::DropAction drop_action);
 	void HandleMouseSelection(QMouseEvent *evt, QVector<int> &indices);
@@ -70,7 +73,7 @@ private:
 		
 	} shift_select_ = {};
 
-	int drop_y_coord_ = -1;
+	QPoint drop_coord_ = {-1, -1};
 	QPoint drag_start_pos_ = {-1, -1};
 	
 };

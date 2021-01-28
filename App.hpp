@@ -92,7 +92,6 @@ private:
 	QVector<QString> xdg_data_dirs_;
 	QString theme_name_;
 	QMimeDatabase mime_db_;
-	QIcon app_icon_;
 	QString icons_dir_;
 	struct IconCache {
 		QIcon *folder = nullptr;

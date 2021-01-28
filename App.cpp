@@ -110,7 +110,7 @@ void* GoToTh(void *p)
 		auto start_time = std::chrono::steady_clock::now();
 		int status = pthread_cond_wait(&view_files.cond, &view_files.mutex);
 		if (status != 0) {
-			mtl_warn("pthread_cond_wait: %s", strerror(status));
+			mtl_status(status);
 			break;
 		}
 		auto now = std::chrono::steady_clock::now();
@@ -174,7 +174,7 @@ void FigureOutSelectPath(QString &select_path, QString &go_to_path)
 	select_path.clear();
 }
 
-App::App(): app_icon_(QLatin1String(":/resources/cornus.webp"))
+App::App()
 {
 	qRegisterMetaType<cornus::io::FilesData*>();
 	qRegisterMetaType<cornus::PartitionEvent*>();
@@ -185,21 +185,14 @@ App::App(): app_icon_(QLatin1String(":/resources/cornus.webp"))
 	if (status != 0)
 		mtl_warn("%s", strerror(status));
 	
+	setWindowIcon(QIcon(cornus::AppIconPath));
 	GoToInitialDir();
 	SetupIconNames();
 	SetupEnvSearchPaths();
 	CreateGui();
 	RegisterShortcuts();
-	setWindowIcon(app_icon_);
 	resize(900, 700);
 	table_->setFocus();
-	
-	auto *ba = new ByteArray();
-	ba->add_u8(255);
-	ba->add_i8(127);
-	ba->add_string("hello!");
-	ba->add_i32(-124555);
-	io::socket::SendAsync(ba, cornus::SocketPath);
 }
 
 App::~App() {

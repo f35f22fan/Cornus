@@ -60,7 +60,12 @@ endforeach()
 set(cornus_io_src_files main_io.cpp
     err.hpp
     ByteArray.cpp ByteArray.hpp
-    io/socket.cc io/socket.hh)
+    MutexGuard.cpp MutexGuard.hpp
+    io/socket.cc io/socket.hh
+    io/Task.cpp io/Task.hpp
+    gui/TaskGui.cpp gui/TaskGui.hpp
+    gui/TasksWin.cpp gui/TasksWin.hpp
+)
 
 foreach(f IN LISTS cornus_io_src_files)
 	get_filename_component(b ${f} NAME)

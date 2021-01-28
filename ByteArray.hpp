@@ -1,5 +1,6 @@
 #pragma once
 
+#include "io/socket.hh"
 #include "types.hxx"
 
 #include <QString>
@@ -13,6 +14,8 @@ public:
 	virtual ~ByteArray();
 	
 	void alloc(const usize exact_size);
+	
+	void add_msg_type(const io::socket::MsgType msg_type);
 	
 	void add(const char *n, const usize size);
 	void add_i8(const i8 n);

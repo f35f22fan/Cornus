@@ -10,6 +10,7 @@
 
 namespace cornus::io {
 	class File;
+	class Task;
 	
 	namespace FileBits {
 		const u8 Selected = 1u << 0;

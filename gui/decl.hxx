@@ -14,6 +14,8 @@ class SidePaneModel;
 class Table;
 class TableDelegate;
 class TableModel;
+class TaskGui;
+class TasksWin;
 class TextEdit;
 class ToolBar;
 

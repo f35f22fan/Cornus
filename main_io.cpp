@@ -15,26 +15,51 @@
 #include "decl.hxx"
 #include "err.hpp"
 #include "io/socket.hh"
+#include "io/Task.hpp"
+#include "gui/TasksWin.hpp"
 
-void* ProcessRequest(void *args)
+Q_DECLARE_METATYPE(cornus::io::Task*);
+
+namespace cornus {
+struct args_data {
+	cornus::gui::TasksWin *tasks_win = nullptr;
+	int fd = -1;
+};
+
+void* ProcessRequest(void *ptr)
 {
 	pthread_detach(pthread_self());
 	cornus::ByteArray ba;
-	int fd = MTL_PTR_TO_INT(args);
-	ba.Receive(fd);
+	args_data *args = (args_data*)ptr;
+	int fd = args->fd;
+	gui::TasksWin *tasks_win = args->tasks_win;
+	delete args;
+	args = nullptr;
 	
-	mtl_info("u8: %u", ba.next_u8());
-	mtl_info("i8: %d", ba.next_i8());
-	mtl_printq2("string: ", ba.next_string());
-	mtl_info("i32: %d", ba.next_i32());
+	if (!ba.Receive(fd)) {
+		mtl_warn("receive failed");
+		return nullptr;
+	}
+	
+	auto *task = cornus::io::Task::From(ba);
+	
+	if (task != nullptr) {
+		QMetaObject::invokeMethod(tasks_win, "add",
+			Q_ARG(cornus::io::Task*, task));
+	}
+	
+	task->WaitForStartSignal();
 	
 	return nullptr;
 }
 
 
-void* StartServerSocket(void*)
+void* StartServerSocket(void *args)
 {
 	pthread_detach(pthread_self());
+	
+	auto *tasks_win = (gui::TasksWin*)args;
+	
 	int server_sock_fd = cornus::io::socket::Server(cornus::SocketPath);
 	CHECK_TRUE_NULL((server_sock_fd != -1));
 	pthread_t th;
@@ -47,8 +72,10 @@ void* StartServerSocket(void*)
 			break;
 		}
 		
-		void *arg = MTL_INT_TO_PTR(client_fd);
-		int status = pthread_create(&th, NULL, ProcessRequest, arg);
+		auto *args = new args_data();
+		args->fd = client_fd;
+		args->tasks_win = tasks_win;
+		int status = pthread_create(&th, NULL, ProcessRequest, args);
 		if (status != 0) {
 			mtl_status(status);
 			break;
@@ -58,21 +85,22 @@ void* StartServerSocket(void*)
 	mtl_info("Server socket closed");
 	return nullptr;
 }
+}
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
 	QApplication qapp(argc, argv);
+	qRegisterMetaType<cornus::io::Task*>();
 	
-//	cornus::App app;
-//	app.show();
+	/// The TasksWin hides/deletes itself
+	/// Currently it deletes itself, change later to just hide itself.
+	auto *tasks_win = new cornus::gui::TasksWin();
 	
 	pthread_t th;
-	int status = pthread_create(&th, NULL, StartServerSocket, NULL);
+	int status = pthread_create(&th, NULL, cornus::StartServerSocket, tasks_win);
 	if (status != 0)
 		mtl_status(status);
 	
-	pthread_join(th, NULL);
-	
-	return 0;
-	//return qapp.exec();
+	return qapp.exec();
 }
 

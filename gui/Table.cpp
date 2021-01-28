@@ -5,6 +5,7 @@
 #include "../io/io.hh"
 #include "../io/File.hpp"
 #include "../MutexGuard.hpp"
+#include "../io/socket.hh"
 #include "TableDelegate.hpp"
 #include "TableModel.hpp"
 
@@ -32,6 +33,8 @@
 #include <QUrl>
 
 namespace cornus::gui {
+
+const int FileNameRelax = 2;
 
 Table::Table(TableModel *tm, App *app) : app_(app),
 model_(tm)
@@ -74,6 +77,44 @@ Table::~Table() {
 	delete model_;
 }
 
+bool
+Table::CheckIsOnFileName(io::File *file, const int file_row, const QPoint &pos) const
+{
+	if (!file->is_dir() || pos.y() < 0)
+		return false;
+	
+	i32 col = columnAt(pos.x());
+	if (col != (int)Column::FileName)
+		return false;
+	
+	if (rowAt(pos.y()) != file_row)
+		return false;
+	
+	QFontMetrics fm = fontMetrics();
+	const int name_w = fm.boundingRect(file->name()).width();
+	const int absolute_name_end = name_w + columnViewportPosition(col);
+	
+	return (pos.x() < absolute_name_end + FileNameRelax);
+}
+
+void
+Table::ClearDndAnimation(const QPoint &drop_coord)
+{
+	// repaint() or update() don't work because
+	// the window is not raised when dragging an item
+	// on top of the table and the repaint
+	// requests are ignored. Repaint using a hack:
+	int row = rowAt(drop_coord.y());
+	
+	if (row != -1) {
+		int start = row;
+		if (row > 0)
+			start--;
+		int end = row + 1;
+		model_->UpdateRowRange(start, end);
+	}
+}
+
 void
 Table::dragEnterEvent(QDragEnterEvent *event)
 {
@@ -86,53 +127,20 @@ Table::dragEnterEvent(QDragEnterEvent *event)
 void
 Table::dragLeaveEvent(QDragLeaveEvent *evt)
 {
-	{ /// fix repaint issue
-		// repaint() or update() don't work because
-		// the window is not raised when dragging an item
-		// on top of the table and the repaint
-		// requests are ignored. Repaint using a hack:
-		int row = rowAt(drop_y_coord_);
-		drop_y_coord_ = -1;
-		
-		if (row != -1) {
-			int start = row;
-			if (row > 0)
-				start--;
-			int end = row + 1;
-			model_->UpdateRowRange(start, end);
-		}
-	}
+	ClearDndAnimation(drop_coord_);
+	drop_coord_ = {-1, -1};
 }
 
 void
 Table::dragMoveEvent(QDragMoveEvent *event)
 {
-	const auto &pos = event->pos();
-	drop_y_coord_ = pos.y();
-	
-	{
-		// repaint() or update() don't work because
-		// the window is not raised when dragging an item
-		// on top of the table and the repaint
-		// requests are ignored. Repaint using a hack:
-		int row = rowAt(pos.y());
-		
-		if (row != -1) {
-			int start = row;
-			if (row > 0)
-				start--;
-			int end = row + 1;
-			model_->UpdateRowRange(start, end);
-		}
-	}
+	drop_coord_ = event->pos();
+	ClearDndAnimation(drop_coord_);
 }
 
 void
 Table::dropEvent(QDropEvent *evt)
 {
-	drop_y_coord_ = -1;
-	App *app = model_->app();
-	
 	if (evt->mimeData()->hasUrls()) {
 		QVector<io::File*> *files_vec = new QVector<io::File*>();
 		
@@ -145,7 +153,7 @@ Table::dropEvent(QDropEvent *evt)
 		
 		io::File *to_dir = nullptr;
 		{
-			auto &files = app->view_files();
+			auto &files = app_->view_files();
 			MutexGuard guard(&files.mutex);
 			
 			if (IsOnFileNameStringNTS(evt->pos(), &to_dir) != -1 && to_dir->is_dir_or_so()) {
@@ -163,19 +171,28 @@ Table::dropEvent(QDropEvent *evt)
 		
 		FinishDropOperation(files_vec, to_dir, evt->dropAction());
 	}
+	
+	ClearDndAnimation(drop_coord_);
+	drop_coord_ = {-1, -1};
 }
 
 void
 Table::FinishDropOperation(QVector<io::File*> *files_vec,
 	io::File *to_dir, Qt::DropAction drop_action)
 {
-//	mtl_info("Drop op: %d", drop_action);
-//	mtl_printq2("Drop to: ", to_dir->build_full_path());
+	CHECK_PTR_VOID(files_vec);
+	io::socket::MsgType io_operation = io::socket::MsgFlagsFor(drop_action);
+	
+	auto *ba = new ByteArray();
+	ba->add_msg_type(io_operation);
+	ba->add_string(to_dir->build_full_path());
+	ba->add_i32(files_vec->size());
+	
 	for (io::File *next: *files_vec) {
-		auto ba = next->build_full_path().toLocal8Bit();
-//		mtl_info("Drop file: %s", ba.data());
+		ba->add_string(next->build_full_path());
 	}
 	
+	io::socket::SendAsync(ba);
 }
 
 io::File*
@@ -316,7 +333,7 @@ Table::IsOnFileNameStringNTS(const QPoint &pos, io::File **ret_file)
 	const int name_w = fm.boundingRect(file->name()).width();
 	const int absolute_name_end = name_w + columnViewportPosition(col);
 	
-	if (absolute_name_end < pos.x())
+	if (pos.x() > absolute_name_end + FileNameRelax)
 		return -1;
 	
 	if (ret_file != nullptr)
@@ -474,7 +491,8 @@ Table::paintEvent(QPaintEvent *event)
 {
 	QTableView::paintEvent(event);
 	
-	if (drop_y_coord_ == -1)
+	/**
+	if (drop_coord_.y() == -1)
 		return;
 	
 	const i32 row_h = rowHeight(0);
@@ -487,7 +505,7 @@ Table::paintEvent(QPaintEvent *event)
 	pen.setWidthF(2.0);
 	painter.setPen(pen);
 	
-	int y = drop_y_coord_;
+	int y = drop_coord_.y();
 	
 	int rem = y % row_h;
 	
@@ -499,7 +517,7 @@ Table::paintEvent(QPaintEvent *event)
 	if (y > 0)
 		y -= 1;
 	
-	painter.drawLine(0, y, width(), y);
+	painter.drawLine(0, y, width(), y); */
 }
 
 void

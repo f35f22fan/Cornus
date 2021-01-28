@@ -11,6 +11,7 @@ class ByteArray;
 class History;
 class MutexGuard;
 
+const QString AppIconPath = QLatin1String(":/resources/cornus.webp");
 const char *const SocketPath = "\0cornus_socket";
 
 enum class PartitionEventType: u8 {

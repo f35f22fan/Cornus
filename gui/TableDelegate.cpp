@@ -34,7 +34,7 @@ TableDelegate::~TableDelegate() {
 }
 
 void
-TableDelegate::DrawFileName(QPainter *painter, io::File *file,
+TableDelegate::DrawFileName(QPainter *painter, io::File *file, const int row_index,
 	const QStyleOptionViewItem &option, QFontMetrics &fm,
 	const QRect &text_rect) const
 {
@@ -46,7 +46,12 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 		painter->setPen(pen);
 	}
 	
-	if (file->selected()) {
+	bool paint_as_selected = false;
+	if (table_->CheckIsOnFileName(file, row_index, table_->drop_coord())) {
+		paint_as_selected = true;
+	}
+	
+	if (paint_as_selected || file->selected()) {
 		QRect r = option.rect;
 		r.setWidth(str_rect.width() + FnOff * 2);
 		painter->fillRect(r, option.palette.highlight());
@@ -204,7 +209,7 @@ TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 	if (col == Column::Icon) {
 		DrawIcon(painter, file, option, fm, text_rect);
 	} else if (col == Column::FileName) {
-		DrawFileName(painter, file, option, fm, text_rect);
+		DrawFileName(painter, file, row, option, fm, text_rect);
 	} else if (col == Column::Size) {
 		DrawSize(painter, file, option, fm, text_rect);
 	} else if (col == Column::TimeCreated || col == Column::TimeModified) {

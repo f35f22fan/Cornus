@@ -11,7 +11,7 @@
 #include <QScrollBar>
 #include <QTime>
 
-//#define DEBUG_INOTIFY
+#define DEBUG_INOTIFY
 
 namespace cornus::gui {
 
@@ -65,7 +65,7 @@ void InsertFile(io::File *new_file, QVector<io::File*> &files_vec,
 }
 
 void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
-	QVector<int> &update_indices, bool &has_been_unmounted)
+	QVector<int> &update_indices, bool &has_been_unmounted_or_deleted)
 {
 	const ssize_t num_read = read(inotify_fd, buf, kInotifyEventBufLen);
 	if (num_read == 0) {
@@ -131,6 +131,8 @@ mtl_trace("IN_DELETE: %s", ev->name);
 			}
 		} else if (mask & IN_DELETE_SELF) {
 			mtl_warn("IN_DELETE_SELF");
+			has_been_unmounted_or_deleted = true;
+			break;
 		} else if (mask & IN_MOVE_SELF) {
 			mtl_warn("IN_MOVE_SELF");
 		} else if (mask & IN_MOVED_FROM) {
@@ -159,14 +161,18 @@ mtl_trace("IN_MOVED_TO: %s, is_dir: %d", ev->name, is_dir);
 				to_file = new io::File(files);
 			}
 			to_file->name(ev->name);
-			io::ReloadMeta(*to_file);
-			/// Reinsert at the proper position:
-			InsertFile(to_file, files_vec, &to_index);
-			update_indices.append(to_index);
+			if (io::ReloadMeta(*to_file)) {
+				/// if ReloadMeta fails then it means the file isn't on disk anymore.
+				/// Reinsert at the proper position:
+				InsertFile(to_file, files_vec, &to_index);
+				update_indices.append(to_index);
+			} else {
+				delete to_file;
+			}
 		} else if (mask & IN_Q_OVERFLOW) {
 			mtl_warn("IN_Q_OVERFLOW");
 		} else if (mask & IN_UNMOUNT) {
-			has_been_unmounted = true;
+			has_been_unmounted_or_deleted = true;
 			break;
 		} else if (mask & IN_CLOSE) {
 //#ifdef DEBUG_INOTIFY
@@ -253,13 +259,13 @@ void* WatchDir(void *void_args)
 				break;
 			
 			method_args.prev_count = files.data.vec.size();
-			bool has_been_unmounted = false;
+			bool has_been_unmounted_or_deleted = false;
 			
 			if (event_count > 0)
 				ReadEvent(poll_event.data.fd, buf, &files,
-					method_args.indices, has_been_unmounted);
+					method_args.indices, has_been_unmounted_or_deleted);
 			
-			if (has_been_unmounted) {
+			if (has_been_unmounted_or_deleted) {
 				arw.RemoveWatch(wd);
 				break;
 			}
@@ -292,7 +298,8 @@ TableModel::~TableModel()
 {}
 
 void
-TableModel::DeleteSelectedFiles() {
+TableModel::DeleteSelectedFiles()
+{
 	QVector<io::File*> delete_files;
 	{
 		io::Files &files = app_->view_files();
@@ -307,7 +314,6 @@ TableModel::DeleteSelectedFiles() {
 			}
 		}
 	}
-	
 	for (io::File *file: delete_files) {
 		io::Delete(file);
 		delete file;

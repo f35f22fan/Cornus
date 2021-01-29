@@ -57,6 +57,44 @@ extern "C" {
 
 namespace cornus {
 
+void* AutoLoadServerIfNeeded(void *arg)
+{
+	pthread_detach(pthread_self());
+	ByteArray ba;
+	ba.add_msg_type(io::socket::MsgBits::CheckAlive);
+	
+	if (io::socket::SendSync(ba)) {
+		mtl_info("Server is online");
+		return nullptr;
+	}
+	
+	QString excl_file_path = QDir::homePath() + QLatin1String("/.cornus_excl_");
+	auto excl_ba = excl_file_path.toLocal8Bit();
+	int fd = open(excl_ba.data(), O_EXCL | O_CREAT, 0x777);
+	
+	if (fd == -1) {
+		mtl_info("someone is already trying to start the io server");
+		return nullptr; // someone is already trying to start the io server
+	}
+	
+	mtl_info("Starting io server..");
+	QString server_dir_path = QCoreApplication::applicationDirPath();
+	QString server_full_path = server_dir_path + QLatin1String("/cornus_io");
+	
+	QStringList arguments;
+	QProcess::startDetached(server_full_path, arguments, server_dir_path);
+	mtl_info("done");
+	
+	sleep(5);
+	int status = remove(excl_ba.data());
+	if (status != 0) {
+		mtl_status(errno);
+	}
+	
+	///App *app = (App*)arg;
+	return nullptr;
+}
+
 struct GoToParams {
 	App *app = nullptr;
 	DirPath dir_path;
@@ -183,7 +221,11 @@ App::App()
 	pthread_t th;
 	int status = pthread_create(&th, NULL, gui::sidepane::LoadItems, this);
 	if (status != 0)
-		mtl_warn("%s", strerror(status));
+		mtl_status(status);
+	
+	status = pthread_create(&th, NULL, AutoLoadServerIfNeeded, this);
+	if (status != 0)
+		mtl_status(status);
 	
 	setWindowIcon(QIcon(cornus::AppIconPath));
 	GoToInitialDir();

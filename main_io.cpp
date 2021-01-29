@@ -41,6 +41,14 @@ void* ProcessRequest(void *ptr)
 		return nullptr;
 	}
 	
+	const auto msg = ba.next_u32();
+	
+	if (msg == io::socket::MsgBits::CheckAlive) {
+		mtl_info("Someone checked if alive");
+		return nullptr;
+	}
+	
+	ba.to(0);
 	auto *task = cornus::io::Task::From(ba);
 	
 	if (task != nullptr) {
@@ -48,7 +56,8 @@ void* ProcessRequest(void *ptr)
 			Q_ARG(cornus::io::Task*, task));
 	}
 	
-	task->WaitForStartSignal();
+	//task->WaitForStartSignal();
+	task->StartIO();
 	
 	return nullptr;
 }

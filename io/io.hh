@@ -61,6 +61,8 @@ Q_DECLARE_METATYPE(cornus::io::FilesData*);
 
 namespace cornus::io {
 
+i64 CountSizeRecursive(const QString &path, struct statx &stx);
+
 void Delete(io::File *file);
 
 bool
@@ -121,8 +123,11 @@ io::Err
 ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	const i64 read_max = -1);
 
-bool ReadLink(const char *file_path, LinkTarget &link_target,
-	const QString &parent_dir);
+bool
+ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_dir);
+
+bool
+ReadLinkSimple(const char *file_path, QString &result);
 
 bool ReloadMeta(io::File &file);
 

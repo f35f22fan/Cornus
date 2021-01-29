@@ -56,8 +56,9 @@ File::DeleteFromDisk() {
 	auto ba = build_full_path().toLocal8Bit();
 	int status = remove(ba.data());
 	
-	if (status != 0)
-		mtl_status(status);
+	if (status != 0) {
+		mtl_warn("Failed to delete \"%s\": %s", ba.data(), strerror(errno));
+	}
 	
 	return status == 0;
 }

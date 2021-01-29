@@ -72,6 +72,24 @@ SidePane::~SidePane() {
 }
 
 void
+SidePane::ClearDndAnimation(const QPoint &drop_coord)
+{
+	// repaint() or update() don't work because
+	// the window is not raised when dragging an item
+	// on top of the table and the repaint
+	// requests are ignored. Repaint using a hack:
+	int row = rowAt(drop_coord.y());
+	
+	if (row != -1) {
+		int start = row;
+		if (row > 0)
+			start--;
+		int end = row + 1;
+		model_->UpdateRowRange(start, end);
+	}
+}
+
+void
 SidePane::ClearEventInProgress(QString dev_path, QString error_msg)
 {
 	//mtl_printq2("Clear event: ", dev_path);
@@ -136,37 +154,20 @@ SidePane::dragEnterEvent(QDragEnterEvent *event)
 void
 SidePane::dragLeaveEvent(QDragLeaveEvent *event)
 {
-	drop_y_coord_ = -1;
-	update();
+	ClearDndAnimation(drop_coord_);
+	drop_coord_ = {-1, -1};
 }
 
 void
 SidePane::dragMoveEvent(QDragMoveEvent *event)
 {
-	const auto &pos = event->pos();
-	drop_y_coord_ = pos.y();
-	
-	// repaint() or update() don't work because
-	// the window is not raised when dragging a song
-	// on top of the playlist and the repaint
-	// requests are ignored.
-	// repaint(0, y - h / 2, width(), y + h / 2);
-	// using a hack:
-	int row = rowAt(pos.y());
-	
-	if (row != -1) {
-		int start = row;
-		if (row > 0)
-			start--;
-		int end = row + 1;
-		model_->UpdateRowRange(start, end);
-	}
+	drop_coord_ = event->pos();
+	ClearDndAnimation(drop_coord_);
 }
 
 void
 SidePane::dropEvent(QDropEvent *evt)
 {
-	drop_y_coord_ = -1;
 	App *app = model_->app();
 	
 	if (evt->mimeData()->hasUrls()) {
@@ -195,19 +196,20 @@ SidePane::dropEvent(QDropEvent *evt)
 		}
 		
 		model_->FinishDropOperation(files_vec, row);
-		return;
+	} else {
+		QByteArray ba = evt->mimeData()->data(BookmarkMime);
+		if (ba.isEmpty())
+			return;
+		
+		QDataStream dataStreamRead(ba);
+		QStringList str_list;
+		dataStreamRead >> str_list;
+		
+		model_->MoveBookmarks(str_list, evt->pos());
 	}
 	
-	
-	QByteArray ba = evt->mimeData()->data(BookmarkMime);
-	if (ba.isEmpty())
-		return;
-	
-	QDataStream dataStreamRead(ba);
-	QStringList str_list;
-	dataStreamRead >> str_list;
-	
-	model_->MoveBookmarks(str_list, evt->pos());
+	ClearDndAnimation(drop_coord_);
+	drop_coord_ = {-1, -1};
 }
 
 gui::SidePaneItem*
@@ -379,7 +381,7 @@ SidePane::paintEvent(QPaintEvent *event)
 {
 	QTableView::paintEvent(event);
 	
-	if (drop_y_coord_ == -1)
+	if (drop_coord_.y() == -1)
 		return;
 	
 	const i32 row_h = rowHeight(0);
@@ -392,7 +394,7 @@ SidePane::paintEvent(QPaintEvent *event)
 	pen.setWidthF(2.0);
 	painter.setPen(pen);
 	
-	int y = drop_y_coord_;
+	int y = drop_coord_.y();
 	
 	int rem = y % row_h;
 	

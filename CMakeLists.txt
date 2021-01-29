@@ -58,11 +58,17 @@ foreach(f IN LISTS cornus_src_files)
 endforeach()
 
 set(cornus_io_src_files main_io.cpp
+    AutoDelete.hh
     err.hpp
     ByteArray.cpp ByteArray.hpp
     MutexGuard.cpp MutexGuard.hpp
+
+    io/decl.hxx
+    io/File.cpp io/File.hpp
+    io/io.cc io/io.hh
     io/socket.cc io/socket.hh
     io/Task.cpp io/Task.hpp
+
     gui/TaskGui.cpp gui/TaskGui.hpp
     gui/TasksWin.cpp gui/TasksWin.hpp
 )

@@ -17,25 +17,54 @@
 
 namespace cornus::io {
 
+i64 CountSizeRecursive(const QString &path, struct statx &stx)
+{
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_SIZE | STATX_MODE;
+	auto ba = path.toLocal8Bit();
+	
+	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
+		mtl_warn("statx(): %s", strerror(errno));
+		return -1;
+	}
+	
+	i64 size = stx.stx_size;
+	
+	if (!S_ISDIR(stx.stx_mode))
+		return size;
+	
+	QVector<QString> names;
+	if (ListFileNames(path, names) != Err::Ok)
+		return -1;
+	
+	for (const auto &name: names) {
+		int loop_sz = CountSizeRecursive(path + '/' + name, stx);
+		
+		if (loop_sz < 0)
+			return -1;
+		
+		size += loop_sz;
+	}
+	
+	return size;
+}
+
 void Delete(io::File *file) {
-	if (!file->is_dir()) {
-		file->DeleteFromDisk();
-		return;
-	}
-	
-	io::Files files;
-	files.data.processed_dir_path = file->build_full_path();
-	files.data.show_hidden_files = true;
-	CHECK_TRUE_VOID((ListFiles(files.data, &files) == io::Err::Ok));
-	
-	for (io::File *next: files.data.vec) {
-		if (next->is_dir()) {
-			Delete(next);
+	if (file->is_dir())
+	{
+		io::Files files;
+		files.data.processed_dir_path = file->build_full_path() + '/';
+		files.data.show_hidden_files = true;
+		CHECK_TRUE_VOID((ListFiles(files.data, &files) == io::Err::Ok));
+		
+		for (io::File *next: files.data.vec) {
+			if (next->is_dir())
+				Delete(next);
+			else
+				next->DeleteFromDisk();
+			delete next;
 		}
-		next->DeleteFromDisk();
-		delete next;
 	}
-	
 	file->DeleteFromDisk();
 }
 
@@ -310,7 +339,7 @@ ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 		auto ba = full_path.toLocal8Bit();
 		
 		if (statx(0, ba.data(), flags, fields, &stx) != 0) {
-			mtl_warn("statx(): %s", strerror(errno));
+			mtl_warn("statx(): %s: \"%s\"", strerror(errno), ba.data());
 			continue;
 		}
 		
@@ -445,6 +474,53 @@ ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_d
 	return true;
 }
 
+bool
+ReadLinkSimple(const char *file_path, QString &result)
+{
+	struct statx stx;
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_SIZE | STATX_MODE;
+	
+	if (statx(0, file_path, flags, fields, &stx) == -1) {
+		mtl_trace("lstat: %s, file: \"%s\"", strerror(errno), file_path);
+		return false;
+	}
+	
+	/* Add one to the link size, so that we can determine whether
+	the buffer returned by readlink() was truncated. */
+	i64 bufsize = stx.stx_size + 1;
+	
+	/* Some magic symlinks under (for example) /proc and /sys
+	report 'st_size' as zero. In that case, take PATH_MAX as
+	a "good enough" estimate. */
+	if (stx.stx_size == 0)
+		bufsize = PATH_MAX + 1;
+	
+	char *buf = (char*)malloc(bufsize);
+	CHECK_PTR(buf);
+	auto nbytes = readlink(file_path, buf, bufsize);
+	
+	if (nbytes == -1) {
+		free(buf);
+		mtl_trace("readlink: %s, file_path: \"%s\"", strerror(errno), file_path);
+		return false;
+	}
+	
+	/* If the return value was equal to the buffer size, then the
+	the link target was larger than expected (perhaps because the
+	target was changed between the call to lstat() and the call to
+	readlink()). Warn the user that the returned target may have
+	been truncated. */
+	if (nbytes == bufsize) {
+		mtl_warn("Returned buffer may have been truncated");
+	}
+	
+	buf[nbytes] = 0;
+	result = QString::fromLocal8Bit(buf, nbytes);
+	
+	return true;
+}
+
 io::Err
 ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	const i64 read_max)
@@ -509,7 +585,7 @@ ReloadMeta(io::File &file)
 	const auto fields = STATX_ALL;
 	
 	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
-		mtl_warn("statx(): %s", strerror(errno));
+		mtl_warn("statx(): %s: \"%s\"", strerror(errno), ba.data());
 		return false;
 	}
 	

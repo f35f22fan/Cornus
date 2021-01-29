@@ -10,18 +10,12 @@
 
 namespace cornus::gui {
 
-struct GuiTasksData {
-	QVector<TaskGui*> vec;
-	//pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-};
-
 class TasksWin: public QMainWindow {
 	Q_OBJECT
 public:
 	TasksWin();
 	~TasksWin();
 	
-	GuiTasksData& data() { return data_; }
 	void TaskDone(TaskGui *tg);
 	
 public slots:
@@ -32,7 +26,6 @@ private:
 	
 	void CreateGui();
 	
-	GuiTasksData data_ = {};
 	QBoxLayout *layout_ = nullptr;
 	QWidget *main_widget_ = nullptr;
 };

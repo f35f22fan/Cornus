@@ -15,13 +15,12 @@ const int ProgressMax = 100;
 TaskGui::TaskGui(io::Task *task): task_(task)
 {
 	CreateGui();
-	mtl_info("changing state to continue");
 	task_->data().ChangeState(io::TaskState::Continue);
-	mtl_info("Done");
 	
 	QTimer *timer = new QTimer(this);
-	connect(timer, &QTimer::timeout, this, QOverload<>::of(&TaskGui::CheckTaskState));
-	timer->start(1000);
+	connect(timer, &QTimer::timeout, this,
+		QOverload<>::of(&TaskGui::CheckTaskState));
+	timer->start(300);
 }
 
 TaskGui::~TaskGui()
@@ -35,11 +34,14 @@ TaskGui::~TaskGui()
 
 void TaskGui::CheckTaskState()
 {
-	mtl_info("Checking io::Task state..");
-	io::TaskState state = task_->data().GetState();
+	const io::TaskState state = task_->data().GetState();
 	
-	if (state == io::TaskState::Finished) {
-		mtl_info("Finished! deleting myself!");
+	if (state != io::TaskState::Finished && !made_visible_once_) {
+		made_visible_once_ = true;
+		tasks_win_->adjustSize();
+		setVisible(true);
+	} else if (state == io::TaskState::Finished) {
+		mtl_info("Finished! Removing task GUI");
 		tasks_win_->TaskDone(this);
 	}
 	

@@ -408,7 +408,7 @@ Table::ListSelectedFiles(QList<QUrl> &list)
 	
 	for (io::File *next: files.data.vec) {
 		if (next->selected()) {
-			QString s = next->build_full_path();
+			const QString s = next->build_full_path();
 			list.append(QUrl::fromLocalFile(s));
 		}
 	}

@@ -32,5 +32,6 @@ private:
 	QBoxLayout *layout_ = nullptr;
 	QProgressBar *progress_ = nullptr;
 	TasksWin *tasks_win_ = nullptr;
+	bool made_visible_once_ = false;
 };
 }

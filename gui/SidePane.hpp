@@ -51,6 +51,7 @@ protected:
 private:
 	NO_ASSIGN_COPY_MOVE(SidePane);
 	
+	void ClearDndAnimation(const QPoint &drop_coord);
 	SidePaneItem* GetSelectedBookmark(int *index = nullptr);
 	void MountPartition(SidePaneItem *partition);
 	void RenameSelectedBookmark();
@@ -60,7 +61,7 @@ private:
 	
 	SidePaneModel *model_ = nullptr;
 	App *app_ = nullptr;
-	int drop_y_coord_ = -1;
+	QPoint drop_coord_ = {-1, -1};
 	QPoint drag_start_pos_ = {-1, -1};
 	QMenu *menu_ = nullptr;
 	

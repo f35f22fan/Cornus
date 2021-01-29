@@ -119,6 +119,7 @@ private:
 		gui::TextEdit *editor = nullptr;
 		int window_index = -1;
 		int editor_index = -1;
+		QString saved_window_title;
 	};
 	
 	Notepad notepad_ = {};

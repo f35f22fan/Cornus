@@ -406,8 +406,12 @@ void App::DisplayFileContents(const int row, io::File *cloned_file)
 	if (cloned_file == nullptr)
 		return;
 	
-	if (notepad_.editor->Display(cloned_file))
+	notepad_.saved_window_title = windowTitle();
+	if (notepad_.editor->Display(cloned_file)) {
+		setWindowTitle(tr("Press Esc to exit or Ctrl+S to save and exit"));
+		toolbar_->setVisible(false);
 		notepad_.stack->setCurrentIndex(notepad_.editor_index);
+	}
 }
 
 void App::DisplaySymlinkInfo(io::File &file)
@@ -677,6 +681,8 @@ void App::GoUp()
 }
 
 void App::HideTextEditor() {
+	setWindowTitle(notepad_.saved_window_title);
+	toolbar_->setVisible(true);
 	notepad_.stack->setCurrentIndex(notepad_.window_index);
 }
 

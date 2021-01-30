@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../decl.hxx"
 #include "decl.hxx"
+#include "../decl.hxx"
 #include "../err.hpp"
 #include "../io/Task.hpp"
 
@@ -16,7 +16,7 @@ public:
 	TasksWin();
 	~TasksWin();
 	
-	void TaskDone(TaskGui *tg);
+	void TaskDone(TaskGui *tg, const io::TaskState state);
 	
 public slots:
 	void add(cornus::io::Task *task);

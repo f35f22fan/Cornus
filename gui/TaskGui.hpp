@@ -1,12 +1,16 @@
 #pragma once
 
 #include <QBoxLayout>
+#include <QLabel>
 #include <QProgressBar>
+#include <QToolButton>
 #include <QWidget>
+#include <QTimer>
 
 #include "../err.hpp"
 #include "../io/decl.hxx"
 #include "../MutexGuard.hpp"
+#include "../io/Task.hpp"
 
 namespace cornus::gui {
 
@@ -30,8 +34,14 @@ private:
 	
 	io::Task *task_ = nullptr;
 	QBoxLayout *layout_ = nullptr;
-	QProgressBar *progress_ = nullptr;
+	QProgressBar *progress_bar_ = nullptr;
 	TasksWin *tasks_win_ = nullptr;
 	bool made_visible_once_ = false;
+	QLabel *info_ = nullptr;
+	QTimer *timer_ = nullptr;
+	QToolButton *play_pause_btn_ = nullptr;
+	QToolButton *cancel_button_ = nullptr;
+	cornus::io::Progress progress_ = {};
+	QIcon continue_icon_, pause_icon_;
 };
 }

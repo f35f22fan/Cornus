@@ -620,21 +620,25 @@ void
 SidePane::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 {
 	int row = 0;
-	gui::SidePaneItem *cloned_item = nullptr;
+	bool is_bookmark = false;
+	bool is_mounted = false;
 	{
 		MutexGuard guard(&app_->side_pane_items().mutex);
-		cloned_item = GetItemAtNTS(local_pos, true, &row);
+		gui::SidePaneItem *cloned_item = GetItemAtNTS(local_pos, true, &row);
+		
+		if (cloned_item == nullptr)
+			return;
+		
+		is_bookmark = cloned_item->is_bookmark();
+		is_mounted = !is_bookmark && cloned_item->mounted();
 	}
-	
-	if (cloned_item == nullptr)
-		return;
 	
 	if (menu_ == nullptr)
 		menu_ = new QMenu(this);
 	else
 		menu_->clear();
 	
-	if (cloned_item->is_bookmark()) 
+	if (is_bookmark) 
 	{
 		QAction *action = menu_->addAction(tr("&Delete"));
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-delete")));
@@ -643,34 +647,40 @@ SidePane::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 		action = menu_->addAction(tr("&Rename.."));
 		connect(action, &QAction::triggered, [=] {ProcessAction(actions::RenameBookmark);});
 		action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
-		delete cloned_item;
-	} else if (cloned_item->is_partition()) {
+	} else {
 		{
 			QAction *action = menu_->addAction(tr("&Info"));
 			action->setIcon(QIcon::fromTheme(QLatin1String("dialog-information")));
 			connect(action, &QAction::triggered, [=] () {
-				ShowSelectedPartitionInfo(cloned_item);
+				ShowSelectedPartitionInfo(row);
 			});
 		}
 		
-		if (cloned_item->mounted()) {
+		if (is_mounted) {
 			QAction *action = menu_->addAction(tr("&Unmount"));
 			action->setIcon(QIcon::fromTheme(QLatin1String("media-eject")));
 			connect(action, &QAction::triggered, [=] () {
-				UnmountPartition(cloned_item);
+				UnmountPartition(row);
 			});
 		}
-		
-///		delete cloned_item;
-	} else {
-		delete cloned_item;
 	}
 	
 	menu_->popup(global_pos);
 }
 
 void
-SidePane::ShowSelectedPartitionInfo(SidePaneItem *partition) {
+SidePane::ShowSelectedPartitionInfo(const int row)
+{
+	SidePaneItem *partition = nullptr;
+	auto &items = app_->side_pane_items();
+	{
+		MutexGuard guard(&items.mutex);
+		partition = items.vec[row]->Clone();
+	}
+	
+	if (!partition->is_partition())
+		return;
+	
 	if (partition->major() < 0 | partition->minor() < 0) {
 		mtl_printq(partition->dev_path());
 		mtl_info("major: %ld, minor: %ld", partition->major(), partition->minor());
@@ -720,8 +730,18 @@ SidePane::StartDrag(const QPoint &pos)
 }
 
 void
-SidePane::UnmountPartition(SidePaneItem *partition)
+SidePane::UnmountPartition(int row)
 {
+	SidePaneItem *partition = nullptr;
+	auto &items = app_->side_pane_items();
+	{
+		MutexGuard guard(&items.mutex);
+		partition = items.vec[row]->Clone();
+	}
+	
+	if (!partition->is_partition())
+		return;
+	
 	auto *arg = new io::disks::MountPartitionData();
 	arg->app = app_;
 	arg->partition = partition;

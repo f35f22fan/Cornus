@@ -7,17 +7,9 @@
 #include "socket.hh"
 
 #include <pthread.h>
+#include <QElapsedTimer>
 
 namespace cornus::io {
-
-enum class TaskState: u8 {
-	Continue,
-	Pause,
-	Stop,
-	Error,
-	Finished,
-	QueryFailed /// query of this state failed in the parent class
-};
 
 struct TaskData {
 	TaskState state = TaskState::Pause;
@@ -43,8 +35,6 @@ struct TaskData {
 		return status == 0;
 	}
 	
-	bool ContinueNTS() const { return state == TaskState::Continue; }
-	bool FinishedNTS() const { return state == TaskState::Finished; }
 	bool ChangeState(const TaskState new_state);
 	bool WaitFor(const TaskState new_state);
 };
@@ -54,7 +44,6 @@ struct Progress {
 	i64 total = 0;
 	QString details;
 	i32 details_id = -1;
-	time_t time_created = 0;
 	
 	inline void CopyFrom(const Progress &rhs)
 	{
@@ -63,7 +52,6 @@ struct Progress {
 		if (details_id != rhs.details) {
 			details_id = rhs.details_id;
 			details = rhs.details;
-			time_created = rhs.time_created;
 		}
 	}
 };
@@ -73,7 +61,7 @@ struct TaskProgress {
 	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 	
-	inline void GetProgress(Progress &p) {
+	inline void Get(Progress &p) {
 		MutexGuard guard(&mutex);
 		p.CopyFrom(data);
 	}
@@ -86,6 +74,7 @@ struct TaskProgress {
 	}
 	
 	inline void SetDetails(const QString &in_details) {
+		MutexGuard guard(&mutex);
 		data.details = in_details;
 		data.details_id++;
 	}
@@ -111,7 +100,7 @@ public:
 	static Task* From(cornus::ByteArray &ba);
 	
 	TaskData& data() { return data_; }
-	
+	TaskProgress& progress() { return progress_; }
 	QVector<QString>& file_paths() { return file_paths_; }
 	
 	void ops(socket::MsgType n) { ops_ = n; }
@@ -135,6 +124,13 @@ private:
 	QString to_dir_path_;
 	QVector<QString> file_paths_;
 	struct statx stx_;
+	QElapsedTimer timer_;
+//	struct timespec start, end;
+	//clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+//	//do stuff
+//	clock_gettime(CLOCK_MONOTONIC_RAW, &end);
+	
+//	uint64_t delta_us = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_nsec - start.tv_nsec) / 1000;
 };
 
 }

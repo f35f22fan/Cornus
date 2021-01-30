@@ -56,9 +56,9 @@ private:
 	void MountPartition(SidePaneItem *partition);
 	void RenameSelectedBookmark();
 	void ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos);
-	void ShowSelectedPartitionInfo(SidePaneItem *partition);
+	void ShowSelectedPartitionInfo(const int row);
 	void StartDrag(const QPoint &pos);
-	void UnmountPartition(SidePaneItem *partition);
+	void UnmountPartition(int row);
 	
 	SidePaneModel *model_ = nullptr;
 	App *app_ = nullptr;

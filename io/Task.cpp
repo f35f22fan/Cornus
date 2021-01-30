@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
+#include <time.h>
 #ifndef _GNU_SOURCE
 	#define _GNU_SOURCE /// for copy_file_range() as of Linux 5.3+
 #endif
@@ -21,6 +22,7 @@ bool TaskData::ChangeState(const TaskState new_state)
 	MutexGuard guard(&mutex);
 	
 	state = new_state;
+	mtl_info("Changed state to: %d", i16(state));
 	int status = pthread_cond_broadcast(&cond);
 	if (status != 0) {
 		mtl_status(status);
@@ -30,15 +32,14 @@ bool TaskData::ChangeState(const TaskState new_state)
 	return true;
 }
 
-bool
-TaskData::WaitFor(const TaskState new_state)
+bool TaskData::WaitFor(const TaskState new_state)
 {
 	if (!Lock())
 		return false;
 	
 	bool succeeded = true;
 	
-	while (state != new_state) {
+	while (!(state & new_state)) {
 		int status = pthread_cond_wait(&cond, &mutex);
 		if (status != 0) {
 			mtl_status(status);
@@ -52,9 +53,7 @@ TaskData::WaitFor(const TaskState new_state)
 	return succeeded;
 }
 
-Task::Task() {
-	progress_.data.time_created = time(NULL);
-}
+Task::Task() {}
 Task::~Task() {}
 
 void
@@ -70,7 +69,10 @@ Task::CopyFiles()
 		CopyFileToDir(path, to_dir_path_);
 	}
 	
-	data_.ChangeState(TaskState::Finished);
+	auto state = data_.GetState();
+	
+	if (!(state & TaskState::Cancel))
+		data_.ChangeState(TaskState::Finished);
 }
 
 void
@@ -175,13 +177,16 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 	
 	AutoCloseFd output_ac(output_fd);
 	i64 so_far = 0;
-	//off_t offset = 0;
-	loff_t off = 0;
-	const usize chunk = 256 * 1024;
+	loff_t in_off = 0, out_off = 0;
+	const usize chunk = 512 * 128;
+	
+	struct timespec ts;
+	ts.tv_sec = 0;
+	ts.tv_nsec = 300l * 1000000l;
 	
 	while (so_far < file_size) {
-		//isize count = sendfile(output_fd, input_fd, &offset, chunk);
-		isize count = copy_file_range(input_fd, &off, output_fd, &off, chunk, 0);
+		//isize count = sendfile(output_fd, input_fd, &off, chunk);
+		isize count = copy_file_range(input_fd, &in_off, output_fd, &out_off, chunk, 0);
 		if (count == -1) {
 			if (errno == EAGAIN)
 				continue;
@@ -192,6 +197,22 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 		}
 		
 		so_far += count;
+		progress_.AddProgress(count);
+		auto state = data_.GetState();
+		if (state & TaskState::Pause) {
+			mtl_info("Starting to wait for Continue state");
+			if (!data_.WaitFor(TaskState::Continue | TaskState::Cancel)) {
+				mtl_trace();
+			}
+			mtl_info("Done waiting");
+		} else if (state & TaskState::Cancel) {
+			mtl_info("Got cancel state, returning..");
+			return;
+		}
+		
+//		int status = clock_nanosleep(CLOCK_REALTIME, 0, &ts, NULL);
+//		if (status != 0)
+//			mtl_status(status);
 	}
 }
 
@@ -240,14 +261,12 @@ Task::StartIO()
 			return;
 		}
 	}
+	
 	if (ops_ & io::socket::MsgBits::Copy) {
 		CopyFiles();
 	} else {
 		mtl_trace();
 	}
-	
-	
-	///data().ChangeState(io::TaskState::Finished);
 }
 
 bool
@@ -268,17 +287,5 @@ Task::TryAtomicMove()
 	
 	return true;
 }
-
-//void
-//Task::WaitForStartSignal()
-//{
-//	mtl_info("waiting for start signal (continue)");
-//	if (data().WaitFor(io::TaskState::Continue)) {
-//		mtl_info("Done! - Starting I/O!");
-//		StartIO();
-//	} else {
-//		mtl_trace();
-//	}
-//}
 
 }

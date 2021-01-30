@@ -44,7 +44,6 @@ void* ProcessRequest(void *ptr)
 	const auto msg = ba.next_u32();
 	
 	if (msg == io::socket::MsgBits::CheckAlive) {
-		mtl_info("Someone checked if alive");
 		return nullptr;
 	}
 	
@@ -56,7 +55,6 @@ void* ProcessRequest(void *ptr)
 			Q_ARG(cornus::io::Task*, task));
 	}
 	
-	//task->WaitForStartSignal();
 	task->StartIO();
 	
 	return nullptr;
@@ -70,7 +68,11 @@ void* StartServerSocket(void *args)
 	auto *tasks_win = (gui::TasksWin*)args;
 	
 	int server_sock_fd = cornus::io::socket::Server(cornus::SocketPath);
-	CHECK_TRUE_NULL((server_sock_fd != -1));
+	if (server_sock_fd == -1) {
+		mtl_info("Another cornus_io is running. Exiting.");
+		exit(0);
+	}
+	
 	pthread_t th;
 	
 	while (true) {

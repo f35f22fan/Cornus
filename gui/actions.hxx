@@ -16,4 +16,5 @@ static const QString RenameFile = QLatin1String("RenameFile"); // also used for 
 static const QString RunExecutable = QLatin1String("RunExecutable");
 static const QString SwitchExecBit = QLatin1String("SwitchExecBit");
 static const QString IOContinue = QLatin1String("IOContinue");
+static const QString IOCancel = QLatin1String("IOCancel");
 }

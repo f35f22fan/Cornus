@@ -400,18 +400,26 @@ Table::keyReleaseEvent(QKeyEvent *evt) {
 	}
 }
 
-void
+QPair<int, int>
 Table::ListSelectedFiles(QList<QUrl> &list)
 {
 	auto &files = app_->view_files();
 	MutexGuard guard(&files.mutex);
+	int num_files = 0;
+	int num_dirs = 0;
 	
 	for (io::File *next: files.data.vec) {
 		if (next->selected()) {
+			if (next->is_dir())
+				num_dirs++;
+			else
+				num_files++;
 			const QString s = next->build_full_path();
 			list.append(QUrl::fromLocalFile(s));
 		}
 	}
+	
+	return QPair(num_dirs, num_files);
 }
 
 void
@@ -447,20 +455,7 @@ Table::mouseMoveEvent(QMouseEvent *evt)
 		auto diff = (evt->pos() - drag_start_pos_).manhattanLength();
 		if (diff >= QApplication::startDragDistance())
 		{
-			QMimeData *mimedata = new QMimeData();
-			QList<QUrl> urls;
-			ListSelectedFiles(urls);
-			if (urls.isEmpty())
-				return;
-			
-			mimedata->setUrls(urls);
-			
-			QDrag *drag = new QDrag(this);
-			drag->setMimeData(mimedata);
-/// Set a pixmap that will be shown alongside the cursor during the operation:
-			//drag->setPixmap(pixmap);
-			
-			drag->exec(Qt::CopyAction | Qt::MoveAction, Qt::CopyAction);
+			StartDragOperation();
 		}
 	}
 }
@@ -572,7 +567,7 @@ Table::resizeEvent(QResizeEvent *event)
 	const int icon_col_w = fm.boundingRect(QLatin1String("Steam")).width();
 	const int size_col_w = fm.boundingRect(QLatin1String("1023.9 GiB")).width() + 10;
 	const int time_col_w = fm.boundingRect(sample_date).width() + 10;
-	const int filename_col_w = w - (icon_col_w + size_col_w + time_col_w) - 2;
+	const int filename_col_w = w - (icon_col_w + size_col_w + time_col_w) - 3;
 	
 	setColumnWidth(i8(gui::Column::Icon), icon_col_w);
 	setColumnWidth(i8(gui::Column::FileName), filename_col_w);
@@ -838,6 +833,48 @@ Table::SortingChanged(int logical, Qt::SortOrder order) {
 		std::sort(files.data.vec.begin(), files.data.vec.end(), cornus::io::SortFiles);
 	}
 	model_->UpdateRowRange(0, file_count - 1);
+}
+
+void
+Table::StartDragOperation()
+{
+	QMimeData *mimedata = new QMimeData();
+	QList<QUrl> urls;
+	QPair<int, int> files_folders = ListSelectedFiles(urls);
+	if (urls.isEmpty())
+		return;
+	
+	mimedata->setUrls(urls);
+	
+/// Set a pixmap that will be shown alongside the cursor during the operation:
+	
+	const int img_w = 128;
+	const int img_h = img_w / 2;
+	QPixmap pixmap(QSize(img_w, img_h));
+	QPainter painter(&pixmap);
+	
+	QRect r(0, 0, img_w, img_h);
+	painter.fillRect(r, QColor(235, 235, 255));
+	
+	QPen pen(QColor(0, 0, 0));
+	painter.setPen(pen);
+	
+	QString dir_str = QString::number(files_folders.first)
+		+ QString(" folder(s)");
+	QString file_str = QString::number(files_folders.second)
+		+ QString(" file(s)");
+	auto str_rect = fontMetrics().boundingRect(dir_str);
+	
+	auto r2 = r;
+	r2.setY(r2.y() + str_rect.height());
+	
+	painter.drawText(r, Qt::AlignCenter + Qt::AlignVCenter, dir_str, &r);
+	painter.drawText(r2, Qt::AlignCenter + Qt::AlignVCenter, file_str, &r2);
+
+	QDrag *drag = new QDrag(this);
+	drag->setMimeData(mimedata);
+	drag->setPixmap(pixmap);
+	drag->exec(Qt::CopyAction | Qt::MoveAction, Qt::CopyAction);
 }
 
 } // cornus::gui::

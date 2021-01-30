@@ -53,12 +53,13 @@ public:
 	usize size() const { return size_; }
 	void size(usize n) { size_ = n; } // called from inside io::ReadFile(..);
 	inline void done_reading() { at_ = 0; }
+	void make_sure(const usize more_bytes, const bool exact_size = false);
 	inline void to(usize n) { at_ = n; }
 	bool Receive(int fd, bool close_socket = true);
 	bool Send(int fd, bool close_socket = true) const;
-
+	
 private:
-	void make_sure(const usize more_bytes, const bool exact_size = false);
+	
 	
 	char *data_ = nullptr;
 	usize size_ = 0;

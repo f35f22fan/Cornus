@@ -17,6 +17,7 @@
 namespace cornus::gui {
 namespace sidepane {
 	void* LoadItems(void *args);
+	QString ReadMountedPartitionFS(const QString &dev_path);
 }
 
 struct UpdateSidePaneArgs {

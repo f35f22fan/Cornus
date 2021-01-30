@@ -4,6 +4,7 @@
 #include "../AutoDelete.hh"
 #include "../gui/SidePane.hpp"
 #include "../gui/SidePaneItem.hpp"
+#include "../gui/SidePaneModel.hpp"
 
 namespace cornus::io::disks {
 
@@ -62,6 +63,7 @@ void* MountPartitionTh(void *p)
 	pm->type = PartitionEventType::Mount;
 	pm->mount_path = reply.value();
 	pm->dev_path = mps->partition->dev_path();
+	pm->fs = cornus::gui::sidepane::ReadMountedPartitionFS(pm->dev_path);
 	
 	QMetaObject::invokeMethod(mps->app->side_pane(), "ReceivedPartitionEvent",
 		Q_ARG(cornus::PartitionEvent*, pm));

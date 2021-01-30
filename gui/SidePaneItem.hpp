@@ -50,6 +50,12 @@ public:
 	const QString& fs() const { return fs_; }
 	void fs(const QString &s) { fs_ = s; }
 	
+	void major(const i64 n) { major_ = n; }
+	i64 major() const { return major_; }
+	
+	void minor(const i64 n) { minor_ = n; }
+	i64 minor() const { return minor_; }
+	
 	bool mounted() const { return bits_ & sidepaneitem::MountedBit; }
 	void mounted(const bool flag) {
 		if (flag)
@@ -76,8 +82,10 @@ public:
 	SidePaneItemType type() const { return type_; }
 private:
 	
-	void ReadSize();
+	void ReadStats();
 	
+	i64 major_ = -1;
+	i64 minor_ = -1;
 	QString dev_path_;
 	QString bookmark_name_;
 	QString mount_path_;

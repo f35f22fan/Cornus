@@ -148,7 +148,37 @@ void* LoadItems(void *args)
 	
 	return nullptr;
 }
+
+QString ReadMountedPartitionFS(const QString &dev_path)
+{
+	ByteArray buf;
+	if (io::ReadFile(QLatin1String("/proc/mounts"), buf) != io::Err::Ok)
+		return QString();
+	
+/// mtl_info("Have read: %ld bytes", buf.size());
+	QString s = QString::fromLocal8Bit(buf.data(), buf.size());
+	auto list = s.splitRef('\n');
+	
+	for (auto &line: list)
+	{
+		if (!line.startsWith(dev_path))
+			continue;
+		
+		auto args = line.split(" ");
+		return args[2].toString();
+//		auto *p = new gui::SidePaneItem();
+//		p->dev_path(args[0].toString());
+//		p->mount_path(args[1]);
+//		p->mounted(true);
+//		p->fs(args[2].toString());
+//		p->type(gui::SidePaneItemType::Partition);
+//		p->Init();
+	}
+	
+	return QString();
 }
+
+} // sidepane::
 
 SidePaneModel::SidePaneModel(cornus::App *app): app_(app)
 {
@@ -182,7 +212,7 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 		return {};
 	}
 	
-	static QIcon hard_drive_icon = QIcon::fromTheme("drive-harddisk");
+//	static QIcon hard_drive_icon = QIcon::fromTheme("drive-harddisk");
 	
 	if (role == Qt::TextAlignmentRole) {}
 	
@@ -201,18 +231,17 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 			return f;
 		}
 	} else if (role == Qt::BackgroundRole) {
-//		QStyleOptionViewItem option = table_->option();
-//		if (item->is_partition())
-//			return QColor(255, 255, 240);
-//			return option.palette.highlight();
+		QStyleOptionViewItem option = table_->option();
+		if (item->is_partition())
+			return option.palette.light();
 	} else if (role == Qt::ForegroundRole) {
 		if (item->is_partition() && !item->mounted()) {
 			const int c = 110;
 			return QColor(c, c, c);
 		}
 	} else if (role == Qt::DecorationRole) {
-		if (item->is_partition())
-			return hard_drive_icon;
+//		if (item->is_partition())
+//			return hard_drive_icon;
 	}
 	return {};
 }
@@ -297,7 +326,7 @@ SidePaneModel::InsertFromAnotherThread(cornus::gui::InsertArgs args)
 			}
 		}
 		
-		widest += 20 + table_->GetIconSize();
+		widest += 14;
 		splitter->setSizes({widest, 1000});
 	}
 	

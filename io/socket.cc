@@ -51,7 +51,6 @@ int Client(const char *addr_str)
 	FillIn(addr, addr_str);
 	
 	if (connect(sock_fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
-		///mtl_status(errno);
 		return -1;
 	}
 	

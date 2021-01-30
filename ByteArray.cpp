@@ -246,7 +246,6 @@ ByteArray::Send(int fd, bool close_socket) const
 {
 	if (fd == -1)
 		return false;
-	///CHECK_TRUE((fd != -1));
 	isize so_far = write(fd, (char*)&size_, sizeof(size_));
 	
 	if (so_far != sizeof(size_)) {

@@ -64,17 +64,17 @@ void* AutoLoadServerIfNeeded(void *arg)
 	ba.add_msg_type(io::socket::MsgBits::CheckAlive);
 	
 	if (io::socket::SendSync(ba)) {
-		mtl_info("Server is online");
 		return nullptr;
 	}
 	
-	QString excl_file_path = QDir::homePath() + QLatin1String("/.cornus_excl_");
+	QString excl_file_path = QDir::homePath()
+		+ QLatin1String("/.cornus_check_online_excl_");
 	auto excl_ba = excl_file_path.toLocal8Bit();
 	int fd = open(excl_ba.data(), O_EXCL | O_CREAT, 0x777);
 	
 	if (fd == -1) {
 		mtl_info("someone is already trying to start the io server");
-		return nullptr; // someone is already trying to start the io server
+		return nullptr;
 	}
 	
 	mtl_info("Starting io server..");
@@ -84,14 +84,17 @@ void* AutoLoadServerIfNeeded(void *arg)
 	QStringList arguments;
 	QProcess::startDetached(server_full_path, arguments, server_dir_path);
 	mtl_info("done");
-	
-	sleep(5);
-	int status = remove(excl_ba.data());
-	if (status != 0) {
-		mtl_status(errno);
+	int sec = 0;
+	for (;sec < 7; sec++) {
+		if (io::socket::SendSync(ba))
+			break;
+		sleep(1);
 	}
+	mtl_info("Removing excl file after %d sec of waiting", sec);
+	int status = remove(excl_ba.data());
+	if (status != 0)
+		mtl_status(errno);
 	
-	///App *app = (App*)arg;
 	return nullptr;
 }
 
@@ -391,7 +394,6 @@ void App::CreateGui()
 	
 	main_splitter_->setStretchFactor(0, 0);
 	main_splitter_->setStretchFactor(1, 1);
-	//main_splitter_->setSizes({170, 1000});
 }
 
 void App::DisplayFileContents(const int row, io::File *cloned_file)

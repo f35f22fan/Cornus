@@ -30,18 +30,25 @@ i64 CountSizeRecursive(const QString &path, struct statx &stx)
 	
 	i64 size = stx.stx_size;
 	
-	if (!S_ISDIR(stx.stx_mode))
+	if (!S_ISDIR(stx.stx_mode)) {
 		return size;
+	}
 	
 	QVector<QString> names;
-	if (ListFileNames(path, names) != Err::Ok)
+	if (ListFileNames(path, names) != Err::Ok) {
+		mtl_printq(path);
 		return -1;
+	}
 	
 	for (const auto &name: names) {
-		int loop_sz = CountSizeRecursive(path + '/' + name, stx);
+		QString full_path = path + '/' + name;
+		i64 loop_sz = CountSizeRecursive(full_path, stx);
 		
-		if (loop_sz < 0)
+		if (loop_sz < 0) {
+			mtl_info("loop_siz: %ld", loop_sz);
+			mtl_printq2("full_path: ", full_path);
 			return -1;
+		}
 		
 		size += loop_sz;
 	}
@@ -540,7 +547,7 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 		MAX = 1024 * 10;
 	}
 	
-	buffer.alloc(MAX);
+	buffer.make_sure(MAX);
 	char *buf = buffer.data();
 	const int fd = open(path.data(), O_RDONLY);
 	
@@ -630,26 +637,26 @@ SameFiles(const QString &path1, const QString &path2, io::Err *ret_error)
 }
 
 QString
-SizeToString(const i64 sz)
+SizeToString(const i64 sz, const bool short_version)
 {
 	float rounded;
 	QString type;
 	if (sz >= io::TiB) {
 		rounded = sz / io::TiB;
-		type = QLatin1String(" TiB");
+		type = short_version ? QLatin1String("T") : QLatin1String(" TiB");
 	}
 	else if (sz >= io::GiB) {
 		rounded = sz / io::GiB;
-		type = QLatin1String(" GiB");
+		type = short_version ? QLatin1String("G") : QLatin1String(" GiB");
 	} else if (sz >= io::MiB) {
 		rounded = sz / io::MiB;
-		type = QLatin1String(" MiB");
+		type = short_version ? QLatin1String("M") : QLatin1String(" MiB");
 	} else if (sz >= io::KiB) {
 		rounded = sz / io::KiB;
-		type = QLatin1String(" KiB");
+		type = short_version ? QLatin1String("K") : QLatin1String(" KiB");
 	} else {
 		rounded = sz;
-		type = QLatin1String(" bytes");
+		type = short_version ? QLatin1String("B") : QLatin1String(" bytes");
 	}
 	
 	return io::FloatToString(rounded, 1) + type;

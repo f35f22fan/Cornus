@@ -23,6 +23,7 @@ enum class PartitionEventType: u8 {
 struct PartitionEvent {
 	QString dev_path;
 	QString mount_path;
+	QString fs;
 	PartitionEventType type = PartitionEventType::None;
 };
 }

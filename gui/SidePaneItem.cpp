@@ -29,6 +29,8 @@ SidePaneItem::Clone()
 	p->fs_ = fs_;
 	p->type_ = type_;
 	p->bits_ = bits_;
+	p->minor_ = minor_;
+	p->major_ = major_;
 	
 	return p;
 }
@@ -40,37 +42,38 @@ SidePaneItem::DisplayString()
 		return bookmark_name_;
 	}
 	
-	QString s;
+	QString s = QChar(0x2654) + ' ';
+	
+	int index = dev_path_.lastIndexOf('/');
+	if (index == -1) {
+		mtl_trace();
+		return s;
+	}
+	
+	s += dev_path_.mid(index + 1) + ' ';
+	
+	if (!size_str_.isEmpty())
+		s += size_str_ + ' ';
 	
 	if (!mounted()) {
-		int index = dev_path_.lastIndexOf('/');
-		if (index == -1) {
-			mtl_trace();
-			return s;
-		}
-		
-		s += dev_path_.mid(index + 1);
-		
-		if (!size_str_.isEmpty())
-			s += ' ' + size_str_;
 		return s;
 	}
 	
 	QString name;
-	int index = mount_path_.lastIndexOf('/');
+	index = mount_path_.lastIndexOf('/');
 	if (index >= 0 && mount_path_.size() > 1)
 		name = mount_path_.mid(index + 1);
 	else
 		name = mount_path_;
 	
-	if (name.size() > 10) {
-		s += name.mid(0, 10);
+	if (name.size() > 8) {
+		s += name.mid(0, 8);
 	} else {
 		s += name;
 	}
 	
-	if (!size_str_.isEmpty())
-		s += ' ' + size_str_;
+//	if (!fs_.isEmpty())
+//		s += ' ' + fs_;
 	
 	return s;
 }
@@ -91,26 +94,42 @@ void
 SidePaneItem::Init()
 {
 	if (is_partition())
-		ReadSize();
+		ReadStats();
 }
 
 void
-SidePaneItem::ReadSize() {
+SidePaneItem::ReadStats() {
 	int index = dev_path_.indexOf(QLatin1String("/sd"));
 	CHECK_TRUE_VOID((index != -1));
 	QStringRef sda_no_number = dev_path_.midRef(index + 1, 3);
 	QStringRef sda_with_number = dev_path_.midRef(index + 1);
 	QString full_path = QLatin1String("/sys/block/") + sda_no_number
-		+ '/' + sda_with_number + QLatin1String("/size");
+		+ '/' + sda_with_number;
+	
+	QString size_path = full_path + QLatin1String("/size");
 	
 	ByteArray buf;
-	CHECK_TRUE_VOID((io::ReadFile(full_path, buf) == io::Err::Ok));
+	CHECK_TRUE_VOID((io::ReadFile(size_path, buf) == io::Err::Ok));
 	QString s = QString::fromLocal8Bit(buf.data(), buf.size());
 	bool ok;
 	i64 num = s.toLong(&ok);
 	if (ok) {
 		size_ = num * 512;
-		size_str_ = io::SizeToString(size_);
+		size_str_ = io::SizeToString(size_, true);
+	}
+	
+	QString dev_path = full_path + QLatin1String("/dev");
+	buf.to(0);
+	CHECK_TRUE_VOID((io::ReadFile(dev_path, buf) == io::Err::Ok));
+	s = QString::fromLocal8Bit(buf.data(), buf.size()).trimmed();
+	auto list = s.splitRef(':');
+	i64 n = list[0].toLong(&ok);
+	if (ok) {
+		major_ = n;
+	}
+	n = list[1].toLong(&ok);
+	if (ok) {
+		minor_ = n;
 	}
 }
 

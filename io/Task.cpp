@@ -9,6 +9,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
+#ifndef _GNU_SOURCE
+	#define _GNU_SOURCE /// for copy_file_range() as of Linux 5.3+
+#endif
 #include <unistd.h>
 
 namespace cornus::io {
@@ -53,6 +56,22 @@ Task::Task() {
 	progress_.data.time_created = time(NULL);
 }
 Task::~Task() {}
+
+void
+Task::CopyFiles()
+{
+	i64 total_size = CountTotalSize();
+	if (total_size < 0)
+		return;
+	
+	progress_.AddProgress(0, &total_size);
+	
+	for (const auto &path: file_paths_) {
+		CopyFileToDir(path, to_dir_path_);
+	}
+	
+	data_.ChangeState(TaskState::Finished);
+}
 
 void
 Task::CopyFileToDir(const QString &file_path, const QString &dir_path)
@@ -132,22 +151,6 @@ Task::CopyFileToDir(const QString &file_path, const QString &dir_path)
 }
 
 void
-Task::CopyFiles()
-{
-	i64 total_size = CountTotalSize();
-	if (total_size < 0)
-		return;
-	
-	progress_.AddProgress(0, &total_size);
-	
-	for (const auto &path: file_paths_) {
-		CopyFileToDir(path, to_dir_path_);
-	}
-	
-	data_.ChangeState(TaskState::Finished);
-}
-
-void
 Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 	const mode_t mode, const i64 file_size)
 {
@@ -172,11 +175,13 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 	
 	AutoCloseFd output_ac(output_fd);
 	i64 so_far = 0;
-	off_t offset = 0;
-	const isize chunk = 256 * 1024;
+	//off_t offset = 0;
+	loff_t off = 0;
+	const usize chunk = 256 * 1024;
 	
 	while (so_far < file_size) {
-		isize count = sendfile(output_fd, input_fd, &offset, chunk);
+		//isize count = sendfile(output_fd, input_fd, &offset, chunk);
+		isize count = copy_file_range(input_fd, &off, output_fd, &off, chunk, 0);
 		if (count == -1) {
 			if (errno == EAGAIN)
 				continue;
@@ -212,7 +217,7 @@ Task::From(cornus::ByteArray &ba)
 {
 	auto *task = new Task();
 	task->ops_ = ba.next_u32();
-	mtl_info("ops: %u", task->ops_);
+	//mtl_info("ops: %u", task->ops_);
 	task->to_dir_path_ = ba.next_string();
 	const i32 count = ba.next_i32();
 	
@@ -226,8 +231,6 @@ Task::From(cornus::ByteArray &ba)
 void
 Task::StartIO()
 {
-	mtl_info("IO started");
-	
 	if (!to_dir_path_.isEmpty() && !to_dir_path_.endsWith('/'))
 		to_dir_path_.append('/');
 	

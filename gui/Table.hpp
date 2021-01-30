@@ -57,11 +57,12 @@ private:
 		Qt::DropAction drop_action);
 	void HandleMouseSelection(QMouseEvent *evt, QVector<int> &indices);
 	int IsOnFileNameStringNTS(const QPoint &pos, io::File **ret_file = nullptr);
-	void ListSelectedFiles(QList<QUrl> &list);
+	QPair<int, int> ListSelectedFiles(QList<QUrl> &list);
 	void SelectFileRangeNTS(const int row_start, const int row_end, QVector<int> &indices);
 	int SelectNextRow(const int relative_offset, const bool deselect_all_others, QVector<int> &indices); // returns newly selected row
 	void ShowRightClickMenu(const QPoint &pos);
 	void SortingChanged(int logical, Qt::SortOrder order);
+	void StartDragOperation();
 	
 	App *app_ = nullptr;
 	TableModel *model_ = nullptr;

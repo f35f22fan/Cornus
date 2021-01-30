@@ -57,9 +57,10 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file, const int row_ind
 		painter->fillRect(r, option.palette.highlight());
 	}
 	
-	const int str_h = str_rect.height();
-	int text_y = text_rect.y() + str_h - (rh - str_h) / 2;
-	painter->drawText(text_rect.x(), text_y, file->name());
+	auto rcopy = text_rect;
+	rcopy.setWidth(rcopy.width() + 300);
+	painter->drawText(text_rect, Qt::AlignLeft + Qt::AlignVCenter,
+		file->name(), &rcopy);
 	
 	if (!file->is_symlink() || (file->link_target() == nullptr))
 		return;

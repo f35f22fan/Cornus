@@ -270,12 +270,12 @@ void* WatchDir(void *void_args)
 				break;
 			}
 			method_args.new_count = files.data.vec.size();
-		}
-		
-		if (!method_args.indices.isEmpty()) {
-			QMetaObject::invokeMethod(args->table_model, "UpdateTable",
-				Q_ARG(cornus::gui::UpdateTableArgs, method_args));
-			method_args.indices.clear();
+			
+			if (!method_args.indices.isEmpty()) {
+				QMetaObject::invokeMethod(args->table_model, "UpdateTable",
+					Q_ARG(cornus::gui::UpdateTableArgs, method_args));
+				method_args.indices.clear();
+			}
 		}
 	}
 	

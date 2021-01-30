@@ -427,6 +427,7 @@ SidePane::ReceivedPartitionEvent(cornus::PartitionEvent *p)
 /** struct PartitionEvent {
 	QString dev_path;
 	QString mount_path;
+	QString fs;
 	PartitionEventType type = PartitionEventType::None;
 }; */
 	const bool mount_event = p->type == PartitionEventType::Mount;
@@ -447,6 +448,7 @@ SidePane::ReceivedPartitionEvent(cornus::PartitionEvent *p)
 			if (mount_event) {
 				next->mounted(true);
 				next->mount_path(p->mount_path);
+				next->fs(p->fs);
 				break;
 			} else if (unmount_event) {
 				next->mounted(false);
@@ -643,22 +645,43 @@ SidePane::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 		action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
 		delete cloned_item;
 	} else if (cloned_item->is_partition()) {
+		{
+			QAction *action = menu_->addAction(tr("&Info"));
+			action->setIcon(QIcon::fromTheme(QLatin1String("dialog-information")));
+			connect(action, &QAction::triggered, [=] () {
+				ShowSelectedPartitionInfo(cloned_item);
+			});
+		}
+		
 		if (cloned_item->mounted()) {
 			QAction *action = menu_->addAction(tr("&Unmount"));
 			action->setIcon(QIcon::fromTheme(QLatin1String("media-eject")));
 			connect(action, &QAction::triggered, [=] () {
 				UnmountPartition(cloned_item);
 			});
-		} else {
-			delete cloned_item;
-//			action = menu_->addAction(tr("&Rename.."));
-//			connect(action, &QAction::triggered, [=] {ProcessAction(actions::RenameBookmark);});
-//			action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
 		}
+		
+///		delete cloned_item;
+	} else {
+		delete cloned_item;
 	}
 	
-	// delete cloned_item!!!!!!!!!!
 	menu_->popup(global_pos);
+}
+
+void
+SidePane::ShowSelectedPartitionInfo(SidePaneItem *partition) {
+	if (partition->major() < 0 | partition->minor() < 0) {
+		mtl_printq(partition->dev_path());
+		mtl_info("major: %ld, minor: %ld", partition->major(), partition->minor());
+		return;
+	}
+	
+	QString s = partition->dev_path() + QString(":\n");
+	s += QString("major:minor ") + QString::number(partition->major());
+	s += QChar(':') + QString::number(partition->minor());
+	
+	app_->TellUser(s);
 }
 
 void

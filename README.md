@@ -1,7 +1,10 @@
 ### Cornus - a fast file browser for Linux written in C++17 and Qt5.
 
-##### How to build:
-* sudo apt-get install libdconf-dev qt5-default
+##### Dependencies: qt5-default libdconf-dev cmake git
+##### Requirements: Linux 5.3+
+---
+Building:
+* sudo apt-get install qt5-default libdconf-dev cmake git
 * mkdir build
 * cd build
 * cmake ..

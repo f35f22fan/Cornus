@@ -98,6 +98,9 @@ void* StartServerSocket(void *args)
 
 int main(int argc, char *argv[])
 {
+	pid_t pid = getpid();
+	printf("Server pid: %ld\n", i64(pid));
+	
 	QApplication qapp(argc, argv);
 	qRegisterMetaType<cornus::io::Task*>();
 	

@@ -8,6 +8,7 @@
 namespace cornus {
 class App;
 class ByteArray;
+class ElapsedTimer;
 class History;
 class MutexGuard;
 

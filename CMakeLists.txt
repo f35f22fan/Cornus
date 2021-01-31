@@ -26,6 +26,7 @@ set(cornus_src_files main.cpp
     AutoDelete.hh
     ByteArray.cpp ByteArray.hpp
     decl.hxx
+    ElapsedTimer.cpp ElapsedTimer.hpp
     err.hpp
     History.cpp History.hpp
     MutexGuard.cpp MutexGuard.hpp
@@ -61,6 +62,7 @@ set(cornus_io_src_files main_io.cpp
     AutoDelete.hh
     err.hpp
     ByteArray.cpp ByteArray.hpp
+    ElapsedTimer.cpp ElapsedTimer.hpp
     MutexGuard.cpp MutexGuard.hpp
 
     io/decl.hxx

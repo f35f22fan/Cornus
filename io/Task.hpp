@@ -5,9 +5,12 @@
 #include "../err.hpp"
 #include "../MutexGuard.hpp"
 #include "socket.hh"
+#include "../ElapsedTimer.hpp"
 
 #include <pthread.h>
 #include <QElapsedTimer>
+
+//#define CORNUS_THROTTLE_IO
 
 namespace cornus::io {
 
@@ -15,9 +18,14 @@ struct TaskData {
 	TaskState state = TaskState::Pause;
 	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+	ElapsedTimer timer_ = {};
 	
-	inline TaskState GetState() {
+	inline TaskState GetState(i64 *ret_time_worked = nullptr) {
 		MutexGuard guard(&mutex);
+		
+		if (ret_time_worked != nullptr)
+			*ret_time_worked = timer_.elapsed_ms();
+		
 		return state;
 	}
 	
@@ -42,6 +50,7 @@ struct TaskData {
 struct Progress {
 	i64 at = 0;
 	i64 total = 0;
+	i64 time_worked = 0;
 	QString details;
 	i32 details_id = -1;
 	
@@ -49,6 +58,7 @@ struct Progress {
 	{
 		at = rhs.at;
 		total = rhs.total;
+		time_worked = rhs.time_worked;
 		if (details_id != rhs.details) {
 			details_id = rhs.details_id;
 			details = rhs.details;
@@ -66,9 +76,12 @@ struct TaskProgress {
 		p.CopyFrom(data);
 	}
 	
-	inline void AddProgress(const i64 progress, i64 *total = nullptr) {
+	inline void AddProgress(const i64 progress, const i64 time_worked,
+		i64 *total = nullptr)
+	{
 		MutexGuard guard(&mutex);
 		data.at += progress;
+		data.time_worked = time_worked;
 		if (total != nullptr)
 			data.total = *total;
 	}
@@ -106,7 +119,6 @@ public:
 	void ops(socket::MsgType n) { ops_ = n; }
 	socket::MsgType ops() const { return ops_; }
 	void StartIO();
-///	void WaitForStartSignal();
 	
 private:
 	NO_ASSIGN_COPY_MOVE(Task);
@@ -124,7 +136,6 @@ private:
 	QString to_dir_path_;
 	QVector<QString> file_paths_;
 	struct statx stx_;
-	QElapsedTimer timer_;
 //	struct timespec start, end;
 	//clock_gettime(CLOCK_MONOTONIC_RAW, &start);
 //	//do stuff

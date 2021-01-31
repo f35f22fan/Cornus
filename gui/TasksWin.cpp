@@ -33,7 +33,8 @@ TasksWin::CreateGui()
 	main_widget_->setLayout(layout_);
 }
 
-void TasksWin::TaskDone(TaskGui *tg, const io::TaskState state) {
+void TasksWin::TaskDone(TaskGui *tg, const io::TaskState state)
+{
 	layout_->removeWidget(tg);
 	delete tg;
 	

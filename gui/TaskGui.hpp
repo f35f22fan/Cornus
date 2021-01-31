@@ -29,6 +29,7 @@ private:
 	TaskGui(io::Task *task);
 	void CreateGui();
 	void ProcessAction(const QString &action);
+	void UpdateSpeedLabel();
 	
 	NO_ASSIGN_COPY_MOVE(TaskGui);
 	
@@ -38,6 +39,7 @@ private:
 	TasksWin *tasks_win_ = nullptr;
 	bool made_visible_once_ = false;
 	QLabel *info_ = nullptr;
+	QLabel *speed_ = nullptr;
 	QTimer *timer_ = nullptr;
 	QToolButton *play_pause_btn_ = nullptr;
 	QToolButton *cancel_button_ = nullptr;

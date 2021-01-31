@@ -22,6 +22,16 @@ bool TaskData::ChangeState(const TaskState new_state)
 	MutexGuard guard(&mutex);
 	
 	state = new_state;
+	
+	if (new_state & (TaskState::Finished | TaskState::Pause
+		| TaskState::Cancel)) {
+		mtl_trace("PAUSED");
+		timer_.Pause();
+	} else if (new_state & TaskState::Continue) {
+		timer_.Continue();
+		mtl_trace("CONTINUE");
+	}
+	
 	mtl_info("Changed state to: %d", i16(state));
 	int status = pthread_cond_broadcast(&cond);
 	if (status != 0) {
@@ -54,6 +64,7 @@ bool TaskData::WaitFor(const TaskState new_state)
 }
 
 Task::Task() {}
+
 Task::~Task() {}
 
 void
@@ -63,7 +74,7 @@ Task::CopyFiles()
 	if (total_size < 0)
 		return;
 	
-	progress_.AddProgress(0, &total_size);
+	progress_.AddProgress(0, 0, &total_size);
 	
 	for (const auto &path: file_paths_) {
 		CopyFileToDir(path, to_dir_path_);
@@ -78,7 +89,17 @@ Task::CopyFiles()
 void
 Task::CopyFileToDir(const QString &file_path, const QString &dir_path)
 {
-	progress_.SetDetails(file_path);
+	int last_slash_index = file_path.lastIndexOf('/');
+	if (last_slash_index == -1) {
+		data_.ChangeState(TaskState::Error);
+		return;
+	}
+	
+	const QStringRef file_name = file_path.midRef(last_slash_index);
+	/// PROGRESS>>
+	progress_.SetDetails(file_name.mid(1).toString());
+	/// PROGRESS<<
+	
 	const auto flags = AT_SYMLINK_NOFOLLOW;
 	const auto fields = STATX_SIZE | STATX_MODE;
 	auto file_ba = file_path.toLocal8Bit();
@@ -89,16 +110,9 @@ Task::CopyFileToDir(const QString &file_path, const QString &dir_path)
 		return;
 	}
 	
-	const i64 size = stx_.stx_size;
+	const i64 file_size = stx_.stx_size;
 	const auto mode = stx_.stx_mode;
-	
-	int last_slash_index = file_path.lastIndexOf('/');
-	if (last_slash_index == -1) {
-		data_.ChangeState(TaskState::Error);
-		return;
-	}
-	
-	const QStringRef file_name = file_path.midRef(last_slash_index);
+	i64 time_worked = 0;
 	
 	if (S_ISDIR(mode)) {
 		
@@ -117,8 +131,8 @@ Task::CopyFileToDir(const QString &file_path, const QString &dir_path)
 			data_.ChangeState(TaskState::Error);
 			return;
 		}
-		
-		progress_.AddProgress(size);
+		auto state = data_.GetState(&time_worked);
+		progress_.AddProgress(file_size, time_worked);
 		
 		for (const auto &name: names)
 		{
@@ -127,7 +141,7 @@ Task::CopyFileToDir(const QString &file_path, const QString &dir_path)
 				return;
 		}
 	} else if (S_ISREG(mode)) {
-		CopyRegularFile(file_path, dir_path + file_name, mode, size);
+		CopyRegularFile(file_path, dir_path + file_name, mode, file_size);
 	} else if (S_ISLNK(mode)) {
 		
 		QString link_target_path;
@@ -144,7 +158,8 @@ Task::CopyFileToDir(const QString &file_path, const QString &dir_path)
 				data_.ChangeState(TaskState::Error);
 				return;
 			}
-			progress_.AddProgress(size);
+			auto state = data_.GetState(&time_worked);
+			progress_.AddProgress(file_size, time_worked);
 		}
 	} else {
 		mtl_trace("fifos/pipes/sockets/block devices not copied: %s",
@@ -180,9 +195,12 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 	loff_t in_off = 0, out_off = 0;
 	const usize chunk = 512 * 128;
 	
-	struct timespec ts;
-	ts.tv_sec = 0;
-	ts.tv_nsec = 300l * 1000000l;
+#ifdef CORNUS_THROTTLE_IO
+	struct timespec throttle_ts;
+	throttle_ts.tv_sec = 0;
+	throttle_ts.tv_nsec = 300l * 1000000l;
+#endif
+	i64 time_worked;
 	
 	while (so_far < file_size) {
 		//isize count = sendfile(output_fd, input_fd, &off, chunk);
@@ -197,10 +215,11 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 		}
 		
 		so_far += count;
-		progress_.AddProgress(count);
-		auto state = data_.GetState();
+		auto state = data_.GetState(&time_worked);
+		progress_.AddProgress(count, time_worked);
+		
 		if (state & TaskState::Pause) {
-			mtl_info("Starting to wait for Continue state");
+			mtl_info("Waiting for Continue state");
 			if (!data_.WaitFor(TaskState::Continue | TaskState::Cancel)) {
 				mtl_trace();
 			}
@@ -210,9 +229,11 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 			return;
 		}
 		
-//		int status = clock_nanosleep(CLOCK_REALTIME, 0, &ts, NULL);
-//		if (status != 0)
-//			mtl_status(status);
+#ifdef CORNUS_THROTTLE_IO
+		int status = clock_nanosleep(CLOCK_REALTIME, 0, &throttle_ts, NULL);
+		if (status != 0)
+			mtl_status(status);
+#endif
 	}
 }
 

@@ -1,6 +1,7 @@
 #include "TaskGui.hpp"
 
 #include "actions.hxx"
+#include "../io/io.hh"
 #include "../io/Task.hpp"
 #include "TasksWin.hpp"
 
@@ -62,6 +63,7 @@ void TaskGui::CheckTaskState()
 	if (state & io::TaskState::Continue) {
 		auto prev_id = progress_.details_id;
 		task_->progress().Get(progress_);
+		UpdateSpeedLabel();
 		int at = progress_.at / (progress_.total / 100);
 		progress_bar_->setValue(at);
 		if (prev_id != progress_.details_id) {
@@ -96,8 +98,13 @@ void TaskGui::CreateGui()
 		progress_bar_->setValue(75);
 		progress_bar_->setTextVisible(true);
 		
+		QBoxLayout *two_label_layout = new QBoxLayout(QBoxLayout::LeftToRight);
+		horiz->addLayout(two_label_layout);
+		
+		speed_ = new QLabel();
+		two_label_layout->addWidget(speed_);
 		info_ = new QLabel();
-		horiz->addWidget(info_);
+		two_label_layout->addWidget(info_);
 	}
 	
 	{
@@ -156,6 +163,22 @@ QSize TaskGui::minimumSizeHint() const { return sizeHint(); }
 QSize TaskGui::sizeHint() const {
 	int lh = fontMetrics().boundingRect("Abg").height();
 	return QSize(lh * 30, lh * 2);
+}
+
+void TaskGui::UpdateSpeedLabel()
+{
+	if (progress_.time_worked < 1000) {
+		/// if progress is less than 1 second then the speed
+		/// counting algorithm simply doesn't work properly.
+		return;
+	}
+	
+	const double seconds = double(progress_.time_worked) / 1000;
+	const i64 n = double(progress_.at) / seconds;
+	QString s = io::SizeToString(n) + QLatin1String("/s");
+	//mtl_info("seconds: %.2f, n: %ld, progress_.at: %ld", seconds, n, progress_.at);
+	//mtl_printq(s);
+	speed_->setText(s);
 }
 
 }

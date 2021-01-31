@@ -152,13 +152,15 @@ ExpandLinksInDirPath(QString &unprocessed_dir_path, QString &processed_dir_path)
 bool
 FileExistsCstr(const char *path, FileType *file_type)
 {
-	struct stat st;
+	struct statx stx;
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_MODE;
 	
-	if (lstat(path, &st) != 0)
+	if (statx(0, path, flags, fields, &stx) != 0)
 		return false;
 	
 	if (file_type != nullptr)
-		*file_type = MapPosixTypeToLocal(st.st_mode);
+		*file_type = MapPosixTypeToLocal(stx.stx_mode);
 	
 	return true;
 }

@@ -285,12 +285,13 @@ Table::HandleMouseSelection(QMouseEvent *evt, QVector<int> &indices)
 	auto modif = evt->modifiers();
 	const bool ctrl = modif & Qt::ControlModifier;
 	const bool shift = modif & Qt::ShiftModifier;
+	const bool right_click = evt->button() == Qt::RightButton;
 	
 	io::Files &files = app_->view_files();
 	{
 		MutexGuard guard(&files.mutex);
 		
-		if (!ctrl) {
+		if (!ctrl && !right_click) {
 			SelectAllFilesNTS(false, indices);
 		}
 		
@@ -649,8 +650,8 @@ Table::SelectAllFilesNTS(const bool flag, QVector<int> &indices) {
 	for (auto *file: files.data.vec) {
 		if (file->selected() != flag) {
 			indices.append(i);
+			file->selected(flag);
 		}
-		file->selected(flag);
 		i++;
 	}
 }

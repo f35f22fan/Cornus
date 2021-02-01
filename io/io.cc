@@ -47,7 +47,10 @@ bool CountSizeRecursive(const QString &path, struct statx &stx,
 	}
 	
 	for (const auto &name: names) {
-		QString full_path = path + '/' + name;
+		QString full_path = path;
+		if (!full_path.endsWith('/'))
+			full_path.append('/');
+		full_path.append(name);
 		
 		if (!CountSizeRecursive(full_path, stx, info)) {
 			mtl_printq2("Failed at full_path: ", full_path);
@@ -68,8 +71,7 @@ bool CountSizeRecursiveTh(const QString &path, struct statx &stx,
 	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
 		mtl_warn("statx(): %s", strerror(errno));
 		data.Lock();
-		QString msg = strerror(errno) + QString(" => at file: \"") +
-			path + "\"";
+		QString msg = QChar('\"') + path + "\": " + strerror(errno);
 		data.err = msg;
 		data.Unlock();
 		auto err_ba = msg.toLocal8Bit();
@@ -104,7 +106,10 @@ bool CountSizeRecursiveTh(const QString &path, struct statx &stx,
 	}
 	
 	for (const auto &name: names) {
-		QString full_path = path + '/' + name;
+		QString full_path = path;
+		if (!full_path.endsWith('/'))
+			full_path.append('/');
+		full_path.append(name);
 		
 		if (!CountSizeRecursiveTh(full_path, stx, data)) {
 			return false;
@@ -432,7 +437,7 @@ ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 		auto ba = full_path.toLocal8Bit();
 		
 		if (statx(0, ba.data(), flags, fields, &stx) != 0) {
-			mtl_warn("statx(): %s: \"%s\"", strerror(errno), ba.data());
+			mtl_warn("statx(): %s: \"%s\"", strerror(errno), entry->d_name);
 			continue;
 		}
 		

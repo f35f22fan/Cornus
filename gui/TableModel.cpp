@@ -11,7 +11,7 @@
 #include <QScrollBar>
 #include <QTime>
 
-// #define DEBUG_INOTIFY
+#define DEBUG_INOTIFY
 
 namespace cornus::gui {
 

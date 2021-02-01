@@ -65,9 +65,12 @@ void TaskGui::CheckTaskState()
 	if (state & io::TaskState::Continue) {
 		auto prev_id = progress_.details_id;
 		task_->progress().Get(progress_);
-		UpdateSpeedLabel();
-		int at = progress_.at / (progress_.total / 100);
-		progress_bar_->setValue(at);
+		
+		if (progress_.total != 0) { /// to avoid division by zero
+			UpdateSpeedLabel();
+			int at = progress_.at / (progress_.total / 100);
+			progress_bar_->setValue(at);
+		}
 		if (prev_id != progress_.details_id) {
 			info_->setText(progress_.details);
 		}
@@ -97,7 +100,6 @@ void TaskGui::CreateGui()
 		progress_bar_ = new QProgressBar();
 		horiz->addWidget(progress_bar_);
 		progress_bar_->setRange(ProgressMin, ProgressMax);
-		progress_bar_->setValue(75);
 		progress_bar_->setTextVisible(true);
 		
 		QBoxLayout *two_label_layout = new QBoxLayout(QBoxLayout::LeftToRight);

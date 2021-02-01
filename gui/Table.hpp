@@ -57,7 +57,7 @@ private:
 	
 	void ClearDndAnimation(const QPoint &drop_coord);
 	void FinishDropOperation(QVector<io::File *> *files_vec, io::File *to_dir,
-		Qt::DropAction drop_action);
+		Qt::DropAction drop_action, Qt::DropActions possible_actions);
 	void HandleMouseSelection(QMouseEvent *evt, QVector<int> &indices);
 	int IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file = nullptr);
 	QPair<int, int> ListSelectedFiles(QList<QUrl> &list);

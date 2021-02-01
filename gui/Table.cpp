@@ -117,12 +117,16 @@ Table::ClearDndAnimation(const QPoint &drop_coord)
 }
 
 void
-Table::dragEnterEvent(QDragEnterEvent *event)
+Table::dragEnterEvent(QDragEnterEvent *evt)
 {
-	const QMimeData *mimedata = event->mimeData();
+	const QMimeData *mimedata = evt->mimeData();
 	
-	if (mimedata->hasUrls())
-		event->acceptProposedAction();
+	if (mimedata->hasUrls()) {
+		evt->accept();
+		evt->acceptProposedAction();
+	}
+	
+	///QByteArray ba = mimedata->data();
 }
 
 void
@@ -170,7 +174,11 @@ Table::dropEvent(QDropEvent *evt)
 			return;
 		}
 		
-		FinishDropOperation(files_vec, to_dir, evt->dropAction());
+		mtl_info("JJJJJJJJJJJJJJJJJJJJ %ld vs %ld",
+			i64(evt->proposedAction()),
+			i64(evt->possibleActions()));
+		FinishDropOperation(files_vec, to_dir, evt->proposedAction(),
+			evt->possibleActions());
 	}
 	
 	ClearDndAnimation(drop_coord_);
@@ -179,11 +187,12 @@ Table::dropEvent(QDropEvent *evt)
 
 void
 Table::FinishDropOperation(QVector<io::File*> *files_vec,
-	io::File *to_dir, Qt::DropAction drop_action)
+	io::File *to_dir, Qt::DropAction drop_action, Qt::DropActions possible_actions)
 {
 	CHECK_PTR_VOID(files_vec);
-	io::socket::MsgType io_operation = io::socket::MsgFlagsFor(drop_action);
-	
+	io::socket::MsgType io_operation = io::socket::MsgFlagsFor(drop_action)
+		| io::socket::MsgFlagsForMany(possible_actions);
+	mtl_info("flags: %u", u32(io_operation));
 	auto *ba = new ByteArray();
 	ba->add_msg_type(io_operation);
 	ba->add_string(to_dir->build_full_path());
@@ -916,7 +925,18 @@ Table::StartDragOperation()
 	QDrag *drag = new QDrag(this);
 	drag->setMimeData(mimedata);
 	drag->setPixmap(pixmap);
-	drag->exec(Qt::CopyAction | Qt::MoveAction, Qt::CopyAction);
+	drag->exec(Qt::CopyAction | Qt::MoveAction);
+	
+/** Qt::CopyAction	0x1	Copy the data to the target.
+Qt::MoveAction	0x2	Move the data from the source to the target.
+Qt::LinkAction	0x4	Create a link from the source to the target.
+Qt::ActionMask	0xff	 
+Qt::IgnoreAction	0x0	Ignore the action (do nothing with the data).
+Qt::TargetMoveAction	0x8002	On Windows, this value is used when
+ the ownership of the D&D data should be taken over by the target
+ application, i.e., the source application should not delete the data.
+ On X11 this value is used to do a move. TargetMoveAction is not
+ used on the Mac.  */
 }
 
 } // cornus::gui::

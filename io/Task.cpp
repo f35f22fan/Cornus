@@ -67,19 +67,22 @@ void
 Task::CopyFiles()
 {
 	i64 total_size = CountTotalSize();
-	if (total_size < 0)
+	if (total_size < 0) {
 		return;
+	}
 	
 	progress_.AddProgress(0, 0, &total_size);
-	
 	for (const auto &path: file_paths_) {
 		CopyFileToDir(path, to_dir_path_);
 	}
 	
 	auto state = data_.GetState();
 	
-	if (!(state & TaskState::Cancel))
+	if (state & TaskState::Cancel) {
+		mtl_trace();
+	} else {
 		data_.ChangeState(TaskState::Finished);
+	}
 }
 
 void
@@ -280,7 +283,7 @@ Task::StartIO()
 	if (ops_ & io::socket::MsgBits::Copy) {
 		CopyFiles();
 	} else {
-		mtl_trace();
+		CopyFiles();
 	}
 }
 

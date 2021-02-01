@@ -6,6 +6,7 @@
 #include <pthread.h>
 
 namespace cornus::gui {
+class CountFolder;
 class Hiliter;
 class Location;
 class SidePane;

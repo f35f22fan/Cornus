@@ -2,10 +2,12 @@
 
 #include "actions.hxx"
 #include "../App.hpp"
+#include "../AutoDelete.hh"
 #include "../io/io.hh"
 #include "../io/File.hpp"
 #include "../MutexGuard.hpp"
 #include "../io/socket.hh"
+#include "CountFolder.hpp"
 #include "TableDelegate.hpp"
 #include "TableModel.hpp"
 
@@ -15,7 +17,6 @@
 #include <QAction>
 #include <QApplication>
 #include <QClipboard>
-#include <QDialog>
 #include <QDrag>
 #include <QDragEnterEvent>
 #include <QFormLayout>
@@ -211,19 +212,38 @@ io::File*
 Table::GetFileAtNTS(const QPoint &pos, const bool clone, int *ret_file_index)
 {
 	int row = rowAt(pos.y());
-	if (row == -1)
+	if (row == -1) {
 		return nullptr;
+	}
 	
 	io::Files &files = app_->view_files();
 	auto &vec = files.data.vec;
-	if (row >= vec.size())
+	if (row >= vec.size()) {
 		return nullptr;
+	}
 	
-	if (ret_file_index != nullptr)
+	if (ret_file_index != nullptr) {
 		*ret_file_index = row;
+	}
 	
 	io::File *file = vec[row];
+
 	return clone ? file->Clone() : file;
+}
+
+int
+Table::GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file)
+{
+	io::Files &files = app_->view_files();
+	MutexGuard guard(&files.mutex);
+
+	io::File *file = nullptr;
+	int row = IsOnFileNameStringNTS(local_pos, &file);
+	
+	if (row != -1)
+		*ret_cloned_file = file->Clone();
+
+	return row;
 }
 
 int
@@ -320,13 +340,13 @@ Table::HandleMouseSelection(QMouseEvent *evt, QVector<int> &indices)
 }
 
 int
-Table::IsOnFileNameStringNTS(const QPoint &pos, io::File **ret_file)
+Table::IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file)
 {
-	i32 col = columnAt(pos.x());
-	if (col != (int)Column::FileName)
+	i32 col = columnAt(local_pos.x());
+	if (col != (int)Column::FileName) {
 		return -1;
-	
-	io::File *file = GetFileAtNTS(pos, false);
+	}
+	io::File *file = GetFileAtNTS(local_pos, false);
 	if (file == nullptr)
 		return -1;
 	
@@ -334,13 +354,13 @@ Table::IsOnFileNameStringNTS(const QPoint &pos, io::File **ret_file)
 	const int name_w = fm.boundingRect(file->name()).width();
 	const int absolute_name_end = name_w + columnViewportPosition(col);
 	
-	if (pos.x() > absolute_name_end + FileNameRelax)
+	if (local_pos.x() > absolute_name_end + FileNameRelax)
 		return -1;
 	
 	if (ret_file != nullptr)
 		*ret_file = file;
 	
-	return rowAt(pos.y());
+	return rowAt(local_pos.y());
 }
 
 void
@@ -476,7 +496,7 @@ Table::mousePressEvent(QMouseEvent *evt)
 	HandleMouseSelection(evt, indices);
 	
 	if (evt->button() == Qt::RightButton) {
-		ShowRightClickMenu(evt->globalPos());
+		ShowRightClickMenu(evt->globalPos(), evt->pos());
 	}
 	
 	model_->UpdateIndices(indices);
@@ -767,11 +787,21 @@ Table::SelectNextRow(const int relative_offset,
 }
 
 void
-Table::ShowRightClickMenu(const QPoint &pos)
+Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 {
 	const int selected_count = GetSelectedFilesCount();
 	App *app = model_->app();
 	QMenu *menu = new QMenu();
+	QString dir_full_path;
+	{
+		io::File *file = nullptr;
+		if (GetFileUnderMouse(local_pos, &file) != -1) {
+			cornus::AutoDelete ad(file);
+			if (file->is_dir()) {
+				dir_full_path = file->build_full_path();
+			}
+		}
+	}
 	
 	{
 		QAction *action = menu->addAction(tr("New Folder"));
@@ -819,7 +849,18 @@ Table::ShowRightClickMenu(const QPoint &pos)
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-undo")));
 	}
 	
-	menu->popup(pos);
+	QString count_folder = dir_full_path.isEmpty() ? app_->current_dir() : dir_full_path;
+	
+	if (count_folder != QLatin1String("/")) {
+		QAction *action = menu->addAction(tr("Count Folder Size"));
+		
+		connect(action, &QAction::triggered, [=] {
+			gui::CountFolder cf(app_, count_folder);
+		});
+		action->setIcon(QIcon::fromTheme(QLatin1String("emblem-important")));
+	}
+	
+	menu->popup(global_pos);
 }
 
 void

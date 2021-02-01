@@ -16,6 +16,10 @@ public:
 	TasksWin();
 	~TasksWin();
 	
+	virtual QSize sizeHint() const override;
+	virtual QSize minimumSizeHint() const override;
+	QSize maximumSize() const;
+	
 	void TaskDone(TaskGui *tg, const io::TaskState state);
 	
 public slots:

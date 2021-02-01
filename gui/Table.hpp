@@ -23,7 +23,10 @@ public:
 	const QPoint& drop_coord() const { return drop_coord_; }
 	virtual void dropEvent(QDropEvent *event) override;
 	io::File* GetFileAtNTS(const QPoint &pos, const bool clone, int *ret_file_index = nullptr);
-	io::File* GetFileAt(const int row); // returns cloned file
+	io::File* GetFileAt(const int row); /// returns cloned file
+	
+	/// returns row index & cloned file if on file name, otherwise -1
+	int GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file);
 	int GetFirstSelectedFile(io::File **ret_cloned_file);
 	QString GetFirstSelectedFileFullPath(QString *ext);
 	inline int GetIconSize();
@@ -56,11 +59,11 @@ private:
 	void FinishDropOperation(QVector<io::File *> *files_vec, io::File *to_dir,
 		Qt::DropAction drop_action);
 	void HandleMouseSelection(QMouseEvent *evt, QVector<int> &indices);
-	int IsOnFileNameStringNTS(const QPoint &pos, io::File **ret_file = nullptr);
+	int IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file = nullptr);
 	QPair<int, int> ListSelectedFiles(QList<QUrl> &list);
 	void SelectFileRangeNTS(const int row_start, const int row_end, QVector<int> &indices);
 	int SelectNextRow(const int relative_offset, const bool deselect_all_others, QVector<int> &indices); // returns newly selected row
-	void ShowRightClickMenu(const QPoint &pos);
+	void ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos);
 	void SortingChanged(int logical, Qt::SortOrder order);
 	void StartDragOperation();
 	

@@ -56,12 +56,44 @@ struct Files {
 	}
 };
 
+struct CountRecursiveInfo {
+	i64 size = 0;
+	i64 size_without_dirs_meta = 0;
+	i32 file_count = 0;
+	i32 dir_count = -1; // -1 to exclude counting parent folder
+};
 }
 Q_DECLARE_METATYPE(cornus::io::FilesData*);
+Q_DECLARE_METATYPE(cornus::io::CountRecursiveInfo*);
 
 namespace cornus::io {
 
-i64 CountSizeRecursive(const QString &path, struct statx &stx);
+struct CountFolderData {
+	io::CountRecursiveInfo info = {};
+	QString full_path;
+	QString err;
+	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+	bool thread_has_quit = false;
+	bool app_has_quit = false;
+	
+	inline void Lock() {
+		int status = pthread_mutex_lock(&mutex);
+		if (status != 0)
+			mtl_status(status);
+	}
+	
+	inline void Unlock() {
+		int status = pthread_mutex_unlock(&mutex);
+		if (status != 0)
+			mtl_status(status);
+	}
+};
+
+bool CountSizeRecursive(const QString &path, struct statx &stx,
+	CountRecursiveInfo &info);
+
+bool CountSizeRecursiveTh(const QString &path, struct statx &stx,
+	CountFolderData &data);
 
 void Delete(io::File *file);
 
@@ -93,6 +125,9 @@ FloatToString(const float number, const int precision);
 
 QStringRef
 GetFilenameExtension(const QString &name);
+
+QStringRef
+GetFileNameOfFullPath(const QString &full_path);
 
 inline bool IsNearlyEqual(double x, double y);
 

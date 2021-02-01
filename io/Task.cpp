@@ -20,19 +20,15 @@ namespace cornus::io {
 bool TaskData::ChangeState(const TaskState new_state)
 {
 	MutexGuard guard(&mutex);
-	
 	state = new_state;
-	
 	if (new_state & (TaskState::Finished | TaskState::Pause
 		| TaskState::Cancel)) {
-		mtl_trace("PAUSED");
 		timer_.Pause();
 	} else if (new_state & TaskState::Continue) {
 		timer_.Continue();
-		mtl_trace("CONTINUE");
 	}
 	
-	mtl_info("Changed state to: %d", i16(state));
+//	mtl_info("Changed state to: %d", i16(state));
 	int status = pthread_cond_broadcast(&cond);
 	if (status != 0) {
 		mtl_status(status);
@@ -240,18 +236,16 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 i64
 Task::CountTotalSize()
 {
-	i64 size = 0;
+	io::CountRecursiveInfo info = {};
 	for (const auto &path: file_paths_)
 	{
-		i64 sz = io::CountSizeRecursive(path, stx_);
-		if (sz < 0) {
+		if (!io::CountSizeRecursive(path, stx_, info)) {
 			mtl_printq(path);
 			return -1;
 		}
-		size += sz;
 	}
 	
-	return size;
+	return info.size;
 }
 
 Task*

@@ -19,12 +19,14 @@ TaskGui::TaskGui(io::Task *task): task_(task)
 	pause_icon_ = QIcon::fromTheme(QLatin1String("media-playback-pause"));
 	
 	CreateGui();
-	task_->data().ChangeState(io::TaskState::Continue);
+	const auto new_state = io::TaskState::Continue;
+	task_->data().ChangeState(new_state);
 	
 	timer_ = new QTimer(this);
 	connect(timer_, &QTimer::timeout, this,
 		QOverload<>::of(&TaskGui::CheckTaskState));
 	timer_->start(200);
+	TaskStateChanged(new_state);
 }
 
 TaskGui::~TaskGui()
@@ -103,6 +105,7 @@ void TaskGui::CreateGui()
 		
 		speed_ = new QLabel();
 		two_label_layout->addWidget(speed_);
+		two_label_layout->addStretch();
 		info_ = new QLabel();
 		two_label_layout->addWidget(info_);
 	}
@@ -143,17 +146,20 @@ TaskGui::ProcessAction(const QString &action)
 	auto &data = task_->data();
 	if (action == actions::IOContinue) {
 		auto state = data.GetState();
-		
+		io::TaskState new_state;
 		if (state & io::TaskState::Continue) {
-			data.ChangeState(io::TaskState::Pause);
-			play_pause_btn_->setIcon(pause_icon_);
+			new_state = io::TaskState::Pause;
 		} else if (state & io::TaskState::Pause) {
-			data.ChangeState(io::TaskState::Continue);
-			play_pause_btn_->setIcon(continue_icon_);
-			timer_->start();
+			new_state = io::TaskState::Continue;
+		} else {
+			mtl_trace();
 		}
+		data.ChangeState(new_state);
+		TaskStateChanged(new_state);
+		
 	} else if (action == actions::IOCancel) {
-		data.ChangeState(io::TaskState::Cancel);
+		const auto new_state = io::TaskState::Cancel;
+		data.ChangeState(new_state);
 		timer_->start();
 	}
 }
@@ -161,8 +167,18 @@ TaskGui::ProcessAction(const QString &action)
 QSize TaskGui::minimumSizeHint() const { return sizeHint(); }
 
 QSize TaskGui::sizeHint() const {
-	int lh = fontMetrics().boundingRect("Abg").height();
-	return QSize(lh * 30, lh * 2);
+	int rh = fontMetrics().boundingRect("Aj").height();
+	return QSize(750, rh * 3);
+}
+
+void TaskGui::TaskStateChanged(const io::TaskState new_state)
+{
+	if (new_state & io::TaskState::Continue) {
+		play_pause_btn_->setIcon(pause_icon_);
+		timer_->start();
+	} else if (new_state & io::TaskState::Pause) {
+		play_pause_btn_->setIcon(continue_icon_);
+	}
 }
 
 void TaskGui::UpdateSpeedLabel()
@@ -176,8 +192,6 @@ void TaskGui::UpdateSpeedLabel()
 	const double seconds = double(progress_.time_worked) / 1000;
 	const i64 n = double(progress_.at) / seconds;
 	QString s = io::SizeToString(n) + QLatin1String("/s");
-	//mtl_info("seconds: %.2f, n: %ld, progress_.at: %ld", seconds, n, progress_.at);
-	//mtl_printq(s);
 	speed_->setText(s);
 }
 

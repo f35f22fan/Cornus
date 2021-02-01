@@ -21,9 +21,9 @@ public:
 	
 	virtual QSize sizeHint() const override;
 	virtual QSize minimumSizeHint() const override;
-	io::Task* task() const { return task_; }
 	
 	void CheckTaskState();
+	void TaskStateChanged(const io::TaskState new_state);
 	
 private:
 	TaskGui(io::Task *task);

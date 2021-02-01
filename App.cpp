@@ -1,7 +1,8 @@
-// This has to be the first include otherwise gdbusintrospection.h causes an error.
 extern "C" {
-#include <dconf.h>
-};
+/// This has to be the first include otherwise
+/// gdbusintrospection.h causes an error.
+	#include <dconf.h>
+}
 #include <chrono>
 #include <fcntl.h>
 #include <iostream>
@@ -219,6 +220,7 @@ App::App()
 {
 	qRegisterMetaType<cornus::io::FilesData*>();
 	qRegisterMetaType<cornus::PartitionEvent*>();
+	qRegisterMetaType<cornus::io::CountRecursiveInfo*>();
 	qDBusRegisterMetaType<QMap<QString, QVariant>>();
 	
 	pthread_t th;

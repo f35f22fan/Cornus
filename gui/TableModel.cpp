@@ -11,7 +11,7 @@
 #include <QScrollBar>
 #include <QTime>
 
-#define DEBUG_INOTIFY
+// #define DEBUG_INOTIFY
 
 namespace cornus::gui {
 
@@ -80,6 +80,7 @@ void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
 
 	ssize_t add = 0;
 	QVector<io::File*> &files_vec = files->data.vec;
+	const bool with_hidden_files = files->data.show_hidden_files;
 	
 	for (char *p = buf; p < buf + num_read; p += add) {
 		struct inotify_event *ev = (struct inotify_event*) p;
@@ -102,7 +103,7 @@ void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
 mtl_trace("IN_CREATE: %s", ev->name);
 #endif
 			QString name(ev->name);
-			if (!files->data.show_hidden_files && name.startsWith('.'))
+			if (!with_hidden_files && name.startsWith('.'))
 				continue;
 			
 			io::File *new_file = new io::File(files);
@@ -151,8 +152,13 @@ mtl_trace("IN_MOVED_FROM: %s, is_dir: %d", ev->name, is_dir);
 #ifdef DEBUG_INOTIFY
 mtl_trace("IN_MOVED_TO: %s, is_dir: %d", ev->name, is_dir);
 #endif
+			QString name(ev->name);
+			if (!with_hidden_files && name.startsWith('.')) {
+				continue;
+			}
+			
 			int to_index;
-			io::File *to_file = Find(files_vec, ev->name, is_dir, &to_index);
+			io::File *to_file = Find(files_vec, name, is_dir, &to_index);
 			if (to_file != nullptr) {
 				update_indices.append(to_index);
 				to_file->ClearCache();

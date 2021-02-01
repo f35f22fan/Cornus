@@ -33,6 +33,7 @@ set(cornus_src_files main.cpp
     prefs.cc prefs.hh
     
     gui/actions.hxx
+    gui/CountFolder.cpp gui/CountFolder.hpp
     gui/decl.hxx
     gui/Hiliter.cpp gui/Hiliter.hpp
     gui/Location.cpp gui/Location.hpp

@@ -17,7 +17,6 @@
 #include <QAction>
 #include <QApplication>
 #include <QClipboard>
-#include <QDialog>
 #include <QDrag>
 #include <QDragEnterEvent>
 #include <QFormLayout>

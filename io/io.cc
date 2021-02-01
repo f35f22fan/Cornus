@@ -17,7 +17,8 @@
 
 namespace cornus::io {
 
-i64 CountSizeRecursive(const QString &path, struct statx &stx)
+bool CountSizeRecursive(const QString &path, struct statx &stx,
+	CountRecursiveInfo &info)
 {
 	const auto flags = AT_SYMLINK_NOFOLLOW;
 	const auto fields = STATX_SIZE | STATX_MODE;
@@ -28,32 +29,89 @@ i64 CountSizeRecursive(const QString &path, struct statx &stx)
 		return -1;
 	}
 	
-	i64 size = stx.stx_size;
+	const bool is_dir = S_ISDIR(stx.stx_mode);
+	info.size += stx.stx_size;
 	
-	if (!S_ISDIR(stx.stx_mode)) {
-		return size;
+	if (!is_dir) {
+		info.size_without_dirs_meta += stx.stx_size;
+		info.file_count++;
+		return true;
 	}
 	
+	info.dir_count++;
 	QVector<QString> names;
+	
 	if (ListFileNames(path, names) != Err::Ok) {
 		mtl_printq(path);
-		return -1;
+		return false;
 	}
 	
 	for (const auto &name: names) {
 		QString full_path = path + '/' + name;
-		i64 loop_sz = CountSizeRecursive(full_path, stx);
 		
-		if (loop_sz < 0) {
-			mtl_info("loop_siz: %ld", loop_sz);
-			mtl_printq2("full_path: ", full_path);
-			return -1;
+		if (!CountSizeRecursive(full_path, stx, info)) {
+			mtl_printq2("Failed at full_path: ", full_path);
+			return false;
 		}
-		
-		size += loop_sz;
 	}
 	
-	return size;
+	return true;
+}
+
+bool CountSizeRecursiveTh(const QString &path, struct statx &stx,
+	CountFolderData &data)
+{
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_SIZE | STATX_MODE;
+	auto ba = path.toLocal8Bit();
+	
+	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
+		mtl_warn("statx(): %s", strerror(errno));
+		data.Lock();
+		QString msg = strerror(errno) + QString(" => at file: \"") +
+			path + "\"";
+		data.err = msg;
+		data.Unlock();
+		auto err_ba = msg.toLocal8Bit();
+		mtl_warn("%s", err_ba.data());
+		return -1;
+	}
+	
+	const bool is_dir = S_ISDIR(stx.stx_mode);
+	data.Lock();
+		if (data.app_has_quit) {
+			data.Unlock();
+			return false;
+		}
+	
+		data.info.size += stx.stx_size;
+		
+		if (!is_dir) {
+			data.info.size_without_dirs_meta += stx.stx_size;
+			data.info.file_count++;
+			data.Unlock();
+			return true;
+		}
+		
+		data.info.dir_count++;
+	data.Unlock();
+	
+	QVector<QString> names;
+	
+	if (ListFileNames(path, names) != Err::Ok) {
+		mtl_printq(path);
+		return false;
+	}
+	
+	for (const auto &name: names) {
+		QString full_path = path + '/' + name;
+		
+		if (!CountSizeRecursiveTh(full_path, stx, data)) {
+			return false;
+		}
+	}
+	
+	return true;
 }
 
 void Delete(io::File *file) {
@@ -263,6 +321,32 @@ GetFilenameExtension(const QString &name)
 		return QStringRef();
 	
 	return name.midRef(dot + 1);
+}
+
+QStringRef
+GetFileNameOfFullPath(const QString &full_path)
+{
+	// FullPath: "/home/user/my_dir/"
+	bool already_found_letters = false;
+	int skip_from_end = 0;
+	int count = full_path.size();
+	
+	for (int i = count - 1; i >= 0; i--)
+	{
+		QChar c = full_path[i];
+		if (c == '/') {
+			if (already_found_letters) {
+				int at = i + 1;
+				return full_path.midRef(at, count - at - skip_from_end);
+			} else {
+				skip_from_end++;
+			}
+		} else {
+			already_found_letters = true;
+		}
+	}
+	
+	return QStringRef();
 }
 
 bool IsNearlyEqual(double x, double y)

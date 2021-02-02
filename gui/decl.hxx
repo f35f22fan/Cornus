@@ -20,6 +20,8 @@ class TasksWin;
 class TextEdit;
 class ToolBar;
 
+const int FileNameRelax = 2;
+
 enum class HiliteMode: i16 {
 	None = -1,
 /// First viable mode must start at zero because these are

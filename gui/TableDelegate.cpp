@@ -11,6 +11,7 @@
 #include <QDateTime>
 #include <QHeaderView>
 #include <QPainter>
+#include <QPainterPath>
 
 class RestorePainter {
 public:
@@ -22,21 +23,20 @@ private:
 };
 
 namespace cornus::gui {
-const int FnOff = 2;
 
 TableDelegate::TableDelegate(gui::Table *table, App *app): app_(app),
 table_(table)
-{}
+{
+}
 
 TableDelegate::~TableDelegate() {
 }
 
 void
-TableDelegate::DrawFileName(QPainter *painter, io::File *file, const int row_index,
-	const QStyleOptionViewItem &option, QFontMetrics &fm,
-	const QRect &text_rect) const
+TableDelegate::DrawFileName(QPainter *painter, io::File *file,
+	const int row_index, const QStyleOptionViewItem &option,
+	QFontMetrics &fm, const QRect &text_rect) const
 {
-	const int rh = table_->verticalHeader()->defaultSectionSize();
 	auto str_rect = fm.boundingRect(file->name());
 	
 	if (!file->is_dir_or_so() && file->has_exec_bit()) {
@@ -49,16 +49,31 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file, const int row_ind
 		paint_as_selected = true;
 	}
 	
+	QRectF sel_rect = option.rect;
+	const int str_wide = str_rect.width() + gui::FileNameRelax * 2;
+	const int actual_wide = str_wide < min_name_w_ ? min_name_w_ : str_wide;
+	sel_rect.setWidth(actual_wide);
+	
 	if (paint_as_selected || file->selected()) {
-		QRect r = option.rect;
-		r.setWidth(str_rect.width() + FnOff * 2);
-		painter->fillRect(r, option.palette.highlight());
+		QColor c = option.palette.highlight().color();
+		QPainterPath path;
+		int less = 2;
+		sel_rect.setY(sel_rect.y() + less / 2 + 1);/// +1 for line width
+		sel_rect.setHeight(sel_rect.height() - less);
+		path.addRoundedRect(sel_rect, 6, 6);
+		painter->fillPath(path, c);
+	} else if (str_wide < min_name_w_ - 5) {
+		const int x = sel_rect.x() + min_name_w_;
+		const int y = sel_rect.y() + sel_rect.height() / 2;
+		QPen pen = painter->pen();
+		painter->setPen(Qt::blue);
+		painter->drawLine(x, y, x, y + 1);
+		painter->setPen(pen);
 	}
 	
 	auto rcopy = text_rect;
 	rcopy.setWidth(rcopy.width() + 300);
-	painter->drawText(text_rect, Qt::AlignLeft + Qt::AlignVCenter,
-		file->name(), &rcopy);
+	painter->drawText(text_rect, text_alignment_, file->name(), &rcopy);
 	
 	if (!file->is_symlink() || (file->link_target() == nullptr))
 		return;
@@ -105,10 +120,10 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file, const int row_ind
 	
 	auto link_data_rect = QRect(text_rect.x() + str_rect.width(), text_rect.y(),
 		text_rect.width() - str_rect.width(), text_rect.height());
-	QBrush brush = option.palette.brush(QPalette::QPalette::PlaceholderText);
+	QBrush brush = option.palette.brush(QPalette::PlaceholderText);
 	QPen pen(brush.color());
 	painter->setPen(pen);
-	painter->drawText(link_data_rect, link_data);
+	painter->drawText(link_data_rect, text_alignment_, link_data);
 	
 }
 
@@ -134,7 +149,7 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	QBrush brush = option.palette.brush(QPalette::QPalette::PlaceholderText);
 	QPen pen(brush.color());
 	painter->setPen(pen);
-	painter->drawText(text_rect, text);
+	painter->drawText(text_rect, text_alignment_, text);
 	
 	QIcon *icon = nullptr;
 	if (file->cache().icon != nullptr)
@@ -161,7 +176,7 @@ TableDelegate::DrawSize(QPainter *painter, io::File *file,
 	const QRect &text_rect) const
 {
 	QString text = file->SizeToString();
-	painter->drawText(text_rect, text);
+	painter->drawText(text_rect, text_alignment_, text);
 }
 
 void
@@ -174,7 +189,7 @@ TableDelegate::DrawTime(QPainter *painter, io::File *file,
 	QDateTime tm = QDateTime::fromSecsSinceEpoch(stx.tv_sec);
 	static const QString format = QLatin1String("yyyy-MM-dd hh:mm");
 	QString s = tm.toString(format);
-	painter->drawText(text_rect, s);
+	painter->drawText(text_rect, text_alignment_, s);
 }
 
 void
@@ -182,26 +197,32 @@ TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 	const QModelIndex &index) const
 {
 	RestorePainter rp(painter);
+	painter->setRenderHint(QPainter::Antialiasing);
 	QFontMetrics fm(option.font);
+	
+	if (min_name_w_ == -1) {
+		min_name_w_ = fm.boundingRect(QLatin1String("w")).width() * 4;
+	}
+	
 	const Column col = static_cast<Column>(index.column());
 	initStyleOption(const_cast<QStyleOptionViewItem*>(&option), index);
 	io::Files &files = app_->view_files();
 	MutexGuard guard(&files.mutex);
 	const int row = index.row();
+	
 	if (row >= files.data.vec.size())
 		return;
 	
 	io::File *file = files.data.vec[row];
 	auto &r = option.rect;
-	QRect text_rect(r.x() + FnOff, r.y(), r.width() - FnOff, r.height());
+	QRect text_rect(r.x() + gui::FileNameRelax, r.y(),
+		r.width() - gui::FileNameRelax, r.height());
 	auto color_role = (row % 2) ? QPalette::AlternateBase : QPalette::Base;
 	painter->fillRect(option.rect, option.palette.brush(color_role));
 	
 	if (option.state & QStyle::State_Selected) {
-		//painter->fillRect(option.rect, option.palette.highlight());
 		painter->setBrush(option.palette.highlightedText());
 	} else {
-		//painter->fillRect(option.rect, option.palette.brush(color_role));
 		painter->setBrush(option.palette.text());
 	}
 	

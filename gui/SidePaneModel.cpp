@@ -20,6 +20,19 @@
 namespace cornus::gui {
 namespace sidepane {
 
+bool
+SortSidePanes(SidePaneItem *a, SidePaneItem *b) 
+{
+/** Note: this function MUST be implemented with strict weak ordering
+  otherwise it randomly crashes (because of undefined behavior),
+  more info here:
+ https://stackoverflow.com/questions/979759/operator-and-strict-weak-ordering/981299#981299 */
+	
+	const int i = a->dev_path().compare(b->dev_path());
+	return (i > 0) ? false : true;
+}
+
+
 void LoadBookmarks(QVector<SidePaneItem*> &vec)
 {
 	const QString full_path = prefs::QueryAppConfigPath() + '/'
@@ -74,6 +87,8 @@ void LoadDrivePartitions(QString dir_path, QVector<SidePaneItem*> &vec)
 		if (name.startsWith(sd_abc))
 			LoadDrivePartition(dir_path, name, vec);
 	}
+	
+	std::sort(vec.begin(), vec.end(), SortSidePanes);
 }
 
 void LoadUnmountedPartitions(QVector<SidePaneItem*> &vec)
@@ -214,7 +229,9 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 	
 //	static QIcon hard_drive_icon = QIcon::fromTheme("drive-harddisk");
 	
-	if (role == Qt::TextAlignmentRole) {}
+	if (role == Qt::TextAlignmentRole) {
+		return Qt::AlignLeft + Qt::AlignVCenter;
+	}
 	
 	const int row = index.row();
 	gui::SidePaneItems &items = app_->side_pane_items();

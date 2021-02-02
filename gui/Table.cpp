@@ -35,8 +35,6 @@
 
 namespace cornus::gui {
 
-const int FileNameRelax = 2;
-
 Table::Table(TableModel *tm, App *app) : app_(app),
 model_(tm)
 {
@@ -52,7 +50,9 @@ model_(tm)
 	connect(hz, &QHeaderView::sortIndicatorChanged, this, &Table::SortingChanged);
 	//horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 	horizontalHeader()->setSectionsMovable(false);
-	verticalHeader()->setSectionsMovable(false);
+	
+	UpdateLineHeight();
+	
 	connect(verticalHeader(), &QHeaderView::sectionClicked, [=](int index) {
 		model_->app()->DisplayFileContents(index);
 	});
@@ -61,8 +61,8 @@ model_(tm)
 		setAcceptDrops(true);
 		setDragDropOverwriteMode(false);
 		setDropIndicatorShown(true);
+		setDefaultDropAction(Qt::MoveAction);
 	}
-	setDefaultDropAction(Qt::MoveAction);
 	setUpdatesEnabled(true);
 	///setShowGrid(false);
 	setSelectionMode(QAbstractItemView::NoSelection);//ExtendedSelection);
@@ -291,7 +291,7 @@ Table::GetFirstSelectedFileFullPath(QString *ext) {
 
 int
 Table::GetIconSize() {
-	return verticalHeader()->defaultSectionSize();
+	return verticalHeader()->defaultSectionSize() - 12;
 }
 
 int
@@ -360,10 +360,12 @@ Table::IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file)
 		return -1;
 	
 	QFontMetrics fm = fontMetrics();
-	const int name_w = fm.boundingRect(file->name()).width();
+	int name_w = fm.boundingRect(file->name()).width();
+	if (name_w < delegate_->min_name_w())
+		name_w = delegate_->min_name_w();
 	const int absolute_name_end = name_w + columnViewportPosition(col);
 	
-	if (local_pos.x() > absolute_name_end + FileNameRelax)
+	if (local_pos.x() > absolute_name_end + gui::FileNameRelax)
 		return -1;
 	
 	if (ret_file != nullptr)
@@ -946,6 +948,20 @@ Qt::TargetMoveAction	0x8002	On Windows, this value is used when
  application, i.e., the source application should not delete the data.
  On X11 this value is used to do a move. TargetMoveAction is not
  used on the Mac.  */
+}
+
+void
+Table::UpdateLineHeight() {
+	auto fm = fontMetrics();
+	int str_h = fm.height();
+	int ln = str_h * 1.3;
+//	mtl_info("str_h: %d, ln: %d", str_h, ln);
+	auto *vh = verticalHeader();
+	vh->setMinimumSectionSize(str_h);
+	vh->setMaximumSectionSize(ln);
+	vh->setSectionResizeMode(QHeaderView::Fixed);
+	vh->setDefaultSectionSize(ln);
+	vh->setSectionsMovable(false);
 }
 
 } // cornus::gui::

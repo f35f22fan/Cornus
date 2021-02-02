@@ -17,6 +17,8 @@ public:
 	TableDelegate(gui::Table *table, App *app);
 	virtual ~TableDelegate();
 	
+	int min_name_w() const { return min_name_w_; }
+	
 	virtual void paint(QPainter *painter, const QStyleOptionViewItem &option,
 		const QModelIndex &index) const;
 	
@@ -37,9 +39,10 @@ private:
 		const QStyleOptionViewItem &option, QFontMetrics &fm,
 		const QRect &text_rect, const Column col) const;
 	
-	int min_name_w_ = -1;
+	mutable int min_name_w_ = -1;
 	gui::Table *table_ = nullptr;
 	App *app_ = nullptr;
+	Qt::Alignment text_alignment_ = Qt::AlignLeft | Qt::AlignVCenter;
 };
 
 }

@@ -66,6 +66,7 @@ private:
 	void ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos);
 	void SortingChanged(int logical, Qt::SortOrder order);
 	void StartDragOperation();
+	void UpdateLineHeight();
 	
 	App *app_ = nullptr;
 	TableModel *model_ = nullptr;

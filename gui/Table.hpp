@@ -51,7 +51,6 @@ protected:
 	virtual void mousePressEvent(QMouseEvent *evt) override;
 	
 	virtual void paintEvent(QPaintEvent *evt) override;
-	virtual void resizeEvent(QResizeEvent *evt) override;
 private:
 	NO_ASSIGN_COPY_MOVE(Table);
 	
@@ -63,6 +62,7 @@ private:
 	QPair<int, int> ListSelectedFiles(QList<QUrl> &list);
 	void SelectFileRangeNTS(const int row_start, const int row_end, QVector<int> &indices);
 	int SelectNextRow(const int relative_offset, const bool deselect_all_others, QVector<int> &indices); // returns newly selected row
+	void SetCustomResizePolicy();
 	void ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos);
 	void SortingChanged(int logical, Qt::SortOrder order);
 	void StartDragOperation();

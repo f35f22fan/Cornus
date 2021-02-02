@@ -1124,14 +1124,14 @@ void App::SetupIconNames() {
 void App::SetupEnvSearchPaths()
 {
 	{
-		DConfClient *dc = dconf_client_new();
-		const gchar *p = "/org/gnome/desktop/interface/icon-theme";
-		GVariant *v = dconf_client_read(dc, p);
-		gchar *result;
-		g_variant_get (v, "s", &result);
-		theme_name_ = result;
-		g_free (result);
-		g_variant_unref(v);
+//		DConfClient *dc = dconf_client_new();
+//		const gchar *p = "/org/gnome/desktop/interface/icon-theme";
+//		GVariant *v = dconf_client_read(dc, p);
+//		gchar *result;
+//		g_variant_get (v, "s", &result);
+//		theme_name_ = result;
+//		g_free (result);
+//		g_variant_unref(v);
 	}
 	
 //	mtl_printq2("Theme name: ", theme_name_);

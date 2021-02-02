@@ -26,9 +26,7 @@ const int FnOff = 2;
 
 TableDelegate::TableDelegate(gui::Table *table, App *app): app_(app),
 table_(table)
-{
-	
-}
+{}
 
 TableDelegate::~TableDelegate() {
 }

@@ -4,7 +4,7 @@
 ##### Requirements: Linux 5.3+
 ---
 Building:
-* sudo apt-get install qt5-default libdconf-dev cmake git
+* sudo apt-get install qt5-default libdbus-c++-dev libudisks2-dev libdconf-dev cmake git
 * mkdir build
 * cd build
 * cmake ..

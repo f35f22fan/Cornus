@@ -37,6 +37,7 @@ private:
 		const QStyleOptionViewItem &option, QFontMetrics &fm,
 		const QRect &text_rect, const Column col) const;
 	
+	int min_name_w_ = -1;
 	gui::Table *table_ = nullptr;
 	App *app_ = nullptr;
 };

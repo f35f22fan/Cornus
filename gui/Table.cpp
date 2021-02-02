@@ -64,7 +64,6 @@ model_(tm)
 	}
 	setDefaultDropAction(Qt::MoveAction);
 	setUpdatesEnabled(true);
-	resizeColumnsToContents();
 	///setShowGrid(false);
 	setSelectionMode(QAbstractItemView::NoSelection);//ExtendedSelection);
 	setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -72,6 +71,7 @@ model_(tm)
 	
 	int sz = GetIconSize();
 	setIconSize(QSize(sz, sz));
+	SetCustomResizePolicy();
 }
 
 Table::~Table() {
@@ -586,25 +586,6 @@ Table::ProcessAction(const QString &action)
 	}
 }
 
-void
-Table::resizeEvent(QResizeEvent *event)
-{
-	QTableView::resizeEvent(event);
-	QFontMetrics fm = fontMetrics();
-	QString sample_date = QLatin1String("2020-12-01 18:04");
-	
-	const int w = event->size().width();
-	const int icon_col_w = fm.boundingRect(QLatin1String("Steam")).width();
-	const int size_col_w = fm.boundingRect(QLatin1String("1023.9 GiB")).width() + 10;
-	const int time_col_w = fm.boundingRect(sample_date).width() + 10;
-	const int filename_col_w = w - (icon_col_w + size_col_w + time_col_w) - 3;
-	
-	setColumnWidth(i8(gui::Column::Icon), icon_col_w);
-	setColumnWidth(i8(gui::Column::FileName), filename_col_w);
-	setColumnWidth(i8(gui::Column::Size), size_col_w);
-	setColumnWidth(i8(gui::Column::TimeCreated), time_col_w);
-}
-
 bool
 Table::ScrollToAndSelect(QString full_path)
 {
@@ -793,6 +774,34 @@ Table::SelectNextRow(const int relative_offset,
 	indices.append(0);
 	
 	return 0;
+}
+
+void
+Table::SetCustomResizePolicy() {
+	auto *hh = horizontalHeader();
+/**
+QHeaderView::Interactive	0	The user can resize the section. The section can also be resized programmatically using resizeSection(). The section size defaults to defaultSectionSize. (See also cascadingSectionResizes.)
+QHeaderView::Fixed	2	The user cannot resize the section. The section can only be resized programmatically using resizeSection(). The section size defaults to defaultSectionSize.
+QHeaderView::Stretch	1	QHeaderView will automatically resize the section to fill the available space. The size cannot be changed by the user or programmatically.
+QHeaderView::ResizeToContents	3	QHeaderView will automatically resize the section to its optimal size based on the contents of the entire column or row. The size cannot be changed by the user or programmatically. (This value was introduced in 4.2) */
+	hh->setSectionResizeMode(i8(gui::Column::Icon), QHeaderView::Fixed);
+	hh->setSectionResizeMode(i8(gui::Column::FileName), QHeaderView::Stretch);
+	hh->setSectionResizeMode(i8(gui::Column::Size), QHeaderView::Fixed);
+	hh->setSectionResizeMode(i8(gui::Column::TimeCreated), QHeaderView::Fixed);
+	
+	QFontMetrics fm = fontMetrics();
+	QString sample_date = QLatin1String("2020-12-01 18:04");
+	
+	//const int w = evt->size().width();
+	const int icon_col_w = fm.boundingRect(QLatin1String("Steam")).width();
+	const int size_col_w = fm.boundingRect(QLatin1String("1023.9 GiB")).width() + 2;
+	const int time_col_w = fm.boundingRect(sample_date).width() + 10;
+	//const int filename_col_w = w - (icon_col_w + size_col_w + time_col_w) - 3;
+	
+	setColumnWidth(i8(gui::Column::Icon), icon_col_w);
+	//setColumnWidth(i8(gui::Column::FileName), filename_col_w);
+	setColumnWidth(i8(gui::Column::Size), size_col_w);
+	setColumnWidth(i8(gui::Column::TimeCreated), time_col_w);
 }
 
 void

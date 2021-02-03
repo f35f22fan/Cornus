@@ -243,7 +243,10 @@ App::App()
 	table_->setFocus();
 }
 
-App::~App() {
+App::~App()
+{
+	SavePrefs();
+	
 	QMapIterator<QString, QIcon*> i(icon_set_);
 	while (i.hasNext()) {
 		i.next();
@@ -396,8 +399,12 @@ void App::CreateGui()
 		}
 	}
 	
-	main_splitter_->setStretchFactor(0, 0);
-	main_splitter_->setStretchFactor(1, 1);
+	if (prefs_.splitter_sizes.size() > 0) {
+		main_splitter_->setSizes(prefs_.splitter_sizes);
+	} else {
+		main_splitter_->setStretchFactor(0, 0);
+		main_splitter_->setStretchFactor(1, 1);
+	}
 }
 
 void App::DisplayFileContents(const int row, io::File *cloned_file)
@@ -779,6 +786,9 @@ void App::LoadPrefs()
 	prefs_.show_ms_files_loaded = buf.next_i8() == 1 ? true : false;
 	prefs_.show_disk_space_free = buf.next_i8() == 1 ? true : false;
 	prefs_.side_pane_width = buf.next_i32();
+	
+	prefs_.splitter_sizes.append(buf.next_i32());
+	prefs_.splitter_sizes.append(buf.next_i32());
 }
 
 void App::OpenTerminal() {
@@ -1151,6 +1161,10 @@ void App::SavePrefs()
 	n = prefs_.show_disk_space_free ? 1 : 0;
 	buf.add_i8(n);
 	buf.add_i32(prefs_.side_pane_width);
+	
+	QList<int> sizes = main_splitter_->sizes();
+	buf.add_i32(sizes[0]);
+	buf.add_i32(sizes[1]);
 	
 	if (io::WriteToFile(full_path, buf.data(), buf.size()) != io::Err::Ok) {
 		mtl_trace("Failed to save bookmarks");

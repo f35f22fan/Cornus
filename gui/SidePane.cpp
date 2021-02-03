@@ -44,8 +44,10 @@ model_(tm), app_(app)
 	setAlternatingRowColors(true);
 	auto *hz = horizontalHeader();
 	hz->setSortIndicatorShown(false);
-	horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-	horizontalHeader()->setSectionsMovable(false);
+	hz->setSectionResizeMode(QHeaderView::Stretch);
+	hz->setSectionsMovable(false);
+	UpdateLineHeight();
+	
 	verticalHeader()->setSectionsMovable(false);
 	
 	setDefaultDropAction(Qt::MoveAction);
@@ -53,7 +55,7 @@ model_(tm), app_(app)
 	resizeColumnsToContents();
 	//setShowGrid(false);
 	setSelectionBehavior(QAbstractItemView::SelectRows);
-	setSelectionMode(QAbstractItemView::NoSelection);//ExtendedSelection);
+	setSelectionMode(QAbstractItemView::NoSelection);
 	{
 		setDragEnabled(true);
 		setAcceptDrops(true);
@@ -749,6 +751,19 @@ SidePane::UnmountPartition(int row)
 		cornus::io::disks::UnmountPartitionTh, arg);
 	if (status != 0)
 		mtl_status(status);
+}
+
+void
+SidePane::UpdateLineHeight() {
+	auto fm = fontMetrics();
+	int str_h = fm.height();
+	int ln = str_h * 1.3;
+	auto *vh = verticalHeader();
+	vh->setMinimumSectionSize(str_h);
+	vh->setMaximumSectionSize(ln);
+	vh->setSectionResizeMode(QHeaderView::Fixed);
+	vh->setDefaultSectionSize(ln);
+	vh->setSectionsMovable(false);
 }
 
 } // cornus::gui::

@@ -59,6 +59,7 @@ private:
 	void ShowSelectedPartitionInfo(const int row);
 	void StartDrag(const QPoint &pos);
 	void UnmountPartition(int row);
+	void UpdateLineHeight();
 	
 	SidePaneModel *model_ = nullptr;
 	App *app_ = nullptr;

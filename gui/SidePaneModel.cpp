@@ -330,6 +330,11 @@ SidePaneModel::InsertFromAnotherThread(cornus::gui::InsertArgs args)
 	static bool set_size = true;
 	
 	if (set_size) {
+		if (app_->prefs().splitter_sizes.size() > 0)
+			set_size = false;
+	}
+	
+	if (set_size) {
 		set_size = false;
 		auto *splitter = app_->main_splitter();
 		QFont font = table_->option().font;

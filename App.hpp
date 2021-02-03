@@ -30,6 +30,7 @@ struct Prefs {
  /// -1 means not explicitly set, -2 hidden:
 	i32 side_pane_width = -1;
 	QMap<i8, bool> cols_visibility;
+	QList<int> splitter_sizes;
 };
 
 class App : public QMainWindow {

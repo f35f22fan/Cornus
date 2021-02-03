@@ -1026,7 +1026,6 @@ Table::UpdateLineHeight() {
 	auto fm = fontMetrics();
 	int str_h = fm.height();
 	int ln = str_h * 1.3;
-//	mtl_info("str_h: %d, ln: %d", str_h, ln);
 	auto *vh = verticalHeader();
 	vh->setMinimumSectionSize(str_h);
 	vh->setMaximumSectionSize(ln);

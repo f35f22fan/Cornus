@@ -34,7 +34,7 @@ TableDelegate::~TableDelegate() {
 
 void
 TableDelegate::DrawFileName(QPainter *painter, io::File *file,
-	const int row_index, const QStyleOptionViewItem &option,
+	const int row, const QStyleOptionViewItem &option,
 	QFontMetrics &fm, const QRect &text_rect) const
 {
 	auto str_rect = fm.boundingRect(file->name());
@@ -45,7 +45,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	}
 	
 	bool paint_as_selected = false;
-	if (table_->CheckIsOnFileName(file, row_index, table_->drop_coord())) {
+	if (table_->CheckIsOnFileName(file, row, table_->drop_coord())) {
 		paint_as_selected = true;
 	}
 	
@@ -53,22 +53,18 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	const int str_wide = str_rect.width() + gui::FileNameRelax * 2;
 	const int actual_wide = str_wide < min_name_w_ ? min_name_w_ : str_wide;
 	sel_rect.setWidth(actual_wide);
+	const bool mouse_over = table_->mouse_over_file_name_index() == row;
 	
-	if (paint_as_selected || file->selected()) {
+	if (mouse_over || paint_as_selected || file->selected()) {
 		QColor c = option.palette.highlight().color();
+		if (mouse_over && !file->selected())
+			c = c.lighter(150);
 		QPainterPath path;
 		int less = 2;
 		sel_rect.setY(sel_rect.y() + less / 2 + 1);/// +1 for line width
 		sel_rect.setHeight(sel_rect.height() - less);
 		path.addRoundedRect(sel_rect, 6, 6);
 		painter->fillPath(path, c);
-	} else if (str_wide < min_name_w_ - 5) {
-		const int x = sel_rect.x() + min_name_w_;
-		const int y = sel_rect.y() + sel_rect.height() / 2;
-		QPen pen = painter->pen();
-		painter->setPen(Qt::blue);
-		painter->drawLine(x, y, x, y + 1);
-		painter->setPen(pen);
 	}
 	
 	auto rcopy = text_rect;
@@ -201,7 +197,7 @@ TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 	QFontMetrics fm(option.font);
 	
 	if (min_name_w_ == -1) {
-		min_name_w_ = fm.boundingRect(QLatin1String("w")).width() * 4;
+		min_name_w_ = fm.boundingRect(QLatin1String("w")).width() * 7;
 	}
 	
 	const Column col = static_cast<Column>(index.column());

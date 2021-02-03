@@ -19,6 +19,7 @@ public:
 	virtual ~Table();
 	
 	bool CheckIsOnFileName(io::File *file, const int file_row, const QPoint &pos) const;
+	int IsOnFileName(const QPoint &pos);
 	TableModel* model() const { return model_; }
 	const QPoint& drop_coord() const { return drop_coord_; }
 	virtual void dropEvent(QDropEvent *event) override;
@@ -31,6 +32,8 @@ public:
 	QString GetFirstSelectedFileFullPath(QString *ext);
 	inline int GetIconSize();
 	int GetSelectedFilesCount();
+	bool mouse_down() const { return mouse_down_; }
+	i32 mouse_over_file_name_index() const { return mouse_over_file_name_; }
 	void ProcessAction(const QString &action);
 	void ScrollToRow(int row);
 	void ScrollToAndSelectRow(const int row, const bool deselect_others);
@@ -49,6 +52,7 @@ protected:
 	virtual void mouseDoubleClickEvent(QMouseEvent *evt) override;
 	virtual void mouseMoveEvent(QMouseEvent *evt) override;
 	virtual void mousePressEvent(QMouseEvent *evt) override;
+	virtual void mouseReleaseEvent(QMouseEvent *evt) override;
 	
 	virtual void paintEvent(QPaintEvent *evt) override;
 private:
@@ -71,6 +75,8 @@ private:
 	App *app_ = nullptr;
 	TableModel *model_ = nullptr;
 	TableDelegate *delegate_ = nullptr;
+	bool mouse_down_ = false;
+	i32 mouse_over_file_name_ = -1;
 	
 	struct ShiftSelect {
 		int starting_row = -1;

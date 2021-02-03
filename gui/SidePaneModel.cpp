@@ -248,9 +248,9 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 			return f;
 		}
 	} else if (role == Qt::BackgroundRole) {
-		QStyleOptionViewItem option = table_->option();
-		if (item->is_partition())
-			return option.palette.light();
+//		QStyleOptionViewItem option = table_->option();
+//		if (item->is_partition())
+//			return option.palette.light();
 	} else if (role == Qt::ForegroundRole) {
 		if (item->is_partition() && !item->mounted()) {
 			const int c = 110;

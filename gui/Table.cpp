@@ -39,6 +39,8 @@ Table::Table(TableModel *tm, App *app) : app_(app),
 model_(tm)
 {
 	setModel(model_);
+/// enables receiving ordinary mouse events (when mouse is not down)
+	setMouseTracking(true); 
 	delegate_ = new TableDelegate(this, app_);
 	setAlternatingRowColors(false);
 	auto d = static_cast<QAbstractItemDelegate*>(delegate_);
@@ -48,7 +50,6 @@ model_(tm)
 	hz->setSectionHidden(int(Column::TimeModified), true);
 	hz->setSortIndicator(int(Column::FileName), Qt::AscendingOrder);
 	connect(hz, &QHeaderView::sortIndicatorChanged, this, &Table::SortingChanged);
-	//horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 	horizontalHeader()->setSectionsMovable(false);
 	
 	UpdateLineHeight();
@@ -483,12 +484,31 @@ Table::mouseDoubleClickEvent(QMouseEvent *evt)
 void
 Table::mouseMoveEvent(QMouseEvent *evt)
 {
-	if (drag_start_pos_.x() >= 0 || drag_start_pos_.y() >= 0) {
+	int row = -1;
+	{
+		io::Files &files = app_->view_files();
+		MutexGuard guard(&files.mutex);
+		row = IsOnFileNameStringNTS(evt->pos(), nullptr);
+	}
+	
+	bool repaint = false;
+	i32 old_row = mouse_over_file_name_;
+	if (row != mouse_over_file_name_) {
+		repaint = true;
+		mouse_over_file_name_ = row;
+	}
+	
+	if (mouse_down_ && (drag_start_pos_.x() >= 0 || drag_start_pos_.y() >= 0)) {
 		auto diff = (evt->pos() - drag_start_pos_).manhattanLength();
 		if (diff >= QApplication::startDragDistance())
 		{
 			StartDragOperation();
 		}
+	}
+	
+	if (repaint) {
+		QVector<int> rows = {old_row, mouse_over_file_name_};
+		model_->UpdateIndices(rows);
 	}
 }
 
@@ -496,6 +516,7 @@ void
 Table::mousePressEvent(QMouseEvent *evt)
 {
 	QTableView::mousePressEvent(evt);
+	mouse_down_ = true;
 	
 	if (evt->button() == Qt::LeftButton) {
 		drag_start_pos_ = evt->pos();
@@ -511,6 +532,13 @@ Table::mousePressEvent(QMouseEvent *evt)
 	}
 	
 	model_->UpdateIndices(indices);
+}
+
+void
+Table::mouseReleaseEvent(QMouseEvent *evt)
+{
+	QTableView::mouseReleaseEvent(evt);
+	mouse_down_ = false;
 }
 
 void

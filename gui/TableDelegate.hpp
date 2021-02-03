@@ -23,7 +23,7 @@ public:
 		const QModelIndex &index) const;
 	
 private:
-	void DrawFileName(QPainter *painter, io::File *file, const int row_index,
+	void DrawFileName(QPainter *painter, io::File *file, const int row,
 		const QStyleOptionViewItem &option, QFontMetrics &fm,
 		const QRect &text_rect) const;
 	

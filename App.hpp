@@ -24,6 +24,12 @@ struct DirPath {
 
 struct Prefs {
 	bool show_hidden_files = false;
+	i8 editor_tab_size = 4;
+	bool show_ms_files_loaded = false;
+	bool show_disk_space_free = false;
+ /// -1 means not explicitly set, -2 hidden:
+	i32 side_pane_width = -1;
+	QMap<i8, bool> cols_visibility;
 };
 
 class App : public QMainWindow {
@@ -53,6 +59,7 @@ public:
 	void RenameSelectedFile();
 	void RunExecutable(const QString &full_path, const ExecInfo &info);
 	void SaveBookmarks();
+	void SavePrefs();
 	gui::SidePane* side_pane() const { return side_pane_; }
 	gui::SidePaneItems& side_pane_items() const { return side_pane_items_; }
 	gui::SidePaneModel* side_pane_model() const { return side_pane_model_; }
@@ -78,7 +85,7 @@ private:
 	void GoToAndSelect(const QString full_path);
 	void IconByTruncName(io::File &file, const QString &truncated, QIcon **icon = nullptr);
 	void IconByFileName(io::File &file, const QString &filename, QIcon **ret_icon = nullptr);
-	void LoadSidePaneItems();
+	void LoadPrefs();
 	void RegisterShortcuts();
 	void SetDefaultIcon(io::File &file);
 	void SetupEnvSearchPaths();

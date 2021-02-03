@@ -233,6 +233,7 @@ App::App()
 		mtl_status(status);
 	
 	setWindowIcon(QIcon(cornus::AppIconPath));
+	LoadPrefs();
 	GoToInitialDir();
 	SetupIconNames();
 	SetupEnvSearchPaths();
@@ -384,6 +385,7 @@ void App::CreateGui()
 	{
 		table_model_ = new gui::TableModel(this);
 		table_ = new gui::Table(table_model_, this);
+		table_->ApplyPrefs();
 		main_splitter_->addWidget(table_);
 		{
 			MutexGuard guard(&view_files_.mutex);
@@ -551,6 +553,7 @@ void App::GoToFinish(cornus::io::FilesData *new_data)
 {
 	AutoDelete ad(new_data);
 	int count = new_data->vec.size();
+	table_->mouse_over_file_name_index(-1);
 	table_model_->SwitchTo(new_data);
 	current_dir_ = new_data->processed_dir_path;
 	
@@ -751,6 +754,31 @@ void App::LoadIcon(io::File &file)
 	}
 	
 	SetDefaultIcon(file);
+}
+
+void App::LoadPrefs()
+{
+	const QString full_path = prefs::QueryAppConfigPath() + '/'
+		+ prefs::PrefsFileName;
+	
+	ByteArray buf;
+	if (io::ReadFile(full_path, buf) != io::Err::Ok)
+		return;
+	
+	u16 version = buf.next_u16();
+	CHECK_TRUE_VOID((version == prefs::PrefsFormatVersion));
+	const i8 col_start = buf.next_i8();
+	const i8 col_end = buf.next_i8();
+	
+	for (i8 i = col_start; i < col_end; i++) {
+		prefs_.cols_visibility[i] = buf.next_i8() == 1 ? true : false;
+	}
+	
+	prefs_.show_hidden_files = buf.next_i8() == 1 ? true : false;
+	prefs_.editor_tab_size = buf.next_i8();
+	prefs_.show_ms_files_loaded = buf.next_i8() == 1 ? true : false;
+	prefs_.show_disk_space_free = buf.next_i8() == 1 ? true : false;
+	prefs_.side_pane_width = buf.next_i32();
 }
 
 void App::OpenTerminal() {
@@ -1072,6 +1100,57 @@ void App::SaveBookmarks()
 		buf.add_string(next->mount_path());
 		buf.add_string(next->bookmark_name());
 	}
+	
+	if (io::WriteToFile(full_path, buf.data(), buf.size()) != io::Err::Ok) {
+		mtl_trace("Failed to save bookmarks");
+	}
+}
+
+void App::SavePrefs()
+{
+	QString parent_dir = prefs::QueryAppConfigPath();
+	parent_dir.append('/');
+	CHECK_TRUE_VOID(!parent_dir.isEmpty());
+	const QString full_path = parent_dir + prefs::PrefsFileName;
+	const QByteArray path_ba = full_path.toLocal8Bit();
+	
+	if (!io::FileExists(full_path)) {
+		int fd = open(path_ba.data(), O_RDWR | O_CREAT | O_EXCL, 0664);
+		if (fd == -1) {
+			if (errno == EEXIST) {
+				mtl_warn("File already exists");
+			} else {
+				mtl_warn("Can't create file at: \"%s\", reason: %s",
+					path_ba.data(), strerror(errno));
+			}
+			return;
+		} else {
+			::close(fd);
+		}
+	}
+	
+	ByteArray buf;
+	buf.add_u16(prefs::PrefsFormatVersion);
+	auto *hh = table_->horizontalHeader();
+	const i8 col_start = (int)gui::Column::FileName + 1;
+	const i8 col_end = int(gui::Column::Count);
+	buf.add_i8(col_start);
+	buf.add_i8(col_end);
+	
+	for (i8 i = col_start; i < col_end; i++)
+	{
+		i8 b = hh->isSectionHidden(i) ? 0 : 1;
+		buf.add_i8(b);
+	}
+	
+	i8 n = prefs_.show_hidden_files ? 1 : 0;
+	buf.add_i8(n);
+	buf.add_i8(prefs_.editor_tab_size);
+	n = prefs_.show_ms_files_loaded ? 1 : 0;
+	buf.add_i8(n);
+	n = prefs_.show_disk_space_free ? 1 : 0;
+	buf.add_i8(n);
+	buf.add_i32(prefs_.side_pane_width);
 	
 	if (io::WriteToFile(full_path, buf.data(), buf.size()) != io::Err::Ok) {
 		mtl_trace("Failed to save bookmarks");

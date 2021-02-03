@@ -386,7 +386,7 @@ TableModel::headerData(int section_i, Qt::Orientation orientation, int role) con
 			const Column section = static_cast<Column>(section_i);
 			
 			switch (section) {
-			case Column::Icon: return QString();
+			case Column::Icon: return {};
 			case Column::FileName: return QLatin1String("Name");
 			case Column::Size: return QLatin1String("Size");
 			case Column::TimeCreated: return QLatin1String("Created");

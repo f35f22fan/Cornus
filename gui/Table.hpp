@@ -18,6 +18,7 @@ public:
 	Table(TableModel *tm, App *app);
 	virtual ~Table();
 	
+	void ApplyPrefs();
 	bool CheckIsOnFileName(io::File *file, const int file_row, const QPoint &pos) const;
 	int IsOnFileName(const QPoint &pos);
 	TableModel* model() const { return model_; }
@@ -34,11 +35,14 @@ public:
 	int GetSelectedFilesCount();
 	bool mouse_down() const { return mouse_down_; }
 	i32 mouse_over_file_name_index() const { return mouse_over_file_name_; }
+	void mouse_over_file_name_index(const i32 n) { mouse_over_file_name_ = n; }
 	void ProcessAction(const QString &action);
 	void ScrollToRow(int row);
 	void ScrollToAndSelectRow(const int row, const bool deselect_others);
 	void SelectAllFilesNTS(const bool flag, QVector<int> &indices);
 	void SelectRowSimple(const int row, const bool deselect_others = false);
+	void ShowVisibleColumnOptions(QPoint pos);
+	
 public slots:
 	bool ScrollToAndSelect(QString full_path);
 	

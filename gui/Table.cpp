@@ -45,12 +45,19 @@ model_(tm)
 	setAlternatingRowColors(false);
 	auto d = static_cast<QAbstractItemDelegate*>(delegate_);
 	setItemDelegate(d);
-	auto *hz = horizontalHeader();
-	hz->setSortIndicatorShown(true);
-	hz->setSectionHidden(int(Column::TimeModified), true);
-	hz->setSortIndicator(int(Column::FileName), Qt::AscendingOrder);
-	connect(hz, &QHeaderView::sortIndicatorChanged, this, &Table::SortingChanged);
-	horizontalHeader()->setSectionsMovable(false);
+	{
+		auto *hz = horizontalHeader();
+		hz->setSortIndicatorShown(true);
+		hz->setSectionHidden(int(Column::TimeModified), true);
+		hz->setSortIndicator(int(Column::FileName), Qt::AscendingOrder);
+		connect(hz, &QHeaderView::sortIndicatorChanged, this, &Table::SortingChanged);
+		hz->setSectionsMovable(false);
+		
+		hz->setContextMenuPolicy(Qt::CustomContextMenu);
+		
+		connect(hz, &QHeaderView::customContextMenuRequested,
+			this, &Table::ShowVisibleColumnOptions);
+	}
 	
 	UpdateLineHeight();
 	
@@ -77,6 +84,20 @@ model_(tm)
 
 Table::~Table() {
 	delete model_;
+}
+
+void
+Table::ApplyPrefs()
+{
+	auto &map = app_->prefs().cols_visibility;
+	auto *hz = horizontalHeader();
+	QMap<i8, bool>::const_iterator i = map.constBegin();
+	
+	while (i != map.constEnd()) {
+		const bool hidden = !i.value();
+		hz->setSectionHidden(i.key(), hidden);
+		++i;
+	}
 }
 
 bool
@@ -818,20 +839,19 @@ QHeaderView::ResizeToContents	3	QHeaderView will automatically resize the sectio
 	hh->setSectionResizeMode(i8(gui::Column::FileName), QHeaderView::Stretch);
 	hh->setSectionResizeMode(i8(gui::Column::Size), QHeaderView::Fixed);
 	hh->setSectionResizeMode(i8(gui::Column::TimeCreated), QHeaderView::Fixed);
+	hh->setSectionResizeMode(i8(gui::Column::TimeModified), QHeaderView::Fixed);
 	
 	QFontMetrics fm = fontMetrics();
 	QString sample_date = QLatin1String("2020-12-01 18:04");
 	
-	//const int w = evt->size().width();
 	const int icon_col_w = fm.boundingRect(QLatin1String("Steam")).width();
 	const int size_col_w = fm.boundingRect(QLatin1String("1023.9 GiB")).width() + 2;
 	const int time_col_w = fm.boundingRect(sample_date).width() + 10;
-	//const int filename_col_w = w - (icon_col_w + size_col_w + time_col_w) - 3;
 	
 	setColumnWidth(i8(gui::Column::Icon), icon_col_w);
-	//setColumnWidth(i8(gui::Column::FileName), filename_col_w);
 	setColumnWidth(i8(gui::Column::Size), size_col_w);
 	setColumnWidth(i8(gui::Column::TimeCreated), time_col_w);
+	setColumnWidth(i8(gui::Column::TimeModified), time_col_w);
 }
 
 void
@@ -909,6 +929,29 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 	}
 	
 	menu->popup(global_pos);
+}
+
+void
+Table::ShowVisibleColumnOptions(QPoint pos)
+{
+	QMenu *menu = new QMenu();
+	auto *hz = horizontalHeader();
+	
+	for (int i = (int)Column::FileName + 1; i < int(Column::Count); i++) {
+		QVariant v = model_->headerData(i, Qt::Horizontal, Qt::DisplayRole);
+		QString name = v.toString();
+		
+		QAction *action = menu->addAction(name);
+		action->setCheckable(true);
+		action->setChecked(!hz->isSectionHidden(i));
+		
+		connect(action, &QAction::triggered, [=] {
+			hz->setSectionHidden(i, !action->isChecked());
+			app_->SavePrefs();
+		});
+	}
+	
+	menu->popup(QCursor::pos());
 }
 
 void

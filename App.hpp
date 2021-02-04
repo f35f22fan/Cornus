@@ -9,6 +9,7 @@
 #include <QIcon>
 #include <QMainWindow>
 #include <QMap>
+#include <QMenu>
 #include <QMimeDatabase>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -77,6 +78,8 @@ public slots:
 private:
 	NO_ASSIGN_COPY_MOVE(App);
 	
+	QMenu* CreateNewMenu();
+	void CopyFileFromTo(const QString &full_path, QString to_dir);
 	void CreateGui();
 	void DisplayMime(io::File *file);
 	void DisplaySymlinkInfo(io::File &file);
@@ -87,6 +90,8 @@ private:
 	void IconByTruncName(io::File &file, const QString &truncated, QIcon **icon = nullptr);
 	void IconByFileName(io::File &file, const QString &filename, QIcon **ret_icon = nullptr);
 	void LoadPrefs();
+	void ProcessAndWriteTo(const QString ext,
+		const QString &from_full_path, QString to_dir);
 	void RegisterShortcuts();
 	void SetDefaultIcon(io::File &file);
 	void SetupEnvSearchPaths();
@@ -131,5 +136,8 @@ private:
 	};
 	
 	Notepad notepad_ = {};
+	QMenu *new_menu_ = nullptr;
+	
+	friend class cornus::gui::Table;
 };
 }

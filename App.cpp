@@ -355,6 +355,84 @@ App::AskCreateNewFile(io::File *file, const QString &title)
 	}
 }
 
+void
+App::CopyFileFromTo(const QString &full_path, QString to_dir)
+{
+	if (!to_dir.endsWith('/'))
+		to_dir.append('/');
+	
+	ByteArray buf;
+	mode_t mode;
+	if (io::ReadFile(full_path, buf, -1, &mode) != io::Err::Ok)
+		return;
+	
+	QStringRef name = io::GetFileNameOfFullPath(full_path);
+	if (name.isEmpty())
+		return;
+	
+	QString new_file_path = to_dir + name;
+	
+	if (io::WriteToFile(new_file_path, buf.data(), buf.size(), &mode) != io::Err::Ok) {
+		mtl_trace("Failed to write data to file");
+	}
+}
+
+QMenu*
+App::CreateNewMenu()
+{
+	if (new_menu_ != nullptr)
+		new_menu_->clear();
+	else
+		new_menu_ = new QMenu(tr("Create &New"), this);
+	
+	QString config_path = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
+	
+	if (!config_path.endsWith('/'))
+		config_path.append('/');
+	
+	QString full_path = config_path.append(QLatin1String("Templates"));
+	
+	QVector<QString> names;
+	io::ListFileNames(full_path, names);
+	
+	std::sort(names.begin(), names.end());
+	
+	QString dir_path = current_dir_;
+	
+	for (const auto &name: names) {
+		QString from_full_path = full_path + '/' + name;
+		
+		QString ext = io::GetFilenameExtension(name).toString();
+		if (ext.isEmpty())
+			continue;
+		
+		if (name.startsWith('{')) {
+			QString trimmed = name.mid(1, name.size() - (ext.size() + 3));
+			QAction *action = new QAction(trimmed + QLatin1String(".."));
+			QIcon *icon = GetIcon(ext);
+			if (icon != nullptr)
+				action->setIcon(*icon);
+			
+			connect(action, &QAction::triggered, [=] {
+				ProcessAndWriteTo(ext, from_full_path, dir_path);
+			});
+			new_menu_->addAction(action);
+		} else {
+			QAction *action = new QAction(name);
+			QIcon *icon = GetIcon(ext);
+			if (icon != nullptr)
+				action->setIcon(*icon);
+			
+			connect(action, &QAction::triggered, [=] {
+				CopyFileFromTo(from_full_path, dir_path);
+			});
+			new_menu_->addAction(action);
+		}
+	}
+	
+	return new_menu_;
+}
+
 void App::CreateGui()
 {
 	toolbar_ = new gui::ToolBar(this);
@@ -808,6 +886,86 @@ void App::OpenTerminal() {
 	QProcess::startDetached(*path, arguments, current_dir_);
 }
 
+void App::ProcessAndWriteTo(const QString ext,
+	const QString &from_full_path, QString to_dir)
+{
+	if (!to_dir.endsWith('/'))
+		to_dir.append('/');
+	
+	ByteArray buf;
+	mode_t mode;
+	if (io::ReadFile(from_full_path, buf, -1, &mode) != io::Err::Ok)
+		return;
+	
+	QString contents = QString::fromLocal8Bit(buf.data(), buf.size());
+	int ln_index = contents.indexOf('\n');
+	if (ln_index == -1)
+		return;
+	
+	QString line = contents.mid(0, ln_index);
+	struct Pair {
+		QString replace_str;
+		QString display_str;
+	};
+	
+	QVector<Pair> pairs;
+	auto args = line.split(',');
+	QString visible;
+	
+	int ni = -1;
+	const int count = args.size();
+	for (auto &next: args) {
+		ni++;
+		QString arg = next.trimmed();
+		
+		int iopen = arg.indexOf('(');
+		if (iopen == -1 || !arg.endsWith(')')) {
+			pairs.append({arg, arg});
+			visible.append(arg);
+		} else {
+			QString _1 = arg.mid(0, iopen);
+			int from = iopen + 1;
+			QString _2 = arg.mid(from, arg.size() - from - 1);
+			pairs.append({_1, _2});
+			visible.append(_2);
+		}
+		
+		if (ni < count - 1)
+			visible.append(',');
+	}
+	
+	contents = contents.mid(ln_index + 1);
+	
+	bool ok;
+	QString input_text = QInputDialog::getText(this, "",
+		visible, QLineEdit::Normal, visible, &ok);
+	input_text = input_text.trimmed();
+	
+	if (!ok || input_text.isEmpty())
+		return;
+	
+	auto list = input_text.split(',');
+	
+	if (list.size() != pairs.size()) {
+		return;
+	}
+	
+	for (int i = 0; i < count; i++) {
+		contents.replace(pairs[i].replace_str, list[i]);
+	}
+	
+	auto ba = contents.toLocal8Bit();
+	
+	QString filename = list[0];
+	if (!ext.isEmpty())
+		filename += '.' + ext;
+	QString new_file_path = to_dir + filename;
+	
+	if (io::WriteToFile(new_file_path, ba.data(), ba.size(), &mode) != io::Err::Ok) {
+		mtl_trace("Failed to write data to file");
+	}
+}
+
 ExecInfo App::QueryExecInfo(io::File &file) {
 	return QueryExecInfo(file.build_full_path(), file.cache().ext.toString());
 }
@@ -842,39 +1000,6 @@ ExecInfo App::QueryExecInfo(const QString &full_path, const QString &ext)
 	return ret;
 }
 
-bool App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
-{
-	// returns true if no more querying is needed
-	
-	if (buf[0] == 0x7F && buf[1] == 'E' && buf[2] == 'L' && buf[3] == 'F') {
-		ret.type |= ExecType::Elf;
-		return true;
-	}
-	
-	if (buf[0] == '#' && buf[1] == '!') {
-		ret.type |= ExecType::Script;
-		QString s = QString::fromLocal8Bit(buf, size);
-		const QString bin = QLatin1String("bin/");
-		int index = s.indexOf(bin);
-		if (index == -1)
-			return true;
-
-		QStringRef ref = s.midRef(index + bin.size());
-		if (ref.startsWith(QLatin1String("sh"))) {
-			ret.type |= ExecType::ScriptSh;
-			return true;
-		} else if (ref.startsWith(QLatin1String("python"))) {
-			ret.type |= ExecType::ScriptPython;
-			return true;
-		} else if (ref.startsWith(QLatin1String("bash"))) {
-			ret.type |= ExecType::ScriptBash;
-			return true;
-		}
-	}
-	
-	return false;
-}
-
 void App::RegisterShortcuts() {
 	auto *shortcut = new QShortcut(QKeySequence(Qt::ALT + Qt::Key_Up), this);
 	shortcut->setContext(Qt::ApplicationShortcut);
@@ -886,6 +1011,7 @@ void App::RegisterShortcuts() {
 	connect(shortcut, &QShortcut::activated, [=] {
 		prefs_.show_hidden_files = !prefs_.show_hidden_files;
 		GoTo({current_dir_, true}, true);
+		SavePrefs();
 	});
 	
 	shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_Q), this);
@@ -1289,6 +1415,39 @@ void App::SwitchExecBitOfSelectedFiles() {
 
 void App::TellUser(const QString &msg, const QString title) {
 	QMessageBox::warning(this, title, msg);
+}
+
+bool App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
+{
+	// returns true if no more querying is needed
+	
+	if (buf[0] == 0x7F && buf[1] == 'E' && buf[2] == 'L' && buf[3] == 'F') {
+		ret.type |= ExecType::Elf;
+		return true;
+	}
+	
+	if (buf[0] == '#' && buf[1] == '!') {
+		ret.type |= ExecType::Script;
+		QString s = QString::fromLocal8Bit(buf, size);
+		const QString bin = QLatin1String("bin/");
+		int index = s.indexOf(bin);
+		if (index == -1)
+			return true;
+
+		QStringRef ref = s.midRef(index + bin.size());
+		if (ref.startsWith(QLatin1String("sh"))) {
+			ret.type |= ExecType::ScriptSh;
+			return true;
+		} else if (ref.startsWith(QLatin1String("python"))) {
+			ret.type |= ExecType::ScriptPython;
+			return true;
+		} else if (ref.startsWith(QLatin1String("bash"))) {
+			ret.type |= ExecType::ScriptBash;
+			return true;
+		}
+	}
+	
+	return false;
 }
 
 bool App::ViewIsAt(const QString &dir_path) const

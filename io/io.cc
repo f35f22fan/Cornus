@@ -177,7 +177,7 @@ ExpandLinksInDirPath(QString &unprocessed_dir_path, QString &processed_dir_path)
 		return true;
 	}
 	
-	auto list = dir_path.splitRef('/', QString::SkipEmptyParts);
+	auto list = dir_path.splitRef('/', Qt::SkipEmptyParts);
 	struct statx stx;
 	const auto flags = AT_SYMLINK_NOFOLLOW;
 	const auto fields = STATX_MODE;//STATX_ALL;
@@ -621,7 +621,7 @@ ReadLinkSimple(const char *file_path, QString &result)
 
 io::Err
 ReadFile(const QString &full_path, cornus::ByteArray &buffer,
-	const i64 read_max)
+	const i64 read_max, mode_t *ret_mode)
 {
 	// This function follows links, it makes no sense not to
 	// because I already show the link target in the table view.
@@ -630,6 +630,9 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	
 	if (stat(path.data(), &st) != 0)
 		return MapPosixError(errno);
+	
+	if (ret_mode != nullptr)
+		*ret_mode = st.st_mode;
 	
 	i64 MAX = (read_max == -1) ? st.st_size :
 		std::min(read_max, st.st_size);
@@ -854,11 +857,12 @@ TryReadFile(const QString &full_path, char *buf, const i64 how_much,
 }
 
 io::Err
-WriteToFile(const QString &full_path, const char *data, const i64 size)
+WriteToFile(const QString &full_path, const char *data, const i64 size,
+	mode_t *custom_mode)
 {
 	auto path = full_path.toLocal8Bit();
 	const int fd = open(path.data(), O_LARGEFILE | O_WRONLY | O_CREAT | O_TRUNC,
-		io::FilePermissions);
+		(custom_mode == nullptr) ? io::FilePermissions : *custom_mode);
 	
 	if (fd == -1)
 		return MapPosixError(errno);

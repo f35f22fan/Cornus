@@ -857,6 +857,10 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 	const int selected_count = GetSelectedFilesCount();
 	App *app = model_->app();
 	QMenu *menu = new QMenu();
+	QMenu *new_menu = app_->CreateNewMenu();
+	if (!new_menu->actions().isEmpty())
+		menu->addMenu(new_menu);
+	
 	QString dir_full_path;
 	{
 		io::File *file = nullptr;

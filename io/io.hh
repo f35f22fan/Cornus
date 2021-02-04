@@ -156,7 +156,7 @@ MapPosixTypeToLocal(const mode_t mode) {
 
 io::Err
 ReadFile(const QString &full_path, cornus::ByteArray &buffer,
-	const i64 read_max = -1);
+	const i64 read_max = -1, mode_t *ret_mode = nullptr);
 
 bool
 ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_dir);
@@ -179,6 +179,7 @@ isize TryReadFile(const QString &full_path, char *buf,
 	const i64 how_much, ExecInfo *info = nullptr);
 
 io::Err
-WriteToFile(const QString &full_path, const char *data, const i64 size);
+WriteToFile(const QString &full_path, const char *data, const i64 size,
+	mode_t *custom_mode = nullptr);
 
 } // cornus::io::::

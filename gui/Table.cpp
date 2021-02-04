@@ -966,7 +966,7 @@ Table::SortingChanged(int logical, Qt::SortOrder order) {
 		files.data.sorting_order = sorder;
 		std::sort(files.data.vec.begin(), files.data.vec.end(), cornus::io::SortFiles);
 	}
-	model_->UpdateRowRange(0, file_count - 1);
+	model_->UpdateVisibleArea();
 }
 
 void

@@ -771,18 +771,16 @@ SortFiles(io::File *a, io::File *b)
 		return false;
 	
 	if (order.column == gui::Column::FileName) {
-		if (a->name_lower() == b->name_lower())
-			return false;
-		
-		bool result = a->name_lower() < b->name_lower();
+		int n = a->name_lower().compare(b->name_lower());
+		bool result = n >= 0 ? false : true;
 		return order.ascending ? result : !result;
 	}
 	
-	const bool by_created = order.column == gui::Column::TimeCreated;
-	if (by_created || order.column == gui::Column::TimeModified)
+	const bool by_created = (order.column == gui::Column::TimeCreated);
+	if (by_created || (order.column == gui::Column::TimeModified))
 	{
 		auto &tc = by_created ? a->time_created() : a->time_modified();
-		auto &tc2 = by_created ? b->time_created() : a->time_modified();
+		auto &tc2 = by_created ? b->time_created() : b->time_modified();
 		
 		if (tc.tv_sec != tc2.tv_sec) {
 			const bool less_sec = (tc.tv_sec < tc2.tv_sec);
@@ -798,10 +796,8 @@ SortFiles(io::File *a, io::File *b)
 	
 	if (order.column == gui::Column::Size) {
 		if (a->size() == b->size()) {
-			if (a->name_lower() == b->name_lower())
-				return false;
-			
-			bool result = a->name_lower() < b->name_lower();
+			int n = a->name_lower().compare(b->name_lower());
+			bool result = n >= 0 ? false : true;
 			return order.ascending ? result : !result;
 		}
 		const bool less_size = a->size() < b->size();
@@ -816,10 +812,8 @@ SortFiles(io::File *a, io::File *b)
 		}
 		// next, order by extension:
 		if (a->cache().ext == b->cache().ext) {
-			if (a->name_lower() == b->name_lower())
-				return false;
-			
-			bool result = a->name_lower() < b->name_lower();
+			int n = a->name_lower().compare(b->name_lower());
+			bool result = n >= 0 ? false : true;
 			return order.ascending ? result : !result;
 		}
 		

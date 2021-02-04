@@ -509,7 +509,8 @@ TableModel::SwitchTo(io::FilesData *new_data)
 	}
 }
 
-void TableModel::UpdateIndices(const QVector<int> &indices)
+void
+TableModel::UpdateIndices(const QVector<int> &indices)
 {
 	if (indices.isEmpty())
 		return;

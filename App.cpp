@@ -502,6 +502,7 @@ void App::DisplayFileContents(const int row, io::File *cloned_file)
 		setWindowTitle(tr("Press Esc to exit or Ctrl+S to save and exit"));
 		toolbar_->setVisible(false);
 		notepad_.stack->setCurrentIndex(notepad_.editor_index);
+		table_->mouse_over_file_name_index(-1);
 	}
 }
 

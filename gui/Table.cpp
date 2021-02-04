@@ -144,11 +144,8 @@ Table::dragEnterEvent(QDragEnterEvent *evt)
 	const QMimeData *mimedata = evt->mimeData();
 	
 	if (mimedata->hasUrls()) {
-		evt->accept();
 		evt->acceptProposedAction();
 	}
-	
-	///QByteArray ba = mimedata->data();
 }
 
 void
@@ -168,7 +165,9 @@ Table::dragMoveEvent(QDragMoveEvent *event)
 void
 Table::dropEvent(QDropEvent *evt)
 {
+mtl_info("Drop function start");
 	if (evt->mimeData()->hasUrls()) {
+mtl_info("Drop proceed");
 		QVector<io::File*> *files_vec = new QVector<io::File*>();
 		
 		for (const QUrl &url: evt->mimeData()->urls())
@@ -196,9 +195,9 @@ Table::dropEvent(QDropEvent *evt)
 			return;
 		}
 		
-		mtl_info("JJJJJJJJJJJJJJJJJJJJ %ld vs %ld",
-			i64(evt->proposedAction()),
-			i64(evt->possibleActions()));
+//		mtl_info("JJJJJJJJJJJJJJJJJJJJ %ld vs %ld",
+//			i64(evt->proposedAction()),
+//			i64(evt->possibleActions()));
 		FinishDropOperation(files_vec, to_dir, evt->proposedAction(),
 			evt->possibleActions());
 	}
@@ -214,7 +213,7 @@ Table::FinishDropOperation(QVector<io::File*> *files_vec,
 	CHECK_PTR_VOID(files_vec);
 	io::socket::MsgType io_operation = io::socket::MsgFlagsFor(drop_action)
 		| io::socket::MsgFlagsForMany(possible_actions);
-	mtl_info("flags: %u", u32(io_operation));
+	//mtl_info("flags: %u", u32(io_operation));
 	auto *ba = new ByteArray();
 	ba->add_msg_type(io_operation);
 	ba->add_string(to_dir->build_full_path());
@@ -523,6 +522,7 @@ Table::mouseMoveEvent(QMouseEvent *evt)
 		auto diff = (evt->pos() - drag_start_pos_).manhattanLength();
 		if (diff >= QApplication::startDragDistance())
 		{
+			drag_start_pos_ = {-1, -1};
 			StartDragOperation();
 		}
 	}
@@ -536,7 +536,6 @@ Table::mouseMoveEvent(QMouseEvent *evt)
 void
 Table::mousePressEvent(QMouseEvent *evt)
 {
-	QTableView::mousePressEvent(evt);
 	mouse_down_ = true;
 	
 	if (evt->button() == Qt::LeftButton) {
@@ -544,6 +543,8 @@ Table::mousePressEvent(QMouseEvent *evt)
 	} else {
 		drag_start_pos_ = {-1, -1};
 	}
+	
+	QTableView::mousePressEvent(evt);
 	
 	QVector<int> indices;
 	HandleMouseSelection(evt, indices);
@@ -558,8 +559,9 @@ Table::mousePressEvent(QMouseEvent *evt)
 void
 Table::mouseReleaseEvent(QMouseEvent *evt)
 {
-	QTableView::mouseReleaseEvent(evt);
+	drag_start_pos_ = {-1, -1};
 	mouse_down_ = false;
+	QTableView::mouseReleaseEvent(evt);
 }
 
 void
@@ -830,11 +832,6 @@ Table::SelectNextRow(const int relative_offset,
 void
 Table::SetCustomResizePolicy() {
 	auto *hh = horizontalHeader();
-/**
-QHeaderView::Interactive	0	The user can resize the section. The section can also be resized programmatically using resizeSection(). The section size defaults to defaultSectionSize. (See also cascadingSectionResizes.)
-QHeaderView::Fixed	2	The user cannot resize the section. The section can only be resized programmatically using resizeSection(). The section size defaults to defaultSectionSize.
-QHeaderView::Stretch	1	QHeaderView will automatically resize the section to fill the available space. The size cannot be changed by the user or programmatically.
-QHeaderView::ResizeToContents	3	QHeaderView will automatically resize the section to its optimal size based on the contents of the entire column or row. The size cannot be changed by the user or programmatically. (This value was introduced in 4.2) */
 	hh->setSectionResizeMode(i8(gui::Column::Icon), QHeaderView::Fixed);
 	hh->setSectionResizeMode(i8(gui::Column::FileName), QHeaderView::Stretch);
 	hh->setSectionResizeMode(i8(gui::Column::Size), QHeaderView::Fixed);
@@ -1008,17 +1005,6 @@ Table::StartDragOperation()
 	drag->setMimeData(mimedata);
 	drag->setPixmap(pixmap);
 	drag->exec(Qt::CopyAction | Qt::MoveAction);
-	
-/** Qt::CopyAction	0x1	Copy the data to the target.
-Qt::MoveAction	0x2	Move the data from the source to the target.
-Qt::LinkAction	0x4	Create a link from the source to the target.
-Qt::ActionMask	0xff	 
-Qt::IgnoreAction	0x0	Ignore the action (do nothing with the data).
-Qt::TargetMoveAction	0x8002	On Windows, this value is used when
- the ownership of the D&D data should be taken over by the target
- application, i.e., the source application should not delete the data.
- On X11 this value is used to do a move. TargetMoveAction is not
- used on the Mac.  */
 }
 
 void

@@ -239,7 +239,7 @@ App::App()
 	SetupEnvSearchPaths();
 	CreateGui();
 	RegisterShortcuts();
-	resize(900, 700);
+	resize(800, 600);
 	table_->setFocus();
 }
 

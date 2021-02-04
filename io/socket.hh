@@ -26,15 +26,12 @@ inline MsgType MsgFlagsFor(const Qt::DropAction action)
 {
 	io::socket::MsgType bits = 0;
 	if (action & Qt::CopyAction) {
-		mtl_info("Copy");
 		bits |= MsgBits::Copy;
 	}
 	if (action & Qt::MoveAction) {
-		mtl_info("Move");
 		bits |= MsgBits::Move | MsgBits::AtomicMove;
 	}
 	if (action & Qt::LinkAction) {
-		mtl_info("Link");
 		bits |= MsgBits::Link;
 	}
 	return bits;
@@ -44,15 +41,12 @@ inline MsgType MsgFlagsForMany(const Qt::DropActions action)
 {
 	io::socket::MsgType bits = 0;
 	if (action & Qt::CopyAction) {
-		mtl_info("Copy");
 		bits |= MsgBits::Copy;
 	}
 	if (action & Qt::MoveAction) {
-		mtl_info("Move");
 		bits |= MsgBits::Move | MsgBits::AtomicMove;
 	}
 	if (action & Qt::LinkAction) {
-		mtl_info("Link");
 		bits |= MsgBits::Link;
 	}
 	return bits;

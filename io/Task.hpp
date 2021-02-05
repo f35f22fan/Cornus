@@ -14,19 +14,45 @@
 
 namespace cornus::io {
 
+enum class Question : i8 {
+	None = 0,
+	FileExists,
+	WriteFailed,
+};
+
+struct TaskQuestion {
+	QString file_path_in_question;
+	QString explanation;
+	FileExistsAnswer file_exists_answer = io::FileExistsAnswer::None;
+	WriteFailedAnswer write_failed_answer = io::WriteFailedAnswer::None;
+	Question question = Question::None;
+};
+
 struct TaskData {
 	TaskState state = TaskState::Pause;
 	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-	ElapsedTimer timer_ = {};
+	ElapsedTimer work_time_recorder_ = {};
+	TaskQuestion task_question_ = {};
+	MutexGuard guard() { return MutexGuard(&mutex); }
 	
-	inline TaskState GetState(i64 *ret_time_worked = nullptr) {
+	inline TaskState GetState(TaskQuestion *question, i64 *ret_time_worked = nullptr) {
 		MutexGuard guard(&mutex);
 		
+		if (state == TaskState::AwatingAnswer && question != nullptr)
+			*question = task_question_;
+		
 		if (ret_time_worked != nullptr)
-			*ret_time_worked = timer_.elapsed_ms();
+			*ret_time_worked = work_time_recorder_.elapsed_ms();
 		
 		return state;
+	}
+	
+	inline i64 GetTimeWorked() {
+		Lock();
+		i64 ret = work_time_recorder_.elapsed_ms();
+		Unlock();
+		return ret;
 	}
 	
 	inline bool Lock() {
@@ -43,7 +69,9 @@ struct TaskData {
 		return status == 0;
 	}
 	
-	bool ChangeState(const TaskState new_state);
+	bool ChangeState(const TaskState new_state,
+		TaskQuestion *task_question = nullptr);
+	
 	bool WaitFor(const TaskState new_state);
 };
 
@@ -129,6 +157,7 @@ private:
 		const mode_t mode, const i64 file_size);
 	i64 CountTotalSize();
 	bool TryAtomicMove();
+	ActUponAnswer DealWithFileExistsAnswer(const i64 file_size);
 	
 	TaskData data_ = {};
 	TaskProgress progress_ = {};
@@ -136,12 +165,6 @@ private:
 	QString to_dir_path_;
 	QVector<QString> file_paths_;
 	struct statx stx_;
-//	struct timespec start, end;
-	//clock_gettime(CLOCK_MONOTONIC_RAW, &start);
-//	//do stuff
-//	clock_gettime(CLOCK_MONOTONIC_RAW, &end);
-	
-//	uint64_t delta_us = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_nsec - start.tv_nsec) / 1000;
 };
 
 }

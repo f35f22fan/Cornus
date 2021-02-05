@@ -5,6 +5,8 @@
 #include "../io/Task.hpp"
 #include "TasksWin.hpp"
 
+#include <QBoxLayout>
+#include <QPushButton>
 #include <QTimer>
 
 namespace cornus::gui {
@@ -19,13 +21,13 @@ TaskGui::TaskGui(io::Task *task): task_(task)
 	pause_icon_ = QIcon::fromTheme(QLatin1String("media-playback-pause"));
 	
 	CreateGui();
-	const auto new_state = io::TaskState::Continue;
-	task_->data().ChangeState(new_state);
 	
 	timer_ = new QTimer(this);
 	connect(timer_, &QTimer::timeout, this,
 		QOverload<>::of(&TaskGui::CheckTaskState));
 	timer_->start(200);
+	
+	auto new_state = task_->data().GetState(nullptr);
 	TaskStateChanged(new_state);
 }
 
@@ -41,7 +43,7 @@ TaskGui::~TaskGui()
 void TaskGui::CheckTaskState()
 {
 	static io::TaskState last_state = io::TaskState::None;
-	const io::TaskState state = task_->data().GetState();
+	const io::TaskState state = task_->data().GetState(&task_question_);
 
 	if (state & (io::TaskState::Finished | io::TaskState::Cancel)) {
 		mtl_info("Finished! Removing task GUI");
@@ -84,18 +86,104 @@ void TaskGui::CheckTaskState()
 			play_pause_btn_->setIcon(continue_icon_);
 			last_state = state;
 		}
+	} else if (state & io::TaskState::AwatingAnswer) {
+		timer_->stop();
+		
+		switch (task_question_.question) {
+		case io::Question::FileExists: {
+			PresentUserFileExistsQuestion();
+			break;
+		}
+		case io::Question::WriteFailed: {
+			mtl_trace();
+			break;
+		}
+		default: {
+			mtl_trace();
+			break;
+		}
+		}
+	} else {
+		mtl_info("state: %u", u16(state));
 	}
+}
+
+QWidget*
+TaskGui::CreateFileExistsPane()
+{
+	QWidget *pane = new QWidget();
+	auto *vert_layout = new QBoxLayout(QBoxLayout::TopToBottom);
+	pane->setLayout(vert_layout);
+	
+	file_exists_list_.line_edit = new QLineEdit();
+	file_exists_list_.line_edit->setReadOnly(true);
+	vert_layout->addWidget(file_exists_list_.line_edit);
+	
+	QBoxLayout *hlayout = new QBoxLayout(QBoxLayout::LeftToRight);
+	vert_layout->addLayout(hlayout);
+	
+	{
+		auto *btn = new QPushButton(tr("Skip"));
+		connect(btn, &QPushButton::clicked, [=] {
+			SendFileExistsAnswer(io::FileExistsAnswer::Skip);
+		});
+		hlayout->addWidget(btn);
+	}
+	
+	{
+		auto *btn = new QPushButton(tr("Skip All"));
+		connect(btn, &QPushButton::clicked, [=] {
+			SendFileExistsAnswer(io::FileExistsAnswer::SkipAll);
+		});
+		hlayout->addWidget(btn);
+	}
+	
+	{
+		auto *btn = new QPushButton(tr("Overwrite"));
+		connect(btn, &QPushButton::clicked, [=] {
+			SendFileExistsAnswer(io::FileExistsAnswer::Overwrite);
+		});
+		hlayout->addWidget(btn);
+	}
+	
+	{
+		auto *btn = new QPushButton(tr("Overwrite All"));
+		connect(btn, &QPushButton::clicked, [=] {
+			SendFileExistsAnswer(io::FileExistsAnswer::OverwriteAll);
+		});
+		hlayout->addWidget(btn);
+	}
+	
+	{
+		auto *btn = new QPushButton(tr("Abort"));
+		connect(btn, &QPushButton::clicked, [=] {
+			SendFileExistsAnswer(io::FileExistsAnswer::Cancel);
+		});
+		hlayout->addWidget(btn);
+	}
+	
+	return pane;
 }
 
 void TaskGui::CreateGui()
 {
 	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-	layout_ = new QBoxLayout(QBoxLayout::LeftToRight);
-	setLayout(layout_);
 	
+	stack_.layout = new QStackedLayout();
+	setLayout(stack_.layout);
+	
+	stack_.progress_index = stack_.layout->addWidget(CreateProgressPane());
+}
+
+QWidget*
+TaskGui::CreateProgressPane()
+{
+	QWidget *pane = new QWidget();
+	QBoxLayout *layout = new QBoxLayout(QBoxLayout::LeftToRight);
+	pane->setLayout(layout);
 	{
 		QBoxLayout *horiz = new QBoxLayout(QBoxLayout::TopToBottom);
-		layout_->addLayout(horiz);
+		layout->addLayout(horiz);
 		
 		progress_bar_ = new QProgressBar();
 		horiz->addWidget(progress_bar_);
@@ -113,7 +201,7 @@ void TaskGui::CreateGui()
 	}
 	
 	{
-		auto state = task_->data().GetState();
+		auto state = task_->data().GetState(&task_question_);
 		QIcon &icon = (state == io::TaskState::Continue) ?
 			pause_icon_ : continue_icon_;
 		play_pause_btn_ = new QToolButton();
@@ -121,7 +209,7 @@ void TaskGui::CreateGui()
 		connect(play_pause_btn_, &QToolButton::clicked, [=] {
 			ProcessAction(actions::IOContinue);
 		});
-		layout_->addWidget(play_pause_btn_);
+		layout->addWidget(play_pause_btn_);
 	}
 	{
 		auto *btn = new QToolButton();
@@ -129,8 +217,10 @@ void TaskGui::CreateGui()
 		connect(btn, &QToolButton::clicked, [=] {
 			ProcessAction(actions::IOCancel);
 		});
-		layout_->addWidget(btn);
+		layout->addWidget(btn);
 	}
+	
+	return pane;
 }
 
 TaskGui*
@@ -143,11 +233,27 @@ TaskGui::From(io::Task *task, TasksWin *tw)
 }
 
 void
+TaskGui::PresentUserFileExistsQuestion()
+{
+	if (stack_.file_exists_index == -1) {
+		stack_.file_exists_index = stack_.layout->addWidget(CreateFileExistsPane());
+	}
+	stack_.layout->setCurrentIndex(stack_.file_exists_index);
+	QString s = task_question_.explanation + QLatin1String(": ") +
+		task_question_.file_path_in_question;
+	
+	file_exists_list_.line_edit->setText(s);
+
+	setFocus();
+	tasks_win_->setVisible(true);
+}
+
+void
 TaskGui::ProcessAction(const QString &action)
 {
 	auto &data = task_->data();
 	if (action == actions::IOContinue) {
-		auto state = data.GetState();
+		auto state = data.GetState(nullptr);
 		io::TaskState new_state;
 		if (state & io::TaskState::Continue) {
 			new_state = io::TaskState::Pause;
@@ -167,6 +273,15 @@ TaskGui::ProcessAction(const QString &action)
 }
 
 QSize TaskGui::minimumSizeHint() const { return sizeHint(); }
+
+void
+TaskGui::SendFileExistsAnswer(const io::FileExistsAnswer answer)
+{
+	auto &data = task_->data();
+	task_question_.file_exists_answer = answer;
+	data.ChangeState(io::TaskState::Answered, &task_question_);
+	timer_->start();
+}
 
 QSize TaskGui::sizeHint() const {
 	int rh = fontMetrics().boundingRect("Aj").height();

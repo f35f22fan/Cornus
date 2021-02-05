@@ -5,6 +5,8 @@
 #include "File.hpp"
 #include "io.hh"
 
+#include <QObject>
+
 #include <sys/sendfile.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -17,24 +19,27 @@
 
 namespace cornus::io {
 
-bool TaskData::ChangeState(const TaskState new_state)
+bool TaskData::ChangeState(const TaskState new_state,
+	TaskQuestion *task_question)
 {
+///mtl_info("TaskData::ChangeState to: %u", u16(new_state));
 	MutexGuard guard(&mutex);
+	if (task_question != nullptr)
+		task_question_ = *task_question;
 	state = new_state;
 	if (new_state & (TaskState::Finished | TaskState::Pause
-		| TaskState::Cancel)) {
-		timer_.Pause();
-	} else if (new_state & TaskState::Continue) {
-		timer_.Continue();
+		| TaskState::Cancel | TaskState::AwatingAnswer)) {
+		work_time_recorder_.Pause();
+	} else if (new_state & (TaskState::Continue | TaskState::Answered)) {
+		work_time_recorder_.Continue();
 	}
 	
-//	mtl_info("Changed state to: %d", i16(state));
 	int status = pthread_cond_broadcast(&cond);
 	if (status != 0) {
 		mtl_status(status);
 		return false;
 	}
-	
+
 	return true;
 }
 
@@ -76,7 +81,7 @@ Task::CopyFiles()
 		CopyFileToDir(path, to_dir_path_);
 	}
 	
-	auto state = data_.GetState();
+	auto state = data_.GetState(nullptr);
 	
 	if (state & TaskState::Cancel) {
 		mtl_trace();
@@ -130,13 +135,13 @@ Task::CopyFileToDir(const QString &file_path, const QString &dir_path)
 			data_.ChangeState(TaskState::Error);
 			return;
 		}
-		auto state = data_.GetState(&time_worked);
+		auto state = data_.GetState(nullptr, &time_worked);
 		progress_.AddProgress(file_size, time_worked);
 		
 		for (const auto &name: names)
 		{
 			CopyFileToDir(file_path + '/' + name, new_dir_path);
-			if (data_.GetState() == TaskState::Error)
+			if (data_.GetState(nullptr) == TaskState::Error)
 				return;
 		}
 	} else if (S_ISREG(mode)) {
@@ -157,7 +162,7 @@ Task::CopyFileToDir(const QString &file_path, const QString &dir_path)
 				data_.ChangeState(TaskState::Error);
 				return;
 			}
-			auto state = data_.GetState(&time_worked);
+			auto state = data_.GetState(nullptr, &time_worked);
 			progress_.AddProgress(file_size, time_worked);
 		}
 	} else {
@@ -178,15 +183,74 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 		data_.ChangeState(TaskState::Error);
 		return;
 	}
+	
 	AutoCloseFd input_ac(input_fd);
 	
 	auto dest_ba = dest_path.toLocal8Bit();
-	const auto WriteFlags = O_CREAT | O_EXCL | O_LARGEFILE | O_NOATIME | O_WRONLY;
-	int output_fd = ::open(dest_ba, WriteFlags, mode);
-	if (output_fd == -1) {
-		mtl_status(errno);
-		data_.ChangeState(TaskState::Error);
-		return;
+	const auto WarnIfExistsFlags = O_CREAT | O_EXCL | O_LARGEFILE | O_NOFOLLOW | O_NOATIME | O_WRONLY;;
+	const auto OverwriteFlags = O_CREAT | O_TRUNC | O_LARGEFILE | O_NOFOLLOW | O_NOATIME | O_WRONLY;
+	auto WriteFlags = WarnIfExistsFlags;
+	int output_fd = -1;
+
+	while (true) {
+		data_.Lock();
+		const auto file_exists_answer = data_.task_question_.file_exists_answer;
+		data_.Unlock();
+
+		switch (file_exists_answer) {
+		case FileExistsAnswer::None: break;
+		case FileExistsAnswer::SkipAll: {
+			mtl_info("Skip All");
+			return;
+		}
+		case FileExistsAnswer::OverwriteAll: {
+			mtl_info("Overwrite All");
+			WriteFlags = OverwriteFlags;
+			break;
+		}
+		case FileExistsAnswer::Overwrite: {
+			mtl_info("Overwrite");
+			data_.Lock();
+			data_.task_question_.file_exists_answer = FileExistsAnswer::None;
+			data_.Unlock();
+			WriteFlags = OverwriteFlags;
+			break;
+		}
+		default: {
+			mtl_trace();
+			return;
+		}
+		} /// switch
+mtl_info();
+		output_fd = ::open(dest_ba, WriteFlags, mode);
+		if (output_fd == -1) {
+			if (errno == EEXIST) {
+mtl_info();
+				TaskQuestion question = {};
+				question.explanation = QObject::tr("File exists");
+				question.file_path_in_question = dest_path;
+				question.question = io::Question::FileExists;
+				data_.ChangeState(TaskState::AwatingAnswer, &question);
+mtl_info();
+				ActUponAnswer aua = DealWithFileExistsAnswer(file_size);
+mtl_info();
+				if (aua == ActUponAnswer::Continue)
+					continue;
+				else if (aua == ActUponAnswer::Return)
+					return;
+				else {
+					mtl_trace();
+					return;
+				}
+				
+			} else {
+				mtl_status(errno);
+				data_.ChangeState(TaskState::Error);
+				return;
+			}
+		} else {
+			break;
+		}
 	}
 	
 	AutoCloseFd output_ac(output_fd);
@@ -214,7 +278,7 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 		}
 		
 		so_far += count;
-		auto state = data_.GetState(&time_worked);
+		auto state = data_.GetState(nullptr, &time_worked);
 		progress_.AddProgress(count, time_worked);
 		
 		if (state & TaskState::Pause) {
@@ -270,6 +334,7 @@ Task::From(cornus::ByteArray &ba)
 void
 Task::StartIO()
 {
+	data_.ChangeState(TaskState::Continue);
 	if (!to_dir_path_.isEmpty() && !to_dir_path_.endsWith('/'))
 		to_dir_path_.append('/');
 	
@@ -306,4 +371,50 @@ Task::TryAtomicMove()
 	return true;
 }
 
+ActUponAnswer
+Task::DealWithFileExistsAnswer(const i64 file_size)
+{
+mtl_info();
+	if (!data_.WaitFor(TaskState::Answered)) {
+mtl_info();
+		data_.ChangeState(TaskState::Error);
+		return ActUponAnswer::Abort;
+	}
+mtl_info();
+	data_.Lock();
+	const auto answer = data_.task_question_.file_exists_answer;
+	data_.Unlock();
+	
+	switch (answer) {
+	case FileExistsAnswer::Overwrite: {
+		
+		return ActUponAnswer::Continue;
+	}
+	case FileExistsAnswer::OverwriteAll: {
+		return ActUponAnswer::Continue;
+	}
+	case FileExistsAnswer::Skip: {
+		i64 time_worked = data_.GetTimeWorked();
+		progress_.AddProgress(file_size, time_worked);
+		data_.Lock();
+		data_.task_question_.file_exists_answer = FileExistsAnswer::None;
+		data_.Unlock();
+		return ActUponAnswer::Return;
+	};
+	case FileExistsAnswer::SkipAll: {
+		i64 time_worked = data_.GetTimeWorked();
+		progress_.AddProgress(file_size, time_worked);
+		return ActUponAnswer::Return;
+	}
+	case FileExistsAnswer::Cancel: {
+		data_.ChangeState(TaskState::Cancel);
+		return ActUponAnswer::Abort;
+	}
+	default: {
+		mtl_trace();
+		return ActUponAnswer::Abort;
+	}
+	}
 }
+
+} // namespace

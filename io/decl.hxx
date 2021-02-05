@@ -12,6 +12,29 @@ namespace cornus::io {
 	class File;
 	class Task;
 	
+	enum class ActUponAnswer: i8 {
+		None = 0,
+		Return,
+		Continue,
+		Abort,
+	};
+	
+	enum class FileExistsAnswer: i8 {
+		None = 0,
+		Overwrite,
+		OverwriteAll,
+		Skip,
+		SkipAll,
+		Cancel
+	};
+	
+	enum class WriteFailedAnswer: i8 {
+		None = 0,
+		Retry,
+		Skip,
+		Cancel,
+	};
+	
 	enum class TaskState: u16 {
 		None = 1u << 0,
 		Continue = 1u << 1,
@@ -19,10 +42,11 @@ namespace cornus::io {
 		Cancel = 1u << 3,
 		Error = 1u << 4,
 		Finished = 1u << 5,
-		QueryFailed = 1u << 6, /// query of this state failed in the parent class
+		AwatingAnswer = 1u << 6,
+		Answered = 1u << 7,
 	};
 	
-	inline TaskState operator|(TaskState a, TaskState b) {
+	inline TaskState operator | (TaskState a, TaskState b) {
 		return static_cast<TaskState>(static_cast<u16>(a) | static_cast<u16>(b));
 	}
 	

@@ -1,7 +1,8 @@
 #pragma once
 
-#include <QBoxLayout>
+#include <QStackedLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QProgressBar>
 #include <QToolButton>
 #include <QWidget>
@@ -27,14 +28,17 @@ public:
 	
 private:
 	TaskGui(io::Task *task);
+	QWidget* CreateFileExistsPane();
 	void CreateGui();
+	QWidget* CreateProgressPane();
+	void PresentUserFileExistsQuestion();
 	void ProcessAction(const QString &action);
+	void SendFileExistsAnswer(const io::FileExistsAnswer answer);
 	void UpdateSpeedLabel();
 	
 	NO_ASSIGN_COPY_MOVE(TaskGui);
 	
 	io::Task *task_ = nullptr;
-	QBoxLayout *layout_ = nullptr;
 	QProgressBar *progress_bar_ = nullptr;
 	TasksWin *tasks_win_ = nullptr;
 	bool made_visible_once_ = false;
@@ -45,5 +49,18 @@ private:
 	QToolButton *cancel_button_ = nullptr;
 	cornus::io::Progress progress_ = {};
 	QIcon continue_icon_, pause_icon_;
+	io::TaskQuestion task_question_ = {};
+	
+	struct Stack {
+		QStackedLayout *layout = nullptr;
+		int progress_index = -1;
+		int file_exists_index = -1;
+		int write_failed_index = -1;
+	} stack_ = {};
+	
+	struct FileExistsList {
+		QLineEdit *line_edit = nullptr;
+	} file_exists_list_ = {};
+	
 };
 }

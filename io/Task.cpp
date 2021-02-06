@@ -91,7 +91,7 @@ Task::CopyFiles()
 }
 
 void
-Task::CopyFileToDir(const QString &file_path, const QString &dir_path)
+Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 {
 	int last_slash_index = file_path.lastIndexOf('/');
 	if (last_slash_index == -1) {
@@ -118,6 +118,10 @@ Task::CopyFileToDir(const QString &file_path, const QString &dir_path)
 	const auto mode = stx_.stx_mode;
 	i64 time_worked = 0;
 	
+	QString new_dir_path = in_dir_path;
+	if (!new_dir_path.endsWith('/'))
+		new_dir_path.append('/');
+	
 	if (S_ISDIR(mode)) {
 		
 		QVector<QString> names;
@@ -126,9 +130,6 @@ Task::CopyFileToDir(const QString &file_path, const QString &dir_path)
 			return;
 		}
 		
-		QString new_dir_path = dir_path;
-		if (!new_dir_path.endsWith('/'))
-			new_dir_path.append('/');
 		new_dir_path.append(file_name);
 		auto dir_ba = new_dir_path.toLocal8Bit();
 		
@@ -148,20 +149,18 @@ Task::CopyFileToDir(const QString &file_path, const QString &dir_path)
 				return;
 		}
 	} else if (S_ISREG(mode)) {
-		CopyRegularFile(file_path, dir_path + file_name, mode, file_size);
+		CopyRegularFile(file_path, new_dir_path + file_name, mode, file_size);
 	} else if (S_ISLNK(mode)) {
 		
 		QString link_target_path;
 		if (ReadLinkSimple(file_ba.data(), link_target_path)) {
 			auto target_path_ba = link_target_path.toLocal8Bit();
-			auto new_file_path = (dir_path + file_name).toLocal8Bit();
+			auto new_file_path = (new_dir_path + file_name).toLocal8Bit();
 			int status = symlink(target_path_ba.data(), new_file_path.data());
 			
 			if (status != 0)
 			{
 				mtl_status(errno);
-				mtl_printq2("target: ", link_target_path);
-				mtl_printq2("new_file: ", (dir_path + file_name));
 				data_.ChangeState(TaskState::Error);
 				return;
 			}

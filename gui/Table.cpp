@@ -916,8 +916,6 @@ Table::SelectFileRangeNTS(const int row1, const int row2, QVector<int> &indices)
 		row_end = row1;
 	}
 	
-///	mtl_warn("row_start: %d, row_end: %d", row_start, row_end);
-	
 	for (int i = row_start; i <= row_end; i++) {
 		vec[i]->selected(true);
 		indices.append(i);

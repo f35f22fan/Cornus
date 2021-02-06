@@ -99,9 +99,9 @@ Task::CopyFileToDir(const QString &file_path, const QString &dir_path)
 		return;
 	}
 	
-	const QStringRef file_name = file_path.midRef(last_slash_index);
+	const QStringRef file_name = file_path.midRef(last_slash_index + 1);
 	/// PROGRESS>>
-	progress_.SetDetails(file_name.mid(1).toString());
+	progress_.SetDetails(file_name.toString());
 	/// PROGRESS<<
 	
 	const auto flags = AT_SYMLINK_NOFOLLOW;
@@ -126,7 +126,10 @@ Task::CopyFileToDir(const QString &file_path, const QString &dir_path)
 			return;
 		}
 		
-		QString new_dir_path = dir_path + file_name;
+		QString new_dir_path = dir_path;
+		if (!new_dir_path.endsWith('/'))
+			new_dir_path.append('/');
+		new_dir_path.append(file_name);
 		auto dir_ba = new_dir_path.toLocal8Bit();
 		
 		int status = mkdir(dir_ba.data(), mode);
@@ -221,19 +224,15 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 			return;
 		}
 		} /// switch
-mtl_info();
 		output_fd = ::open(dest_ba, WriteFlags, mode);
 		if (output_fd == -1) {
 			if (errno == EEXIST) {
-mtl_info();
 				TaskQuestion question = {};
 				question.explanation = QObject::tr("File exists");
 				question.file_path_in_question = dest_path;
 				question.question = io::Question::FileExists;
 				data_.ChangeState(TaskState::AwatingAnswer, &question);
-mtl_info();
 				ActUponAnswer aua = DealWithFileExistsAnswer(file_size);
-mtl_info();
 				if (aua == ActUponAnswer::Continue)
 					continue;
 				else if (aua == ActUponAnswer::Return)

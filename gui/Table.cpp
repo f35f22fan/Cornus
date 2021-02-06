@@ -330,42 +330,180 @@ Table::GetSelectedFilesCount() {
 }
 
 void
-Table::HandleMouseSelection(QMouseEvent *evt, QVector<int> &indices)
+Table::HandleKeySelect(const bool up)
 {
-	auto modif = evt->modifiers();
-	const bool ctrl = modif & Qt::ControlModifier;
-	const bool shift = modif & Qt::ShiftModifier;
-	const bool right_click = evt->button() == Qt::RightButton;
-	
-	io::Files &files = app_->view_files();
+	int row = shift_select_.base_row;
+	if (row == -1)
+		row = GetFirstSelectedFile(nullptr);
+	int scroll_to_row = -1;
+	QVector<int> indices;
 	{
+		io::Files &files = app_->view_files();
 		MutexGuard guard(&files.mutex);
+		SelectAllFilesNTS(false, indices);
+		const int count = files.data.vec.size();
 		
-		if (!ctrl && !right_click) {
-			SelectAllFilesNTS(false, indices);
-		}
-		
-		if (shift) {
-			int row = rowAt(evt->pos().y());
-			SelectFileRangeNTS(shift_select_.starting_row, row, indices);
-			model_->UpdateIndices(indices);
-			
-			return;
-		}
-		
-		io::File *file = nullptr;
-		int row = IsOnFileNameStringNTS(evt->pos(), &file);
-		if (row >= 0) {
-			shift_select_.starting_row = row;
-			shift_select_.do_restart = true;
-			if (ctrl)
-				file->selected(!file->selected());
-			else
+		if (row == -1) {
+			int select_index = up ? 0 : count - 1;
+			if (select_index >= 0) {
+				indices.append(select_index);
+				auto *file = files.data.vec[select_index];
 				file->selected(true);
+				scroll_to_row = select_index;
+			}
+		} else {
+			int new_select = row + (up ? -1 : 1);
+			
+			if (new_select >= 0 && new_select < count) {
+				auto *file = files.data.vec[row];
+				file->selected(false);
+				files.data.vec[new_select]->selected(true);
+				indices.append(new_select);
+				indices.append(row);
+				scroll_to_row = new_select;
+			}
+		}
+	}
+	
+	model_->UpdateIndices(indices);
+	
+	if (scroll_to_row != -1) {
+		ScrollToRow(scroll_to_row);
+	}
+}
+
+void
+Table::HandleKeyShiftSelect(const bool up)
+{
+	int row = GetFirstSelectedFile(nullptr);
+	if (row == -1)
+		return;
+	
+	QVector<int> indices;
+	
+	if (shift_select_.head_row == -1)
+		shift_select_.head_row = shift_select_.base_row;
+	
+	if (shift_select_.base_row == -1) {
+		shift_select_.base_row = row;
+		shift_select_.head_row = row;
+		io::Files &files = app_->view_files();
+		MutexGuard guard(&files.mutex);
+		files.data.vec[row]->selected(true);
+		indices.append(row);
+	} else {
+		if (up) {
+			if (shift_select_.head_row == 0)
+				return;
+			shift_select_.head_row--;
+		} else {
+			const int count = model_->rowCount();
+			if (shift_select_.head_row == count -1)
+				return;
+			shift_select_.head_row++;
+		}
+		{
+			io::Files &files = app_->view_files();
+			MutexGuard guard(&files.mutex);
+			SelectAllFilesNTS(false, indices);
+			SelectFileRangeNTS(shift_select_.base_row, shift_select_.head_row, indices);
+		}
+	}
+	
+	model_->UpdateIndices(indices);
+	
+	if (shift_select_.head_row != -1) {
+		QModelIndex index = model()->index(shift_select_.head_row, 0, QModelIndex());
+		scrollTo(index);
+		///ScrollToRow(shift_select_.head_row);
+	}
+}
+
+void
+Table::HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indices)
+{
+	io::Files &files = app_->view_files();
+	MutexGuard guard(&files.mutex);
+	
+	io::File *file = nullptr;
+	int row = IsOnFileNameStringNTS(pos, &file);
+	
+	if (file == nullptr) {
+		SelectAllFilesNTS(false, indices);
+	} else {
+		if (!file->selected()) {
+			SelectAllFilesNTS(false, indices);
+			file->selected(true);
+			shift_select_.base_row = row;
+			indices.append(row);
+		}
+	}
+}
+
+void
+Table::HandleMouseSelectionCtrl(const QPoint &pos, QVector<int> &indices) {
+	io::Files &files = app_->view_files();
+	MutexGuard guard(&files.mutex);
+	
+	io::File *file = nullptr;
+	int row = IsOnFileNameStringNTS(pos, &file);
+	
+	if (file != nullptr) {
+		file->selected(!file->selected());
+		indices.append(row);
+	}
+}
+
+void
+Table::HandleMouseSelectionShift(const QPoint &pos, QVector<int> &indices)
+{
+	io::Files &files = app_->view_files();
+	MutexGuard guard(&files.mutex);
+	
+	io::File *file = nullptr;
+	int row = IsOnFileNameStringNTS(pos, &file);
+	bool on_file = row != -1;
+	
+	if (on_file) {
+		if (shift_select_.base_row == -1) {
+			shift_select_.base_row = row;
+			file->selected(true);
 			indices.append(row);
 		} else {
-			shift_select_.starting_row = -1;
+			SelectAllFilesNTS(false, indices);
+			SelectFileRangeNTS(shift_select_.base_row, row, indices);
 		}
+	}
+}
+
+void
+Table::HandleMouseSelectionNoModif(const QPoint &pos, QVector<int> &indices,
+	bool mouse_pressed)
+{
+	io::Files &files = app_->view_files();
+	MutexGuard guard(&files.mutex);
+	
+	io::File *file = nullptr;
+	int row = IsOnFileNameStringNTS(pos, &file);
+	bool on_file = row != -1;
+	shift_select_.base_row = row;
+	
+	if (on_file) {
+		if (mouse_pressed) {
+			SelectAllFilesNTS(false, indices);
+			if (file != nullptr && !file->selected()) {
+				file->selected(true);
+				indices.append(row);
+			}
+		} else { // mouse release
+			SelectAllFilesNTS(false, indices);
+			if (file != nullptr) {
+				file->selected(true);
+				indices.append(row);
+			}
+		}
+	} else {
+		SelectAllFilesNTS(false, indices);
 	}
 }
 
@@ -415,19 +553,15 @@ Table::keyPressEvent(QKeyEvent *event)
 			indices.append(row);
 		}
 	} else if (key == Qt::Key_Down) {
-		const bool deselect_all_others = !shift;
-		int row = SelectNextRow(1, deselect_all_others, indices);
-		if (row != -1) {
-			QModelIndex index = model()->index(row, 0, QModelIndex());
-			scrollTo(index);
-		}
+		if (shift)
+			HandleKeyShiftSelect(false);
+		else
+			HandleKeySelect(false);
 	} else if (key == Qt::Key_Up) {
-		const bool deselect_all_others = !shift;
-		int row = SelectNextRow(-1, deselect_all_others, indices);
-		if (row != -1) {
-			QModelIndex index = model()->index(row, 0, QModelIndex());
-			scrollTo(index);
-		}
+		if (shift)
+			HandleKeyShiftSelect(true);
+		else
+			HandleKeySelect(true);
 	} else if (key == Qt::Key_D) {
 		if (any_modifiers)
 			return;
@@ -451,6 +585,13 @@ Table::keyReleaseEvent(QKeyEvent *evt) {
 	if (!shift) {
 		shift_select_ = {};
 	}
+}
+
+void
+Table::leaveEvent(QEvent *evt) {
+	int row = mouse_over_file_name_;
+	mouse_over_file_name_ = -1;
+	model_->UpdateSingleRow(row);
 }
 
 QPair<int, int>
@@ -536,20 +677,35 @@ Table::mouseMoveEvent(QMouseEvent *evt)
 void
 Table::mousePressEvent(QMouseEvent *evt)
 {
+	QTableView::mousePressEvent(evt);
 	mouse_down_ = true;
 	
-	if (evt->button() == Qt::LeftButton) {
+	auto modif = evt->modifiers();
+	const bool ctrl = modif & Qt::ControlModifier;
+	const bool shift = modif & Qt::ShiftModifier;
+	const bool right_click = evt->button() == Qt::RightButton;
+	const bool left_click = evt->button() == Qt::LeftButton;
+	QVector<int> indices;
+	
+	if (left_click) {
+		if (ctrl)
+			HandleMouseSelectionCtrl(evt->pos(), indices);
+		else if (shift)
+			HandleMouseSelectionShift(evt->pos(), indices);
+		else
+			HandleMouseSelectionNoModif(evt->pos(), indices, true);
+	}
+	
+	if (left_click) {
 		drag_start_pos_ = evt->pos();
 	} else {
 		drag_start_pos_ = {-1, -1};
 	}
 	
-	QTableView::mousePressEvent(evt);
-	
-	QVector<int> indices;
-	HandleMouseSelection(evt, indices);
-	
-	if (evt->button() == Qt::RightButton) {
+	if (right_click) {
+		{
+			HandleMouseRightClickSelection(evt->pos(), indices);
+		}
 		ShowRightClickMenu(evt->globalPos(), evt->pos());
 	}
 	
@@ -559,9 +715,18 @@ Table::mousePressEvent(QMouseEvent *evt)
 void
 Table::mouseReleaseEvent(QMouseEvent *evt)
 {
+	QTableView::mouseReleaseEvent(evt);
 	drag_start_pos_ = {-1, -1};
 	mouse_down_ = false;
-	QTableView::mouseReleaseEvent(evt);
+	
+	QVector<int> indices;
+	const bool ctrl = evt->modifiers() & Qt::ControlModifier;
+	const bool shift = evt->modifiers() & Qt::ShiftModifier;
+	
+	if (!ctrl && !shift)
+		HandleMouseSelectionNoModif(evt->pos(), indices, false);
+	
+	model_->UpdateIndices(indices);
 }
 
 void
@@ -666,13 +831,10 @@ Table::ScrollToAndSelect(QString full_path)
 		}
 	}
 	
-	if (row == -1) {
-		mtl_trace();
-		return false;
-	}
-	
+	CHECK_TRUE((row != -1));
 	ScrollToRow(row);
 	SelectRowSimple(row);
+	shift_select_.base_row = row;
 	
 	return true;
 }
@@ -680,24 +842,26 @@ Table::ScrollToAndSelect(QString full_path)
 void
 Table::ScrollToRow(int row) {
 	const int rh = verticalHeader()->defaultSectionSize();
-	int visible_rows = height() / rh;
+	const int header_h = horizontalHeader()->height();
+	int visible_rows = (height() - header_h) / rh;
+	const int diff = height() % rh;
+	if (diff > 0)
+		visible_rows++;
 	const int row_count = model_->rowCount();
-//	mtl_info("row: %d, visible_rows: %d, row_count: %d",
-//		row, visible_rows, row_count);
-	row -= visible_rows / 2;
 	
-	int total = rh * row;
-	if (total < 0)
-		total = 0;
+	int row_at_pixel = rh * row;
+	if (row_at_pixel < 0)
+		row_at_pixel = 0;
 	
-	int max = (row_count - visible_rows) * rh;
+	int max = (rh * row_count) - height() + header_h;
 	if (max < 0) {
 		max = 0;
 		return; // no need to scroll
 	}
+	
 	auto *vs = verticalScrollBar();
 	vs->setMaximum(max);
-	vs->setValue(total);
+	vs->setValue(row_at_pixel);
 }
 
 void
@@ -743,35 +907,6 @@ Table::SelectFileRangeNTS(const int row1, const int row2, QVector<int> &indices)
 		vec[i]->selected(true);
 		indices.append(i);
 	}
-}
-
-void
-Table::SelectRowSimple(const int row, const bool deselect_others)
-{
-	io::Files &files = app_->view_files();
-	QVector<int> indices;
-	{
-		MutexGuard guard(&files.mutex);
-		auto &vec = files.data.vec;
-		
-		if (deselect_others) {
-			int i = 0;
-			for (io::File *next: vec) {
-				if (next->selected()) {
-					next->selected(false);
-					indices.append(i);
-				}
-				i++;
-			}
-		}
-		
-		if (row >= 0 && row < vec.size()) {
-			vec[row]->selected(true);
-			indices.append(row);
-		}
-	}
-	
-	model_->UpdateIndices(indices);
 }
 
 int
@@ -827,6 +962,35 @@ Table::SelectNextRow(const int relative_offset,
 	indices.append(0);
 	
 	return 0;
+}
+
+void
+Table::SelectRowSimple(const int row, const bool deselect_others)
+{
+	io::Files &files = app_->view_files();
+	QVector<int> indices;
+	{
+		MutexGuard guard(&files.mutex);
+		auto &vec = files.data.vec;
+		
+		if (deselect_others) {
+			int i = 0;
+			for (io::File *next: vec) {
+				if (next->selected()) {
+					next->selected(false);
+					indices.append(i);
+				}
+				i++;
+			}
+		}
+		
+		if (row >= 0 && row < vec.size()) {
+			vec[row]->selected(true);
+			indices.append(row);
+		}
+	}
+	
+	model_->UpdateIndices(indices);
 }
 
 void

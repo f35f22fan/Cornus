@@ -53,6 +53,7 @@ protected:
 	
 	virtual void keyPressEvent(QKeyEvent *evt) override;
 	virtual void keyReleaseEvent(QKeyEvent *evt) override;
+	virtual void leaveEvent(QEvent *evt) override;
 	virtual void mouseDoubleClickEvent(QMouseEvent *evt) override;
 	virtual void mouseMoveEvent(QMouseEvent *evt) override;
 	virtual void mousePressEvent(QMouseEvent *evt) override;
@@ -65,7 +66,14 @@ private:
 	void ClearDndAnimation(const QPoint &drop_coord);
 	void FinishDropOperation(QVector<io::File *> *files_vec, io::File *to_dir,
 		Qt::DropAction drop_action, Qt::DropActions possible_actions);
-	void HandleMouseSelection(QMouseEvent *evt, QVector<int> &indices);
+	
+	void HandleKeySelect(const bool up);
+	void HandleKeyShiftSelect(const bool up);
+	void HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indices);
+	void HandleMouseSelectionCtrl(const QPoint &pos, QVector<int> &indices);
+	void HandleMouseSelectionShift(const QPoint &pos, QVector<int> &indices);
+	void HandleMouseSelectionNoModif(const QPoint &pos, QVector<int> &indices, bool mouse_pressed);
+	
 	int IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file = nullptr);
 	QPair<int, int> ListSelectedFiles(QList<QUrl> &list);
 	void SelectFileRangeNTS(const int row_start, const int row_end, QVector<int> &indices);
@@ -83,9 +91,8 @@ private:
 	i32 mouse_over_file_name_ = -1;
 	
 	struct ShiftSelect {
-		int starting_row = -1;
-		bool do_restart = false;
-		
+		int base_row = -1;
+		int head_row = -1;
 	} shift_select_ = {};
 
 	QPoint drop_coord_ = {-1, -1};

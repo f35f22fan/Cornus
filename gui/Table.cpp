@@ -335,14 +335,21 @@ Table::HandleKeySelect(const bool up)
 	int row = shift_select_.base_row;
 	if (row == -1)
 		row = GetFirstSelectedFile(nullptr);
+	
+	if (row == 0 && up)
+		return;
+	
+	if (!up && row == model_->rowCount() - 1)
+		return;
+	
 	int scroll_to_row = -1;
+	
 	QVector<int> indices;
 	{
 		io::Files &files = app_->view_files();
 		MutexGuard guard(&files.mutex);
 		SelectAllFilesNTS(false, indices);
 		const int count = files.data.vec.size();
-		
 		if (row == -1) {
 			int select_index = up ? 0 : count - 1;
 			if (select_index >= 0) {
@@ -840,19 +847,16 @@ Table::ScrollToAndSelect(QString full_path)
 }
 
 void
-Table::ScrollToRow(int row) {
+Table::ScrollToRow(int row)
+{
 	const int rh = verticalHeader()->defaultSectionSize();
 	const int header_h = horizontalHeader()->height();
 	int visible_rows = (height() - header_h) / rh;
 	const int diff = height() % rh;
 	if (diff > 0)
 		visible_rows++;
+	
 	const int row_count = model_->rowCount();
-	
-	int row_at_pixel = rh * row;
-	if (row_at_pixel < 0)
-		row_at_pixel = 0;
-	
 	int max = (rh * row_count) - height() + header_h;
 	if (max < 0) {
 		max = 0;
@@ -861,7 +865,18 @@ Table::ScrollToRow(int row) {
 	
 	auto *vs = verticalScrollBar();
 	vs->setMaximum(max);
-	vs->setValue(row_at_pixel);
+	int row_at_pixel = rh * row;
+	if (row_at_pixel < 0)
+		row_at_pixel = 0;
+	
+	int half_h = (height() - header_h) / 2;
+	
+	if (row_at_pixel - half_h > 0) {
+		row_at_pixel -= half_h;
+		vs->setValue(row_at_pixel);
+	} else {
+		vs->setValue(0);
+	}
 }
 
 void

@@ -32,11 +32,13 @@ struct FilesData {
 	QVector<io::File*> vec;
 	QString processed_dir_path;
 	QString unprocessed_dir_path;
+	QString scroll_to_and_select;
 	SortingOrder sorting_order;
 	i32 dir_id = 0;/// for inotify/epoll
 	bool show_hidden_files = false;
 	bool widgets_created = false;
-	QString scroll_to_and_select;
+	bool thread_must_exit = false;
+	bool thread_exited = false;
 };
 
 struct Files {

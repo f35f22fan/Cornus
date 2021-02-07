@@ -4,7 +4,6 @@
 #include "../io/io.hh"
 
 #include <QCompleter>
-#include <QDirModel>
 #include <functional>
 
 namespace cornus::gui {
@@ -16,7 +15,14 @@ Location::Location(cornus::App *app): app_(app) {
 Location::~Location() {
 }
 
-void Location::HitEnter() {
+void Location::focusInEvent(QFocusEvent *evt)
+{
+	QLineEdit::focusInEvent(evt);
+	fs_model_->setRootPath(text());
+}
+
+void Location::HitEnter()
+{
 	QString str = text();
 	
 	if (str.isEmpty())
@@ -28,13 +34,23 @@ void Location::HitEnter() {
 	}
 }
 
+void Location::SetIncludeHiddenDirs(const bool flag)
+{
+	auto bits = QDir::Dirs | QDir::NoDot | QDir::NoDotDot;
+	if (flag)
+		bits |= QDir::Hidden;
+	
+	fs_model_->setFilter(bits);
+}
+
 void Location::SetLocation(const QString &s) {
 	setText(s);
 }
 
 void Location::Setup() {
 	QCompleter *completer = new QCompleter(this);
-	completer->setModel(new QDirModel(completer));
+	fs_model_ = new QFileSystemModel(completer);
+	completer->setModel(fs_model_);
 	setCompleter(completer);
 
 	completer->setCompletionMode(QCompleter::PopupCompletion);

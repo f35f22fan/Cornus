@@ -28,6 +28,7 @@ struct Prefs {
 	i8 editor_tab_size = 4;
 	bool show_ms_files_loaded = false;
 	bool show_disk_space_free = false;
+	bool show_link_targets = true;
  /// -1 means not explicitly set, -2 hidden:
 	i32 side_pane_width = -1;
 	QMap<i8, bool> cols_visibility;
@@ -96,6 +97,7 @@ private:
 	void SetDefaultIcon(io::File &file);
 	void SetupEnvSearchPaths();
 	void SetupIconNames();
+	void ShutdownLastInotifyThread();
 	
 	gui::Table *table_ = nullptr; // owned by QMainWindow
 	gui::TableModel *table_model_ = nullptr; // owned by table_

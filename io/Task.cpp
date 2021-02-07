@@ -344,7 +344,18 @@ Task::StartIO()
 	}
 	
 	if (ops_ & io::socket::MsgBits::Copy) {
+mtl_info("Copy");
 		CopyFiles();
+	} else if (ops_ & io::socket::MsgBits::Move) {
+mtl_info("Move, trying to do atomic move..");
+		if (TryAtomicMove()) {
+mtl_info("Succeeded.");
+			data().ChangeState(io::TaskState::Finished);
+		} else {
+mtl_info("Failed, doing manual copy/delete");
+			CopyFiles();
+mtl_warn("Delete not implemented");
+		}
 	} else {
 		CopyFiles();
 	}

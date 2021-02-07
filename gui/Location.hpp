@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QFileSystemModel>
 #include <QLineEdit>
 
 #include "../err.hpp"
@@ -14,7 +15,11 @@ public:
 	Location(cornus::App *app);
 	virtual ~Location();
 	
+	void SetIncludeHiddenDirs(const bool flag);
 	void SetLocation(const QString &s);
+	
+protected:
+	virtual void focusInEvent(QFocusEvent *evt) override;
 	
 private:
 	
@@ -22,6 +27,7 @@ private:
 	void Setup();
 	
 	cornus::App *app_ = nullptr;
+	QFileSystemModel *fs_model_ = nullptr;
 };
 
 }

@@ -3,6 +3,7 @@
 #include "../App.hpp"
 #include "../AutoDelete.hh"
 #include "../io/File.hpp"
+#include "Location.hpp"
 #include "../MutexGuard.hpp"
 #include "Table.hpp"
 
@@ -181,9 +182,9 @@ mtl_trace("IN_MOVED_TO: %s, is_dir: %d", ev->name, is_dir);
 			has_been_unmounted_or_deleted = true;
 			break;
 		} else if (mask & IN_CLOSE) {
-//#ifdef DEBUG_INOTIFY
-//mtl_trace("IN_CLOSE: %s", ev->name);
-//#endif
+#ifdef DEBUG_INOTIFY
+///mtl_trace("IN_CLOSE: %s", ev->name);
+#endif
 			int update_index;
 			io::File *found = Find(files_vec, ev->name, is_dir, &update_index);
 			
@@ -243,7 +244,7 @@ void* WatchDir(void *void_args)
 	}
 	
 	struct epoll_event poll_event;
-	const int seconds = 3 * 1000;
+	const int seconds = 1 * 1000;
 	io::Files &files = app->view_files();
 	UpdateTableArgs method_args;
 	method_args.dir_id = args->dir_id;
@@ -253,6 +254,9 @@ void* WatchDir(void *void_args)
 		{
 			MutexGuard guard(&files.mutex);
 			
+			if (files.data.thread_must_exit)
+				break;
+			
 			if (args->dir_id != files.data.dir_id)
 				break;
 		}
@@ -260,6 +264,9 @@ void* WatchDir(void *void_args)
 		int event_count = epoll_wait(epfd, &poll_event, 1, seconds);
 		{
 			MutexGuard guard(&files.mutex);
+			
+			if (files.data.thread_must_exit)
+				break;
 			
 			if (args->dir_id != files.data.dir_id)
 				break;
@@ -289,6 +296,13 @@ void* WatchDir(void *void_args)
 		mtl_status(errno);
 	}
 	
+	if (files.data.thread_must_exit) {
+		files.data.thread_exited = true;
+		int status = pthread_cond_signal(&files.cond);
+		if (status != 0)
+			mtl_status(status);
+	}
+	
 	return nullptr;
 }
 
@@ -301,7 +315,9 @@ TableModel::TableModel(cornus::App *app): app_(app)
 }
 
 TableModel::~TableModel()
-{}
+{
+	
+}
 
 void
 TableModel::DeleteSelectedFiles()
@@ -491,6 +507,8 @@ TableModel::SwitchTo(io::FilesData *new_data)
 		new_data->vec.clear();
 	}
 	endInsertRows();
+	
+	app_->location()->SetIncludeHiddenDirs(new_data->show_hidden_files);
 	
 	WatchArgs *args = new WatchArgs {
 		.dir_id = dir_id,

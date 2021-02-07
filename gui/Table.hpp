@@ -63,10 +63,14 @@ protected:
 private:
 	NO_ASSIGN_COPY_MOVE(Table);
 	
+	void ActionCopy();
+	void ActionCut();
+	void ActionPaste();
 	void ClearDndAnimation(const QPoint &drop_coord);
+	QMimeData* CreateMimeWithSelectedFiles();
 	void FinishDropOperation(QVector<io::File *> *files_vec, io::File *to_dir,
 		Qt::DropAction drop_action, Qt::DropActions possible_actions);
-	
+	ClipboardAction GetClipboardFiles(const QMimeData &mime, QVector<QString> &file_paths);
 	void HandleKeySelect(const bool up);
 	void HandleKeyShiftSelect(const bool up);
 	void HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indices);
@@ -76,6 +80,7 @@ private:
 	
 	int IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file = nullptr);
 	QPair<int, int> ListSelectedFiles(QList<QUrl> &list);
+	
 	void SelectFileRangeNTS(const int row_start, const int row_end, QVector<int> &indices);
 	int SelectNextRow(const int relative_offset, const bool deselect_all_others, QVector<int> &indices); // returns newly selected row
 	void SetCustomResizePolicy();

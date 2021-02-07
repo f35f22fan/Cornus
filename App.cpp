@@ -20,6 +20,7 @@ extern "C" {
 #include "io/io.hh"
 #include "io/File.hpp"
 #include "io/socket.hh"
+#include "gui/actions.hxx"
 #include "gui/Location.hpp"
 #include "gui/SidePane.hpp"
 #include "gui/SidePaneItem.hpp"
@@ -57,6 +58,8 @@ extern "C" {
 #include <QUrl>
 
 namespace cornus {
+
+// #define MISC_DEBUG
 
 void* AutoLoadServerIfNeeded(void *arg)
 {
@@ -149,16 +152,21 @@ void* GoToTh(void *p)
 	{
 		using Clock = std::chrono::steady_clock;
 		new_data->start_time = std::chrono::time_point<Clock>::max();
+#ifdef MISC_DEBUG
 		auto start_time = std::chrono::steady_clock::now();
+#endif
 		int status = pthread_cond_wait(&view_files.cond, &view_files.mutex);
 		if (status != 0) {
 			mtl_status(status);
 			break;
 		}
+#ifdef MISC_DEBUG
 		auto now = std::chrono::steady_clock::now();
 		const float elapsed = std::chrono::duration<float,
 			std::chrono::milliseconds::period>(now - start_time).count();
-		//mtl_info("Waited: %.5f ms", elapsed);
+		
+		mtl_info("Waited for widgets creation: %.1f ms", elapsed);
+#endif
 	}
 	view_files.Unlock();
 	
@@ -245,6 +253,7 @@ App::App()
 
 App::~App()
 {
+	setVisible(false);
 	SavePrefs();
 	
 	QMapIterator<QString, QIcon*> i(icon_set_);
@@ -259,6 +268,7 @@ App::~App()
 		delete item;
 	
 	side_pane_items_.vec.clear();
+	ShutdownLastInotifyThread();
 }
 
 void
@@ -385,6 +395,27 @@ App::CreateNewMenu()
 	else
 		new_menu_ = new QMenu(tr("Create &New"), this);
 	
+	{
+		QAction *action = new_menu_->addAction(tr("Folder"));
+		auto *icon = GetIcon(QLatin1String("special_folder"));
+		if (icon != nullptr)
+			action->setIcon(*icon);
+		connect(action, &QAction::triggered, [=] {
+			table_->ProcessAction(gui::actions::CreateNewFolder);
+		});
+	}
+	
+	{
+		QAction *action = new_menu_->addAction(tr("Text File"));
+		auto *icon = GetIcon(QLatin1String("text"));
+		if (icon != nullptr)
+			action->setIcon(*icon);
+		
+		connect(action, &QAction::triggered, [=] {
+			table_->ProcessAction(gui::actions::CreateNewFile);
+		});
+	}
+	
 	QString config_path = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
 	
 	if (!config_path.endsWith('/'))
@@ -394,8 +425,10 @@ App::CreateNewMenu()
 	
 	QVector<QString> names;
 	io::ListFileNames(full_path, names);
-	
 	std::sort(names.begin(), names.end());
+	
+	if (!names.isEmpty())
+		new_menu_->addSeparator();
 	
 	QString dir_path = current_dir_;
 	
@@ -1048,6 +1081,7 @@ void App::RegisterShortcuts() {
 	
 	connect(shortcut, &QShortcut::activated, [=] {
 		location_->setFocus();
+		location_->selectAll();
 	});
 	
 	shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_A), this);
@@ -1393,6 +1427,34 @@ void App::SetupEnvSearchPaths()
 //		}
 	}
 	
+}
+
+void App::ShutdownLastInotifyThread()
+{
+	auto &files = view_files();
+	files.Lock();
+#ifdef MISC_DEBUG
+	auto start_time = std::chrono::steady_clock::now();
+#endif
+	files.data.thread_must_exit = true;
+	
+	while (!files.data.thread_exited) {
+		int status = pthread_cond_wait(&files.cond, &files.mutex);
+		if (status != 0) {
+			mtl_status(status);
+			break;
+		}
+	}
+	
+	files.Unlock();
+	
+#ifdef MISC_DEBUG
+	auto now = std::chrono::steady_clock::now();
+	const float elapsed = std::chrono::duration<float,
+		std::chrono::milliseconds::period>(now - start_time).count();
+	
+	mtl_info("Waited for thread termination: %.1f ms", elapsed);
+#endif
 }
 
 void App::SwitchExecBitOfSelectedFiles() {

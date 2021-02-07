@@ -15,6 +15,13 @@ class MutexGuard;
 const QString AppIconPath = QLatin1String(":/resources/cornus.webp");
 const char *const SocketPath = "\0cornus_socket";
 
+enum class ClipboardAction: i8 {
+	None,
+	Cut,
+	Copy,
+	Link
+};
+
 enum class PartitionEventType: u8 {
 	None = 0,
 	Mount,

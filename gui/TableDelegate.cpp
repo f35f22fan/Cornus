@@ -24,6 +24,16 @@ private:
 
 namespace cornus::gui {
 
+void ClipboardIcons::init_if_needed() {
+	if (!cut.isNull())
+		return;
+	
+	copy = QIcon::fromTheme(QLatin1String("edit-copy"));
+	cut = QIcon::fromTheme(QLatin1String("edit-cut"));
+	paste = QIcon::fromTheme(QLatin1String("edit-paste"));
+	link = QIcon::fromTheme(QLatin1String("insert-link"));
+}
+
 TableDelegate::TableDelegate(gui::Table *table, App *app): app_(app),
 table_(table)
 {
@@ -155,14 +165,39 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 		auto *app = table_->model()->app();
 		app->LoadIcon(*file);
 		icon = file->cache().icon;
+		
+		if (icon == nullptr)
+			return;
 	}
 	
-	if (icon != nullptr) {
-		QRect tr = fm.boundingRect(text);
-		QRect icon_rect = text_rect;
-		icon_rect.setX(tr.width() + 2);
-		icon_rect.setWidth(icon_rect.width() - tr.width() - 2);
-		icon->paint(painter, icon_rect);
+	const bool transparent = file->action_cut() || file->action_copy() ||
+		file->action_paste();
+	
+	if (transparent)
+		painter->setOpacity(0.5f);
+	
+	QRect tr = fm.boundingRect(text);
+	QRect icon_rect = text_rect;
+	icon_rect.setX(tr.width() + 2);
+	icon_rect.setWidth(icon_rect.width() - tr.width() - 2);
+	icon->paint(painter, icon_rect);
+	
+	if (transparent) {
+		painter->setOpacity(1.0f);
+		clipboard_icons_.init_if_needed();
+		const QIcon *action_icon = nullptr;
+		
+		if (file->action_copy())
+			action_icon = &clipboard_icons_.copy;
+		else if (file->action_cut())
+			action_icon = &clipboard_icons_.cut;
+		else if (file->action_paste())
+			action_icon = &clipboard_icons_.paste;
+		else if (file->action_link())
+			action_icon = &clipboard_icons_.link;
+		
+		if (action_icon != nullptr)
+			action_icon->paint(painter, icon_rect);
 	}
 }
 

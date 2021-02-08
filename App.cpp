@@ -33,7 +33,6 @@ extern "C" {
 
 #include <QApplication>
 #include <QBoxLayout>
-#include <QClipboard>
 #include <QCoreApplication>
 #include <QDesktopServices>
 #include <QDialog>
@@ -249,6 +248,11 @@ App::App()
 	RegisterShortcuts();
 	resize(800, 600);
 	table_->setFocus();
+	
+	auto *clipboard = QGuiApplication::clipboard();
+	connect(clipboard, &QClipboard::changed, this, &App::ClipboardChanged);
+	
+	ClipboardChanged(QClipboard::Clipboard);
 }
 
 App::~App()
@@ -363,6 +367,31 @@ App::AskCreateNewFile(io::File *file, const QString &title)
 	} else {
 		::close(fd);
 	}
+}
+
+void
+App::ClipboardChanged(QClipboard::Mode mode)
+{
+	if (mode != QClipboard::Clipboard)
+		return;
+	
+	const QClipboard *clipboard = QApplication::clipboard();
+	const QMimeData *mime = clipboard->mimeData();
+	 // mimeData can be 0 according to https://bugs.kde.org/show_bug.cgi?id=335053
+	if (!mime) {
+		return;
+	}
+#ifdef DEBUG_CLIPBOARD
+	mtl_info("Clipboard changed");
+#endif
+	io::GetClipboardFiles(*mime, clipboard_);
+	
+	if (!clipboard_.has_files())
+		return;
+	
+	QVector<int> indices;
+	table_->SyncWith(clipboard_, indices);
+	table_model_->UpdateIndices(indices);
 }
 
 void

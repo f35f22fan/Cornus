@@ -80,14 +80,6 @@ Task::CopyFiles()
 	for (const auto &path: file_paths_) {
 		CopyFileToDir(path, to_dir_path_);
 	}
-	
-	auto state = data_.GetState(nullptr);
-	
-	if (state & TaskState::Cancel) {
-		mtl_trace();
-	} else {
-		data_.ChangeState(TaskState::Finished);
-	}
 }
 
 void
@@ -313,6 +305,42 @@ Task::CountTotalSize()
 	return info.size;
 }
 
+void Task::DeleteFile(const QString &full_path, struct statx &stx)
+{
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_SIZE | STATX_MODE;
+	auto ba = full_path.toLocal8Bit();
+	
+	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
+		mtl_warn("%s", strerror(errno));
+		return;
+	}
+	
+	if (S_ISDIR(stx.stx_mode)) {
+		QString dir_path = full_path;
+		if (!dir_path.endsWith('/'))
+			dir_path.append('/');
+		
+		QVector<QString> names;
+		io::ListFileNames(dir_path, names);
+		
+		for (const auto &name: names) {
+			auto fp = dir_path + name;
+			DeleteFile(fp, stx);
+		}
+	}
+	
+	int status = remove(ba.data());
+	if (status != 0)
+		mtl_warn("%s", strerror(errno));
+}
+
+void
+Task::DeleteFiles() {
+	for (const auto &path: file_paths_)
+		DeleteFile(path, stx_);
+}
+
 Task*
 Task::From(cornus::ByteArray &ba)
 {
@@ -344,20 +372,29 @@ Task::StartIO()
 	}
 	
 	if (ops_ & io::socket::MsgBits::Copy) {
-mtl_info("Copy");
+///mtl_info("Copy");
 		CopyFiles();
 	} else if (ops_ & io::socket::MsgBits::Move) {
-mtl_info("Move, trying to do atomic move..");
+///mtl_info("Move, trying to do atomic move..");
 		if (TryAtomicMove()) {
-mtl_info("Succeeded.");
+///mtl_info("Succeeded.");
 			data().ChangeState(io::TaskState::Finished);
 		} else {
-mtl_info("Failed, doing manual copy/delete");
+///mtl_info("Failed, doing manual copy/delete");
 			CopyFiles();
-mtl_warn("Delete not implemented");
+///mtl_warn("Delete not implemented");
+			DeleteFiles();
 		}
 	} else {
 		CopyFiles();
+	}
+	
+	auto state = data_.GetState(nullptr);
+	
+	if (state & TaskState::Cancel) {
+		mtl_trace();
+	} else {
+		data_.ChangeState(TaskState::Finished);
 	}
 }
 

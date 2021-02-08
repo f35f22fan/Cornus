@@ -508,6 +508,8 @@ TableModel::SwitchTo(io::FilesData *new_data)
 	}
 	endInsertRows();
 	
+	QVector<int> indices;
+	app_->table()->SyncWith(app_->clipboard(), indices);
 	app_->location()->SetIncludeHiddenDirs(new_data->show_hidden_files);
 	
 	WatchArgs *args = new WatchArgs {
@@ -525,6 +527,8 @@ TableModel::SwitchTo(io::FilesData *new_data)
 	if (!new_data->scroll_to_and_select.isEmpty()) {
 		app_->table()->ScrollToAndSelect(new_data->scroll_to_and_select);
 	}
+	
+	UpdateIndices(indices);
 }
 
 void

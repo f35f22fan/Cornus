@@ -6,6 +6,7 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QRegularExpression>
 
 #include <algorithm>
 #include <cmath>
@@ -315,6 +316,63 @@ FloatToString(const float number, const int precision)
 		return QString::number(i32(number));
 	
 	return QString::number(number, 'f', precision);
+}
+
+void
+GetClipboardFiles(const QMimeData &mime, cornus::Clipboard &cl)
+{
+	cl.file_paths.clear();
+	const QString nautilus_type = QLatin1String("x-special/nautilus-clipboard");
+	QString text = mime.text();
+	/// Need a regex because Nautilus in KDE inserts 'r' instead of just '\n'
+	QRegularExpression regex("[\r\n]");
+	auto list = text.splitRef(regex, Qt::SkipEmptyParts);
+	const bool is_nautilus = text.startsWith(nautilus_type);
+	
+	if (is_nautilus)
+	{
+#ifdef DEBUG_CLIPBOARD
+mtl_info("Nautilus style clipboard");
+#endif
+		if (list.size() < 3) {
+			cl.action = ClipboardAction::None;
+			return;
+		}
+		
+		for (int i = 2; i < list.size(); i++) {
+			const QString s = list[i].toString();
+			QUrl url(s);
+			if (url.isLocalFile()) {
+				cl.file_paths.append(url.toLocalFile());
+			}
+		}
+		
+		if (list[1] == QLatin1String("cut"))
+			cl.action = ClipboardAction::Cut;
+		else
+			cl.action = ClipboardAction::Copy;
+		return;
+	}
+#ifdef DEBUG_CLIPBOARD
+mtl_info("KDE style clipboard");
+#endif
+	const QByteArray kde_ba = mime.data(KdeCutMime);
+	const bool cut_action = (!kde_ba.isEmpty() && kde_ba.at(0) == QLatin1Char('1'));
+#ifdef DEBUG_CLIPBOARD
+mtl_info("is cut: %s", cut_action ? "true" : "false");
+#endif
+	for (const auto &next: list) {
+		const QString s = next.toString();
+#ifdef DEBUG_CLIPBOARD
+mtl_printq(s);
+#endif
+		QUrl url(s);
+		if (url.isLocalFile()) {
+			cl.file_paths.append(url.toLocalFile());
+		}
+	}
+	
+	cl.action = cut_action ? ClipboardAction::Cut : ClipboardAction::Copy;
 }
 
 QStringRef

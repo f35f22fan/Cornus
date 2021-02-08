@@ -6,6 +6,7 @@
 #include "io/io.hh"
 #include "gui/decl.hxx"
 
+#include <QClipboard>
 #include <QIcon>
 #include <QMainWindow>
 #include <QMap>
@@ -42,6 +43,7 @@ public:
 	virtual ~App();
 	
 	void AskCreateNewFile(io::File *file, const QString &title);
+	const Clipboard& clipboard() { return clipboard_; }
 	const QString& current_dir() const { return current_dir_; }
 	void DisplayFileContents(const int row, io::File *cloned_file = nullptr);
 	void FileDoubleClicked(io::File *file, const gui::Column col);
@@ -79,6 +81,7 @@ public slots:
 private:
 	NO_ASSIGN_COPY_MOVE(App);
 	
+	void ClipboardChanged(QClipboard::Mode mode);
 	QMenu* CreateNewMenu();
 	void CopyFileFromTo(const QString &full_path, QString to_dir);
 	void CreateGui();
@@ -139,6 +142,8 @@ private:
 	
 	Notepad notepad_ = {};
 	QMenu *new_menu_ = nullptr;
+	
+	Clipboard clipboard_ = {};
 	
 	friend class cornus::gui::Table;
 };

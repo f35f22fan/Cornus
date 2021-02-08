@@ -42,6 +42,7 @@ public:
 	void SelectAllFilesNTS(const bool flag, QVector<int> &indices);
 	void SelectRowSimple(const int row, const bool deselect_others = false);
 	void ShowVisibleColumnOptions(QPoint pos);
+	void SyncWith(const cornus::Clipboard &cl, QVector<int> &indices);
 	
 public slots:
 	bool ScrollToAndSelect(QString full_path);
@@ -63,14 +64,14 @@ protected:
 private:
 	NO_ASSIGN_COPY_MOVE(Table);
 	
-	void ActionCopy();
-	void ActionCut();
-	void ActionPaste();
+	void ActionCopy(QVector<int> &indices);
+	void ActionCut(QVector<int> &indices);
+	void ActionPaste(QVector<int> &indices);
 	void ClearDndAnimation(const QPoint &drop_coord);
-	QMimeData* CreateMimeWithSelectedFiles();
+	QMimeData* CreateMimeWithSelectedFiles(const ClipboardAction action,
+		QVector<int> &indices);
 	void FinishDropOperation(QVector<io::File *> *files_vec, io::File *to_dir,
 		Qt::DropAction drop_action, Qt::DropActions possible_actions);
-	ClipboardAction GetClipboardFiles(const QMimeData &mime, QVector<QString> &file_paths);
 	void HandleKeySelect(const bool up);
 	void HandleKeyShiftSelect(const bool up);
 	void HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indices);
@@ -102,7 +103,7 @@ private:
 
 	QPoint drop_coord_ = {-1, -1};
 	QPoint drag_start_pos_ = {-1, -1};
-	
+	QVector<int> indices_;
 };
 
 } // cornus::gui::

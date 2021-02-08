@@ -12,6 +12,15 @@ Q_DECLARE_METATYPE(cornus::io::File*);
 
 namespace cornus::gui {
 
+struct ClipboardIcons {
+	QIcon cut;
+	QIcon copy;
+	QIcon paste;
+	QIcon link;
+	
+	void init_if_needed ();
+};
+
 class TableDelegate: public QStyledItemDelegate {
 public:
 	TableDelegate(gui::Table *table, App *app);
@@ -43,6 +52,8 @@ private:
 	gui::Table *table_ = nullptr;
 	App *app_ = nullptr;
 	Qt::Alignment text_alignment_ = Qt::AlignLeft | Qt::AlignVCenter;
+	
+	mutable ClipboardIcons clipboard_icons_ = {};
 };
 
 }

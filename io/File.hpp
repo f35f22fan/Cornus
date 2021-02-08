@@ -44,13 +44,52 @@ public:
 	bool is_bloc_device() const { return type_ == FileType::BlockDevice; }
 	bool is_char_device() const { return type_ == FileType::CharDevice; }
 	
-	bool selected() const { return bits_ & FileBits::Selected; }
-	void selected(const bool flag) {
-		if (flag)
-			bits_ |= FileBits::Selected;
+	inline void toggle_flag(const FileBits flag, const bool do_add) {
+		if (do_add)
+			bits_ |= flag;
 		else
-			bits_ &= ~FileBits::Selected;
+			bits_ &= ~flag;
 	}
+	
+	const FileBits AllActions = FileBits::ActionCopy | FileBits::ActionCut |
+		FileBits::ActionPaste | FileBits::ActionLink;
+	
+	bool clear_all_actions_if_needed() {
+		/// returns true if anything was cleared for the upstream
+		/// to be able to decide whether it needs to be repainted
+		if ((bits_ & AllActions) != FileBits::Empty) {
+			toggle_flag(AllActions, false);
+			return true;
+		}
+		return false;
+	}
+	
+	bool action_copy() const { return (bits_ & FileBits::ActionCopy) != FileBits::Empty; }
+	void action_copy(const bool add) {
+		toggle_flag(FileBits::ActionCopy, add);
+		toggle_flag(AllActions & ~FileBits::ActionCopy, false);
+	}
+	
+	bool action_cut() const { return (bits_ & FileBits::ActionCut) != FileBits::Empty; }
+	void action_cut(const bool add) {
+		toggle_flag(FileBits::ActionCut, add);
+		toggle_flag(AllActions & ~FileBits::ActionCut, false);
+	}
+	
+	bool action_link() const { return (bits_ & FileBits::ActionLink) != FileBits::Empty; }
+	void action_link(const bool add) {
+		toggle_flag(FileBits::ActionLink, add);
+		toggle_flag(AllActions & ~FileBits::ActionLink, false);
+	}
+	
+	bool action_paste() const { return (bits_ & FileBits::ActionPaste) != FileBits::Empty; }
+	void action_paste(const bool add) {
+		toggle_flag(FileBits::ActionPaste, add);
+		toggle_flag(AllActions & ~FileBits::ActionPaste, false);
+	}
+	
+	bool selected() const { return (bits_ & FileBits::Selected) != FileBits::Empty; }
+	void selected(const bool add) { toggle_flag(FileBits::Selected, add); }
 	
 	LinkTarget *link_target() const { return link_target_; }
 	void link_target(LinkTarget *p) { link_target_ = p; }
@@ -108,7 +147,7 @@ private:
 	struct statx_timestamp time_created_ = {};
 	struct statx_timestamp time_modified_ = {};
 	mode_t mode_;
-	u8 bits_ = 0;
+	io::FileBits bits_ = FileBits::Empty;
 	FileType type_ = FileType::Unknown;
 	
 	friend io::Err io::ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff);

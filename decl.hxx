@@ -3,6 +3,7 @@
 #include "types.hxx"
 #include <sys/stat.h>
 #include <QString>
+#include <QVector>
 #include <QMetaType> /// Q_DECLARE_METATYPE()
 
 namespace cornus {
@@ -12,14 +13,31 @@ class ElapsedTimer;
 class History;
 class MutexGuard;
 
+// #define DEBUG_CLIPBOARD
+
 const QString AppIconPath = QLatin1String(":/resources/cornus.webp");
 const char *const SocketPath = "\0cornus_socket";
+
+enum class FileAs: i8 {
+	URL,
+	FilePath,
+};
 
 enum class ClipboardAction: i8 {
 	None,
 	Cut,
 	Copy,
-	Link
+	Link,
+	Paste,
+};
+
+struct Clipboard {
+	QVector<QString> file_paths;
+	ClipboardAction action = ClipboardAction::None;
+	
+	inline bool has_files() const {
+		return action != ClipboardAction::None && !file_paths.isEmpty();
+	}
 };
 
 enum class PartitionEventType: u8 {

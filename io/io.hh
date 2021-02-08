@@ -18,12 +18,15 @@
 #include <stdlib.h>
 #include <sys/sysmacros.h>
 
+#include <QMetaType> /// Q_DECLARE_METATYPE()
+#include <QMimeData>
 #include <QStringRef>
 #include <QVector>
 
-#include <QMetaType> /// Q_DECLARE_METATYPE()
-
 namespace cornus::io {
+
+static const QString KdeCutMime = QStringLiteral("application/x-kde-cutselection");
+
 struct FilesData {
 	FilesData() {}
 	~FilesData() {}
@@ -124,6 +127,8 @@ FillInStx(io::File &file, const struct statx &st, const QString *name);
 
 QString
 FloatToString(const float number, const int precision);
+
+void GetClipboardFiles(const QMimeData &mime, Clipboard &cl);
 
 QStringRef
 GetFilenameExtension(const QString &name);

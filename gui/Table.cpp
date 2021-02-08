@@ -17,6 +17,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QClipboard>
+#include <QDir>
 #include <QDrag>
 #include <QDragEnterEvent>
 #include <QFormLayout>
@@ -30,13 +31,10 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QPushButton>
-#include <QRegularExpression>
 #include <QScrollBar>
 #include <QUrl>
 
 namespace cornus::gui {
-
-const QString KdeCutMime = QStringLiteral("application/x-kde-cutselection");
 
 Table::Table(TableModel *tm, App *app) : app_(app),
 model_(tm)
@@ -90,47 +88,43 @@ Table::~Table() {
 }
 
 void
-Table::ActionCopy() {
-	auto *mime = CreateMimeWithSelectedFiles();
+Table::ActionCopy(QVector<int> &indices) {
+	auto *mime = CreateMimeWithSelectedFiles(ClipboardAction::Copy, indices);
 	if (mime != nullptr)
 		QApplication::clipboard()->setMimeData(mime);
 }
 
 void
-Table::ActionCut() {
-	auto *mime = CreateMimeWithSelectedFiles();
+Table::ActionCut(QVector<int> &indices) {
+	auto *mime = CreateMimeWithSelectedFiles(ClipboardAction::Cut, indices);
 	
-	if (mime == nullptr) {
-		mtl_trace();
-		return;
+	if (mime != nullptr) {
+		QByteArray ba;
+		char c = '1';
+		ba.append(c);
+		mime->setData(io::KdeCutMime, ba);
+		QApplication::clipboard()->setMimeData(mime);
 	}
-	
-	QByteArray ba;
-	char c = '1';
-	ba.append(c);
-	mime->setData(KdeCutMime, ba);
-	QApplication::clipboard()->setMimeData(mime);
 }
 
 void
-Table::ActionPaste()
+Table::ActionPaste(QVector<int> &indices)
 {
-	const QClipboard *clipboard = QApplication::clipboard();
-	const QMimeData *mime = clipboard->mimeData();
+	const QClipboard *qclipboard = QApplication::clipboard();
+	const QMimeData *mime = qclipboard->mimeData();
 	 // mimeData can be 0 according to https://bugs.kde.org/show_bug.cgi?id=335053
 	if (!mime) {
 		return;
 	}
 	
-	QVector<QString> file_paths;
-	auto cb_action = GetClipboardFiles(*mime, file_paths);
+	cornus::Clipboard clipboard;
+	io::GetClipboardFiles(*mime, clipboard);
 	
-	if (cb_action == ClipboardAction::None || file_paths.isEmpty()) {
+	if (!clipboard.has_files())
 		return;
-	}
 	
 	io::socket::MsgType io_op = 0;
-	if (cb_action == ClipboardAction::Copy)
+	if (clipboard.action == ClipboardAction::Copy)
 		io_op = io::socket::MsgBits::Copy;
 	else
 		io_op = io::socket::MsgBits::Move;
@@ -139,9 +133,9 @@ Table::ActionPaste()
 	ba->add_msg_type(io_op);
 	QString to_dir = app_->current_dir();
 	ba->add_string(to_dir);
-	ba->add_i32(file_paths.size());
+	ba->add_i32(clipboard.file_paths.size());
 	
-	for (const auto &next: file_paths) {
+	for (const auto &next: clipboard.file_paths) {
 		ba->add_string(next);
 	}
 	
@@ -201,10 +195,38 @@ Table::ClearDndAnimation(const QPoint &drop_coord)
 }
 
 QMimeData*
-Table::CreateMimeWithSelectedFiles()
+Table::CreateMimeWithSelectedFiles(const ClipboardAction action,
+	QVector<int> &indices)
 {
 	QList<QUrl> list;
-	ListSelectedFiles(list);
+	{
+		auto &files = app_->view_files();
+		MutexGuard guard(&files.mutex);
+		
+		io::FileBits flag = io::FileBits::Empty;
+		if (action == ClipboardAction::Cut)
+			flag = io::FileBits::ActionCut;
+		else if (action == ClipboardAction::Copy)
+			flag = io::FileBits::ActionCopy;
+		else if (action == ClipboardAction::Paste)
+			flag = io::FileBits::ActionPaste;
+		else if (action == ClipboardAction::Link)
+			flag = io::FileBits::ActionLink;
+		
+		int i = -1;
+		for (io::File *next: files.data.vec) {
+			i++;
+			
+			if (next->selected()) {
+				indices.append(i);
+				next->toggle_flag(flag, true);
+				list.append(QUrl::fromLocalFile(next->build_full_path()));
+			} else {
+				if (next->clear_all_actions_if_needed())
+					indices.append(i);
+			}
+		}
+	}
 	
 	if (list.isEmpty())
 		return nullptr;
@@ -305,46 +327,6 @@ Table::FinishDropOperation(QVector<io::File*> *files_vec,
 	}
 	
 	io::socket::SendAsync(ba);
-}
-
-ClipboardAction
-Table::GetClipboardFiles(const QMimeData &mime, QVector<QString> &file_paths)
-{
-	const QString nautilus_type = QLatin1String("x-special/nautilus-clipboard");
-	QString text = mime.text();
-	/// Need a regex because Nautilus in KDE inserts 'r' instead of just '\n'
-	QRegularExpression regex("[\r\n]");
-	auto list = text.splitRef(regex, Qt::SkipEmptyParts);
-	
-	const bool is_nautilus = text.startsWith(nautilus_type);
-	if (is_nautilus) {
-		
-		if (list.size() < 3) {
-			mtl_trace();
-			return ClipboardAction::None;
-		}
-		
-		for (int i = 2; i < list.size(); i++) {
-			QUrl url(list[i].toString());
-			if (url.isLocalFile()) {
-				file_paths.append(url.toLocalFile());
-			}
-		}
-		
-		return list[1] == QLatin1String("cut") ? ClipboardAction::Cut : ClipboardAction::Copy;
-	}
-	
-	const QByteArray kde_ba = mime.data(KdeCutMime);
-	const bool cut_action = (!kde_ba.isEmpty() && kde_ba.at(0) == QLatin1Char('1'));
-	
-	for (const auto &next: list) {
-		QUrl url(next.toString());
-		if (url.isLocalFile()) {
-			file_paths.append(url.toLocalFile());
-		}
-	}
-	
-	return cut_action ? ClipboardAction::Cut : ClipboardAction::Copy;
 }
 
 io::File*
@@ -624,11 +606,11 @@ Table::HandleMouseSelectionNoModif(const QPoint &pos, QVector<int> &indices,
 				indices.append(row);
 			}
 		} else { // mouse release
-			SelectAllFilesNTS(false, indices);
-			if (file != nullptr) {
-				file->selected(true);
-				indices.append(row);
-			}
+//			SelectAllFilesNTS(false, indices);
+//			if (file != nullptr) {
+//				file->selected(true);
+//				indices.append(row);
+//			}
 		}
 	} else {
 		SelectAllFilesNTS(false, indices);
@@ -671,14 +653,24 @@ Table::keyPressEvent(QKeyEvent *event)
 	const bool shift = (modifiers & Qt::ShiftModifier);
 	QVector<int> indices;
 	
+	if (modifiers & Qt::ControlModifier) {
+		if (key == Qt::Key_C)
+			ActionCopy(indices);
+		else if (key == Qt::Key_X)
+			ActionCut(indices);
+		else if (key == Qt::Key_V) {
+			ActionPaste(indices);
+		}
+	}
+	
 	if (key == Qt::Key_Return) {
-		if (any_modifiers)
-			return;
-		io::File *cloned_file = nullptr;
-		int row = GetFirstSelectedFile(&cloned_file);
-		if (row != -1) {
-			app->FileDoubleClicked(cloned_file, Column::FileName);
-			indices.append(row);
+		if (!any_modifiers) {
+			io::File *cloned_file = nullptr;
+			int row = GetFirstSelectedFile(&cloned_file);
+			if (row != -1) {
+				app->FileDoubleClicked(cloned_file, Column::FileName);
+				indices.append(row);
+			}
 		}
 	} else if (key == Qt::Key_Down) {
 		if (shift)
@@ -703,6 +695,7 @@ Table::keyPressEvent(QKeyEvent *event)
 	} else if (key == Qt::Key_Escape) {
 		app_->HideTextEditor();
 	}
+	
 	model_->UpdateIndices(indices);
 }
 
@@ -1152,8 +1145,8 @@ Table::SetCustomResizePolicy() {
 void
 Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 {
+	indices_.clear();
 	const int selected_count = GetSelectedFilesCount();
-	App *app = model_->app();
 	QMenu *menu = new QMenu();
 	QMenu *new_menu = app_->CreateNewMenu();
 	
@@ -1164,22 +1157,22 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 	if (selected_count > 0)
 	{ // cut copy
 		QAction *action = menu->addAction(tr("Cut"));
-		connect(action, &QAction::triggered, [=] {
-			ActionCut();
+		connect(action, &QAction::triggered, [this] {
+			ActionCut(this->indices_);
 		});
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-cut")));
 		
 		action = menu->addAction(tr("Copy"));
-		connect(action, &QAction::triggered, [=] {
-			ActionCopy();
+		connect(action, &QAction::triggered, [this] {
+			ActionCopy(this->indices_);
 		});
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-copy")));
 	}
 	
 	{ // paste
 		QAction *action = menu->addAction(tr("Paste"));
-		connect(action, &QAction::triggered, [=] {
-			ActionPaste();
+		connect(action, &QAction::triggered, [this] {
+			ActionPaste(this->indices_);
 		});
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-paste")));
 		menu->addSeparator();
@@ -1237,6 +1230,7 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 		action->setIcon(QIcon::fromTheme(QLatin1String("emblem-important")));
 	}
 	
+	model_->UpdateIndices(indices_);
 	menu->popup(global_pos);
 }
 
@@ -1317,6 +1311,70 @@ Table::StartDragOperation()
 	drag->setMimeData(mimedata);
 	drag->setPixmap(pixmap);
 	drag->exec(Qt::CopyAction | Qt::MoveAction);
+}
+
+void
+Table::SyncWith(const cornus::Clipboard &cl, QVector<int> &indices)
+{
+	auto &files = app_->view_files();
+	MutexGuard guard(&files.mutex);
+	
+	QVector<QString> file_paths = cl.file_paths;
+	QString dir_path = files.data.processed_dir_path;
+	
+	for (int i = file_paths.size() - 1; i >= 0; i--)
+	{
+		const QString full_path = QDir::cleanPath(file_paths[i]);
+		auto name = io::GetFileNameOfFullPath(full_path).toString();
+		
+		if (name.isEmpty() || (dir_path + name != full_path)) {
+			file_paths.remove(i);
+			continue;
+		}
+		
+		file_paths[i] = name;
+	}
+	
+	if (file_paths.isEmpty())
+		return;
+	
+	io::FileBits flag = io::FileBits::Empty;
+	if (cl.action == ClipboardAction::Cut) {
+///		mtl_info("Cut");
+		flag = io::FileBits::ActionCut;
+	} else if (cl.action == ClipboardAction::Copy) {
+///		mtl_info("Copy");
+		flag = io::FileBits::ActionCopy;
+	} else if (cl.action == ClipboardAction::Paste) {
+		mtl_info("Paste");
+		flag = io::FileBits::ActionPaste;
+	} else if (cl.action == ClipboardAction::Link) {
+		mtl_info("Link");
+		flag = io::FileBits::ActionLink;
+	}
+	
+	int i = -1;
+	for (io::File *next: files.data.vec)
+	{
+		i++;
+		bool added = false;
+		if (next->clear_all_actions_if_needed()) {
+			indices.append(i);
+			added = true;
+		}
+		
+		const int count = file_paths.size();
+		for (int k = 0; k < count; k++) {
+			if (file_paths[k] == next->name()) {
+				if (!added) {
+					indices.append(i);
+				}
+				next->toggle_flag(flag, true);
+				file_paths.remove(k);
+				break;
+			}
+		}
+	}
 }
 
 void

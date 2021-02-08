@@ -54,9 +54,37 @@ namespace cornus::io {
 		return (static_cast<u16>(a) & static_cast<u16>(b));
 	}
 	
-	namespace FileBits {
-		const u8 Selected = 1u << 0;
+	enum class FileBits: u8 {
+		Empty = 0,
+		Selected = 1u << 0,
+		ActionCut = 1u << 1,
+		ActionCopy = 1u << 2,
+		ActionPaste = 1u << 3,
+		ActionLink = 1u << 4,
+	};
+	
+	inline FileBits operator | (FileBits a, FileBits b) {
+		return static_cast<FileBits>(static_cast<u8>(a) | static_cast<u8>(b));
 	}
+	
+	inline FileBits& operator |= (FileBits &a, const FileBits b) {
+		a = a | b;
+		return a;
+	}
+	
+	inline FileBits operator ~ (FileBits a) {
+		return static_cast<FileBits>(~(static_cast<u8>(a)));
+	}
+	
+	inline FileBits operator & (FileBits a, FileBits b) {
+		return static_cast<FileBits>((static_cast<u8>(a) & static_cast<u8>(b)));
+	}
+	
+	inline FileBits& operator &= (FileBits &a, const FileBits b) {
+		a = a & b;
+		return a;
+	}
+	
 	enum ListOptions: u8 {
 		HiddenFiles = 1u << 0,
 	};

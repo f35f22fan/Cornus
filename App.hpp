@@ -24,18 +24,6 @@ struct DirPath {
 	bool processed = false;
 };
 
-struct Prefs {
-	bool show_hidden_files = false;
-	i8 editor_tab_size = 4;
-	bool show_ms_files_loaded = false;
-	bool show_disk_space_free = false;
-	bool show_link_targets = true;
- /// -1 means not explicitly set, -2 hidden:
-	i32 side_pane_width = -1;
-	QMap<i8, bool> cols_visibility;
-	QList<int> splitter_sizes;
-};
-
 class App : public QMainWindow {
 	Q_OBJECT
 public:
@@ -58,13 +46,13 @@ public:
 	gui::Location* location() { return location_; }
 	QSplitter* main_splitter() const { return main_splitter_; }
 	void OpenTerminal();
-	Prefs& prefs() { return prefs_; }
+	Prefs& prefs() { return *prefs_; }
 	inline ExecInfo QueryExecInfo(io::File &file);
 	ExecInfo QueryExecInfo(const QString &full_path, const QString &ext);
 	void RenameSelectedFile();
 	void RunExecutable(const QString &full_path, const ExecInfo &info);
 	void SaveBookmarks();
-	void SavePrefs();
+	bool ShowInputDialog(const gui::InputDialogParams &params, QString &ret_val);
 	gui::SidePane* side_pane() const { return side_pane_; }
 	gui::SidePaneItems& side_pane_items() const { return side_pane_items_; }
 	gui::SidePaneModel* side_pane_model() const { return side_pane_model_; }
@@ -93,7 +81,6 @@ private:
 	void GoToAndSelect(const QString full_path);
 	void IconByTruncName(io::File &file, const QString &truncated, QIcon **icon = nullptr);
 	void IconByFileName(io::File &file, const QString &filename, QIcon **ret_icon = nullptr);
-	void LoadPrefs();
 	void ProcessAndWriteTo(const QString ext,
 		const QString &from_full_path, QString to_dir);
 	void RegisterShortcuts();
@@ -125,7 +112,7 @@ private:
 	
 	gui::ToolBar *toolbar_ = nullptr;
 	gui::Location *location_ = nullptr;
-	Prefs prefs_ = {};
+	Prefs *prefs_ = nullptr;
 	
 	gui::SidePane *side_pane_ = nullptr;
 	gui::SidePaneModel *side_pane_model_ = nullptr;

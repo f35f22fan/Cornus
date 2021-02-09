@@ -3,11 +3,12 @@
 #include "actions.hxx"
 #include "../App.hpp"
 #include "../AutoDelete.hh"
+#include "CountFolder.hpp"
 #include "../io/io.hh"
 #include "../io/File.hpp"
-#include "../MutexGuard.hpp"
 #include "../io/socket.hh"
-#include "CountFolder.hpp"
+#include "../MutexGuard.hpp"
+#include "../Prefs.hpp"
 #include "TableDelegate.hpp"
 #include "TableModel.hpp"
 
@@ -145,7 +146,7 @@ Table::ActionPaste(QVector<int> &indices)
 void
 Table::ApplyPrefs()
 {
-	auto &map = app_->prefs().cols_visibility;
+	auto &map = app_->prefs().cols_visibility();
 	auto *hz = horizontalHeader();
 	QMap<i8, bool>::const_iterator i = map.constBegin();
 	
@@ -1250,7 +1251,7 @@ Table::ShowVisibleColumnOptions(QPoint pos)
 		
 		connect(action, &QAction::triggered, [=] {
 			hz->setSectionHidden(i, !action->isChecked());
-			app_->SavePrefs();
+			app_->prefs().Save();
 		});
 	}
 	

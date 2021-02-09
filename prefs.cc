@@ -1,6 +1,5 @@
 #include "prefs.hh"
 
-#include <QString>
 #include <QStandardPaths>
 
 #include "io/io.hh"

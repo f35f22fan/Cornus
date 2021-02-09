@@ -12,6 +12,7 @@ class ByteArray;
 class ElapsedTimer;
 class History;
 class MutexGuard;
+class Prefs;
 
 // #define DEBUG_CLIPBOARD
 

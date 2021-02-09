@@ -31,6 +31,7 @@ set(cornus_src_files main.cpp
     History.cpp History.hpp
     MutexGuard.cpp MutexGuard.hpp
     prefs.cc prefs.hh
+    Prefs.cpp Prefs.hpp
     
     gui/actions.hxx
     gui/CountFolder.cpp gui/CountFolder.hpp

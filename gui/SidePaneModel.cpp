@@ -6,6 +6,7 @@
 #include "../io/File.hpp"
 #include "../MutexGuard.hpp"
 #include "../prefs.hh"
+#include "../Prefs.hpp"
 #include "SidePane.hpp"
 #include "SidePaneItem.hpp"
 
@@ -36,7 +37,7 @@ SortSidePanes(SidePaneItem *a, SidePaneItem *b)
 void LoadBookmarks(QVector<SidePaneItem*> &vec)
 {
 	const QString full_path = prefs::QueryAppConfigPath() + '/'
-		+ prefs::BookmarksFileName;
+		+ prefs::BookmarksFileName + QString::number(prefs::BookmarksFormatVersion);
 	
 	ByteArray buf;
 	if (io::ReadFile(full_path, buf) != io::Err::Ok)
@@ -330,7 +331,7 @@ SidePaneModel::InsertFromAnotherThread(cornus::gui::InsertArgs args)
 	static bool set_size = true;
 	
 	if (set_size) {
-		if (app_->prefs().splitter_sizes.size() > 0)
+		if (app_->prefs().splitter_sizes().size() > 0)
 			set_size = false;
 	}
 	
@@ -389,20 +390,26 @@ SidePaneModel::MoveBookmarks(QStringList str_list, const QPoint &pos)
 {
 	if (str_list.isEmpty())
 		return;
-	const int y = pos.y();
+	
 	const int rh = table_->verticalHeader()->defaultSectionSize();
-	int insert_at_row = table_->rowAt(y);
-	
-	if (y % rh >= (rh/2))
-		insert_at_row++;
-	
-	QVector<SidePaneItem*> taken_items;
+	int insert_at_row = table_->rowAt(pos.y());
 	
 	auto &items = app_->side_pane_items();
 	{
 		MutexGuard guard(&items.mutex);
+		auto &vec = items.vec;
+		
+		if (insert_at_row != -1 && insert_at_row < vec.size()) {
+			if (pos.y() % rh >= (rh/2))
+				insert_at_row++;
+		} else {
+			insert_at_row = vec.size();
+		}
+		
+		QVector<SidePaneItem*> taken_items;
+
 		int before_row_count = 0;
-		const int count = items.vec.size();
+		const int count = vec.size();
 		
 		for (int i = count - 1; i >= 0; i--)
 		{
@@ -421,10 +428,10 @@ SidePaneModel::MoveBookmarks(QStringList str_list, const QPoint &pos)
 		}
 		
 		int insert_at = insert_at_row - before_row_count;
-		
 		for (int i = taken_items.size() - 1; i >= 0; i--) {
 			auto *next = taken_items[i];
-			items.vec.insert(insert_at++, next);
+			items.vec.insert(insert_at, next);
+			insert_at++;
 		}
 	}
 	

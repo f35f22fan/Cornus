@@ -2,7 +2,9 @@
 
 #include "../err.hpp"
 
+#include <QIcon>
 #include <QMap>
+#include <QString>
 #include <pthread.h>
 
 namespace cornus::gui {
@@ -21,6 +23,17 @@ class TextEdit;
 class ToolBar;
 
 const int FileNameRelax = 2;
+
+struct InputDialogParams {
+	QSize size = {-1, -1};
+	i32 selection_start = -1;
+	i32 selection_end = -1;
+	QString title;
+	QString msg;
+	QString initial_value;
+	QString placeholder_text;
+	QIcon *icon = nullptr;
+};
 
 enum class HiliteMode: i16 {
 	None = -1,

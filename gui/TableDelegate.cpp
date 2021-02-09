@@ -4,6 +4,7 @@
 #include "../io/io.hh"
 #include "../io/File.hpp"
 #include "../MutexGuard.hpp"
+#include "../Prefs.hpp"
 #include "Table.hpp"
 #include "TableModel.hpp"
 
@@ -80,6 +81,9 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	auto rcopy = text_rect;
 	rcopy.setWidth(rcopy.width() + 300);
 	painter->drawText(text_rect, text_alignment_, file->name(), &rcopy);
+	
+	if (!app_->prefs().show_link_targets())
+		return;
 	
 	if (!file->is_symlink() || (file->link_target() == nullptr))
 		return;

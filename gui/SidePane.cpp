@@ -188,11 +188,11 @@ SidePane::dropEvent(QDropEvent *evt)
 			const int y = evt->pos().y();
 			const int rh = verticalHeader()->defaultSectionSize();
 			row = rowAt(y);
-			if (y % rh >= (rh/2))
-				row++;
-			
-			if (row == -1) {
-				row = items.vec.size() - 1;
+			if (row != -1 && row < items.vec.size()) {
+				if (y % rh > (rh / 2))
+					row++;
+			} else {
+				row = items.vec.size();
 			}
 		}
 		

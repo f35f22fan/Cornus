@@ -16,6 +16,7 @@ extern "C" {
 
 #include "App.hpp"
 #include "AutoDelete.hh"
+#include "Prefs.hpp"
 #include "io/disks.hh"
 #include "io/io.hh"
 #include "io/File.hpp"
@@ -133,7 +134,7 @@ void* GoToTh(void *p)
 	}
 
 	new_data->start_time = std::chrono::steady_clock::now();
-	new_data->show_hidden_files = app->prefs().show_hidden_files;
+	new_data->show_hidden_files = app->prefs().show_hidden_files();
 	if (params->dir_path.processed)
 		new_data->processed_dir_path = params->dir_path.path;
 	else
@@ -240,7 +241,8 @@ App::App()
 		mtl_status(status);
 	
 	setWindowIcon(QIcon(cornus::AppIconPath));
-	LoadPrefs();
+	prefs_ = new Prefs(this);
+	prefs_->Load();
 	GoToInitialDir();
 	SetupIconNames();
 	SetupEnvSearchPaths();
@@ -258,7 +260,7 @@ App::App()
 App::~App()
 {
 	setVisible(false);
-	SavePrefs();
+	prefs_->Save();
 	
 	QMapIterator<QString, QIcon*> i(icon_set_);
 	while (i.hasNext()) {
@@ -273,6 +275,9 @@ App::~App()
 	
 	side_pane_items_.vec.clear();
 	ShutdownLastInotifyThread();
+	
+	delete prefs_;
+	prefs_ = nullptr;
 }
 
 void
@@ -539,8 +544,9 @@ void App::CreateGui()
 		}
 	}
 	
-	if (prefs_.splitter_sizes.size() > 0) {
-		main_splitter_->setSizes(prefs_.splitter_sizes);
+	auto &sizes = prefs_->splitter_sizes();
+	if (sizes.size() > 0) {
+		main_splitter_->setSizes(sizes);
 	} else {
 		main_splitter_->setStretchFactor(0, 0);
 		main_splitter_->setStretchFactor(1, 1);
@@ -841,7 +847,8 @@ void App::HideTextEditor() {
 	notepad_.stack->setCurrentIndex(notepad_.window_index);
 }
 
-void App::IconByTruncName(io::File &file, const QString &truncated, QIcon **ret_icon) {
+void App::IconByTruncName(io::File &file, const QString &truncated,
+	QIcon **ret_icon) {
 	QString real_name = GetIconName(truncated);
 	CHECK_TRUE_VOID((!real_name.isEmpty()));
 	auto *icon = GetOrLoadIcon(real_name);
@@ -851,7 +858,8 @@ void App::IconByTruncName(io::File &file, const QString &truncated, QIcon **ret_
 		*ret_icon = icon;
 }
 
-void App::IconByFileName(io::File &file, const QString &filename, QIcon **ret_icon)
+void App::IconByFileName(io::File &file, const QString &filename,
+	QIcon **ret_icon)
 {
 	auto *icon = GetOrLoadIcon(filename);
 	file.cache().icon = icon;
@@ -902,34 +910,6 @@ void App::LoadIcon(io::File &file)
 	}
 	
 	SetDefaultIcon(file);
-}
-
-void App::LoadPrefs()
-{
-	const QString full_path = prefs::QueryAppConfigPath() + '/'
-		+ prefs::PrefsFileName;
-	
-	ByteArray buf;
-	if (io::ReadFile(full_path, buf) != io::Err::Ok)
-		return;
-	
-	u16 version = buf.next_u16();
-	CHECK_TRUE_VOID((version == prefs::PrefsFormatVersion));
-	const i8 col_start = buf.next_i8();
-	const i8 col_end = buf.next_i8();
-	
-	for (i8 i = col_start; i < col_end; i++) {
-		prefs_.cols_visibility[i] = buf.next_i8() == 1 ? true : false;
-	}
-	
-	prefs_.show_hidden_files = buf.next_i8() == 1 ? true : false;
-	prefs_.editor_tab_size = buf.next_i8();
-	prefs_.show_ms_files_loaded = buf.next_i8() == 1 ? true : false;
-	prefs_.show_disk_space_free = buf.next_i8() == 1 ? true : false;
-	prefs_.side_pane_width = buf.next_i32();
-	
-	prefs_.splitter_sizes.append(buf.next_i32());
-	prefs_.splitter_sizes.append(buf.next_i32());
 }
 
 void App::OpenTerminal() {
@@ -999,13 +979,27 @@ void App::ProcessAndWriteTo(const QString ext,
 	
 	contents = contents.mid(ln_index + 1);
 	
-	bool ok;
-	QString input_text = QInputDialog::getText(this, "",
-		visible, QLineEdit::Normal, visible, &ok);
-	input_text = input_text.trimmed();
+	QString fn = io::GetFileNameOfFullPath(from_full_path).toString();
+	int first = fn.indexOf('{');
+	int last = fn.lastIndexOf('}');
+	if (first != -1 && last != -1) {
+		fn = fn.mid(first + 1, last - first - 1);
+	}
 	
-	if (!ok || input_text.isEmpty())
+	gui::InputDialogParams params = {};
+	params.size = QSize(500, -1);
+	params.title = "";
+	params.msg = fn;
+	//params.initial_value = visible;
+	params.placeholder_text = visible;
+	params.icon = GetIcon(ext);
+	params.selection_start = 0;
+	params.selection_end = visible.size();
+	
+	QString input_text;
+	if (!ShowInputDialog(params, input_text)) {
 		return;
+	}
 	
 	auto list = input_text.split(',');
 	
@@ -1072,9 +1066,9 @@ void App::RegisterShortcuts() {
 	shortcut->setContext(Qt::ApplicationShortcut);
 	
 	connect(shortcut, &QShortcut::activated, [=] {
-		prefs_.show_hidden_files = !prefs_.show_hidden_files;
+		prefs_->show_hidden_files(!prefs_->show_hidden_files());
 		GoTo({current_dir_, true}, true);
-		SavePrefs();
+		prefs_->Save();
 	});
 	
 	shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_Q), this);
@@ -1274,7 +1268,8 @@ void App::SaveBookmarks()
 	QString parent_dir = prefs::QueryAppConfigPath();
 	parent_dir.append('/');
 	CHECK_TRUE_VOID(!parent_dir.isEmpty());
-	const QString full_path = parent_dir + prefs::BookmarksFileName;
+	const QString full_path = parent_dir + prefs::BookmarksFileName +
+		QString::number(prefs::BookmarksFormatVersion);
 	const QByteArray path_ba = full_path.toLocal8Bit();
 	
 	if (!io::FileExists(full_path)) {
@@ -1300,61 +1295,6 @@ void App::SaveBookmarks()
 		buf.add_string(next->mount_path());
 		buf.add_string(next->bookmark_name());
 	}
-	
-	if (io::WriteToFile(full_path, buf.data(), buf.size()) != io::Err::Ok) {
-		mtl_trace("Failed to save bookmarks");
-	}
-}
-
-void App::SavePrefs()
-{
-	QString parent_dir = prefs::QueryAppConfigPath();
-	parent_dir.append('/');
-	CHECK_TRUE_VOID(!parent_dir.isEmpty());
-	const QString full_path = parent_dir + prefs::PrefsFileName;
-	const QByteArray path_ba = full_path.toLocal8Bit();
-	
-	if (!io::FileExists(full_path)) {
-		int fd = open(path_ba.data(), O_RDWR | O_CREAT | O_EXCL, 0664);
-		if (fd == -1) {
-			if (errno == EEXIST) {
-				mtl_warn("File already exists");
-			} else {
-				mtl_warn("Can't create file at: \"%s\", reason: %s",
-					path_ba.data(), strerror(errno));
-			}
-			return;
-		} else {
-			::close(fd);
-		}
-	}
-	
-	ByteArray buf;
-	buf.add_u16(prefs::PrefsFormatVersion);
-	auto *hh = table_->horizontalHeader();
-	const i8 col_start = (int)gui::Column::FileName + 1;
-	const i8 col_end = int(gui::Column::Count);
-	buf.add_i8(col_start);
-	buf.add_i8(col_end);
-	
-	for (i8 i = col_start; i < col_end; i++)
-	{
-		i8 b = hh->isSectionHidden(i) ? 0 : 1;
-		buf.add_i8(b);
-	}
-	
-	i8 n = prefs_.show_hidden_files ? 1 : 0;
-	buf.add_i8(n);
-	buf.add_i8(prefs_.editor_tab_size);
-	n = prefs_.show_ms_files_loaded ? 1 : 0;
-	buf.add_i8(n);
-	n = prefs_.show_disk_space_free ? 1 : 0;
-	buf.add_i8(n);
-	buf.add_i32(prefs_.side_pane_width);
-	
-	QList<int> sizes = main_splitter_->sizes();
-	buf.add_i32(sizes[0]);
-	buf.add_i32(sizes[1]);
 	
 	if (io::WriteToFile(full_path, buf.data(), buf.size()) != io::Err::Ok) {
 		mtl_trace("Failed to save bookmarks");
@@ -1456,6 +1396,59 @@ void App::SetupEnvSearchPaths()
 //		}
 	}
 	
+}
+
+bool App::ShowInputDialog(const gui::InputDialogParams &params,
+	QString &ret_val)
+{
+	QDialog dialog(this);
+	dialog.setWindowTitle(params.title);
+	dialog.setModal(true);
+	QBoxLayout *vert_layout = new QBoxLayout(QBoxLayout::TopToBottom);
+	dialog.setLayout(vert_layout);
+	
+	{ // icon + mime row
+		QBoxLayout *row = new QBoxLayout(QBoxLayout::LeftToRight);
+		
+		if (params.icon != nullptr) {
+			QLabel *icon_label = new QLabel();
+			///LoadIcon(*file);
+			///const QIcon *icon = file->cache().icon;
+			QPixmap pixmap = params.icon->pixmap(QSize(48, 48));
+			icon_label->setPixmap(pixmap);
+			row->addWidget(icon_label);
+		}
+		
+		QLabel *text_label = new QLabel();
+		text_label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+		text_label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+		text_label->setText(params.msg);
+		row->addWidget(text_label, 2);
+		
+		vert_layout->addLayout(row);
+	}
+	
+	QLineEdit *le = new QLineEdit();
+	{ // file name row
+		vert_layout->addWidget(le);
+		le->setText(params.initial_value);
+		le->setPlaceholderText(params.placeholder_text);
+		if (params.selection_start != -1)
+			le->setSelection(params.selection_start, params.selection_end);
+	}
+	
+	{ // ok + cancel buttons row
+		QDialogButtonBox *button_box = new QDialogButtonBox
+			(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+		connect(button_box, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+		connect(button_box, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+		vert_layout->addWidget(button_box);
+	}
+	
+	dialog.resize(params.size);
+	bool ok = dialog.exec();
+	ret_val = le->text();
+	return ok;
 }
 
 void App::ShutdownLastInotifyThread()

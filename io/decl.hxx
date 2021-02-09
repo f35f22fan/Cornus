@@ -107,8 +107,8 @@ namespace cornus::io {
 		inline static FileID New(const struct stat &st) {
 			return io::FileID {
 				.inode_number = st.st_ino,
-				.dev_major = major(st.st_dev),
-				.dev_minor = minor(st.st_dev),
+				.dev_major = gnu_dev_major(st.st_dev),
+				.dev_minor = gnu_dev_minor(st.st_dev),
 			};
 		}
 		

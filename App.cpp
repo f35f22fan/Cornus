@@ -720,7 +720,8 @@ void App::GoToFinish(cornus::io::FilesData *new_data)
 	
 	using Clock = std::chrono::steady_clock;
 	
-	if (new_data->start_time != std::chrono::time_point<Clock>::max())
+	if (prefs_->show_ms_files_loaded() &&
+		(new_data->start_time != std::chrono::time_point<Clock>::max()))
 	{
 		auto now = std::chrono::steady_clock::now();
 		const float elapsed = std::chrono::duration<float,
@@ -1124,6 +1125,10 @@ void App::RegisterShortcuts() {
 	connect(shortcut, &QShortcut::activated, [=] {
 		SwitchExecBitOfSelectedFiles();
 	});
+}
+
+void App::Reload() {
+	GoTo({current_dir_, false}, true);
 }
 
 void App::RenameSelectedFile()

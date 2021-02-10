@@ -11,6 +11,7 @@ namespace cornus::gui {
 class CountFolder;
 class Hiliter;
 class Location;
+class PrefsPane;
 class SidePane;
 class SidePaneItem;
 class SidePaneModel;

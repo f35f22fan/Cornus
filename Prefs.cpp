@@ -39,7 +39,7 @@ void Prefs::Load()
 	splitter_sizes_.append(buf.next_i32());
 }
 
-void Prefs::Save()
+void Prefs::Save() const
 {
 	QString parent_dir = prefs::QueryAppConfigPath();
 	parent_dir.append('/');

@@ -40,6 +40,7 @@ public:
 	void GoHome();
 	bool GoTo(DirPath dir_path, bool reload = false,
 		QString scroll_to_and_select = QString());
+	void Reload();
 	void GoUp();
 	void HideTextEditor();
 	void LoadIcon(io::File &file);

@@ -38,6 +38,7 @@ set(cornus_src_files main.cpp
     gui/decl.hxx
     gui/Hiliter.cpp gui/Hiliter.hpp
     gui/Location.cpp gui/Location.hpp
+    gui/PrefsPane.cpp gui/PrefsPane.hpp
     gui/SidePane.cpp gui/SidePane.hpp
     gui/SidePaneItem.cpp gui/SidePaneItem.hpp
     gui/SidePaneModel.cpp gui/SidePaneModel.hpp

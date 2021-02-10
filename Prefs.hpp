@@ -19,8 +19,10 @@ public:
 	Prefs(App *app);
 	virtual ~Prefs();
 	
+	Prefs Defaults() const { return Prefs(app_); }
+	
 	void Load();
-	void Save();
+	void Save() const;
 	
 	inline void toggle_bool(const bool b, const u64 flag) {
 		if (b)
@@ -43,8 +45,9 @@ public:
 	
 	const QList<int>& splitter_sizes() const { return splitter_sizes_; }
 	QMap<i8, bool>& cols_visibility() { return cols_visibility_; }
+	
 private:
-	u64 bool_ = 0;
+	u64 bool_ = prefs::ShowLinkTargets;
 
 	i8 editor_tab_size_ = 4;
 /// -1 means not explicitly set, -2 hidden:

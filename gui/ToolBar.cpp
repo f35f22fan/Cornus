@@ -3,6 +3,7 @@
 #include "../App.hpp"
 #include "actions.hxx"
 #include "Location.hpp"
+#include "PrefsPane.hpp"
 
 #include <QBoxLayout>
 #include <QDialog>
@@ -57,7 +58,10 @@ void ToolBar::CreateGui()
 	QMenu *prefs_menu = new QMenu(prefs_menu_btn);
 	prefs_menu_btn->setMenu(prefs_menu);
 	
+	Add(prefs_menu, QLatin1String("preferences-other"), tr("Preferences.."),
+		actions::Preferences);
 	Add(prefs_menu, QLatin1String("help-about"), tr("About"), actions::AboutThisApp);
+	
 }
 
 void ToolBar::ProcessAction(const QString &action)
@@ -70,6 +74,8 @@ void ToolBar::ProcessAction(const QString &action)
 		app_->GoBack();
 	} else if (action == actions::AboutThisApp) {
 		ShowAboutThisAppDialog();
+	} else if (action == actions::Preferences) {
+		gui::PrefsPane pp(app_);
 	}
 }
 

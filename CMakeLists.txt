@@ -25,6 +25,7 @@ set(cornus_src_files main.cpp
     App.cpp App.hpp
     AutoDelete.hh
     ByteArray.cpp ByteArray.hpp
+    defines.hxx
     decl.hxx
     ElapsedTimer.cpp ElapsedTimer.hpp
     err.hpp
@@ -63,6 +64,7 @@ endforeach()
 
 set(cornus_io_src_files main_io.cpp
     AutoDelete.hh
+    defines.hxx
     err.hpp
     ByteArray.cpp ByteArray.hpp
     ElapsedTimer.cpp ElapsedTimer.hpp

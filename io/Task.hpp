@@ -10,8 +10,6 @@
 #include <pthread.h>
 #include <QElapsedTimer>
 
-//#define CORNUS_THROTTLE_IO
-
 namespace cornus::io {
 
 enum class Question : i8 {
@@ -160,6 +158,7 @@ private:
 	void DeleteFiles();
 	bool TryAtomicMove();
 	ActUponAnswer DealWithFileExistsAnswer(const i64 file_size);
+	ActUponAnswer DealWithWriteFailedAnswer(const i64 file_size);
 	
 	TaskData data_ = {};
 	TaskProgress progress_ = {};

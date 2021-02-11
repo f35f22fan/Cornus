@@ -33,7 +33,7 @@ TaskGui::TaskGui(io::Task *task): task_(task)
 
 TaskGui::~TaskGui()
 {
-	if (task_->data().WaitFor(io::TaskState::Finished | io::TaskState::Cancel)) {
+	if (task_->data().WaitFor(io::TaskState::Finished | io::TaskState::Abort)) {
 		delete task_;
 	} else {
 		mtl_trace();
@@ -45,7 +45,7 @@ void TaskGui::CheckTaskState()
 	static io::TaskState last_state = io::TaskState::None;
 	const io::TaskState state = task_->data().GetState(&task_question_);
 
-	if (state & (io::TaskState::Finished | io::TaskState::Cancel)) {
+	if (state & (io::TaskState::Finished | io::TaskState::Abort)) {
 		mtl_info("Finished! Removing task GUI");
 		tasks_win_->TaskDone(this, state);
 		return;
@@ -95,7 +95,7 @@ void TaskGui::CheckTaskState()
 			break;
 		}
 		case io::Question::WriteFailed: {
-			mtl_trace();
+			PresentUserWriteFailedQuestion();
 			break;
 		}
 		default: {
@@ -157,7 +157,7 @@ TaskGui::CreateFileExistsPane()
 	{
 		auto *btn = new QPushButton(tr("Abort"));
 		connect(btn, &QPushButton::clicked, [=] {
-			SendFileExistsAnswer(io::FileExistsAnswer::Cancel);
+			SendFileExistsAnswer(io::FileExistsAnswer::Abort);
 		});
 		hlayout->addWidget(btn);
 	}
@@ -223,6 +223,55 @@ TaskGui::CreateProgressPane()
 	return pane;
 }
 
+QWidget*
+TaskGui::CreateWriteFailedPane()
+{
+	QWidget *pane = new QWidget();
+	auto *vert_layout = new QBoxLayout(QBoxLayout::TopToBottom);
+	pane->setLayout(vert_layout);
+	
+	write_failed_list_.line_edit = new QLineEdit();
+	write_failed_list_.line_edit->setReadOnly(true);
+	vert_layout->addWidget(write_failed_list_.line_edit);
+	
+	QBoxLayout *hlayout = new QBoxLayout(QBoxLayout::LeftToRight);
+	vert_layout->addLayout(hlayout);
+	
+	{
+		auto *btn = new QPushButton(tr("Skip"));
+		connect(btn, &QPushButton::clicked, [=] {
+			SendWriteFailedAnswer(io::WriteFailedAnswer::Skip);
+		});
+		hlayout->addWidget(btn);
+	}
+	
+	{
+		auto *btn = new QPushButton(tr("Skip All"));
+		connect(btn, &QPushButton::clicked, [=] {
+			SendWriteFailedAnswer(io::WriteFailedAnswer::SkipAll);
+		});
+		hlayout->addWidget(btn);
+	}
+	
+	{
+		auto *btn = new QPushButton(tr("Retry"));
+		connect(btn, &QPushButton::clicked, [=] {
+			SendWriteFailedAnswer(io::WriteFailedAnswer::Retry);
+		});
+		hlayout->addWidget(btn);
+	}
+	
+	{
+		auto *btn = new QPushButton(tr("Abort"));
+		connect(btn, &QPushButton::clicked, [=] {
+			SendWriteFailedAnswer(io::WriteFailedAnswer::Abort);
+		});
+		hlayout->addWidget(btn);
+	}
+	
+	return pane;
+}
+
 TaskGui*
 TaskGui::From(io::Task *task, TasksWin *tw)
 {
@@ -249,6 +298,22 @@ TaskGui::PresentUserFileExistsQuestion()
 }
 
 void
+TaskGui::PresentUserWriteFailedQuestion()
+{
+	if (stack_.write_failed_index == -1) {
+		stack_.write_failed_index = stack_.layout->addWidget(CreateWriteFailedPane());
+	}
+	stack_.layout->setCurrentIndex(stack_.write_failed_index);
+	QString s = task_question_.explanation + QLatin1String(": ") +
+		task_question_.file_path_in_question;
+	
+	write_failed_list_.line_edit->setText(s);
+
+	setFocus();
+	tasks_win_->setVisible(true);
+}
+
+void
 TaskGui::ProcessAction(const QString &action)
 {
 	auto &data = task_->data();
@@ -266,8 +331,7 @@ TaskGui::ProcessAction(const QString &action)
 		TaskStateChanged(new_state);
 		
 	} else if (action == actions::IOCancel) {
-		const auto new_state = io::TaskState::Cancel;
-		data.ChangeState(new_state);
+		data.ChangeState(io::TaskState::Abort);
 		timer_->start();
 	}
 }
@@ -279,6 +343,15 @@ TaskGui::SendFileExistsAnswer(const io::FileExistsAnswer answer)
 {
 	auto &data = task_->data();
 	task_question_.file_exists_answer = answer;
+	data.ChangeState(io::TaskState::Answered, &task_question_);
+	timer_->start();
+}
+
+void
+TaskGui::SendWriteFailedAnswer(const io::WriteFailedAnswer answer)
+{
+	auto &data = task_->data();
+	task_question_.write_failed_answer = answer;
 	data.ChangeState(io::TaskState::Answered, &task_question_);
 	timer_->start();
 }

@@ -14,8 +14,8 @@ namespace cornus::io {
 	
 	enum class ActUponAnswer: i8 {
 		None = 0,
-		Return,
-		Continue,
+		Skip,
+		Retry,
 		Abort,
 	};
 	
@@ -25,21 +25,22 @@ namespace cornus::io {
 		OverwriteAll,
 		Skip,
 		SkipAll,
-		Cancel
+		Abort
 	};
 	
 	enum class WriteFailedAnswer: i8 {
 		None = 0,
 		Retry,
 		Skip,
-		Cancel,
+		SkipAll,
+		Abort,
 	};
 	
 	enum class TaskState: u16 {
 		None = 1u << 0,
 		Continue = 1u << 1,
 		Pause = 1u << 2,
-		Cancel = 1u << 3,
+		Abort = 1u << 3,
 		Error = 1u << 4,
 		Finished = 1u << 5,
 		AwatingAnswer = 1u << 6,

@@ -3,6 +3,7 @@
 #include "../App.hpp"
 #include "../AutoDelete.hh"
 #include "../ByteArray.hpp"
+#include "../defines.hxx"
 #include "../io/File.hpp"
 #include "../MutexGuard.hpp"
 #include "../prefs.hh"
@@ -15,8 +16,6 @@
 #include <QScrollBar>
 #include <QHeaderView>
 #include <QTime>
-
-//#define DEBUG_INOTIFY
 
 namespace cornus::gui {
 namespace sidepane {

@@ -2,6 +2,7 @@
 
 #include "../AutoDelete.hh"
 #include "../ByteArray.hpp"
+#include "../defines.hxx"
 #include "File.hpp"
 #include "io.hh"
 
@@ -28,7 +29,7 @@ bool TaskData::ChangeState(const TaskState new_state,
 		task_question_ = *task_question;
 	state = new_state;
 	if (new_state & (TaskState::Finished | TaskState::Pause
-		| TaskState::Cancel | TaskState::AwatingAnswer)) {
+		| TaskState::Abort | TaskState::AwatingAnswer)) {
 		work_time_recorder_.Pause();
 	} else if (new_state & (TaskState::Continue | TaskState::Answered)) {
 		work_time_recorder_.Continue();
@@ -189,19 +190,11 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 	while (true) {
 		data_.Lock();
 		const auto file_exists_answer = data_.task_question_.file_exists_answer;
+		const auto write_failed_answer = data_.task_question_.write_failed_answer;
 		data_.Unlock();
-
+		
 		switch (file_exists_answer) {
 		case FileExistsAnswer::None: break;
-		case FileExistsAnswer::SkipAll: {
-			mtl_info("Skip All");
-			return;
-		}
-		case FileExistsAnswer::OverwriteAll: {
-			mtl_info("Overwrite All");
-			WriteFlags = OverwriteFlags;
-			break;
-		}
 		case FileExistsAnswer::Overwrite: {
 			mtl_info("Overwrite");
 			data_.Lock();
@@ -210,32 +203,59 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 			WriteFlags = OverwriteFlags;
 			break;
 		}
+		case FileExistsAnswer::OverwriteAll: {
+			mtl_info("Overwrite All");
+			WriteFlags = OverwriteFlags;
+			break;
+		}
 		default: {
 			mtl_trace();
-			return;
 		}
-		} /// switch
+		} /// switch()
+
 		output_fd = ::open(dest_ba, WriteFlags, mode);
 		if (output_fd == -1) {
 			if (errno == EEXIST) {
+				if (file_exists_answer == FileExistsAnswer::SkipAll) {
+					mtl_info("Skip All");
+					return;
+				}
 				TaskQuestion question = {};
 				question.explanation = QObject::tr("File exists");
 				question.file_path_in_question = dest_path;
 				question.question = io::Question::FileExists;
 				data_.ChangeState(TaskState::AwatingAnswer, &question);
 				ActUponAnswer aua = DealWithFileExistsAnswer(file_size);
-				if (aua == ActUponAnswer::Continue)
+				if (aua == ActUponAnswer::Retry)
 					continue;
-				else if (aua == ActUponAnswer::Return)
+				else if (aua == ActUponAnswer::Skip)
+					return;
+				else if (aua == ActUponAnswer::Abort)
 					return;
 				else {
 					mtl_trace();
 					return;
 				}
-				
 			} else {
-				mtl_status(errno);
-				data_.ChangeState(TaskState::Error);
+				if (write_failed_answer == WriteFailedAnswer::SkipAll) {
+					mtl_info("Skip All");
+					return;
+				}
+				
+				TaskQuestion question = {};
+				question.explanation = strerror(errno);
+				question.file_path_in_question = dest_path;
+				question.question = io::Question::WriteFailed;
+				data_.ChangeState(TaskState::AwatingAnswer, &question);
+				ActUponAnswer answer = DealWithWriteFailedAnswer(file_size);
+				if (answer == ActUponAnswer::Retry) {
+					continue;
+				} else if (answer == ActUponAnswer::Skip) {
+					return;
+				} else if (answer == ActUponAnswer::Abort) {
+					return;
+				}
+				mtl_trace();
 				return;
 			}
 		} else {
@@ -261,7 +281,29 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 		if (count == -1) {
 			if (errno == EAGAIN)
 				continue;
-			data_.ChangeState(TaskState::Error);
+			
+			data_.Lock();
+			const auto write_failed_answer = data_.task_question_.write_failed_answer;
+			data_.Unlock();
+			
+			if (write_failed_answer == WriteFailedAnswer::SkipAll) {
+				mtl_info("Skip All");
+				return;
+			}
+			
+			TaskQuestion question = {};
+			question.explanation = strerror(errno);
+			question.file_path_in_question = dest_path;
+			question.question = io::Question::WriteFailed;
+			data_.ChangeState(TaskState::AwatingAnswer, &question);
+			ActUponAnswer answer = DealWithWriteFailedAnswer(file_size);
+			if (answer == ActUponAnswer::Retry) {
+				continue;
+			} else if (answer == ActUponAnswer::Skip) {
+				return;
+			} else if (answer == ActUponAnswer::Abort) {
+				return;
+			}
 			return;
 		} else if (count == 0) {
 			break;
@@ -273,11 +315,11 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 		
 		if (state & TaskState::Pause) {
 			mtl_info("Waiting for Continue state");
-			if (!data_.WaitFor(TaskState::Continue | TaskState::Cancel)) {
+			if (!data_.WaitFor(TaskState::Continue | TaskState::Abort)) {
 				mtl_trace();
 			}
 			mtl_info("Done waiting");
-		} else if (state & TaskState::Cancel) {
+		} else if (state & TaskState::Abort) {
 			mtl_info("Got cancel state, returning..");
 			return;
 		}
@@ -391,7 +433,7 @@ Task::StartIO()
 	
 	auto state = data_.GetState(nullptr);
 	
-	if (state & TaskState::Cancel) {
+	if (state & TaskState::Abort) {
 		mtl_trace();
 	} else {
 		data_.ChangeState(TaskState::Finished);
@@ -420,13 +462,19 @@ Task::TryAtomicMove()
 ActUponAnswer
 Task::DealWithFileExistsAnswer(const i64 file_size)
 {
-mtl_info();
+/** enum class FileExistsAnswer: i8 {
+		None = 0,
+		Overwrite,
+		OverwriteAll,
+		Skip,
+		SkipAll,
+		Abort
+	}; */
 	if (!data_.WaitFor(TaskState::Answered)) {
-mtl_info();
 		data_.ChangeState(TaskState::Error);
 		return ActUponAnswer::Abort;
 	}
-mtl_info();
+
 	data_.Lock();
 	const auto answer = data_.task_question_.file_exists_answer;
 	data_.Unlock();
@@ -434,10 +482,10 @@ mtl_info();
 	switch (answer) {
 	case FileExistsAnswer::Overwrite: {
 		
-		return ActUponAnswer::Continue;
+		return ActUponAnswer::Retry;
 	}
 	case FileExistsAnswer::OverwriteAll: {
-		return ActUponAnswer::Continue;
+		return ActUponAnswer::Retry;
 	}
 	case FileExistsAnswer::Skip: {
 		i64 time_worked = data_.GetTimeWorked();
@@ -445,15 +493,65 @@ mtl_info();
 		data_.Lock();
 		data_.task_question_.file_exists_answer = FileExistsAnswer::None;
 		data_.Unlock();
-		return ActUponAnswer::Return;
+		return ActUponAnswer::Skip;
 	};
 	case FileExistsAnswer::SkipAll: {
 		i64 time_worked = data_.GetTimeWorked();
 		progress_.AddProgress(file_size, time_worked);
-		return ActUponAnswer::Return;
+		return ActUponAnswer::Skip;
 	}
-	case FileExistsAnswer::Cancel: {
-		data_.ChangeState(TaskState::Cancel);
+	case FileExistsAnswer::Abort: {
+		data_.ChangeState(TaskState::Abort);
+		return ActUponAnswer::Abort;
+	}
+	default: {
+		mtl_trace();
+		return ActUponAnswer::Abort;
+	}
+	}
+}
+
+ActUponAnswer
+Task::DealWithWriteFailedAnswer(const i64 file_size)
+{
+/** enum class WriteFailedAnswer: i8 {
+		None = 0,
+		Retry,
+		Skip,
+		SkipAll,
+		Cancel,
+	}; */
+	if (!data_.WaitFor(TaskState::Answered)) {
+		data_.ChangeState(TaskState::Error);
+		return ActUponAnswer::Abort;
+	}
+
+	data_.Lock();
+	const auto answer = data_.task_question_.write_failed_answer;
+	data_.Unlock();
+	
+	switch (answer) {
+	case WriteFailedAnswer::Skip: {
+		i64 time_worked = data_.GetTimeWorked();
+		progress_.AddProgress(file_size, time_worked);
+		data_.Lock();
+		data_.task_question_.write_failed_answer = WriteFailedAnswer::None;
+		data_.Unlock();
+		return ActUponAnswer::Skip;
+	};
+	case WriteFailedAnswer::SkipAll: {
+		i64 time_worked = data_.GetTimeWorked();
+		progress_.AddProgress(file_size, time_worked);
+		return ActUponAnswer::Skip;
+	}
+	case WriteFailedAnswer::Retry: {
+		data_.Lock();
+		data_.task_question_.write_failed_answer = WriteFailedAnswer::None;
+		data_.Unlock();
+		return ActUponAnswer::Retry;
+	}
+	case WriteFailedAnswer::Abort: {
+		data_.ChangeState(TaskState::Abort);
 		return ActUponAnswer::Abort;
 	}
 	default: {

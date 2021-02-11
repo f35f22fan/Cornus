@@ -29,11 +29,14 @@ public:
 private:
 	TaskGui(io::Task *task);
 	QWidget* CreateFileExistsPane();
+	QWidget* CreateWriteFailedPane();
 	void CreateGui();
 	QWidget* CreateProgressPane();
 	void PresentUserFileExistsQuestion();
+	void PresentUserWriteFailedQuestion();
 	void ProcessAction(const QString &action);
 	void SendFileExistsAnswer(const io::FileExistsAnswer answer);
+	void SendWriteFailedAnswer(const io::WriteFailedAnswer answer);
 	void UpdateSpeedLabel();
 	
 	NO_ASSIGN_COPY_MOVE(TaskGui);
@@ -61,6 +64,10 @@ private:
 	struct FileExistsList {
 		QLineEdit *line_edit = nullptr;
 	} file_exists_list_ = {};
+	
+	struct WriteFailedList {
+		QLineEdit *line_edit = nullptr;
+	} write_failed_list_ = {};
 	
 };
 }

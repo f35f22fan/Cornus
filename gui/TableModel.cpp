@@ -2,6 +2,7 @@
 
 #include "../App.hpp"
 #include "../AutoDelete.hh"
+#include "../defines.hxx"
 #include "../io/File.hpp"
 #include "Location.hpp"
 #include "../MutexGuard.hpp"
@@ -11,8 +12,6 @@
 #include <QFont>
 #include <QScrollBar>
 #include <QTime>
-
-#define DEBUG_INOTIFY
 
 namespace cornus::gui {
 

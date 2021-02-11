@@ -40,6 +40,7 @@ extern "C" {
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
+#include <QFileDialog>
 #include <QFileInfo>
 #include <QFontMetricsF>
 #include <QFormLayout>
@@ -424,13 +425,10 @@ App::CopyFileFromTo(const QString &full_path, QString to_dir)
 QMenu*
 App::CreateNewMenu()
 {
-	if (new_menu_ != nullptr)
-		new_menu_->clear();
-	else
-		new_menu_ = new QMenu(tr("Create &New"), this);
+	QMenu *menu = new QMenu(tr("Create &New"), this);
 	
 	{
-		QAction *action = new_menu_->addAction(tr("Folder"));
+		QAction *action = menu->addAction(tr("Folder"));
 		auto *icon = GetIcon(QLatin1String("special_folder"));
 		if (icon != nullptr)
 			action->setIcon(*icon);
@@ -440,7 +438,7 @@ App::CreateNewMenu()
 	}
 	
 	{
-		QAction *action = new_menu_->addAction(tr("Text File"));
+		QAction *action = menu->addAction(tr("Text File"));
 		auto *icon = GetIcon(QLatin1String("text"));
 		if (icon != nullptr)
 			action->setIcon(*icon);
@@ -462,7 +460,7 @@ App::CreateNewMenu()
 	std::sort(names.begin(), names.end());
 	
 	if (!names.isEmpty())
-		new_menu_->addSeparator();
+		menu->addSeparator();
 	
 	QString dir_path = current_dir_;
 	
@@ -483,7 +481,7 @@ App::CreateNewMenu()
 			connect(action, &QAction::triggered, [=] {
 				ProcessAndWriteTo(ext, from_full_path, dir_path);
 			});
-			new_menu_->addAction(action);
+			menu->addAction(action);
 		} else {
 			QAction *action = new QAction(name);
 			QIcon *icon = GetIcon(ext);
@@ -493,11 +491,11 @@ App::CreateNewMenu()
 			connect(action, &QAction::triggered, [=] {
 				CopyFileFromTo(from_full_path, dir_path);
 			});
-			new_menu_->addAction(action);
+			menu->addAction(action);
 		}
 	}
 	
-	return new_menu_;
+	return menu;
 }
 
 void App::CreateGui()
@@ -616,6 +614,42 @@ void App::DisplaySymlinkInfo(io::File &file)
 	}
 	
 	dialog.exec();
+}
+
+void App::ExtractAskDestFolder()
+{
+	QUrl dir = QUrl::fromLocalFile(current_dir_);
+	QUrl url = QFileDialog::getExistingDirectoryUrl(this,
+		tr("Archive destination folder"), dir);
+	
+	if (url.isEmpty())
+		return;
+	
+	ExtractTo(url.toLocalFile());
+}
+
+void App::ExtractTo(const QString &to_dir)
+{
+	QVector<QString> urls;
+	table_->GetSelectedArchives(urls);
+	
+	if (urls.isEmpty())
+		return;
+	
+	QProcess ps;
+	ps.setWorkingDirectory(to_dir);
+	ps.setProgram(QLatin1String("ark"));
+	QStringList args;
+	
+	args.append(QLatin1String("-b"));
+	args.append(QLatin1String("-a"));
+	
+	for (const auto &next: urls) {
+		args.append(next);
+	}
+	
+	ps.setArguments(args);
+	ps.startDetached();
 }
 
 void App::FileDoubleClicked(io::File *file, const gui::Column col)

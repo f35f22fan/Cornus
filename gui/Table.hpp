@@ -26,13 +26,13 @@ public:
 	virtual void dropEvent(QDropEvent *event) override;
 	io::File* GetFileAtNTS(const QPoint &pos, const bool clone, int *ret_file_index = nullptr);
 	io::File* GetFileAt(const int row); /// returns cloned file
-	
+	void GetSelectedArchives(QVector<QString> &urls);
 	/// returns row index & cloned file if on file name, otherwise -1
 	int GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file);
 	int GetFirstSelectedFile(io::File **ret_cloned_file);
 	QString GetFirstSelectedFileFullPath(QString *ext);
 	inline int GetIconSize();
-	int GetSelectedFilesCount();
+	int GetSelectedFilesCount(QVector<QString> *extensions = nullptr);
 	bool mouse_down() const { return mouse_down_; }
 	i32 mouse_over_file_name_index() const { return mouse_over_file_name_; }
 	void mouse_over_file_name_index(const i32 n) { mouse_over_file_name_ = n; }
@@ -67,6 +67,7 @@ private:
 	void ActionCopy(QVector<int> &indices);
 	void ActionCut(QVector<int> &indices);
 	void ActionPaste(QVector<int> &indices);
+	bool AnyArchive(const QVector<QString> &extensions) const;
 	void ClearDndAnimation(const QPoint &drop_coord);
 	QMimeData* CreateMimeWithSelectedFiles(const ClipboardAction action,
 		QVector<int> &indices);

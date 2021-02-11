@@ -37,6 +37,15 @@
 
 namespace cornus::gui {
 
+const QVector<QString> ArchiveExtensions = {
+	QLatin1String("zip"), QLatin1String("xz"), QLatin1String("gz"),
+	QLatin1String("odt"), QLatin1String("ods"), QLatin1String("rar"),
+	QLatin1String("7z"), QLatin1String("tar"), QLatin1String("iso"),
+	QLatin1String("bz2"), QLatin1String("lz"), QLatin1String("lz4"),
+	QLatin1String("lzma"), QLatin1String("lzo"), QLatin1String("z"),
+	QLatin1String("jar"), QLatin1String("zst"), QLatin1String("dmg")
+};
+
 Table::Table(TableModel *tm, App *app) : app_(app),
 model_(tm)
 {
@@ -141,6 +150,17 @@ Table::ActionPaste(QVector<int> &indices)
 	}
 	
 	io::socket::SendAsync(ba);
+}
+
+bool
+Table::AnyArchive(const QVector<QString> &extensions) const
+{
+	for (auto &next: ArchiveExtensions) {
+		if (extensions.contains(next))
+			return true;
+	}
+	
+	return false;
 }
 
 void
@@ -419,15 +439,39 @@ Table::GetIconSize() {
 	return verticalHeader()->defaultSectionSize() - 12;
 }
 
+void
+Table::GetSelectedArchives(QVector<QString> &urls)
+{
+	io::Files &files = app_->view_files();
+	MutexGuard guard(&files.mutex);
+	
+	for (io::File *next: files.data.vec) {
+		if (!next->selected() || !next->is_regular())
+			continue;
+		
+		QString ext = next->cache().ext.toString();
+		if (ext.isEmpty())
+			continue;
+		
+		if (ArchiveExtensions.contains(ext)) {
+			urls.append(QUrl::fromLocalFile(next->build_full_path()).toString());
+		}
+	}
+}
+
 int
-Table::GetSelectedFilesCount() {
+Table::GetSelectedFilesCount(QVector<QString> *extensions) {
 	io::Files &files = app_->view_files();
 	MutexGuard guard(&files.mutex);
 	int count = 0;
 	
 	for (io::File *next: files.data.vec) {
-		if (next->selected())
+		if (next->selected()) {
+			if (extensions != nullptr && next->is_regular()) {
+				extensions->append(next->cache().ext.toString());
+			}
 			count++;
+		}
 	}
 	
 	return count;
@@ -1147,11 +1191,11 @@ void
 Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 {
 	indices_.clear();
-	const int selected_count = GetSelectedFilesCount();
+	QVector<QString> extensions;
+	const int selected_count = GetSelectedFilesCount(&extensions);
 	QMenu *menu = new QMenu();
+	menu->setAttribute(Qt::WA_DeleteOnClose);
 	QMenu *new_menu = app_->CreateNewMenu();
-	
-	///if (!new_menu->actions().isEmpty())
 	menu->addMenu(new_menu);
 	menu->addSeparator();
 	
@@ -1218,6 +1262,28 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 		QAction *action = menu->addAction(tr("Switch Exec Bit"));
 		connect(action, &QAction::triggered, [=] {ProcessAction(actions::SwitchExecBit);});
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-undo")));
+	}
+	
+	if (AnyArchive(extensions)) {
+		QMenu *extract = new QMenu(tr("Extract"));
+		menu->addSeparator();
+		menu->addMenu(extract);
+		QIcon *icon = app_->GetIcon(QLatin1String("zip"));
+		if (icon != nullptr)
+			extract->setIcon(*icon);
+		menu->addSeparator();
+		
+		{
+			QAction *action = extract->addAction(tr("Extract Here"));
+			connect(action, &QAction::triggered, [=] {
+				app_->ExtractTo(app_->current_dir());
+			});
+		}
+		
+		{
+			QAction *action = extract->addAction(tr("Extract To.."));
+			connect(action, &QAction::triggered, [=] { app_->ExtractAskDestFolder(); });
+		}
 	}
 	
 	QString count_folder = dir_full_path.isEmpty() ? app_->current_dir() : dir_full_path;

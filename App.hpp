@@ -34,6 +34,8 @@ public:
 	const Clipboard& clipboard() { return clipboard_; }
 	const QString& current_dir() const { return current_dir_; }
 	void DisplayFileContents(const int row, io::File *cloned_file = nullptr);
+	void ExtractAskDestFolder();
+	void ExtractTo(const QString &to_dir);
 	void FileDoubleClicked(io::File *file, const gui::Column col);
 	QIcon* GetIcon(const QString &str);
 	void GoBack();
@@ -129,8 +131,6 @@ private:
 	};
 	
 	Notepad notepad_ = {};
-	QMenu *new_menu_ = nullptr;
-	
 	Clipboard clipboard_ = {};
 	
 	friend class cornus::gui::Table;

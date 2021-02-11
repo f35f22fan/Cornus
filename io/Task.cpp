@@ -171,10 +171,10 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 	const mode_t mode, const i64 file_size)
 {
 	auto from_ba = from_path.toLocal8Bit();
-	int input_fd = ::open(from_ba.data(), O_RDONLY | O_NOATIME | O_LARGEFILE);
+	int input_fd = ::open(from_ba.data(), O_RDONLY | O_LARGEFILE);
 	
 	if (input_fd == -1) {
-		mtl_status(errno);
+		mtl_warn("%s: %s", from_ba.data(), strerror(errno));
 		data_.ChangeState(TaskState::Error);
 		return;
 	}

@@ -99,7 +99,7 @@ void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
 				}
 			}
 		} else if (mask & IN_CREATE) {
-#ifdef DEBUG_INOTIFY
+#ifdef CORNUS_DEBUG_INOTIFY
 mtl_trace("IN_CREATE: %s", ev->name);
 #endif
 			QString name(ev->name);
@@ -117,7 +117,7 @@ mtl_trace("IN_CREATE: %s", ev->name);
 				mtl_warn();
 			}
 		} else if (mask & IN_DELETE) {
-#ifdef DEBUG_INOTIFY
+#ifdef CORNUS_DEBUG_INOTIFY
 mtl_trace("IN_DELETE: %s", ev->name);
 #endif
 			int index;
@@ -126,7 +126,7 @@ mtl_trace("IN_DELETE: %s", ev->name);
 				update_indices.append(-1);
 				files_vec.remove(index);
 			} else {
-#ifdef DEBUG_INOTIFY
+#ifdef CORNUS_DEBUG_INOTIFY
 				mtl_trace();
 #endif
 			}
@@ -137,7 +137,7 @@ mtl_trace("IN_DELETE: %s", ev->name);
 		} else if (mask & IN_MOVE_SELF) {
 			mtl_warn("IN_MOVE_SELF");
 		} else if (mask & IN_MOVED_FROM) {
-#ifdef DEBUG_INOTIFY
+#ifdef CORNUS_DEBUG_INOTIFY
 mtl_trace("IN_MOVED_FROM: %s, is_dir: %d", ev->name, is_dir);
 #endif
 			int from_index;
@@ -149,7 +149,7 @@ mtl_trace("IN_MOVED_FROM: %s, is_dir: %d", ev->name, is_dir);
 				mtl_trace();
 			}
 		} else if (mask & IN_MOVED_TO) {
-#ifdef DEBUG_INOTIFY
+#ifdef CORNUS_DEBUG_INOTIFY
 mtl_trace("IN_MOVED_TO: %s, is_dir: %d", ev->name, is_dir);
 #endif
 			QString name(ev->name);
@@ -181,7 +181,7 @@ mtl_trace("IN_MOVED_TO: %s, is_dir: %d", ev->name, is_dir);
 			has_been_unmounted_or_deleted = true;
 			break;
 		} else if (mask & IN_CLOSE) {
-#ifdef DEBUG_INOTIFY
+#ifdef CORNUS_DEBUG_INOTIFY
 ///mtl_trace("IN_CLOSE: %s", ev->name);
 #endif
 			int update_index;

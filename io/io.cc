@@ -1,5 +1,7 @@
 #include "io.hh"
 
+#include "../AutoDelete.hh"
+#include "../str.hxx"
 #include "File.hpp"
 #include "../err.hpp"
 #include "../ByteArray.hpp"
@@ -17,6 +19,61 @@
 #include <unistd.h>
 
 namespace cornus::io {
+
+bool CopyFileFromTo(const QString &from_full_path, QString to_dir)
+{
+	if (!to_dir.endsWith('/'))
+		to_dir.append('/');
+	
+	QStringRef name = io::GetFileNameOfFullPath(from_full_path);
+	
+	if (name.isEmpty())
+		return false;
+	
+	auto from_ba = from_full_path.toLocal8Bit();
+	int input_fd = ::open(from_ba.data(), O_RDONLY | O_LARGEFILE);
+	
+	if (input_fd == -1) {
+		mtl_warn("%s: %s", from_ba.data(), strerror(errno));
+		return false;
+	}
+	
+	AutoCloseFd input_ac(input_fd);
+	struct statx stx;
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_MODE;
+	
+	if (statx(0, from_ba.data(), flags, fields, &stx) != 0) {
+		mtl_warn("%s", strerror(errno));
+		return false;
+	}
+	
+	auto to_full_path = (to_dir + name).toLocal8Bit();
+	const auto OverwriteFlags = O_CREAT | O_TRUNC | O_LARGEFILE | O_WRONLY;
+	int output_fd = ::open(to_full_path.data(), OverwriteFlags, stx.stx_mode);
+	
+	if (output_fd == -1) {
+		mtl_status(errno);
+		return false;
+	}
+	
+	AutoCloseFd output_ac(output_fd);
+	loff_t in_off = 0, out_off = 0;
+	const usize chunk = 512 * 128;
+	
+	while (true) {
+		isize count = copy_file_range(input_fd, &in_off, output_fd, &out_off, chunk, 0);
+		if (count == -1) {
+			if (errno == EAGAIN)
+				continue;
+			mtl_warn("%s => %s: %s", from_ba.data(), to_full_path.data(), strerror(errno));
+			return false;
+		} else if (count == 0) // zero means EOF
+			break;
+	}
+	
+	return true;
+}
 
 bool CountSizeRecursive(const QString &path, struct statx &stx,
 	CountRecursiveInfo &info)
@@ -322,18 +379,18 @@ void
 GetClipboardFiles(const QMimeData &mime, cornus::Clipboard &cl)
 {
 	cl.file_paths.clear();
-	const QString nautilus_type = QLatin1String("x-special/nautilus-clipboard");
 	QString text = mime.text();
 	/// Need a regex because Nautilus in KDE inserts 'r' instead of just '\n'
 	QRegularExpression regex("[\r\n]");
 	auto list = text.splitRef(regex, Qt::SkipEmptyParts);
-	const bool is_nautilus = text.startsWith(nautilus_type);
+	const bool is_nautilus = text.startsWith(str::NautilusClipboardMime);
 	
 	if (is_nautilus)
 	{
-#ifdef DEBUG_CLIPBOARD
+#ifdef CORNUS_CLIPBOARD_CLIENT_DEBUG
 mtl_info("Nautilus style clipboard");
 #endif
+		cl.type = ClipboardType::Nautilus;
 		if (list.size() < 3) {
 			cl.action = ClipboardAction::None;
 			return;
@@ -353,17 +410,26 @@ mtl_info("Nautilus style clipboard");
 			cl.action = ClipboardAction::Copy;
 		return;
 	}
-#ifdef DEBUG_CLIPBOARD
+#ifdef CORNUS_CLIPBOARD_CLIENT_DEBUG
 mtl_info("KDE style clipboard");
 #endif
-	const QByteArray kde_ba = mime.data(KdeCutMime);
-	const bool cut_action = (!kde_ba.isEmpty() && kde_ba.at(0) == QLatin1Char('1'));
-#ifdef DEBUG_CLIPBOARD
-mtl_info("is cut: %s", cut_action ? "true" : "false");
+	
+	const QByteArray kde_ba = mime.data(str::KdeCutMime);
+	const bool kde_cut_action = (!kde_ba.isEmpty() && kde_ba.at(0) == QLatin1Char('1'));
+	
+	if (kde_cut_action) {
+		cl.type = ClipboardType::KDE;
+	} else {
+		/// otherwise not sure about clipboard type
+		cl.type = ClipboardType::None;
+	}
+	
+#ifdef CORNUS_CLIPBOARD_CLIENT_DEBUG
+mtl_info("is cut: %s", kde_cut_action ? "true" : "false");
 #endif
 	for (const auto &next: list) {
 		const QString s = next.toString();
-#ifdef DEBUG_CLIPBOARD
+#ifdef CORNUS_CLIPBOARD_CLIENT_DEBUG
 mtl_printq(s);
 #endif
 		QUrl url(s);
@@ -372,7 +438,7 @@ mtl_printq(s);
 		}
 	}
 	
-	cl.action = cut_action ? ClipboardAction::Cut : ClipboardAction::Copy;
+	cl.action = kde_cut_action ? ClipboardAction::Cut : ClipboardAction::Copy;
 }
 
 QStringRef

@@ -10,6 +10,7 @@
 
 namespace cornus::io {
 	class File;
+	class Server;
 	class Task;
 	
 	enum class ActUponAnswer: i8 {

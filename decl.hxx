@@ -14,8 +14,6 @@ class History;
 class MutexGuard;
 class Prefs;
 
-// #define DEBUG_CLIPBOARD
-
 const QString AppIconPath = QLatin1String(":/resources/cornus.webp");
 const char *const SocketPath = "\0cornus_socket";
 
@@ -32,9 +30,16 @@ enum class ClipboardAction: i8 {
 	Paste,
 };
 
+enum class ClipboardType: i8 {
+	None,
+	Nautilus,
+	KDE
+};
+
 struct Clipboard {
 	QVector<QString> file_paths;
 	ClipboardAction action = ClipboardAction::None;
+	ClipboardType type = ClipboardType::None;
 	
 	inline bool has_files() const {
 		return action != ClipboardAction::None && !file_paths.isEmpty();

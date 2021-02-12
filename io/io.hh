@@ -25,8 +25,6 @@
 
 namespace cornus::io {
 
-static const QString KdeCutMime = QStringLiteral("application/x-kde-cutselection");
-
 struct FilesData {
 	FilesData() {}
 	~FilesData() {}
@@ -72,6 +70,8 @@ Q_DECLARE_METATYPE(cornus::io::FilesData*);
 Q_DECLARE_METATYPE(cornus::io::CountRecursiveInfo*);
 
 namespace cornus::io {
+
+bool CopyFileFromTo(const QString &from_full_path, QString to_dir);
 
 struct CountFolderData {
 	io::CountRecursiveInfo info = {};

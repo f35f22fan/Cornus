@@ -74,7 +74,6 @@ private:
 	
 	void ClipboardChanged(QClipboard::Mode mode);
 	QMenu* CreateNewMenu();
-	void CopyFileFromTo(const QString &full_path, QString to_dir);
 	void CreateGui();
 	void DisplayMime(io::File *file);
 	void DisplaySymlinkInfo(io::File &file);

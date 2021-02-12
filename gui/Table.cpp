@@ -9,6 +9,7 @@
 #include "../io/socket.hh"
 #include "../MutexGuard.hpp"
 #include "../Prefs.hpp"
+#include "../str.hxx"
 #include "TableDelegate.hpp"
 #include "TableModel.hpp"
 
@@ -97,24 +98,34 @@ Table::~Table() {
 	delete model_;
 }
 
+void SendClipboard(const QString &s, io::socket::MsgBits msg_type) {
+	auto ba = new ByteArray();
+	ba->add_msg_type(msg_type);
+	ba->add_string(s);
+	io::socket::SendAsync(ba);
+}
+
 void
-Table::ActionCopy(QVector<int> &indices) {
-	auto *mime = CreateMimeWithSelectedFiles(ClipboardAction::Copy, indices);
-	if (mime != nullptr)
-		QApplication::clipboard()->setMimeData(mime);
+Table::ActionCopy(QVector<int> &indices)
+{
+	QString s;
+	if(!CreateMimeWithSelectedFiles(ClipboardAction::Copy, indices, s))
+		return;
+	
+//	QMimeData *mime = new QMimeData();
+//	mime->setText(s);
+//	QApplication::clipboard()->setMimeData(mime);
+	
+	SendClipboard(s, io::socket::MsgBits::CopyToClipboard);
 }
 
 void
 Table::ActionCut(QVector<int> &indices) {
-	auto *mime = CreateMimeWithSelectedFiles(ClipboardAction::Cut, indices);
+	QString data;
+	if (!CreateMimeWithSelectedFiles(ClipboardAction::Cut, indices, data))
+		return;
 	
-	if (mime != nullptr) {
-		QByteArray ba;
-		char c = '1';
-		ba.append(c);
-		mime->setData(io::KdeCutMime, ba);
-		QApplication::clipboard()->setMimeData(mime);
-	}
+	SendClipboard(data, io::socket::MsgBits::CutToClipboard);
 }
 
 void
@@ -215,11 +226,11 @@ Table::ClearDndAnimation(const QPoint &drop_coord)
 	}
 }
 
-QMimeData*
+bool
 Table::CreateMimeWithSelectedFiles(const ClipboardAction action,
-	QVector<int> &indices)
+	QVector<int> &indices, QString &ret)
 {
-	QList<QUrl> list;
+	QStringList urls;
 	{
 		auto &files = app_->view_files();
 		MutexGuard guard(&files.mutex);
@@ -241,7 +252,8 @@ Table::CreateMimeWithSelectedFiles(const ClipboardAction action,
 			if (next->selected()) {
 				indices.append(i);
 				next->toggle_flag(flag, true);
-				list.append(QUrl::fromLocalFile(next->build_full_path()));
+				auto url = QUrl::fromLocalFile(next->build_full_path());
+				urls.append(url.toString());
 			} else {
 				if (next->clear_all_actions_if_needed())
 					indices.append(i);
@@ -249,17 +261,18 @@ Table::CreateMimeWithSelectedFiles(const ClipboardAction action,
 		}
 	}
 	
-	if (list.isEmpty())
-		return nullptr;
-	
-	QString text;
-	for (auto &next: list) {
-		text.append(next.toString()).append('\n');
+	const int count = urls.size();
+	int i = -1;
+	for (auto &url: urls) {
+		i++;
+		ret.append(url);
+		if (i < count - 1)
+			ret.append('\n');
 	}
 	
-	auto *mime = new QMimeData();
-	mime->setText(text);
-	return mime;
+	mtl_printq2("ret: ", ret);
+	
+	return true;
 }
 
 void
@@ -970,6 +983,24 @@ Table::ProcessAction(const QString &action)
 	}
 }
 
+void
+Table::QueryOpenWithList(QVector<QAction*> &ret, const QString &mime)
+{
+	int fd = io::socket::Client(cornus::SocketPath);
+	CHECK_TRUE_VOID((fd != -1));
+	
+	ByteArray send_ba;
+	send_ba.add_msg_type(io::socket::MsgBits::SendOpenWithList);
+	send_ba.add_string(mime);
+	send_ba.Send(fd, false);
+	
+	ByteArray receive_ba;
+	receive_ba.Receive(fd);
+	
+	QString receit = receive_ba.next_string();
+	mtl_printq2("Receit: ", receit);
+}
+
 bool
 Table::ScrollToAndSelect(QString full_path)
 {
@@ -1195,6 +1226,23 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 	const int selected_count = GetSelectedFilesCount(&extensions);
 	QMenu *menu = new QMenu();
 	menu->setAttribute(Qt::WA_DeleteOnClose);
+	
+	if (selected_count > 0) {
+		QVector<QAction*> actions;
+		QueryOpenWithList(actions, QLatin1String("text/plain"));
+		
+		if (!actions.isEmpty()) {
+			auto *open_with_menu = new QMenu(tr("Open With"));
+			
+			for (auto &action: actions) {
+				open_with_menu->addAction(action);
+				connect(action, &QAction::triggered, [=] {
+					mtl_trace();
+				});
+			}
+		}
+	}
+	
 	QMenu *new_menu = app_->CreateNewMenu();
 	menu->addMenu(new_menu);
 	menu->addSeparator();
@@ -1238,6 +1286,7 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 		QAction *action = menu->addAction(tr("Delete Files"));
 		connect(action, &QAction::triggered, [=] {ProcessAction(actions::DeleteFiles);});
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-delete")));
+		menu->addSeparator();
 	}
 	
 	if (selected_count > 0) {

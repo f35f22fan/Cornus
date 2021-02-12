@@ -69,8 +69,8 @@ private:
 	void ActionPaste(QVector<int> &indices);
 	bool AnyArchive(const QVector<QString> &extensions) const;
 	void ClearDndAnimation(const QPoint &drop_coord);
-	QMimeData* CreateMimeWithSelectedFiles(const ClipboardAction action,
-		QVector<int> &indices);
+	bool CreateMimeWithSelectedFiles(const ClipboardAction action,
+		QVector<int> &indices, QString &ret);
 	void FinishDropOperation(QVector<io::File *> *files_vec, io::File *to_dir,
 		Qt::DropAction drop_action, Qt::DropActions possible_actions);
 	void HandleKeySelect(const bool up);
@@ -82,7 +82,7 @@ private:
 	
 	int IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file = nullptr);
 	QPair<int, int> ListSelectedFiles(QList<QUrl> &list);
-	
+	void QueryOpenWithList(QVector<QAction*> &ret, const QString &mime);
 	void SelectFileRangeNTS(const int row_start, const int row_end, QVector<int> &indices);
 	int SelectNextRow(const int relative_offset, const bool deselect_all_others, QVector<int> &indices); // returns newly selected row
 	void SetCustomResizePolicy();

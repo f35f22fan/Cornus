@@ -71,8 +71,10 @@ set(cornus_io_src_files main_io.cpp
     MutexGuard.cpp MutexGuard.hpp
 
     io/decl.hxx
+    io/desktop.cc io/desktop.hh
     io/File.cpp io/File.hpp
     io/io.cc io/io.hh
+    io/Server.cpp io/Server.hpp
     io/socket.cc io/socket.hh
     io/Task.cpp io/Task.hpp
 

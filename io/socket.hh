@@ -20,6 +20,9 @@ enum MsgBits: MsgType {
 	Move = 1u << 2,
 	Link = 1u << 3,
 	CheckAlive = 1u << 4,
+	SendOpenWithList = 1u << 5,
+	CopyToClipboard = 1u << 6,
+	CutToClipboard = 1u << 7,
 };
 
 inline MsgType MsgFlagsFor(const Qt::DropAction action)

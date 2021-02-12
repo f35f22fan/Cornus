@@ -14,6 +14,9 @@
 #include "ByteArray.hpp"
 #include "decl.hxx"
 #include "err.hpp"
+#include "io/decl.hxx"
+#include "io/desktop.hh"
+#include "io/Server.hpp"
 #include "io/socket.hh"
 #include "io/Task.hpp"
 #include "gui/TasksWin.hpp"
@@ -22,7 +25,7 @@ Q_DECLARE_METATYPE(cornus::io::Task*);
 
 namespace cornus {
 struct args_data {
-	cornus::gui::TasksWin *tasks_win = nullptr;
+	io::Server *server = nullptr;
 	int fd = -1;
 };
 
@@ -32,21 +35,43 @@ void* ProcessRequest(void *ptr)
 	cornus::ByteArray ba;
 	args_data *args = (args_data*)ptr;
 	int fd = args->fd;
-	gui::TasksWin *tasks_win = args->tasks_win;
+	cornus::io::Server *server = args->server;
+	gui::TasksWin *tasks_win = server->tasks_win();
 	delete args;
 	args = nullptr;
 	
-	if (!ba.Receive(fd)) {
+	if (!ba.Receive(fd, false)) {
 		mtl_warn("receive failed");
 		return nullptr;
 	}
 	
 	const auto msg = ba.next_u32();
 	
-	if (msg == io::socket::MsgBits::CheckAlive) {
+	if (msg & io::socket::MsgBits::CheckAlive) {
+		close(fd);
 		return nullptr;
 	}
 	
+	if (msg & io::socket::MsgBits::CopyToClipboard) {
+		close(fd);
+		QString s = ba.next_string();
+		QMetaObject::invokeMethod(server, "CopyToClipboard",
+			Q_ARG(QString, s));
+		
+		return nullptr;
+	} else if (msg & io::socket::MsgBits::CutToClipboard) {
+		close(fd);
+		QString s = ba.next_string();
+		QMetaObject::invokeMethod(server, "CutToClipboard",
+			Q_ARG(QString, s));
+		
+		return nullptr;
+	} else if (msg & io::socket::MsgBits::SendOpenWithList) {
+		io::desktop::SendOpenWithList(ba, fd);
+		return nullptr;
+	}
+	
+	close(fd);
 	ba.to(0);
 	auto *task = cornus::io::Task::From(ba);
 	
@@ -65,7 +90,7 @@ void* StartServerSocket(void *args)
 {
 	pthread_detach(pthread_self());
 	
-	auto *tasks_win = (gui::TasksWin*)args;
+	auto *server = (io::Server*)args;
 	
 	int server_sock_fd = cornus::io::socket::Server(cornus::SocketPath);
 	if (server_sock_fd == -1) {
@@ -85,7 +110,7 @@ void* StartServerSocket(void *args)
 		
 		auto *args = new args_data();
 		args->fd = client_fd;
-		args->tasks_win = tasks_win;
+		args->server = server;
 		int status = pthread_create(&th, NULL, ProcessRequest, args);
 		if (status != 0) {
 			mtl_status(status);
@@ -101,17 +126,17 @@ void* StartServerSocket(void *args)
 int main(int argc, char *argv[])
 {
 	pid_t pid = getpid();
-	printf("Server pid: %ld\n", i64(pid));
+	printf("cornus_io PID: %ld\n", i64(pid));
 	
 	QApplication qapp(argc, argv);
 	qRegisterMetaType<cornus::io::Task*>();
 	
 	/// The TasksWin hides/deletes itself
 	/// Currently it deletes itself, change later to just hide itself.
-	auto *tasks_win = new cornus::gui::TasksWin();
+	auto *server = new cornus::io::Server();
 	
 	pthread_t th;
-	int status = pthread_create(&th, NULL, cornus::StartServerSocket, tasks_win);
+	int status = pthread_create(&th, NULL, cornus::StartServerSocket, server);
 	if (status != 0)
 		mtl_status(status);
 	

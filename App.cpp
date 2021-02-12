@@ -60,8 +60,6 @@ extern "C" {
 
 namespace cornus {
 
-// #define MISC_DEBUG
-
 void* AutoLoadServerIfNeeded(void *arg)
 {
 	pthread_detach(pthread_self());
@@ -153,7 +151,7 @@ void* GoToTh(void *p)
 	{
 		using Clock = std::chrono::steady_clock;
 		new_data->start_time = std::chrono::time_point<Clock>::max();
-#ifdef MISC_DEBUG
+#ifdef CORNUS_WAITED_FOR_WIDGETS
 		auto start_time = std::chrono::steady_clock::now();
 #endif
 		int status = pthread_cond_wait(&view_files.cond, &view_files.mutex);
@@ -161,7 +159,7 @@ void* GoToTh(void *p)
 			mtl_status(status);
 			break;
 		}
-#ifdef MISC_DEBUG
+#ifdef CORNUS_WAITED_FOR_WIDGETS
 		auto now = std::chrono::steady_clock::now();
 		const float elapsed = std::chrono::duration<float,
 			std::chrono::milliseconds::period>(now - start_time).count();
@@ -400,28 +398,6 @@ App::ClipboardChanged(QClipboard::Mode mode)
 	table_model_->UpdateIndices(indices);
 }
 
-void
-App::CopyFileFromTo(const QString &full_path, QString to_dir)
-{
-	if (!to_dir.endsWith('/'))
-		to_dir.append('/');
-	
-	ByteArray buf;
-	mode_t mode;
-	if (io::ReadFile(full_path, buf, -1, &mode) != io::Err::Ok)
-		return;
-	
-	QStringRef name = io::GetFileNameOfFullPath(full_path);
-	if (name.isEmpty())
-		return;
-	
-	QString new_file_path = to_dir + name;
-	
-	if (io::WriteToFile(new_file_path, buf.data(), buf.size(), &mode) != io::Err::Ok) {
-		mtl_trace("Failed to write data to file");
-	}
-}
-
 QMenu*
 App::CreateNewMenu()
 {
@@ -489,7 +465,7 @@ App::CreateNewMenu()
 				action->setIcon(*icon);
 			
 			connect(action, &QAction::triggered, [=] {
-				CopyFileFromTo(from_full_path, dir_path);
+				io::CopyFileFromTo(from_full_path, dir_path);
 			});
 			menu->addAction(action);
 		}
@@ -1494,7 +1470,7 @@ void App::ShutdownLastInotifyThread()
 {
 	auto &files = view_files();
 	files.Lock();
-#ifdef MISC_DEBUG
+#ifdef CORNUS_WAITED_FOR_WIDGETS
 	auto start_time = std::chrono::steady_clock::now();
 #endif
 	files.data.thread_must_exit = true;
@@ -1509,7 +1485,7 @@ void App::ShutdownLastInotifyThread()
 	
 	files.Unlock();
 	
-#ifdef MISC_DEBUG
+#ifdef CORNUS_WAITED_FOR_WIDGETS
 	auto now = std::chrono::steady_clock::now();
 	const float elapsed = std::chrono::duration<float,
 		std::chrono::milliseconds::period>(now - start_time).count();

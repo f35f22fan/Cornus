@@ -197,7 +197,7 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 			action_icon = &clipboard_icons_.cut;
 		else if (file->action_paste())
 			action_icon = &clipboard_icons_.paste;
-		else if (file->action_link())
+		else if (file->action_paste_link())
 			action_icon = &clipboard_icons_.link;
 		
 		if (action_icon != nullptr)

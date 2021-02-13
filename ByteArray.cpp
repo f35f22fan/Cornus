@@ -246,12 +246,15 @@ ByteArray::Send(int fd, bool close_socket) const
 {
 	if (fd == -1)
 		return false;
-	isize so_far = write(fd, (char*)&size_, sizeof(size_));
-	
-	if (so_far != sizeof(size_)) {
-		if (close_socket)
-			::close(fd);
-		return false;
+	isize so_far;
+	{ // first send buffer size:
+		so_far = write(fd, (char*)&size_, sizeof(size_));
+		
+		if (so_far != sizeof(size_)) {
+			if (close_socket)
+				::close(fd);
+			return false;
+		}
 	}
 	
 	so_far = 0;

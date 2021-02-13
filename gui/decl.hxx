@@ -6,6 +6,11 @@
 #include <QMap>
 #include <QString>
 #include <pthread.h>
+#include <QMetaType> /// Q_DECLARE_METATYPE()
+
+namespace cornus::io {
+class File;
+}
 
 namespace cornus::gui {
 class CountFolder;
@@ -24,6 +29,22 @@ class TextEdit;
 class ToolBar;
 
 const int FileNameRelax = 2;
+
+enum class FileEventType: u8 {
+	None = 0,
+	Changed,
+	Deleted,
+	Created,
+	MovedTo,
+};
+
+struct FileEvent {
+	cornus::io::File *new_file = nullptr;
+	int dir_id = -1;
+	int index = -1;
+	FileEventType type = FileEventType::None;
+	bool is_dir = false;
+};
 
 struct InputDialogParams {
 	QSize size = {-1, -1};
@@ -90,3 +111,4 @@ otherwise just decrease it by 1.*/
 	pthread_mutex_t watches_mutex = PTHREAD_MUTEX_INITIALIZER;
 };
 }
+Q_DECLARE_METATYPE(cornus::gui::FileEvent);

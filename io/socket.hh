@@ -15,15 +15,38 @@ namespace cornus::io::socket {
 
 using MsgType = u32;
 enum MsgBits: MsgType {
-	Copy = 1u << 0,
-	AtomicMove = 1u << 1,
-	Move = 1u << 2,
-	Link = 1u << 3,
-	CheckAlive = 1u << 4,
-	SendOpenWithList = 1u << 5,
-	CopyToClipboard = 1u << 6,
-	CutToClipboard = 1u << 7,
+	CheckAlive = 1u,
+	QuitServer = 2u,
+	SendOpenWithList = 3u,
+	CopyToClipboard = 4u,
+	CutToClipboard = 5u,
+	
+	Copy = 1u << 29, // copies files
+	AtomicMove = 1u << 30, // moves with rename()
+	Move = 1u << 31, // moves by copying to new dir and deleting old ones
 };
+
+inline MsgBits operator | (MsgBits a, MsgBits b) {
+	return static_cast<MsgBits>(static_cast<MsgType>(a) | static_cast<MsgType>(b));
+}
+
+inline MsgBits& operator |= (MsgBits &a, const MsgBits b) {
+	a = a | b;
+	return a;
+}
+
+inline MsgBits operator ~ (MsgBits a) {
+	return static_cast<MsgBits>(~(static_cast<MsgType>(a)));
+}
+
+inline MsgBits operator & (MsgBits a, MsgBits b) {
+	return static_cast<MsgBits>((static_cast<MsgType>(a) & static_cast<MsgType>(b)));
+}
+
+inline MsgBits& operator &= (MsgBits &a, const MsgBits b) {
+	a = a & b;
+	return a;
+}
 
 inline MsgType MsgFlagsFor(const Qt::DropAction action)
 {
@@ -35,7 +58,8 @@ inline MsgType MsgFlagsFor(const Qt::DropAction action)
 		bits |= MsgBits::Move | MsgBits::AtomicMove;
 	}
 	if (action & Qt::LinkAction) {
-		bits |= MsgBits::Link;
+		mtl_trace();
+		///bits |= MsgBits::Link;
 	}
 	return bits;
 }
@@ -50,7 +74,8 @@ inline MsgType MsgFlagsForMany(const Qt::DropActions action)
 		bits |= MsgBits::Move | MsgBits::AtomicMove;
 	}
 	if (action & Qt::LinkAction) {
-		bits |= MsgBits::Link;
+		mtl_trace();
+		///bits |= MsgBits::Link;
 	}
 	return bits;
 }

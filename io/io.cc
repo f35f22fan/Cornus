@@ -533,7 +533,6 @@ ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 	DIR *dp = opendir(dir_path_ba.data());
 	
 	if (dp == NULL) {
-		mtl_printq2("Can't list dir: ", data.processed_dir_path);
 		return MapPosixError(errno);
 	}
 	

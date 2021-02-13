@@ -85,6 +85,7 @@ public:
 	void UpdateVisibleArea();
 	
 public slots:
+	void InotifyEvent(cornus::gui::FileEvent evt);
 	void UpdateTable(cornus::gui::UpdateTableArgs args);
 	
 private:
@@ -92,6 +93,7 @@ private:
 	cornus::App *app_ = nullptr;
 	Notify notify_ = {};
 	QString scroll_to_and_select_;
+	int tried_to_scroll_to_count_ = 0;
 };
 
 

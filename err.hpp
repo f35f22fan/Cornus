@@ -38,20 +38,6 @@
 	#define MTL_INVERTED_CANCEL ""
 #endif
 
-// node => ods::FormulaNode*
-#define mtl_print_node(node, msg) {\
-	if (node == nullptr) {\
-		mtl_info("%s [nullptr]", msg);\
-	} else {\
-		QString type_str, node_str;\
-		function::NodeToStr(node, type_str, node_str);\
-		auto type_ba = type_str.toLocal8Bit();\
-		auto node_ba = node_str.toLocal8Bit();\
-		mtl_info("%s [%s] %s%s%s", msg, type_ba.data(),\
-		MTL_INVERTED, node_ba.data(), MTL_INVERTED_CANCEL);\
-	}\
-}
-
 #ifdef _MSC_VER
 #define mtl_info(fmt, ...) fprintf(stdout, \
 	"%s[%s:%.3d %s]%s " fmt "\n", MTL_COLOR_BLUE, SRC_FILE_NAME, \
@@ -60,16 +46,6 @@
 #define mtl_info(fmt, args...) fprintf(stdout, \
 	"%s[%s:%.3d %s]%s " fmt "\n", MTL_COLOR_BLUE, SRC_FILE_NAME, \
 	__LINE__, __FUNCTION__, MTL_COLOR_DEFAULT, ##args)
-#endif
-
-#ifdef _MSC_VER
-#define it_happened(fmt, ...) fprintf(stdout, \
-	"%sIT HAPPENED [%s %.3d] " fmt "%s\n", MTL_COLOR_RED, SRC_FILE_NAME, \
-	__LINE__, __VA_ARGS__, MTL_COLOR_DEFAULT)
-#else
-#define it_happened(fmt, args...) fprintf(stdout, \
-	"%sIT HAPPENED [%s %.3d] " fmt "%s\n", MTL_COLOR_RED, SRC_FILE_NAME, \
-	__LINE__, ##args, MTL_COLOR_DEFAULT)
 #endif
 
 #ifdef _MSC_VER
@@ -88,8 +64,8 @@
 	__LINE__, __FUNCTION__, __VA_ARGS__, MTL_COLOR_DEFAULT)
 #else
 #define mtl_trace(fmt, args...) fprintf(stderr, \
-	"%s%s[%s:%.3d %s]%s " fmt "%s\n", MTL_BOLD, MTL_COLOR_MAGENTA, SRC_FILE_NAME, \
-	__LINE__, __FUNCTION__, MTL_NON_BOLD, ##args, MTL_COLOR_DEFAULT)
+	"%s%s[%s:%.3d %s]%s%s " fmt "\n", MTL_BOLD, MTL_COLOR_MAGENTA, SRC_FILE_NAME, \
+	__LINE__, __FUNCTION__, MTL_NON_BOLD, MTL_COLOR_DEFAULT, ##args)
 #endif
 
 #define mtl_status(status) fprintf (stderr, "%s[%s %.3d] %s%s\n", \

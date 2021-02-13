@@ -62,7 +62,7 @@ namespace cornus::io {
 		ActionCut = 1u << 1,
 		ActionCopy = 1u << 2,
 		ActionPaste = 1u << 3,
-		ActionLink = 1u << 4,
+		PasteLink = 1u << 4,
 	};
 	
 	inline FileBits operator | (FileBits a, FileBits b) {

@@ -8,8 +8,6 @@
 #include <QFontMetrics>
 #include <QStyledItemDelegate>
 
-Q_DECLARE_METATYPE(cornus::io::File*);
-
 namespace cornus::gui {
 
 struct ClipboardIcons {

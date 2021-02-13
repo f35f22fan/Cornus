@@ -225,9 +225,11 @@ void FigureOutSelectPath(QString &select_path, QString &go_to_path)
 
 App::App()
 {
+	qRegisterMetaType<cornus::io::File*>();
 	qRegisterMetaType<cornus::io::FilesData*>();
 	qRegisterMetaType<cornus::PartitionEvent*>();
 	qRegisterMetaType<cornus::io::CountRecursiveInfo*>();
+	qRegisterMetaType<cornus::gui::FileEvent>();
 	qDBusRegisterMetaType<QMap<QString, QVariant>>();
 	
 	pthread_t th;

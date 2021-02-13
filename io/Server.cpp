@@ -20,14 +20,29 @@ Server::~Server() {}
 void Server::CopyToClipboard(const QString &s)
 {
 	QMimeData *mime = new QMimeData();
-	mime->setText(s);
+	
+	auto list = s.splitRef('\n');
+	QList<QUrl> urls;
+	for (auto &next: list) {
+		urls.append(QUrl::fromLocalFile(next.toString()));
+	}
+	
+	mime->setUrls(urls);
 	QApplication::clipboard()->setMimeData(mime);
 }
 
 void Server::CutToClipboard(const QString &s)
 {
 	QMimeData *mime = new QMimeData();
-	mime->setText(s);
+	
+	auto list = s.splitRef('\n');
+	QList<QUrl> urls;
+	for (auto &next: list) {
+		urls.append(QUrl::fromLocalFile(next.toString()));
+	}
+	
+	mime->setUrls(urls);
+	
 	QByteArray ba;
 	char c = '1';
 	ba.append(c);

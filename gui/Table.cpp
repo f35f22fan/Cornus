@@ -112,10 +112,6 @@ Table::ActionCopy(QVector<int> &indices)
 	if(!CreateMimeWithSelectedFiles(ClipboardAction::Copy, indices, s))
 		return;
 	
-//	QMimeData *mime = new QMimeData();
-//	mime->setText(s);
-//	QApplication::clipboard()->setMimeData(mime);
-	
 	SendClipboard(s, io::socket::MsgBits::CopyToClipboard);
 }
 
@@ -243,7 +239,7 @@ Table::CreateMimeWithSelectedFiles(const ClipboardAction action,
 		else if (action == ClipboardAction::Paste)
 			flag = io::FileBits::ActionPaste;
 		else if (action == ClipboardAction::Link)
-			flag = io::FileBits::ActionLink;
+			flag = io::FileBits::PasteLink;
 		
 		int i = -1;
 		for (io::File *next: files.data.vec) {
@@ -252,8 +248,7 @@ Table::CreateMimeWithSelectedFiles(const ClipboardAction action,
 			if (next->selected()) {
 				indices.append(i);
 				next->toggle_flag(flag, true);
-				auto url = QUrl::fromLocalFile(next->build_full_path());
-				urls.append(url.toString());
+				urls.append(next->build_full_path());
 			} else {
 				if (next->clear_all_actions_if_needed())
 					indices.append(i);
@@ -263,14 +258,12 @@ Table::CreateMimeWithSelectedFiles(const ClipboardAction action,
 	
 	const int count = urls.size();
 	int i = -1;
-	for (auto &url: urls) {
+	for (auto &path: urls) {
 		i++;
-		ret.append(url);
+		ret.append(path);
 		if (i < count - 1)
 			ret.append('\n');
 	}
-	
-	mtl_printq2("ret: ", ret);
 	
 	return true;
 }
@@ -1466,7 +1459,7 @@ Table::SyncWith(const cornus::Clipboard &cl, QVector<int> &indices)
 		flag = io::FileBits::ActionPaste;
 	} else if (cl.action == ClipboardAction::Link) {
 		mtl_info("Link");
-		flag = io::FileBits::ActionLink;
+		flag = io::FileBits::PasteLink;
 	}
 	
 	int i = -1;

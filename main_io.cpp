@@ -45,31 +45,34 @@ void* ProcessRequest(void *ptr)
 		return nullptr;
 	}
 	
-	const auto msg = ba.next_u32();
+	const auto msg = ba.next_u32() & ~(7u << 29);
 	
-	if (msg & io::socket::MsgBits::CheckAlive) {
+	switch (msg) {
+	case io::socket::MsgBits::CheckAlive: {
 		close(fd);
 		return nullptr;
 	}
-	
-	if (msg & io::socket::MsgBits::CopyToClipboard) {
+	case io::socket::MsgBits::CopyToClipboard: {
 		close(fd);
 		QString s = ba.next_string();
 		QMetaObject::invokeMethod(server, "CopyToClipboard",
 			Q_ARG(QString, s));
 		
 		return nullptr;
-	} else if (msg & io::socket::MsgBits::CutToClipboard) {
+	}
+	case io::socket::MsgBits::CutToClipboard: {
 		close(fd);
 		QString s = ba.next_string();
 		QMetaObject::invokeMethod(server, "CutToClipboard",
 			Q_ARG(QString, s));
 		
 		return nullptr;
-	} else if (msg & io::socket::MsgBits::SendOpenWithList) {
+	}
+	case io::socket::MsgBits::SendOpenWithList: {
 		io::desktop::SendOpenWithList(ba, fd);
 		return nullptr;
 	}
+	} /// switch()
 	
 	close(fd);
 	ba.to(0);

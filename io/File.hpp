@@ -5,6 +5,7 @@
 #include "io.hh"
 
 #include <QIcon>
+#include <QMetaType> /// Q_DECLARE_METATYPE()
 #include <QMimeDatabase>
 
 namespace cornus::io {
@@ -52,7 +53,7 @@ public:
 	}
 	
 	const FileBits AllActions = FileBits::ActionCopy | FileBits::ActionCut |
-		FileBits::ActionPaste | FileBits::ActionLink;
+		FileBits::ActionPaste | FileBits::PasteLink;
 	
 	bool clear_all_actions_if_needed() {
 		/// returns true if anything was cleared for the upstream
@@ -76,10 +77,10 @@ public:
 		toggle_flag(AllActions & ~FileBits::ActionCut, false);
 	}
 	
-	bool action_link() const { return (bits_ & FileBits::ActionLink) != FileBits::Empty; }
-	void action_link(const bool add) {
-		toggle_flag(FileBits::ActionLink, add);
-		toggle_flag(AllActions & ~FileBits::ActionLink, false);
+	bool action_paste_link() const { return (bits_ & FileBits::PasteLink) != FileBits::Empty; }
+	void action_paste_link(const bool add) {
+		toggle_flag(FileBits::PasteLink, add);
+		toggle_flag(AllActions & ~FileBits::PasteLink, false);
 	}
 	
 	bool action_paste() const { return (bits_ & FileBits::ActionPaste) != FileBits::Empty; }
@@ -155,3 +156,5 @@ private:
 };
 
 }
+
+Q_DECLARE_METATYPE(cornus::io::File*);

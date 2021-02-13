@@ -388,7 +388,7 @@ Task::From(cornus::ByteArray &ba)
 {
 	auto *task = new Task();
 	task->ops_ = ba.next_u32();
-	//mtl_info("ops: %u", task->ops_);
+	task->ops_ &= (7u << 29);
 	task->to_dir_path_ = ba.next_string();
 	const i32 count = ba.next_i32();
 	
@@ -408,26 +408,28 @@ Task::StartIO()
 	
 	if (ops_ & io::socket::MsgBits::AtomicMove) {
 		if (TryAtomicMove()) {
+mtl_info("Atomic move succeeded");
 			data().ChangeState(io::TaskState::Finished);
 			return;
 		}
+mtl_info("Atomic move failed");
 	}
 	
 	if (ops_ & io::socket::MsgBits::Copy) {
-///mtl_info("Copy");
+mtl_info("Copy");
 		CopyFiles();
 	} else if (ops_ & io::socket::MsgBits::Move) {
-///mtl_info("Move, trying to do atomic move..");
+mtl_info("Move, trying to do atomic move..");
 		if (TryAtomicMove()) {
-///mtl_info("Succeeded.");
+mtl_info("Succeeded.");
 			data().ChangeState(io::TaskState::Finished);
 		} else {
-///mtl_info("Failed, doing manual copy/delete");
+mtl_info("Failed, doing manual copy/delete");
 			CopyFiles();
-///mtl_warn("Delete not implemented");
 			DeleteFiles();
 		}
 	} else {
+mtl_info("Just copy");
 		CopyFiles();
 	}
 	

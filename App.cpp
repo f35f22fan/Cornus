@@ -16,7 +16,7 @@ extern "C" {
 
 #include "App.hpp"
 #include "AutoDelete.hh"
-#include "Prefs.hpp"
+#include "ExecInfo.hpp"
 #include "io/disks.hh"
 #include "io/io.hh"
 #include "io/File.hpp"
@@ -31,6 +31,7 @@ extern "C" {
 #include "gui/TextEdit.hpp"
 #include "gui/ToolBar.hpp"
 #include "prefs.hh"
+#include "Prefs.hpp"
 
 #include <QApplication>
 #include <QBoxLayout>
@@ -654,7 +655,7 @@ void App::FileDoubleClicked(io::File *file, const gui::Column col)
 		} else if (file->is_regular() || file->is_symlink()) {
 			QString full_path = file->build_full_path();
 			ExecInfo info = QueryExecInfo(full_path, file->cache().ext.toString());
-			if (info.is_elf() || info.is_script()) {
+			if (info.is_elf() || info.is_shell_script()) {
 				RunExecutable(full_path, info);
 			} else {
 				QUrl url = QUrl::fromLocalFile(full_path);
@@ -1049,25 +1050,22 @@ ExecInfo App::QueryExecInfo(const QString &full_path, const QString &ext)
 /// 4 -rwxr-xr-x 1 root root 96 Aug 24 22:12 ./2to3-2.7
 
 ///#! /bin/sh
-	const isize size = 32;
+	const isize size = 64;
 	char buf[size];
 	ExecInfo ret = {};
 	
-	if (io::TryReadFile(full_path, buf, size, &ret) < size)
-		return ret;
+	auto real_size = io::TryReadFile(full_path, buf, size, &ret);
 	
 	if (!ext.isEmpty()) {
-		if (ext == QLatin1String("sh")) {
-			ret.type |= (ExecType::Script | ExecType::ScriptSh);
-		} else if (ext == QLatin1String("py")) {
-			ret.type |= (ExecType::Script | ExecType::ScriptPython);
+		if (ext == QLatin1String("sh") || ext == QLatin1String("py")) {
+			ret.type |= ExecType::ShellScript;
 		} else if (ext == QLatin1String("bat")) {
-			ret.type |= ExecType::ScriptBat;
+			ret.type |= ExecType::BatScript;
 		}
 	}
 	
-	if(ext.isEmpty()) {
-		TestExecBuf(buf, size, ret);
+	if(real_size > 0) {
+		TestExecBuf(buf, real_size, ret);
 	}
 	
 	return ret;
@@ -1245,29 +1243,15 @@ void App::RenameSelectedFile()
 void App::RunExecutable(const QString &full_path,
 	const ExecInfo &info)
 {
-	if (false) {
-		if (info.is_elf())
-			mtl_info("ELF executable");
-		if (info.is_script())
-			mtl_info("Script");
-		if (info.is_script_sh())
-			mtl_info("Script SH");
-		if (info.is_script_bash())
-			mtl_info("Script Bash");
-		if (info.is_script_python())
-			mtl_info("Script Python");
-		if (info.has_exec_bit())
-			mtl_info("Has exec bit");
-		
-		if (info.is_regular_file())
-			mtl_info("Regular");
-		if (info.is_symlink())
-			mtl_info("Symlink");
-	}
-	
-	if (info.has_exec_bit() && info.is_elf()) {
-		QStringList arguments;
-		QProcess::startDetached(full_path, arguments, current_dir_);
+	if (info.has_exec_bit()) {
+		if (info.is_elf()) {
+			QStringList args;
+			QProcess::startDetached(full_path, args, current_dir_);
+		} else if (info.is_shell_script()) {
+			info.Run(full_path, current_dir_);
+		} else {
+			mtl_trace();
+		}
 	}
 }
 
@@ -1531,25 +1515,25 @@ bool App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 		return true;
 	}
 	
-	if (buf[0] == '#' && buf[1] == '!') {
-		ret.type |= ExecType::Script;
-		QString s = QString::fromLocal8Bit(buf, size);
-		const QString bin = QLatin1String("bin/");
-		int index = s.indexOf(bin);
-		if (index == -1)
-			return true;
-
-		QStringRef ref = s.midRef(index + bin.size());
-		if (ref.startsWith(QLatin1String("sh"))) {
-			ret.type |= ExecType::ScriptSh;
-			return true;
-		} else if (ref.startsWith(QLatin1String("python"))) {
-			ret.type |= ExecType::ScriptPython;
-			return true;
-		} else if (ref.startsWith(QLatin1String("bash"))) {
-			ret.type |= ExecType::ScriptBash;
+	QString s = QString::fromLocal8Bit(buf, size);
+	if (s.startsWith("#!")) {
+		ret.type |= ExecType::ShellScript;
+		
+		int new_line = s.indexOf('\n');
+		if (new_line == -1) {
+			mtl_trace();
 			return true;
 		}
+		
+		const int start = 2;
+		const int count = new_line - start;
+		if (count > 0) {
+			QStringRef starter = s.midRef(start, new_line - start);
+			
+			if (!starter.isEmpty())
+				ret.starter = starter.trimmed().toString();
+		}
+		return true;
 	}
 	
 	return false;

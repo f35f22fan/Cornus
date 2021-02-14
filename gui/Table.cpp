@@ -4,6 +4,7 @@
 #include "../App.hpp"
 #include "../AutoDelete.hh"
 #include "CountFolder.hpp"
+#include "../ExecInfo.hpp"
 #include "../io/io.hh"
 #include "../io/File.hpp"
 #include "../io/socket.hh"
@@ -968,7 +969,7 @@ Table::ProcessAction(const QString &action)
 		QString full_path = GetFirstSelectedFileFullPath(&ext);
 		if (!full_path.isEmpty()) {
 			ExecInfo info = app->QueryExecInfo(full_path, ext);
-			if (info.is_elf() || info.is_script())
+			if (info.is_elf() || info.is_shell_script())
 				app->RunExecutable(full_path, info);
 		}
 	} else if (action == actions::SwitchExecBit) {

@@ -29,6 +29,7 @@ set(cornus_src_files main.cpp
     decl.hxx
     ElapsedTimer.cpp ElapsedTimer.hpp
     err.hpp
+    ExecInfo.cpp ExecInfo.hpp
     History.cpp History.hpp
     MutexGuard.cpp MutexGuard.hpp
     prefs.cc prefs.hh

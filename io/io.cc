@@ -1,6 +1,7 @@
 #include "io.hh"
 
 #include "../AutoDelete.hh"
+#include "../ExecInfo.hpp"
 #include "../str.hxx"
 #include "File.hpp"
 #include "../err.hpp"

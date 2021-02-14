@@ -2,6 +2,7 @@
 #include "../App.hpp"
 #include "../AutoDelete.hh"
 #include "../ByteArray.hpp"
+#include "../ExecInfo.hpp"
 #include "../io/File.hpp"
 #include "../io/io.hh"
 #include "Hiliter.hpp"
@@ -78,13 +79,13 @@ TextEdit::GetHiliteMode(const ByteArray &buf, io::File *file)
 	auto ext = file->cache().ext;
 	
 	if (ext.isEmpty()) {
-		ExecInfo exec = {};
+		ExecInfo exec;
 		app_->TestExecBuf(buf.constData(), buf.size(), exec);
 		
-		if (exec.is_script_bash() || exec.is_script_sh()) {
+		if (exec.is_shell_script()) {
 			return HiliteMode::ShellScript;
-		} else if (exec.is_script_python()) {
-			return HiliteMode::Python;
+//		} else if (exec.is_script_python()) {
+//			return HiliteMode::Python;
 		}
 		
 		return HiliteMode::None;

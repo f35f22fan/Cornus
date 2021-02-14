@@ -182,7 +182,7 @@ void Delete(io::File *file) {
 	{
 		io::Files files;
 		files.data.processed_dir_path = file->build_full_path() + '/';
-		files.data.show_hidden_files = true;
+		files.data.show_hidden_files(true);
 		CHECK_TRUE_VOID((ListFiles(files.data, &files) == io::Err::Ok));
 		
 		for (io::File *next: files.data.vec) {
@@ -536,7 +536,7 @@ ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 		return MapPosixError(errno);
 	}
 	
-	const bool hide_hidden_files = !data.show_hidden_files;
+	const bool hide_hidden_files = !data.show_hidden_files();
 	struct dirent *entry;
 	struct statx stx;
 	const auto flags = AT_SYMLINK_NOFOLLOW;

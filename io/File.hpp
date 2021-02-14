@@ -32,6 +32,8 @@ public:
 	FileCache& cache() { return cache_; }
 	void ClearCache();
 	bool has_exec_bit() const;
+	bool has_link_target() const { return is_symlink() && link_target_ != nullptr; }
+	void ReadLinkTarget();
 	
 	bool is_dir() const { return type_ == FileType::Dir; }
 	bool is_link_to_dir() const { return is_symlink() &&

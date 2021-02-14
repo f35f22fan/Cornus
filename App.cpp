@@ -133,7 +133,7 @@ void* GoToTh(void *p)
 	}
 
 	new_data->start_time = std::chrono::steady_clock::now();
-	new_data->show_hidden_files = app->prefs().show_hidden_files();
+	new_data->show_hidden_files(app->prefs().show_hidden_files());
 	if (params->dir_path.processed)
 		new_data->processed_dir_path = params->dir_path.path;
 	else
@@ -147,7 +147,7 @@ void* GoToTh(void *p)
 	}
 
 	view_files.Lock();
-	while (!view_files.data.widgets_created)
+	while (!view_files.data.widgets_created())
 	{
 		using Clock = std::chrono::steady_clock;
 		new_data->start_time = std::chrono::time_point<Clock>::max();
@@ -513,7 +513,7 @@ void App::CreateGui()
 		main_splitter_->addWidget(table_);
 		{
 			MutexGuard guard(&view_files_.mutex);
-			view_files_.data.widgets_created = true;
+			view_files_.data.widgets_created(true);
 			int status = pthread_cond_signal(&view_files_.cond);
 			if (status != 0)
 				mtl_warn("%s", strerror(status));
@@ -552,6 +552,9 @@ void App::DisplayFileContents(const int row, io::File *cloned_file)
 
 void App::DisplaySymlinkInfo(io::File &file)
 {
+	if (!file.has_link_target())
+		file.ReadLinkTarget();
+	
 	io::LinkTarget *t = file.link_target();
 	CHECK_PTR_VOID(t);
 	
@@ -1475,9 +1478,9 @@ void App::ShutdownLastInotifyThread()
 #ifdef CORNUS_WAITED_FOR_WIDGETS
 	auto start_time = std::chrono::steady_clock::now();
 #endif
-	files.data.thread_must_exit = true;
+	files.data.thread_must_exit(true);
 	
-	while (!files.data.thread_exited) {
+	while (!files.data.thread_exited()) {
 		int status = pthread_cond_wait(&files.cond, &files.mutex);
 		if (status != 0) {
 			mtl_status(status);

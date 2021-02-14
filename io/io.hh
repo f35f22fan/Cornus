@@ -26,6 +26,11 @@
 namespace cornus::io {
 
 struct FilesData {
+	static const u16 ShowHiddenFiles = 1u << 0;
+	static const u16 WidgetsCreated = 1u << 1;
+	static const u16 ThreadMustExit = 1u << 2;
+	static const u16 ThreadExited = 1u << 3;
+	
 	FilesData() {}
 	~FilesData() {}
 	FilesData(const FilesData &rhs) = delete;
@@ -36,10 +41,39 @@ struct FilesData {
 	QString scroll_to_and_select;
 	SortingOrder sorting_order;
 	i32 dir_id = 0;/// for inotify/epoll
-	bool show_hidden_files = false;
-	bool widgets_created = false;
-	bool thread_must_exit = false;
-	bool thread_exited = false;
+	u16 bool_ = 0;
+	
+	bool show_hidden_files() const { return bool_ & ShowHiddenFiles; }
+	void show_hidden_files(const bool flag) {
+		if (flag)
+			bool_ |= ShowHiddenFiles;
+		else
+			bool_ &= ~ShowHiddenFiles;
+	}
+	
+	bool widgets_created() const { return bool_ & WidgetsCreated; }
+	void widgets_created(const bool flag) {
+		if (flag)
+			bool_ |= WidgetsCreated;
+		else
+			bool_ &= ~WidgetsCreated;
+	}
+	
+	bool thread_must_exit() const { return bool_ & ThreadMustExit; }
+	void thread_must_exit(const bool flag) {
+		if (flag)
+			bool_ |= ThreadMustExit;
+		else
+			bool_ &= ~ThreadMustExit;
+	}
+	
+	bool thread_exited() const { return bool_ & ThreadExited; }
+	void thread_exited(const bool flag) {
+		if (flag)
+			bool_ |= ThreadExited;
+		else
+			bool_ &= ~ThreadExited;
+	}
 };
 
 struct Files {

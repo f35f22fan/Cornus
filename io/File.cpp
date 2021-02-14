@@ -66,7 +66,7 @@ File::DeleteFromDisk() {
 bool
 File::has_exec_bit() const {
 	const auto ExecBits = S_IXUSR | S_IXGRP | S_IXOTH;
-	if (is_symlink()) {
+	if (has_link_target()) {
 		return link_target_->mode & ExecBits;
 	}
 	return mode_ & ExecBits;
@@ -107,6 +107,18 @@ void File::ReadExtension()
 		cache_.ext = str.midRef(index + 1);
 	else
 		cache_.ext = {};
+}
+
+void File::ReadLinkTarget()
+{
+	if (!is_symlink())
+		return;
+	auto *target = new LinkTarget();
+	auto ba = build_full_path().toLocal8Bit();
+	io::ReadLink(ba.data(), *target, dir_path());
+	if (link_target_ != nullptr)
+		delete link_target_;
+	link_target_ = target;
 }
 
 QString

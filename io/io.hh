@@ -210,6 +210,9 @@ bool ReloadMeta(io::File &file);
 bool SameFiles(const QString &path1, const QString &path2,
 	io::Err *ret_error = nullptr);
 
+void SetupEnvSearchPaths(QVector<QString> &search_icons_dirs,
+	QVector<QString> &xdg_data_dirs);
+
 QString
 SizeToString(const i64 sz, const bool short_version = false);
 

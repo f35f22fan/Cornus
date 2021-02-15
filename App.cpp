@@ -247,7 +247,7 @@ App::App()
 	prefs_->Load();
 	GoToInitialDir();
 	SetupIconNames();
-	SetupEnvSearchPaths();
+	io::SetupEnvSearchPaths(search_icons_dirs_, xdg_data_dirs_);
 	CreateGui();
 	RegisterShortcuts();
 	resize(800, 600);
@@ -1040,11 +1040,13 @@ void App::ProcessAndWriteTo(const QString ext,
 	}
 }
 
-ExecInfo App::QueryExecInfo(io::File &file) {
+ExecInfo
+App::QueryExecInfo(io::File &file) {
 	return QueryExecInfo(file.build_full_path(), file.cache().ext.toString());
 }
 
-ExecInfo App::QueryExecInfo(const QString &full_path, const QString &ext)
+ExecInfo
+App::QueryExecInfo(const QString &full_path, const QString &ext)
 {
 /// ls -ls ./2to3-2.7 
 /// 4 -rwxr-xr-x 1 root root 96 Aug 24 22:12 ./2to3-2.7
@@ -1069,6 +1071,12 @@ ExecInfo App::QueryExecInfo(const QString &full_path, const QString &ext)
 	}
 	
 	return ret;
+}
+
+QString
+App::QueryMimeType(const QString &full_path) {
+	QMimeType mt = mime_db_.mimeTypeForFile(full_path);
+	return mt.name();
 }
 
 void App::RegisterShortcuts() {
@@ -1346,60 +1354,6 @@ void App::SetupIconNames() {
 		else
 			icon_names_.insert(name.mid(0, index), name);
 	}
-}
-
-void App::SetupEnvSearchPaths()
-{
-	{
-//		DConfClient *dc = dconf_client_new();
-//		const gchar *p = "/org/gnome/desktop/interface/icon-theme";
-//		GVariant *v = dconf_client_read(dc, p);
-//		gchar *result;
-//		g_variant_get (v, "s", &result);
-//		theme_name_ = result;
-//		g_free (result);
-//		g_variant_unref(v);
-	}
-	
-//	mtl_printq2("Theme name: ", theme_name_);
-	
-	auto env = QProcessEnvironment::systemEnvironment();
-	{
-		QString xdg_data_dirs = env.value(QLatin1String("XDG_DATA_DIRS"));
-		
-		if (xdg_data_dirs.isEmpty())
-			xdg_data_dirs = QLatin1String("/usr/local/share/:/usr/share/");
-		
-		auto list = xdg_data_dirs.splitRef(':');
-		
-		for (const auto &s: list) {
-			xdg_data_dirs_.append(s.toString());
-		}
-	}
-	
-	{
-		const QString icons = QLatin1String("icons");
-		QString dir_path = QDir::homePath() + '/' + QLatin1String(".icons");
-		
-		if (io::FileExists(dir_path))
-			search_icons_dirs_.append(dir_path);
-		
-		for (const auto &xdg: xdg_data_dirs_) {
-			auto next = QDir(xdg).filePath(icons);
-			
-			if (io::FileExists(next))
-				search_icons_dirs_.append(next);
-		}
-		
-		const char *usp = "/usr/share/pixmaps";
-		if (io::FileExistsCstr(usp))
-			search_icons_dirs_.append(usp);
-		
-//		for (auto &s: search_icons_dirs_) {
-//			mtl_printq(s);
-//		}
-	}
-	
 }
 
 bool App::ShowInputDialog(const gui::InputDialogParams &params,

@@ -28,7 +28,7 @@ public:
 	io::File* GetFileAt(const int row); /// returns cloned file
 	void GetSelectedArchives(QVector<QString> &urls);
 	/// returns row index & cloned file if on file name, otherwise -1
-	int GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file);
+	int GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file, QString *full_path = nullptr);
 	int GetFirstSelectedFile(io::File **ret_cloned_file);
 	QString GetFirstSelectedFileFullPath(QString *ext);
 	inline int GetIconSize();

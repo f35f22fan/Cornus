@@ -52,6 +52,7 @@ public:
 	Prefs& prefs() { return *prefs_; }
 	inline ExecInfo QueryExecInfo(io::File &file);
 	ExecInfo QueryExecInfo(const QString &full_path, const QString &ext);
+	QString QueryMimeType(const QString &full_path);
 	void RenameSelectedFile();
 	void RunExecutable(const QString &full_path, const ExecInfo &info);
 	void SaveBookmarks();
@@ -87,7 +88,6 @@ private:
 		const QString &from_full_path, QString to_dir);
 	void RegisterShortcuts();
 	void SetDefaultIcon(io::File &file);
-	void SetupEnvSearchPaths();
 	void SetupIconNames();
 	void ShutdownLastInotifyThread();
 	

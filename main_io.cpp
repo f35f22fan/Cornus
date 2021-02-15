@@ -15,7 +15,6 @@
 #include "decl.hxx"
 #include "err.hpp"
 #include "io/decl.hxx"
-#include "io/desktop.hh"
 #include "io/Server.hpp"
 #include "io/socket.hh"
 #include "io/Task.hpp"
@@ -46,6 +45,7 @@ void* ProcessRequest(void *ptr)
 	}
 	
 	const auto msg = ba.next_u32() & ~(7u << 29);
+	const auto ConnectionType = Qt::BlockingQueuedConnection;
 	
 	switch (msg) {
 	case io::socket::MsgBits::CheckAlive: {
@@ -56,7 +56,7 @@ void* ProcessRequest(void *ptr)
 		close(fd);
 		QString s = ba.next_string();
 		QMetaObject::invokeMethod(server, "CopyToClipboard",
-			Q_ARG(QString, s));
+			ConnectionType, Q_ARG(QString, s));
 		
 		return nullptr;
 	}
@@ -64,12 +64,14 @@ void* ProcessRequest(void *ptr)
 		close(fd);
 		QString s = ba.next_string();
 		QMetaObject::invokeMethod(server, "CutToClipboard",
-			Q_ARG(QString, s));
+			ConnectionType, Q_ARG(QString, s));
 		
 		return nullptr;
 	}
 	case io::socket::MsgBits::SendOpenWithList: {
-		io::desktop::SendOpenWithList(ba, fd);
+		QString mime = ba.next_string();
+		QMetaObject::invokeMethod(server, "SendOpenWithList",
+			ConnectionType, Q_ARG(QString, mime), Q_ARG(int, fd));
 		return nullptr;
 	}
 	} /// switch()

@@ -4,6 +4,7 @@
 #include "../App.hpp"
 #include "../AutoDelete.hh"
 #include "CountFolder.hpp"
+#include "../DesktopFile.hpp"
 #include "../ExecInfo.hpp"
 #include "../io/io.hh"
 #include "../io/File.hpp"
@@ -393,7 +394,8 @@ Table::GetFileAtNTS(const QPoint &pos, const bool clone, int *ret_file_index)
 }
 
 int
-Table::GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file)
+Table::GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file,
+	QString *full_path)
 {
 	io::Files &files = app_->view_files();
 	MutexGuard guard(&files.mutex);
@@ -401,8 +403,11 @@ Table::GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file)
 	io::File *file = nullptr;
 	int row = IsOnFileNameStringNTS(local_pos, &file);
 	
-	if (row != -1)
+	if (row != -1 && ret_cloned_file != nullptr)
 		*ret_cloned_file = file->Clone();
+	
+	if (full_path != nullptr)
+		*full_path = file->build_full_path();
 
 	return row;
 }
@@ -986,13 +991,26 @@ Table::QueryOpenWithList(QVector<QAction*> &ret, const QString &mime)
 	ByteArray send_ba;
 	send_ba.add_msg_type(io::socket::MsgBits::SendOpenWithList);
 	send_ba.add_string(mime);
-	send_ba.Send(fd, false);
+	CHECK_TRUE_VOID(send_ba.Send(fd, false));
 	
 	ByteArray receive_ba;
-	receive_ba.Receive(fd);
+	CHECK_TRUE_VOID(receive_ba.Receive(fd));
 	
-	QString receit = receive_ba.next_string();
-	mtl_printq2("Receit: ", receit);
+	QVector<DesktopFile*> desktop_files;
+	
+	while (receive_ba.has_more()) {
+		auto *next = DesktopFile::From(receive_ba);
+		if (next != nullptr)
+			desktop_files.append(next);
+	}
+	
+	mtl_printq2("Mime: ", mime);
+	mtl_info("Received total: %d desktop files", desktop_files.size());
+	
+	for (DesktopFile *next: desktop_files) {
+		mtl_printq2("Name: ", next->name());
+		delete next;
+	}
 }
 
 bool
@@ -1221,18 +1239,23 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 	QMenu *menu = new QMenu();
 	menu->setAttribute(Qt::WA_DeleteOnClose);
 	
-	if (selected_count > 0) {
-		QVector<QAction*> actions;
-		QueryOpenWithList(actions, QLatin1String("text/plain"));
-		
-		if (!actions.isEmpty()) {
-			auto *open_with_menu = new QMenu(tr("Open With"));
+	if (selected_count == 1) {
+		QString full_path;
+		if (GetFileUnderMouse(local_pos, nullptr, &full_path) != -1)
+		{
+			const QString mime = app_->QueryMimeType(full_path);
+			QVector<QAction*> actions;
+			QueryOpenWithList(actions, mime);
 			
-			for (auto &action: actions) {
-				open_with_menu->addAction(action);
-				connect(action, &QAction::triggered, [=] {
-					mtl_trace();
-				});
+			if (!actions.isEmpty()) {
+				auto *open_with_menu = new QMenu(tr("Open With"));
+				
+				for (auto &action: actions) {
+					open_with_menu->addAction(action);
+					connect(action, &QAction::triggered, [=] {
+						mtl_trace();
+					});
+				}
 			}
 		}
 	}

@@ -211,26 +211,27 @@ ByteArray::Receive(int fd, bool close_socket)
 {
 	isize total_bytes;
 	if (read(fd, (char*)&total_bytes, sizeof(total_bytes)) != sizeof(total_bytes))
+	{
+		mtl_trace();
 		return false;
+	}
 	
 	make_sure(total_bytes, true);
-	
-	isize so_far = 0;
+	size_ = 0;
 	
 	while (true) {
-		isize count = read(fd, data_ + so_far, total_bytes - so_far);
+		isize count = read(fd, data_ + size_, total_bytes - size_);
 		if (count == -1) {
 			perror("read");
-			so_far = -errno;
 			break;
 		} else if (count == 0) {
 			break; // EOF
 		}
 		
-		so_far += count;
+		size_ += count;
 	}
 	
-	done_reading();
+	at_ = 0;
 	
 	if (close_socket) {
 		int status = ::close(fd);
@@ -238,7 +239,7 @@ ByteArray::Receive(int fd, bool close_socket)
 			mtl_status(errno);
 	}
 	
-	return so_far == total_bytes;
+	return size_ == total_bytes;
 }
 
 bool

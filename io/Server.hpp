@@ -4,7 +4,7 @@
 #include "../decl.hxx"
 #include "../err.hpp"
 
-#include <QObject>
+#include <QVector>
 
 namespace cornus::io {
 
@@ -19,11 +19,19 @@ public:
 public slots:
 	void CutToClipboard(const QString &s);
 	void CopyToClipboard(const QString &s);
+	void LoadDesktopFiles();
+	void LoadDesktopFilesFrom(QString dir_path);
+	void SendOpenWithList(QString mime, int fd);
 
 private:
 	NO_ASSIGN_COPY_MOVE(Server);
 	
+	void SetupEnvSearchPaths();
+	
 	gui::TasksWin *tasks_win_ = nullptr;
 	cornus::Clipboard clipboard_ = {};
+	QVector<QString> search_icons_dirs_;
+	QVector<QString> xdg_data_dirs_;
+	QVector<DesktopFile*> desktop_files_;
 };
 }

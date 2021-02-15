@@ -9,6 +9,7 @@
 namespace cornus {
 class App;
 class ByteArray;
+class DesktopFile;
 class ElapsedTimer;
 class ExecInfo;
 class History;

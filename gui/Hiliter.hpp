@@ -27,6 +27,7 @@ protected:
 private:
 	
 	void SetupC_CPP();
+	void SetupDesktopFile();
 	void SetupPlainText();
 	void SetupShellScript();
 	

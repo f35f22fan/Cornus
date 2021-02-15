@@ -65,6 +65,7 @@ enum class HiliteMode: i16 {
 	PlainText,
 	Python,
 	ShellScript,
+	DesktopFile,
 	Count
 };
 

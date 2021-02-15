@@ -25,8 +25,9 @@ set(cornus_src_files main.cpp
     App.cpp App.hpp
     AutoDelete.hh
     ByteArray.cpp ByteArray.hpp
-    defines.hxx
     decl.hxx
+    defines.hxx
+    DesktopFile.cpp DesktopFile.hpp
     ElapsedTimer.cpp ElapsedTimer.hpp
     err.hpp
     ExecInfo.cpp ExecInfo.hpp
@@ -68,11 +69,11 @@ set(cornus_io_src_files main_io.cpp
     defines.hxx
     err.hpp
     ByteArray.cpp ByteArray.hpp
+    DesktopFile.cpp DesktopFile.hpp
     ElapsedTimer.cpp ElapsedTimer.hpp
     MutexGuard.cpp MutexGuard.hpp
 
     io/decl.hxx
-    io/desktop.cc io/desktop.hh
     io/File.cpp io/File.hpp
     io/io.cc io/io.hh
     io/Server.cpp io/Server.hpp

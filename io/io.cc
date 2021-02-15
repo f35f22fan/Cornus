@@ -9,6 +9,7 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QProcessEnvironment>
 #include <QRegularExpression>
 
 #include <algorithm>
@@ -852,6 +853,64 @@ SameFiles(const QString &path1, const QString &path2, io::Err *ret_error)
 	
 	auto id2 = FileID::New(st);
 	return id1 == id2;
+}
+
+void SetupEnvSearchPaths(QVector<QString> &search_icons_dirs,
+	QVector<QString> &xdg_data_dirs)
+{
+	xdg_data_dirs.clear();
+	{
+//		DConfClient *dc = dconf_client_new();
+//		const gchar *p = "/org/gnome/desktop/interface/icon-theme";
+//		GVariant *v = dconf_client_read(dc, p);
+//		gchar *result;
+//		g_variant_get (v, "s", &result);
+//		theme_name_ = result;
+//		g_free (result);
+//		g_variant_unref(v);
+	}
+	
+//	mtl_printq2("Theme name: ", theme_name_);
+	
+	auto env = QProcessEnvironment::systemEnvironment();
+	
+	QString xdg_data_home = env.value(QLatin1String("XDG_DATA_HOME"));
+	if (xdg_data_home.isEmpty())
+		xdg_data_home = QDir::home().filePath(".local/share");
+	
+	{
+		xdg_data_dirs.append(xdg_data_home);
+		
+		QString env_xdg_data_dirs = env.value(QLatin1String("XDG_DATA_DIRS"));
+		
+		if (env_xdg_data_dirs.isEmpty())
+			env_xdg_data_dirs = QLatin1String("/usr/local/share/:/usr/share/");
+		
+		auto list = env_xdg_data_dirs.splitRef(':');
+		
+		for (const auto &s: list) {
+			xdg_data_dirs.append(s.toString());
+		}
+	}
+	
+	{
+		const QString icons = QLatin1String("icons");
+		QString dir_path = QDir::homePath() + '/' + QLatin1String(".icons");
+		
+		if (io::FileExists(dir_path))
+			search_icons_dirs.append(dir_path);
+		
+		for (const auto &xdg: xdg_data_dirs) {
+			auto next = QDir(xdg).filePath(icons);
+			
+			if (io::FileExists(next))
+				search_icons_dirs.append(next);
+		}
+		
+		const char *usp = "/usr/share/pixmaps";
+		if (io::FileExistsCstr(usp))
+			search_icons_dirs.append(usp);
+	}
 }
 
 QString

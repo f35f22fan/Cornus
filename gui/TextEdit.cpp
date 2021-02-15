@@ -105,6 +105,10 @@ TextEdit::GetHiliteMode(const ByteArray &buf, io::File *file)
 	if (ext == QLatin1String("bashrc") || ext == QLatin1String("profile"))
 		return HiliteMode::PlainText;
 	
+	if (ext == QLatin1String("desktop")) {
+		return HiliteMode::DesktopFile;
+	}
+	
 	if (ext == QLatin1String("js") || ext == QLatin1String("html") ||
 		ext == QLatin1String("css") || ext == QLatin1String("php") ||
 		ext == QLatin1String("py") || ext == QLatin1String("java") ||

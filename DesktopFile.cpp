@@ -3,9 +3,12 @@
 #include "ByteArray.hpp"
 #include "io/io.hh"
 
+#include <QProcess>
+
 namespace cornus {
 
 const auto MainGroupName = QLatin1String("Desktop Entry");
+const auto Exec = QLatin1String("Exec");
 
 namespace desktopfile {
 Group::Group(const QString &name): name_(name)
@@ -18,18 +21,36 @@ Group::From(ByteArray &ba)
 {
 	Group *p = new Group(ba.next_string());
 	i32 mime_count = ba.next_i32();
+	auto name = p->name().toLocal8Bit();
+//	mtl_info("mime_count: %d, group: %s", mime_count, name.data());
 	
 	for (i32 i = 0; i < mime_count; i++) {
-		p->mimetypes_.append(ba.next_string());
+		QString s = ba.next_string();
+		p->mimetypes_.append(s);
 	}
 	
 	i32 kv_count = ba.next_i32();
 	
 	for (i32 i = 0; i < kv_count; i++) {
-		p->kv_map_.insert(ba.next_string(), ba.next_string());
+		QString key = ba.next_string();
+		QString val = ba.next_string();
+		p->kv_map_.insert(key, val);
 	}
 	
 	return p;
+}
+
+void Group::ListKV()
+{
+	QMapIterator<QString, QString> it(kv_map_);
+	mtl_info("kv_map size: %d",  kv_map_.size());
+	while (it.hasNext())
+	{
+		it.next();
+		auto key = it.key().toLocal8Bit();
+		auto val = it.value().toLocal8Bit();
+		mtl_info("\"%s\": \"%s\"", key.data(), val.data());
+	}
 }
 
 void Group::WriteTo(ByteArray &ba)
@@ -65,7 +86,7 @@ void Group::ParseLine(const QStringRef &line)
 	kv_map_.insert(key, value);
 	
 	if (mimetypes_.isEmpty() && key == QLatin1String("MimeType")) {
-		mimetypes_ = value.split(';');
+		mimetypes_ = value.split(';', Qt::SkipEmptyParts);
 	}
 }
 
@@ -86,14 +107,20 @@ DesktopFile::From(ByteArray &ba)
 	DesktopFile *p = new DesktopFile();
 	p->full_path_ = ba.next_string();
 	p->name_ = ba.next_string();
+///	mtl_printq2("Desktop File name: ", p->name_);
 	const i32 group_count = ba.next_i32();
 	
 	for (i32 i = 0; i < group_count; i++) {
 		desktopfile::Group *group = desktopfile::Group::From(ba);
-		if (group != nullptr) {
-			p->groups_.insert(group->name(), group);
-		}
+		if (group == nullptr)
+			continue;
+		
+		p->groups_.insert(group->name(), group);
+		
 		if (group->name() == MainGroupName) {
+			auto ba = group->name().toLocal8Bit();
+			auto ba2 = p->name_.toLocal8Bit();
+///			mtl_info("SET AS MAIN GROUP: %s for %s", ba.data(), ba2.data());
 			p->main_group_ = group;
 		}
 	}
@@ -113,6 +140,24 @@ DesktopFile::FromPath(const QString &full_path)
 	return nullptr;
 }
 
+QString
+DesktopFile::GetIcon() const
+{
+	if (!main_group_)
+		return QString();
+	
+	return main_group_->value(QLatin1String("Icon"));
+}
+
+QString
+DesktopFile::GetName() const
+{
+	if (!main_group_)
+		return QString();
+	
+	return main_group_->value(QLatin1String("Name"));
+}
+
 bool DesktopFile::Init(const QString &full_path)
 {
 	full_path_ = full_path;
@@ -127,7 +172,7 @@ bool DesktopFile::Init(const QString &full_path)
 		return false;
 	
 	QString text = QString::fromLocal8Bit(ba.data(), ba.size());
-	QVector<QStringRef> list = text.splitRef("\n");
+	QVector<QStringRef> list = text.splitRef('\n', Qt::SkipEmptyParts);
 	desktopfile::Group *group = nullptr;
 	
 	for (const auto &next: list)
@@ -153,6 +198,33 @@ bool DesktopFile::Init(const QString &full_path)
 	}
 	
 	return true;
+}
+
+void
+DesktopFile::Launch(const QString &full_path, const QString working_dir)
+{
+	if (main_group_ == nullptr)
+		return;
+	
+	QString exec = main_group_->value(Exec);
+	if (exec.isEmpty())
+		return;
+	QStringList args = exec.split(' ', Qt::SkipEmptyParts);
+	
+	for (auto &next: args) {
+		if (next.startsWith('%')) {
+			if (next == QLatin1String("%f") || next == QLatin1String("%F")) {
+				next = full_path;
+			} else if (next == QLatin1String("%u") || next == QLatin1String("%U")) {
+				next = QUrl::fromLocalFile(full_path).toString();
+			}
+		}
+	}
+	
+	QString exe = args.takeFirst();
+	QProcess::startDetached(exe, args, working_dir);
+	
+///"/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=ghb --file-forwarding fr.handbrake.ghb @@ %f @@"
 }
 
 bool

@@ -1040,6 +1040,15 @@ void App::ProcessAndWriteTo(const QString ext,
 	}
 }
 
+void App::ProcessMime(QString &mime)
+{
+	const auto PlainText = QLatin1String("text/plain");
+	
+	if (mime.startsWith("text/"))
+		mime = PlainText;
+	
+}
+
 ExecInfo
 App::QueryExecInfo(io::File &file) {
 	return QueryExecInfo(file.build_full_path(), file.cache().ext.toString());

@@ -11,7 +11,7 @@ ExecInfo::ExecInfo() {}
 
 ExecInfo::~ExecInfo() {}
 
-bool ExecInfo::Run(const QString &app_path, const QString &dir_path) const
+bool ExecInfo::Run(const QString &app_path, const QString &working_dir) const
 {
 	QRegularExpression regex("[\\s]+");
 	auto list = starter.splitRef(regex);
@@ -36,7 +36,7 @@ bool ExecInfo::Run(const QString &app_path, const QString &dir_path) const
 	}
 	mtl_printq2("dir_path: ", dir_path);
 #endif
-	QProcess::startDetached(exe_path, args, dir_path);
+	QProcess::startDetached(exe_path, args, working_dir);
 	
 	return true;
 }

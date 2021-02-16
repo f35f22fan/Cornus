@@ -796,7 +796,7 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	
 	close(fd);
 	buffer.size(so_far);
-	buffer.done_reading();
+	buffer.to(0);
 	
 	return Err::Ok;
 }

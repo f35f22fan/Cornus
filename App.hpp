@@ -50,6 +50,7 @@ public:
 	QSplitter* main_splitter() const { return main_splitter_; }
 	void OpenTerminal();
 	Prefs& prefs() { return *prefs_; }
+	void ProcessMime(QString &mime);
 	inline ExecInfo QueryExecInfo(io::File &file);
 	ExecInfo QueryExecInfo(const QString &full_path, const QString &ext);
 	QString QueryMimeType(const QString &full_path);

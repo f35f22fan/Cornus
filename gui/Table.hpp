@@ -82,7 +82,7 @@ private:
 	
 	int IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file = nullptr);
 	QPair<int, int> ListSelectedFiles(QList<QUrl> &list);
-	void QueryOpenWithList(QVector<QAction*> &ret, const QString &mime);
+	void QueryOpenWithList(QVector<QAction*> &ret, const QString &mime, const QString &full_path);
 	void SelectFileRangeNTS(const int row_start, const int row_end, QVector<int> &indices);
 	int SelectNextRow(const int relative_offset, const bool deselect_all_others, QVector<int> &indices); // returns newly selected row
 	void SetCustomResizePolicy();
@@ -105,6 +105,7 @@ private:
 	QPoint drop_coord_ = {-1, -1};
 	QPoint drag_start_pos_ = {-1, -1};
 	QVector<int> indices_;
+	QVector<DesktopFile*> open_with_files_;
 };
 
 } // cornus::gui::

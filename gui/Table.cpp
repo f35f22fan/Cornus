@@ -98,6 +98,11 @@ model_(tm)
 
 Table::~Table() {
 	delete model_;
+	
+	for (auto *next: open_with_files_) {
+		delete next;
+	}
+	open_with_files_.clear();
 }
 
 void SendClipboard(const QString &s, io::socket::MsgBits msg_type) {
@@ -983,8 +988,15 @@ Table::ProcessAction(const QString &action)
 }
 
 void
-Table::QueryOpenWithList(QVector<QAction*> &ret, const QString &mime)
+Table::QueryOpenWithList(QVector<QAction*> &ret, const QString &mime,
+	const QString &full_path)
 {
+	for (auto *next: open_with_files_) {
+		delete next;
+	}
+	open_with_files_.clear();
+	const QString working_dir_path = app_->current_dir();
+	
 	int fd = io::socket::Client(cornus::SocketPath);
 	CHECK_TRUE_VOID((fd != -1));
 	
@@ -996,20 +1008,26 @@ Table::QueryOpenWithList(QVector<QAction*> &ret, const QString &mime)
 	ByteArray receive_ba;
 	CHECK_TRUE_VOID(receive_ba.Receive(fd));
 	
-	QVector<DesktopFile*> desktop_files;
-	
 	while (receive_ba.has_more()) {
 		auto *next = DesktopFile::From(receive_ba);
 		if (next != nullptr)
-			desktop_files.append(next);
+			open_with_files_.append(next);
 	}
 	
-	mtl_printq2("Mime: ", mime);
-	mtl_info("Received total: %d desktop files", desktop_files.size());
-	
-	for (DesktopFile *next: desktop_files) {
-		mtl_printq2("Name: ", next->name());
-		delete next;
+	for (DesktopFile *next: open_with_files_) {
+		QString n = next->GetName();
+		QAction *action = new QAction(n);
+		QString s = next->GetIcon();
+		if (s.startsWith('/')) {
+			action->setIcon(QIcon(s));
+		} else if (!s.isEmpty()) {
+			action->setIcon(QIcon::fromTheme(s));
+		}
+		
+		connect(action, &QAction::triggered, [=] {
+			next->Launch(full_path, working_dir_path);
+		});
+		ret.append(action);
 	}
 }
 
@@ -1243,19 +1261,19 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 		QString full_path;
 		if (GetFileUnderMouse(local_pos, nullptr, &full_path) != -1)
 		{
-			const QString mime = app_->QueryMimeType(full_path);
+			QString mime = app_->QueryMimeType(full_path);
+			app_->ProcessMime(mime);
 			QVector<QAction*> actions;
-			QueryOpenWithList(actions, mime);
+			QueryOpenWithList(actions, mime, full_path);
 			
 			if (!actions.isEmpty()) {
 				auto *open_with_menu = new QMenu(tr("Open With"));
 				
 				for (auto &action: actions) {
 					open_with_menu->addAction(action);
-					connect(action, &QAction::triggered, [=] {
-						mtl_trace();
-					});
 				}
+				menu->addMenu(open_with_menu);
+			} else {
 			}
 		}
 	}

@@ -86,7 +86,6 @@ public:
 	
 public slots:
 	void InotifyEvent(cornus::gui::FileEvent evt);
-	void UpdateTable(cornus::gui::UpdateTableArgs args);
 	
 private:
 	

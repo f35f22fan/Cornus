@@ -132,14 +132,12 @@ mtl_trace("IN_CREATE: %s", ev->name);
 			
 			if (!io::ReloadMeta(*new_file))
 				mtl_trace();
-mtl_info("Sending Created from IN_CREATE");
 			FileEvent evt = {};
 			evt.new_file = new_file;
 			evt.dir_id = dir_id;
 			evt.type = gui::FileEventType::Created;
 			QMetaObject::invokeMethod(model, "InotifyEvent",
 				ConnectionType, Q_ARG(cornus::gui::FileEvent, evt));
-mtl_info("Done");
 		} else if (mask & IN_DELETE) {
 			QString name(ev->name);
 			if (!with_hidden_files && name.startsWith('.')) {
@@ -530,10 +528,8 @@ TableModel::InotifyEvent(gui::FileEvent evt)
 		beginRemoveRows(QModelIndex(), evt.index, evt.index);
 		{
 			MutexGuard guard(&files.mutex);
-			mtl_info("file count %d", files.data.vec.size());
 			delete files.data.vec[evt.index];
 			files.data.vec.remove(evt.index);
-			mtl_info("Deletion Ok");
 		}
 		endRemoveRows();
 		break;
@@ -558,7 +554,6 @@ TableModel::InotifyEvent(gui::FileEvent evt)
 			{
 				MutexGuard guard(&files.mutex);
 				files.data.vec[to_index] = new_file;
-				mtl_info("Deleted to_index, vec size: %d", files.data.vec.size());
 				io::ReloadMeta(*new_file);
 			}
 			UpdateSingleRow(to_index);
@@ -585,7 +580,7 @@ TableModel::InotifyEvent(gui::FileEvent evt)
 	}
 	} /// switch()		
 
-	if (evt.type == FileEventType::MovedTo && !scroll_to_and_select_.isEmpty()) {
+	if (!scroll_to_and_select_.isEmpty()) {
 /** When the user renames a file from a file rename dialog you want after
  renaming to select the newly renamed file and scroll to it,
  but you can't do it from the
@@ -767,48 +762,6 @@ TableModel::UpdateRange(int row1, Column c1, int row2, Column c2)
 	const QModelIndex top_left = createIndex(first, int(c1));
 	const QModelIndex bottom_right = createIndex(last, int(c2));
 	emit dataChanged(top_left, bottom_right, {Qt::DisplayRole});
-}
-
-void
-TableModel::UpdateTable(UpdateTableArgs args)
-{
-	io::Files &files = app_->view_files();
-	{
-		MutexGuard guard(&files.mutex);
-		if (args.dir_id != files.data.dir_id)
-			return;
-	}
-	
-	i32 added = args.new_count - args.prev_count;
-	
-	if (added > 0) {
-		//mtl_info("added: %d", added - 1);
-		beginInsertRows(QModelIndex(), 0, added - 1);
-		endInsertRows();
-	} else if (added < 0) {
-		added = std::abs(added);
-		beginRemoveRows(QModelIndex(), 0, added - 1);
-		//mtl_info("removed: %d", added - 1);
-		endRemoveRows();
-	}
-	
-	UpdateIndices(args.indices);
-	
-	if (!scroll_to_and_select_.isEmpty()) {
-/** When the user renames a file from a file rename dialog you want after
- renaming to select the newly renamed file and scroll to it,
- but you can't do it from the
- rename dialog code because the tableview will only receive the new
-file name from the inotify event which is processed in another thread.
-Hence the table can't scroll to it (returns false) as long as it hasn't
-received the new file name from the inotify thread. Which means that if
-it returns true all jobs are done (rename event processed, table
-found the new file, selected and scrolled to it).
- Plus at the end the string is cleared to avoid trying to do this
- for no reason.*/
-		if (app_->table()->ScrollToAndSelect(scroll_to_and_select_))
-			scroll_to_and_select_.clear();
-	}
 }
 
 void

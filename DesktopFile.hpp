@@ -14,6 +14,7 @@ public:
 	~Group();
 	
 	static Group* From(ByteArray &ba);
+	void Launch(const QString &full_path, const QString &working_dir);
 	const QString& name() { return name_; }
 	void ParseLine(const QStringRef &line);
 	QMap<QString, QString>& map() { return kv_map_; }
@@ -38,7 +39,7 @@ public:
 	static DesktopFile* From(ByteArray &ba);
 	static DesktopFile* FromPath(const QString &full_path);
 	const QString& full_path() const { return full_path_; }
-	void Launch(const QString &full_path, const QString working_dir);
+	void LaunchByMainGroup(const QString &full_path, const QString &working_dir);
 	desktopfile::Group* main_group() const { return main_group_; }
 	bool SupportsMime(const QString &mime);
 	void WriteTo(ByteArray &ba);

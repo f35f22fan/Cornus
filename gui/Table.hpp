@@ -67,10 +67,15 @@ private:
 	void ActionCopy(QVector<int> &indices);
 	void ActionCut(QVector<int> &indices);
 	void ActionPaste(QVector<int> &indices);
+	void AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path);
 	bool AnyArchive(const QVector<QString> &extensions) const;
 	void ClearDndAnimation(const QPoint &drop_coord);
 	bool CreateMimeWithSelectedFiles(const ClipboardAction action,
 		QVector<int> &indices, QString &ret);
+	
+	QVector<QAction*>
+	CreateOpenWithList(const QString &full_path);
+	
 	void FinishDropOperation(QVector<io::File *> *files_vec, io::File *to_dir,
 		Qt::DropAction drop_action, Qt::DropActions possible_actions);
 	void HandleKeySelect(const bool up);
@@ -81,8 +86,8 @@ private:
 	void HandleMouseSelectionNoModif(const QPoint &pos, QVector<int> &indices, bool mouse_pressed);
 	
 	int IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file = nullptr);
+	void LaunchFromOpenWithMenu();
 	QPair<int, int> ListSelectedFiles(QList<QUrl> &list);
-	void QueryOpenWithList(QVector<QAction*> &ret, const QString &mime, const QString &full_path);
 	void SelectFileRangeNTS(const int row_start, const int row_end, QVector<int> &indices);
 	int SelectNextRow(const int relative_offset, const bool deselect_all_others, QVector<int> &indices); // returns newly selected row
 	void SetCustomResizePolicy();
@@ -105,7 +110,11 @@ private:
 	QPoint drop_coord_ = {-1, -1};
 	QPoint drag_start_pos_ = {-1, -1};
 	QVector<int> indices_;
-	QVector<DesktopFile*> open_with_files_;
+	struct OpenWith {
+		QString full_path;
+		QVector<DesktopFile*> vec;
+	} open_with_ = {};
+	
 };
 
 } // cornus::gui::

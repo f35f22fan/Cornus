@@ -40,6 +40,32 @@ Group::From(ByteArray &ba)
 	return p;
 }
 
+void
+Group::Launch(const QString &full_path, const QString &working_dir)
+{
+	
+	QString exec = value(Exec);
+	if (exec.isEmpty())
+		return;
+	QStringList args = exec.split(' ', Qt::SkipEmptyParts);
+	
+	for (auto &next: args) {
+		if (next.startsWith('%')) {
+			if (next == QLatin1String("%f") || next == QLatin1String("%F")) {
+				next = full_path;
+			} else if (next == QLatin1String("%u") || next == QLatin1String("%U")) {
+				next = QUrl::fromLocalFile(full_path).toString();
+			}
+		}
+	}
+	
+	QString exe = args.takeFirst();
+	QProcess::startDetached(exe, args, working_dir);
+	
+///"/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=ghb --file-forwarding fr.handbrake.ghb @@ %f @@"
+}
+
+
 void Group::ListKV()
 {
 	QMapIterator<QString, QString> it(kv_map_);
@@ -200,31 +226,10 @@ bool DesktopFile::Init(const QString &full_path)
 	return true;
 }
 
-void
-DesktopFile::Launch(const QString &full_path, const QString working_dir)
+void DesktopFile::LaunchByMainGroup(const QString &full_path, const QString &working_dir)
 {
-	if (main_group_ == nullptr)
-		return;
-	
-	QString exec = main_group_->value(Exec);
-	if (exec.isEmpty())
-		return;
-	QStringList args = exec.split(' ', Qt::SkipEmptyParts);
-	
-	for (auto &next: args) {
-		if (next.startsWith('%')) {
-			if (next == QLatin1String("%f") || next == QLatin1String("%F")) {
-				next = full_path;
-			} else if (next == QLatin1String("%u") || next == QLatin1String("%U")) {
-				next = QUrl::fromLocalFile(full_path).toString();
-			}
-		}
-	}
-	
-	QString exe = args.takeFirst();
-	QProcess::startDetached(exe, args, working_dir);
-	
-///"/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=ghb --file-forwarding fr.handbrake.ghb @@ %f @@"
+	if (main_group_ != nullptr)
+		main_group_->Launch(full_path, working_dir);
 }
 
 bool

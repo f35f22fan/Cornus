@@ -353,7 +353,9 @@ App::AskCreateNewFile(io::File *file, const QString &title)
 		return;
 	
 	file->name(value);
-	auto path_ba = file->build_full_path().toLocal8Bit();
+	const QString new_path = file->build_full_path();
+	auto path_ba = new_path.toLocal8Bit();
+	table_model_->set_scroll_to_and_select(new_path);
 	int fd;
 	
 	if (file->is_dir()) {
@@ -363,6 +365,7 @@ App::AskCreateNewFile(io::File *file, const QString &title)
 	}
 	
 	if (fd == -1) {
+		table_model_->set_scroll_to_and_select(QString());
 		if (errno == EEXIST) {
 			QString name = QString("\"") + file->name();
 			TellUser(name + "\" already exists", tr("Failed"));
@@ -412,7 +415,8 @@ App::CreateNewMenu()
 		if (icon != nullptr)
 			action->setIcon(*icon);
 		connect(action, &QAction::triggered, [=] {
-			table_->ProcessAction(gui::actions::CreateNewFolder);
+			AskCreateNewFile(io::File::NewFolder(current_dir(), "New Folder"),
+				tr("Create New Folder"));
 		});
 	}
 	
@@ -423,7 +427,8 @@ App::CreateNewMenu()
 			action->setIcon(*icon);
 		
 		connect(action, &QAction::triggered, [=] {
-			table_->ProcessAction(gui::actions::CreateNewFile);
+			AskCreateNewFile(io::File::NewTextFile(current_dir(), "File.txt"),
+				tr("Create New File"));
 		});
 	}
 	
@@ -442,6 +447,8 @@ App::CreateNewMenu()
 		menu->addSeparator();
 	
 	QString dir_path = current_dir_;
+	if (!dir_path.endsWith('/'))
+		dir_path.append('/');
 	
 	for (const auto &name: names) {
 		QString from_full_path = full_path + '/' + name;
@@ -469,6 +476,8 @@ App::CreateNewMenu()
 			
 			connect(action, &QAction::triggered, [=] {
 				io::CopyFileFromTo(from_full_path, dir_path);
+				QString new_path = dir_path + name;
+				table_model_->set_scroll_to_and_select(new_path);
 			});
 			menu->addAction(action);
 		}
@@ -958,19 +967,28 @@ void App::ProcessAndWriteTo(const QString ext,
 		return;
 	
 	QString contents = QString::fromLocal8Bit(buf.data(), buf.size());
+	
 	int ln_index = contents.indexOf('\n');
 	if (ln_index == -1)
 		return;
 	
-	QString line = contents.mid(0, ln_index);
+	QString separator_in_dialog = contents.mid(0, ln_index);
+	
+	int ln2_index = contents.indexOf('\n', ln_index + 1);
+	if (ln2_index == -1)
+		return;
+	
+	const int start = ln_index + 1;
+	QString line = contents.mid(start, ln2_index - start);
+	
 	struct Pair {
 		QString replace_str;
 		QString display_str;
 	};
 	
 	QVector<Pair> pairs;
-	auto args = line.split(',');
-	QString visible;
+	auto args = line.split(separator_in_dialog);
+	QString placeholder_text;
 	
 	int ni = -1;
 	const int count = args.size();
@@ -981,20 +999,21 @@ void App::ProcessAndWriteTo(const QString ext,
 		int iopen = arg.indexOf('(');
 		if (iopen == -1 || !arg.endsWith(')')) {
 			pairs.append({arg, arg});
-			visible.append(arg);
+			placeholder_text.append(arg);
 		} else {
 			QString _1 = arg.mid(0, iopen);
 			int from = iopen + 1;
 			QString _2 = arg.mid(from, arg.size() - from - 1);
 			pairs.append({_1, _2});
-			visible.append(_2);
+			placeholder_text.append(_2);
 		}
 		
-		if (ni < count - 1)
-			visible.append(',');
+		if (ni < count - 1) {
+			placeholder_text.append(separator_in_dialog);
+		}
 	}
 	
-	contents = contents.mid(ln_index + 1);
+	contents = contents.mid(ln2_index + 1);
 	
 	QString fn = io::GetFileNameOfFullPath(from_full_path).toString();
 	int first = fn.indexOf('{');
@@ -1008,17 +1027,17 @@ void App::ProcessAndWriteTo(const QString ext,
 	params.title = "";
 	params.msg = fn;
 	//params.initial_value = visible;
-	params.placeholder_text = visible;
+	params.placeholder_text = placeholder_text;
 	params.icon = GetIcon(ext);
 	params.selection_start = 0;
-	params.selection_end = visible.size();
+	params.selection_end = 0;
 	
 	QString input_text;
 	if (!ShowInputDialog(params, input_text)) {
 		return;
 	}
 	
-	auto list = input_text.split(',');
+	auto list = input_text.split(separator_in_dialog);
 	
 	if (list.size() != pairs.size()) {
 		return;
@@ -1029,12 +1048,24 @@ void App::ProcessAndWriteTo(const QString ext,
 	}
 	
 	auto ba = contents.toLocal8Bit();
+
+	QString filename;
+	int i = 0;
+	for (auto &next: pairs) {
+		if (next.replace_str.endsWith('_')) {
+			filename = list[i];
+			break;
+		}
+		i++;
+	}
 	
-	QString filename = list[0];
+	if (filename.isEmpty())
+		filename = list[0];
+	
 	if (!ext.isEmpty())
 		filename += '.' + ext;
 	QString new_file_path = to_dir + filename;
-	
+	table_model_->set_scroll_to_and_select(new_file_path);
 	if (io::WriteToFile(new_file_path, ba.data(), ba.size(), &mode) != io::Err::Ok) {
 		mtl_trace("Failed to write data to file");
 	}

@@ -99,10 +99,10 @@ model_(tm)
 Table::~Table() {
 	delete model_;
 	
-	for (auto *next: open_with_files_) {
+	for (auto *next: open_with_.vec) {
 		delete next;
 	}
-	open_with_files_.clear();
+	open_with_.vec.clear();
 }
 
 void SendClipboard(const QString &s, io::socket::MsgBits msg_type) {
@@ -110,6 +110,23 @@ void SendClipboard(const QString &s, io::socket::MsgBits msg_type) {
 	ba->add_msg_type(msg_type);
 	ba->add_string(s);
 	io::socket::SendAsync(ba);
+}
+
+void
+Table::AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path)
+{
+	QVector<QAction*> actions = CreateOpenWithList(full_path);
+	
+	if (actions.isEmpty())
+		return;
+
+	auto *open_with_menu = new QMenu(tr("Open &With"));
+	
+	for (auto &action: actions) {
+		open_with_menu->addAction(action);
+	}
+	
+	main_menu->addMenu(open_with_menu);
 }
 
 void
@@ -273,6 +290,61 @@ Table::CreateMimeWithSelectedFiles(const ClipboardAction action,
 	}
 	
 	return true;
+}
+
+QVector<QAction*>
+Table::CreateOpenWithList(const QString &full_path)
+{
+	for (auto *next: open_with_.vec) {
+		delete next;
+	}
+	open_with_.vec.clear();
+	open_with_.full_path = full_path;
+	
+	QString mime = app_->QueryMimeType(full_path);
+	app_->ProcessMime(mime);
+	
+	QVector<QAction*> ret;
+	
+	int fd = io::socket::Client(cornus::SocketPath);
+	if (fd == -1)
+		return ret;
+	
+	ByteArray send_ba;
+	send_ba.add_msg_type(io::socket::MsgBits::SendOpenWithList);
+	send_ba.add_string(mime);
+	
+	if (!send_ba.Send(fd, false))
+		return ret;
+	
+	ByteArray receive_ba;
+	if (!receive_ba.Receive(fd))
+		return ret;
+	
+	while (receive_ba.has_more()) {
+		auto *next = DesktopFile::From(receive_ba);
+		if (next != nullptr)
+			open_with_.vec.append(next);
+	}
+	
+	for (DesktopFile *next: open_with_.vec)
+	{
+		QString n = next->GetName();
+		QAction *action = new QAction(n);
+		QVariant v = QVariant::fromValue((void *) next);
+		action->setData(v);
+		QString s = next->GetIcon();
+		if (s.startsWith('/')) {
+			action->setIcon(QIcon(s));
+		} else if (!s.isEmpty()) {
+			action->setIcon(QIcon::fromTheme(s));
+		}
+		
+		connect(action, &QAction::triggered, this, &Table::LaunchFromOpenWithMenu);
+		ret.append(action);
+	}
+	
+	return ret;
 }
 
 void
@@ -771,6 +843,16 @@ Table::keyReleaseEvent(QKeyEvent *evt) {
 }
 
 void
+Table::LaunchFromOpenWithMenu()
+{
+	QAction *act = qobject_cast<QAction *>(sender());
+	QVariant v = act->data();
+	DesktopFile *p = (DesktopFile*) v.value<void *>();
+	QString working_dir = app_->current_dir();
+	p->LaunchByMainGroup(open_with_.full_path, working_dir);
+}
+
+void
 Table::leaveEvent(QEvent *evt) {
 	int row = mouse_over_file_name_;
 	mouse_over_file_name_ = -1;
@@ -951,15 +1033,7 @@ Table::ProcessAction(const QString &action)
 {
 	App *app = model_->app();
 	
-	if (action == actions::CreateNewFile) {
-		app->AskCreateNewFile(
-			io::File::NewTextFile(app->current_dir(), "File.txt"),
-			tr("Create New File"));
-	} else if (action == actions::CreateNewFolder) {
-		app->AskCreateNewFile(
-			io::File::NewFolder(app->current_dir(), "New Folder"),
-			tr("Create New Folder"));
-	} else if (action == actions::DeleteFiles) {
+	if (action == actions::DeleteFiles) {
 		int count = GetSelectedFilesCount();
 		if (count == 0)
 			return;
@@ -984,50 +1058,6 @@ Table::ProcessAction(const QString &action)
 		}
 	} else if (action == actions::SwitchExecBit) {
 		app->SwitchExecBitOfSelectedFiles();
-	}
-}
-
-void
-Table::QueryOpenWithList(QVector<QAction*> &ret, const QString &mime,
-	const QString &full_path)
-{
-	for (auto *next: open_with_files_) {
-		delete next;
-	}
-	open_with_files_.clear();
-	const QString working_dir_path = app_->current_dir();
-	
-	int fd = io::socket::Client(cornus::SocketPath);
-	CHECK_TRUE_VOID((fd != -1));
-	
-	ByteArray send_ba;
-	send_ba.add_msg_type(io::socket::MsgBits::SendOpenWithList);
-	send_ba.add_string(mime);
-	CHECK_TRUE_VOID(send_ba.Send(fd, false));
-	
-	ByteArray receive_ba;
-	CHECK_TRUE_VOID(receive_ba.Receive(fd));
-	
-	while (receive_ba.has_more()) {
-		auto *next = DesktopFile::From(receive_ba);
-		if (next != nullptr)
-			open_with_files_.append(next);
-	}
-	
-	for (DesktopFile *next: open_with_files_) {
-		QString n = next->GetName();
-		QAction *action = new QAction(n);
-		QString s = next->GetIcon();
-		if (s.startsWith('/')) {
-			action->setIcon(QIcon(s));
-		} else if (!s.isEmpty()) {
-			action->setIcon(QIcon::fromTheme(s));
-		}
-		
-		connect(action, &QAction::triggered, [=] {
-			next->Launch(full_path, working_dir_path);
-		});
-		ret.append(action);
 	}
 }
 
@@ -1260,22 +1290,7 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 	if (selected_count == 1) {
 		QString full_path;
 		if (GetFileUnderMouse(local_pos, nullptr, &full_path) != -1)
-		{
-			QString mime = app_->QueryMimeType(full_path);
-			app_->ProcessMime(mime);
-			QVector<QAction*> actions;
-			QueryOpenWithList(actions, mime, full_path);
-			
-			if (!actions.isEmpty()) {
-				auto *open_with_menu = new QMenu(tr("Open With"));
-				
-				for (auto &action: actions) {
-					open_with_menu->addAction(action);
-				}
-				menu->addMenu(open_with_menu);
-			} else {
-			}
-		}
+			AddOpenWithMenuTo(menu, full_path);
 	}
 	
 	QMenu *new_menu = app_->CreateNewMenu();

@@ -28,7 +28,6 @@ TextEdit::TextEdit(App *app): app_(app)
 //	setAutoFormatting(QTextEdit::AutoNone);
 //	setLineWrapMode(QTextEdit::NoWrap);
 	hiliter_ = new Hiliter(document());
-	//hiliter_ = new Hiliter(new QTextDocument());
 	
 	QFont font;
 	font.setFamily("Hack");
@@ -37,7 +36,7 @@ TextEdit::TextEdit(App *app): app_(app)
 	setFont(font);
 	
 	QFontMetrics fm(font);
-	const int tab_w = fm.boundingRect(" ").width() * 4;
+	const int tab_w = fm.boundingRect(" ").width() * 1;
 	setTabStopDistance(tab_w);
 }
 

@@ -185,15 +185,11 @@ SidePane::dropEvent(QDropEvent *evt)
 		{
 			SidePaneItems &items = app->side_pane_items();
 			MutexGuard guard(&items.mutex);
-			const int y = evt->pos().y();
+			
 			const int rh = verticalHeader()->defaultSectionSize();
-			row = rowAt(y);
-			if (row != -1 && row < items.vec.size()) {
-				if (y % rh > (rh / 2))
-					row++;
-			} else {
+			row = rowAt(drop_coord_.y() + rh / 2);
+			if (row == -1)
 				row = items.vec.size();
-			}
 		}
 		
 		model_->FinishDropOperation(files_vec, row);
@@ -378,36 +374,28 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 }
 
 void
-SidePane::paintEvent(QPaintEvent *event)
+SidePane::paintEvent(QPaintEvent *evt)
 {
-	QTableView::paintEvent(event);
+	QTableView::paintEvent(evt);
 	
 	if (drop_coord_.y() == -1)
 		return;
 	
-	const i32 row_h = rowHeight(0);
+	const int rh = verticalHeader()->defaultSectionSize();
+	const int count = model_->rowCount();
+	int row = rowAt(drop_coord_.y() + rh / 2);
+	int y = -1;
 	
-	if (row_h < 1)
-		return;
+	if (row == count || row == -1) {
+		y = height() - horizontalHeader()->height() - 4;
+	} else {
+		y = verticalHeader()->sectionViewportPosition(row);
+	}
 	
 	QPainter painter(viewport());
 	QPen pen(QColor(0, 0, 255));
 	pen.setWidthF(2.0);
 	painter.setPen(pen);
-	
-	int y = drop_coord_.y();
-	
-	int rem = y % row_h;
-	
-	if (rem < row_h / 2)
-		y -= rem;
-	else
-		y += row_h - rem;
-	
-	if (y > 0)
-		y -= 1;
-	
-	//mtl_info("y: %d, slider: %d", y, slider_pos);
 	painter.drawLine(0, y, width(), y);
 }
 

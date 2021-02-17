@@ -42,6 +42,7 @@ struct FilesData {
 	SortingOrder sorting_order;
 	i32 dir_id = 0;/// for inotify/epoll
 	u16 bool_ = 0;
+	cornus::Action action = Action::None;
 	
 	bool show_hidden_files() const { return bool_ & ShowHiddenFiles; }
 	void show_hidden_files(const bool flag) {

@@ -369,7 +369,7 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 	}
 	
 	if (!cloned_item->is_partition() || cloned_item->mounted())
-		model_->app()->GoTo({cloned_item->mount_path(), false});
+		model_->app()->GoTo(Action::To, {cloned_item->mount_path(), Processed::No});
 	model_->UpdateIndices(indices);
 }
 
@@ -450,7 +450,7 @@ SidePane::ReceivedPartitionEvent(cornus::PartitionEvent *p)
 	model_->UpdateSingleRow(row);
 	
 	if (mount_event) {
-		app_->GoTo({p->mount_path, false});
+		app_->GoTo(Action::To, {p->mount_path, Processed::No});
 	} else if (unmount_event) {
 		if (app_->current_dir().startsWith(saved_mount_path)) {
 			app_->GoHome();

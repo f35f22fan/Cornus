@@ -21,7 +21,7 @@ const QString FolderIconName = QLatin1String("special_folder");
 
 struct DirPath {
 	QString path;
-	bool processed = false;
+	Processed processed = Processed::No;
 };
 
 class App : public QMainWindow {
@@ -40,7 +40,7 @@ public:
 	QIcon* GetIcon(const QString &str);
 	void GoBack();
 	void GoHome();
-	bool GoTo(DirPath dir_path, bool reload = false,
+	bool GoTo(const Action action, DirPath dir_path, const cornus::Reload r = Reload::No,
 		QString scroll_to_and_select = QString());
 	void Reload();
 	void GoUp();
@@ -132,6 +132,8 @@ private:
 	
 	Notepad notepad_ = {};
 	Clipboard clipboard_ = {};
+	
+	History *history_ = nullptr;
 	
 	friend class cornus::gui::Table;
 };

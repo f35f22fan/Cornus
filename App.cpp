@@ -17,6 +17,7 @@ extern "C" {
 #include "App.hpp"
 #include "AutoDelete.hh"
 #include "ExecInfo.hpp"
+#include "History.hpp"
 #include "io/disks.hh"
 #include "io/io.hh"
 #include "io/File.hpp"
@@ -106,6 +107,7 @@ struct GoToParams {
 	App *app = nullptr;
 	DirPath dir_path;
 	QString scroll_to_and_select;
+	cornus::Action action = Action::None;
 	bool reload;
 };
 
@@ -133,9 +135,10 @@ void* GoToTh(void *p)
 		new_data->sorting_order = view_files.data.sorting_order;
 	}
 
+	new_data->action = params->action;
 	new_data->start_time = std::chrono::steady_clock::now();
 	new_data->show_hidden_files(app->prefs().show_hidden_files());
-	if (params->dir_path.processed)
+	if (params->dir_path.processed == Processed::Yes)
 		new_data->processed_dir_path = params->dir_path.path;
 	else
 		new_data->unprocessed_dir_path = params->dir_path.path;
@@ -226,6 +229,7 @@ void FigureOutSelectPath(QString &select_path, QString &go_to_path)
 
 App::App()
 {
+	history_ = new History();
 	qRegisterMetaType<cornus::io::File*>();
 	qRegisterMetaType<cornus::io::FilesData*>();
 	qRegisterMetaType<cornus::PartitionEvent*>();
@@ -280,6 +284,9 @@ App::~App()
 	
 	delete prefs_;
 	prefs_ = nullptr;
+	
+	delete history_;
+	history_ = nullptr;
 }
 
 void
@@ -656,10 +663,10 @@ void App::FileDoubleClicked(io::File *file, const gui::Column col)
 	} else if (col == gui::Column::FileName) {
 		if (file->is_dir()) {
 			QString full_path = file->build_full_path();
-			GoTo({full_path, false});
+			GoTo(Action::To, {full_path, Processed::No});
 		} else if (file->is_link_to_dir()) {
 			if (file->link_target() != nullptr) {
-				GoTo({file->link_target()->path, true});
+				GoTo(Action::To, {file->link_target()->path, Processed::Yes});
 			}
 		} else if (file->is_regular() || file->is_symlink()) {
 			QString full_path = file->build_full_path();
@@ -707,18 +714,23 @@ QIcon* App::GetOrLoadIcon(const QString &icon_name) {
 }
 
 void App::GoBack() {
-	mtl_info();
+	QString s = history_->Back();
+	if (s.isEmpty())
+		return;
+	
+	GoTo(Action::Back, {s, Processed::Yes});
 }
 
-void App::GoHome() { GoTo({QDir::homePath(), false}); }
+void App::GoHome() { GoTo(Action::To, {QDir::homePath(), Processed::No}); }
 
-bool App::GoTo(DirPath dp, bool reload, QString scroll_to_and_select)
+bool App::GoTo(const Action action, DirPath dp, const cornus::Reload r, QString scroll_to_and_select)
 {
 	GoToParams *params = new GoToParams();
 	params->app = this;
 	params->dir_path = dp;
-	params->reload = reload;
+	params->reload = r == Reload::Yes;
 	params->scroll_to_and_select = scroll_to_and_select;
+	params->action = action;
 	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, cornus::GoToTh, params);
@@ -735,6 +747,7 @@ void App::GoToFinish(cornus::io::FilesData *new_data)
 	table_->mouse_over_file_name_index(-1);
 	table_model_->SwitchTo(new_data);
 	current_dir_ = new_data->processed_dir_path;
+	history_->Add(new_data->action, current_dir_);
 	
 	if (new_data->scroll_to_and_select.isEmpty())
 		table_->ScrollToRow(0);
@@ -819,11 +832,11 @@ void App::GoToInitialDir()
 			QString msg = "Directory doesn't exist:\n\""
 				+ cmds.go_to_path + QChar('\"');
 			mtl_printq(msg);
-			GoTo({QDir::homePath(), false}, false, cmds.select);
+			GoTo(Action::To, {QDir::homePath(), Processed::No}, Reload::No, cmds.select);
 			return;
 		}
 		if (file_type == io::FileType::Dir) {
-			GoTo({cmds.go_to_path, false}, false, cmds.select);
+			GoTo(Action::To, {cmds.go_to_path, Processed::No}, Reload::No, cmds.select);
 		} else {
 			QDir parent_dir(cmds.go_to_path);
 			if (!parent_dir.cdUp()) {
@@ -833,7 +846,7 @@ void App::GoToInitialDir()
 				GoHome();
 				return;
 			}
-			GoTo({parent_dir.absolutePath(), false}, false, cmds.go_to_path);
+			GoTo(Action::To, {parent_dir.absolutePath(), Processed::No}, Reload::No, cmds.go_to_path);
 			return;
 		}
 	}
@@ -847,7 +860,7 @@ void App::GoToAndSelect(const QString full_path)
 	QString parent_dir = parent.absolutePath();
 	
 	if (!io::SameFiles(parent_dir, current_dir_)) {
-		CHECK_TRUE_VOID(GoTo({parent_dir, false}, false, full_path));
+		CHECK_TRUE_VOID(GoTo(Action::To, {parent_dir, Processed::No}, Reload::No, full_path));
 	} else {
 		table_->ScrollToAndSelect(full_path);
 	}
@@ -864,7 +877,7 @@ void App::GoUp()
 		return;
 	
 	QString select_path = current_dir_;
-	GoTo({dir.absolutePath(), true}, false, select_path);
+	GoTo(Action::Up, {dir.absolutePath(), Processed::Yes}, Reload::No, select_path);
 }
 
 void App::HideTextEditor() {
@@ -1129,7 +1142,7 @@ void App::RegisterShortcuts() {
 	
 	connect(shortcut, &QShortcut::activated, [=] {
 		prefs_->show_hidden_files(!prefs_->show_hidden_files());
-		GoTo({current_dir_, true}, true);
+		GoTo(Action::Reload, {current_dir_, Processed::Yes}, Reload::Yes);
 		prefs_->Save();
 	});
 	
@@ -1189,7 +1202,7 @@ void App::RegisterShortcuts() {
 }
 
 void App::Reload() {
-	GoTo({current_dir_, false}, true);
+	GoTo(Action::Reload, {current_dir_, Processed::Yes}, Reload::Yes);
 }
 
 void App::RenameSelectedFile()

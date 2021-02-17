@@ -30,7 +30,7 @@ void Location::HitEnter()
 	
 	io::FileType ft;
 	if (io::FileExists(str, &ft) && ft == io::FileType::Dir) {
-		app_->GoTo({str, false});
+		app_->GoTo(Action::To, {str, Processed::No});
 	}
 }
 

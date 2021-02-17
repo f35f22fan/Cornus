@@ -19,6 +19,26 @@ class Prefs;
 const QString AppIconPath = QLatin1String(":/resources/cornus.webp");
 const char *const SocketPath = "\0cornus_socket";
 
+
+enum class Action: i8 {
+	None = 0,
+	Up,
+	Back,
+	Forward,
+	Reload,
+	To,
+};
+
+enum class Reload: i8 {
+	No = 0,
+	Yes,
+};
+
+enum class Processed: i8 {
+	No = 0,
+	Yes = 1,
+};
+
 enum class FileAs: i8 {
 	URL,
 	FilePath,

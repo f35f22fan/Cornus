@@ -41,6 +41,10 @@ set(cornus_src_files main.cpp
     gui/decl.hxx
     gui/Hiliter.cpp gui/Hiliter.hpp
     gui/Location.cpp gui/Location.hpp
+    gui/OpenOrderPane.cpp gui/OpenOrderPane.hpp
+    gui/OpenOrderModel.cpp gui/OpenOrderModel.hpp
+    gui/OpenOrderTable.cpp gui/OpenOrderTable.hpp
+    gui/OpenWithPane.cpp gui/OpenWithPane.hpp
     gui/PrefsPane.cpp gui/PrefsPane.hpp
     gui/SidePane.cpp gui/SidePane.hpp
     gui/SidePaneItem.cpp gui/SidePaneItem.hpp
@@ -72,6 +76,7 @@ set(cornus_io_src_files main_io.cpp
     DesktopFile.cpp DesktopFile.hpp
     ElapsedTimer.cpp ElapsedTimer.hpp
     MutexGuard.cpp MutexGuard.hpp
+    prefs.cc prefs.hh
 
     io/decl.hxx
     io/File.cpp io/File.hpp

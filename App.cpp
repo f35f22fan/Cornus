@@ -66,7 +66,7 @@ void* AutoLoadServerIfNeeded(void *arg)
 {
 	pthread_detach(pthread_self());
 	ByteArray ba;
-	ba.add_msg_type(io::socket::MsgBits::CheckAlive);
+	ba.set_msg_id(io::socket::MsgBits::CheckAlive);
 	
 	if (io::socket::SendSync(ba)) {
 		return nullptr;

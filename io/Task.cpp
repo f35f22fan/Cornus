@@ -406,7 +406,9 @@ Task::StartIO()
 	if (!to_dir_path_.isEmpty() && !to_dir_path_.endsWith('/'))
 		to_dir_path_.append('/');
 	
-	if (ops_ & io::socket::MsgBits::AtomicMove) {
+	using io::socket::MsgType;
+	
+	if (ops_ & (MsgType)io::socket::MsgBits::AtomicMove) {
 		if (TryAtomicMove()) {
 mtl_info("Atomic move succeeded");
 			data().ChangeState(io::TaskState::Finished);
@@ -415,10 +417,10 @@ mtl_info("Atomic move succeeded");
 mtl_info("Atomic move failed");
 	}
 	
-	if (ops_ & io::socket::MsgBits::Copy) {
+	if (ops_ & (MsgType)io::socket::MsgBits::Copy) {
 mtl_info("Copy");
 		CopyFiles();
-	} else if (ops_ & io::socket::MsgBits::Move) {
+	} else if (ops_ & (MsgType)io::socket::MsgBits::Move) {
 mtl_info("Move, trying to do atomic move..");
 		if (TryAtomicMove()) {
 mtl_info("Succeeded.");

@@ -11,9 +11,17 @@ const auto MainGroupName = QLatin1String("Desktop Entry");
 const auto Exec = QLatin1String("Exec");
 
 namespace desktopfile {
-Group::Group(const QString &name): name_(name)
-{}
-Group::~Group() {
+Group::Group(const QString &name): name_(name) {}
+Group::~Group() {}
+
+Group*
+Group::Clone() const
+{
+	Group *p = new Group(name_);
+	p->mimetypes_ = mimetypes_;
+	p->kv_map_ = kv_map_;
+	
+	return p;
 }
 
 Group*
@@ -38,6 +46,11 @@ Group::From(ByteArray &ba)
 	}
 	
 	return p;
+}
+
+bool
+Group::IsMain() const {
+	return name_ == MainGroupName;
 }
 
 void
@@ -116,7 +129,7 @@ void Group::ParseLine(const QStringRef &line)
 	}
 }
 
-bool Group::SupportsMime(const QString &mime)
+bool Group::SupportsMime(const QString &mime) const
 {
 	return mimetypes_.contains(mime);
 }
@@ -128,27 +141,55 @@ DesktopFile::DesktopFile() {}
 DesktopFile::~DesktopFile() {}
 
 DesktopFile*
+DesktopFile::Clone() const
+{
+	DesktopFile *p = new DesktopFile();
+	p->type_ = type_;
+	
+	if (is_desktop_file()) {
+		p->name_ = name_;
+		p->full_path_ = full_path_;
+		
+		QMapIterator<QString, desktopfile::Group*> it(groups_);
+		while (it.hasNext()) {
+			it.next();
+			desktopfile::Group *group = it.value()->Clone();
+			if (group->IsMain())
+				p->main_group_ = group;
+			p->groups_.insert(it.key(), group);
+		}
+	} else {
+		p->full_path_ = full_path_;
+	}
+	
+	return p;
+}
+
+DesktopFile*
 DesktopFile::From(ByteArray &ba)
 {
 	DesktopFile *p = new DesktopFile();
-	p->full_path_ = ba.next_string();
-	p->name_ = ba.next_string();
-///	mtl_printq2("Desktop File name: ", p->name_);
-	const i32 group_count = ba.next_i32();
+	p->type_ = (Type) ba.next_i8();
 	
-	for (i32 i = 0; i < group_count; i++) {
-		desktopfile::Group *group = desktopfile::Group::From(ba);
-		if (group == nullptr)
-			continue;
+	if (p->is_desktop_file())
+	{
+		p->full_path_ = ba.next_string();
+		p->name_ = ba.next_string();
+		const i32 group_count = ba.next_i32();
 		
-		p->groups_.insert(group->name(), group);
-		
-		if (group->name() == MainGroupName) {
-			auto ba = group->name().toLocal8Bit();
-			auto ba2 = p->name_.toLocal8Bit();
-///			mtl_info("SET AS MAIN GROUP: %s for %s", ba.data(), ba2.data());
-			p->main_group_ = group;
+		for (i32 i = 0; i < group_count; i++) {
+			desktopfile::Group *group = desktopfile::Group::From(ba);
+			if (group == nullptr)
+				continue;
+			
+			p->groups_.insert(group->name(), group);
+			if (group->IsMain())
+				p->main_group_ = group;
 		}
+	} else if (p->is_just_exe_path()) {
+		p->full_path_ = ba.next_string();
+	} else {
+		mtl_trace();
 	}
 	
 	return p;
@@ -166,26 +207,63 @@ DesktopFile::FromPath(const QString &full_path)
 	return nullptr;
 }
 
+DesktopFile*
+DesktopFile::JustExePath(const QString &full_path)
+{
+	auto *p = new DesktopFile();
+	p->type_ = Type::JustExePath;
+	p->full_path_ = full_path;
+	return p;
+}
+
+QString
+DesktopFile::GetId() const
+{
+	if (is_just_exe_path())
+		return full_path_;
+	
+	if (id_cached_.isEmpty())
+	{
+		const QString root = QLatin1String("applications/");
+		int index = full_path_.indexOf(root);
+		if (index == -1) {
+			mtl_trace();
+			return QString();
+		}
+		
+		auto id = full_path_.mid(index + root.size());
+		id_cached_ = id.replace('/', '-');
+	}
+	
+	return id_cached_;
+}
+
 QString
 DesktopFile::GetIcon() const
 {
-	if (!main_group_)
-		return QString();
+	if (is_desktop_file() && main_group_) {
+		QString s = main_group_->value(QLatin1String("Icon"));
+		return s;
+	}
 	
-	return main_group_->value(QLatin1String("Icon"));
+	return QLatin1String("application-x-executable");
 }
 
 QString
 DesktopFile::GetName() const
 {
-	if (!main_group_)
-		return QString();
+	if (is_just_exe_path())
+		return io::GetFileNameOfFullPath(full_path_).toString();
 	
-	return main_group_->value(QLatin1String("Name"));
+	if (main_group_)
+		return main_group_->value(QLatin1String("Name"));
+	
+	return QString();
 }
 
 bool DesktopFile::Init(const QString &full_path)
 {
+	type_ = Type::DesktopFile;
 	full_path_ = full_path;
 	auto ref = io::GetFileNameOfFullPath(full_path_);
 	int index = ref.lastIndexOf(QLatin1String(".desktop"));
@@ -226,14 +304,21 @@ bool DesktopFile::Init(const QString &full_path)
 	return true;
 }
 
+bool DesktopFile::IsApp() const
+{
+	if (!main_group_)
+		return false;
+	
+	return main_group_->value(QLatin1String("Type")) == QLatin1String("Application");
+}
+
 void DesktopFile::LaunchByMainGroup(const QString &full_path, const QString &working_dir)
 {
 	if (main_group_ != nullptr)
 		main_group_->Launch(full_path, working_dir);
 }
 
-bool
-DesktopFile::SupportsMime(const QString &mime)
+bool DesktopFile::SupportsMime(const QString &mime) const
 {
 	if (!main_group_)
 		return false;
@@ -241,14 +326,20 @@ DesktopFile::SupportsMime(const QString &mime)
 	return main_group_->SupportsMime(mime);
 }
 
-void DesktopFile::WriteTo(ByteArray &ba)
+void DesktopFile::WriteTo(ByteArray &ba) const
 {
-	ba.add_string(full_path_);
-	ba.add_string(name_);
-	ba.add_i32(groups_.size());
+	ba.add_i8(i8(type_));
 	
-	for (desktopfile::Group *group: groups_) {
-		group->WriteTo(ba);
+	if (is_desktop_file()) {
+		ba.add_string(full_path_);
+		ba.add_string(name_);
+		ba.add_i32(groups_.size());
+		
+		for (desktopfile::Group *group: groups_) {
+			group->WriteTo(ba);
+		}
+	} else {
+		ba.add_string(full_path_);
 	}
 }
 

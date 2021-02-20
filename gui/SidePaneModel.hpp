@@ -94,7 +94,6 @@ public:
 	void UpdateVisibleArea();
 	
 public slots:
-	void UpdateTable(cornus::gui::UpdateSidePaneArgs args);
 	void InsertFromAnotherThread(cornus::gui::InsertArgs args);
 	
 private:

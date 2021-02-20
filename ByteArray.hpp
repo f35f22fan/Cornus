@@ -3,6 +3,7 @@
 #include "io/socket.hh"
 #include "types.hxx"
 
+#include <QMetaType> /// Q_DECLARE_METATYPE()
 #include <QString>
 #include <vector>
 
@@ -14,8 +15,6 @@ public:
 	virtual ~ByteArray();
 	
 	void alloc(const usize exact_size);
-	
-	void add_msg_type(const io::socket::MsgType msg_type);
 	
 	void add(const char *n, const usize size);
 	void add_i8(const i8 n);
@@ -56,6 +55,7 @@ public:
 	inline void to(usize n) { at_ = n; }
 	bool Receive(int fd, bool close_socket = true);
 	bool Send(int fd, bool close_socket = true) const;
+	void set_msg_id(const io::socket::MsgBits msg_id);
 	
 private:
 	
@@ -66,3 +66,4 @@ private:
 };
 
 }
+Q_DECLARE_METATYPE(cornus::ByteArray*);

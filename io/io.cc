@@ -1044,11 +1044,12 @@ WriteToFile(const QString &full_path, const char *data, const i64 size,
 	if (fd == -1)
 		return MapPosixError(errno);
 	
-	isize written = 0;
+	i64 written = 0;
+	i64 ret;
 	
 	while (written < size) {
 		// ssize_t write(int fd, const void *buf, size_t count);
-		isize ret = write(fd, data + written, size - written);
+		ret = write(fd, data + written, size - written);
 		
 		if (ret == -1) {
 			if (errno == EAGAIN)

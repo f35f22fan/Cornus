@@ -32,7 +32,6 @@ SortSidePanes(SidePaneItem *a, SidePaneItem *b)
 	return (i > 0) ? false : true;
 }
 
-
 void LoadBookmarks(QVector<SidePaneItem*> &vec)
 {
 	const QString full_path = prefs::QueryAppConfigPath() + '/'
@@ -506,25 +505,6 @@ SidePaneModel::UpdateRange(int row1, int row2)
 	const QModelIndex top_left = createIndex(first, 0);
 	const QModelIndex bottom_right = createIndex(last, 0);
 	emit dataChanged(top_left, bottom_right, {Qt::DisplayRole});
-}
-
-void
-SidePaneModel::UpdateTable(UpdateSidePaneArgs args)
-{
-	i32 added = args.new_count - args.prev_count;
-	
-	if (added > 0) {
-		//mtl_info("added: %d", added - 1);
-		beginInsertRows(QModelIndex(), 0, added - 1);
-		endInsertRows();
-	} else if (added < 0) {
-		added = std::abs(added);
-		beginRemoveRows(QModelIndex(), 0, added - 1);
-		//mtl_info("removed: %d", added - 1);
-		endRemoveRows();
-	}
-	
-	UpdateIndices(args.indices);
 }
 
 void

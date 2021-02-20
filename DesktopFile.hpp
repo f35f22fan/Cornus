@@ -13,12 +13,14 @@ public:
 	Group(const QString &name);
 	~Group();
 	
+	Group* Clone() const;
 	static Group* From(ByteArray &ba);
+	bool IsMain() const;
 	void Launch(const QString &full_path, const QString &working_dir);
-	const QString& name() { return name_; }
+	const QString& name() const { return name_; }
 	void ParseLine(const QStringRef &line);
 	QMap<QString, QString>& map() { return kv_map_; }
-	bool SupportsMime(const QString &mime);
+	bool SupportsMime(const QString &mime) const;
 	void WriteTo(ByteArray &ba);
 	QString value(const QString &key) const { return kv_map_.value(key); }
 	void ListKV();
@@ -34,15 +36,33 @@ private:
 
 class DesktopFile {
 public:
+	enum class Type: i8 {
+		None = 0,
+		DesktopFile,
+		JustExePath,
+	};
+	
 	virtual ~DesktopFile();
 	
 	static DesktopFile* From(ByteArray &ba);
 	static DesktopFile* FromPath(const QString &full_path);
+	static DesktopFile* JustExePath(const QString &full_path);
+	DesktopFile* Clone() const;
+	
 	const QString& full_path() const { return full_path_; }
+	void full_path(const QString &s) { full_path_ = s; }
+	
+	QString GetId() const;
+	bool IsApp() const;
 	void LaunchByMainGroup(const QString &full_path, const QString &working_dir);
 	desktopfile::Group* main_group() const { return main_group_; }
-	bool SupportsMime(const QString &mime);
-	void WriteTo(ByteArray &ba);
+	
+	bool is_desktop_file() const { return type_ == Type::DesktopFile; }
+	bool is_just_exe_path() const { return type_ == Type::JustExePath; }
+	
+	bool SupportsMime(const QString &mime) const;
+	Type type() const { return type_; }
+	void WriteTo(ByteArray &ba) const;
 	
 	QString GetIcon() const;
 	QString GetName() const;
@@ -55,8 +75,10 @@ private:
 	
 	bool Init(const QString &full_path);
 	
+	Type type_ = Type::None;
 	QString full_path_;
 	QString name_;
+	mutable QString id_cached_;
 	QMap<QString, desktopfile::Group*> groups_;
 	desktopfile::Group *main_group_ = nullptr;
 };

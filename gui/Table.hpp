@@ -11,6 +11,10 @@
 #include <QTableView>
 
 namespace cornus::gui {
+struct OpenWith {
+	QString full_path;
+	QVector<DesktopFile*> vec;
+};
 
 class Table : public QTableView {
 	Q_OBJECT
@@ -36,6 +40,7 @@ public:
 	bool mouse_down() const { return mouse_down_; }
 	i32 mouse_over_file_name_index() const { return mouse_over_file_name_; }
 	void mouse_over_file_name_index(const i32 n) { mouse_over_file_name_ = n; }
+	const OpenWith& open_with() const { return open_with_; }
 	void ProcessAction(const QString &action);
 	void ScrollToRow(int row);
 	void ScrollToAndSelectRow(const int row, const bool deselect_others);
@@ -110,11 +115,7 @@ private:
 	QPoint drop_coord_ = {-1, -1};
 	QPoint drag_start_pos_ = {-1, -1};
 	QVector<int> indices_;
-	struct OpenWith {
-		QString full_path;
-		QVector<DesktopFile*> vec;
-	} open_with_ = {};
-	
+	OpenWith open_with_ = {};
 };
 
 } // cornus::gui::

@@ -23,4 +23,22 @@ QString QueryAppConfigPath()
 	
 	return QString();
 }
+
+QString QueryMimeConfigDirPath()
+{
+	static QString dir_path = QString();
+	
+	if (!dir_path.isEmpty())
+		return dir_path;
+	
+	QString config_path = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
+	
+	if (!config_path.endsWith('/'))
+		config_path.append('/');
+	
+	if (io::EnsureDir(config_path, prefs::MimeConfigDir))
+		return config_path + prefs::MimeConfigDir;
+	
+	return QString();
+}
 }

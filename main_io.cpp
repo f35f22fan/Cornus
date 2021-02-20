@@ -46,13 +46,14 @@ void* ProcessRequest(void *ptr)
 	
 	const auto msg = ba.next_u32() & ~(7u << 29);
 	const auto ConnectionType = Qt::BlockingQueuedConnection;
+	using io::socket::MsgType;
 	
 	switch (msg) {
-	case io::socket::MsgBits::CheckAlive: {
+	case (MsgType)io::socket::MsgBits::CheckAlive: {
 		close(fd);
 		return nullptr;
 	}
-	case io::socket::MsgBits::CopyToClipboard: {
+	case (MsgType)io::socket::MsgBits::CopyToClipboard: {
 		close(fd);
 		QString s = ba.next_string();
 		QMetaObject::invokeMethod(server, "CopyToClipboard",
@@ -60,7 +61,7 @@ void* ProcessRequest(void *ptr)
 		
 		return nullptr;
 	}
-	case io::socket::MsgBits::CutToClipboard: {
+	case (MsgType)io::socket::MsgBits::CutToClipboard: {
 		close(fd);
 		QString s = ba.next_string();
 		QMetaObject::invokeMethod(server, "CutToClipboard",
@@ -68,10 +69,16 @@ void* ProcessRequest(void *ptr)
 		
 		return nullptr;
 	}
-	case io::socket::MsgBits::SendOpenWithList: {
+	case (MsgType)io::socket::MsgBits::SendOpenWithList: {
 		QString mime = ba.next_string();
 		QMetaObject::invokeMethod(server, "SendOpenWithList",
 			ConnectionType, Q_ARG(QString, mime), Q_ARG(int, fd));
+		return nullptr;
+	}
+	
+	case (MsgType)io::socket::MsgBits::SendDesktopFilesById: {
+		QMetaObject::invokeMethod(server, "SendDesktopFilesById",
+			ConnectionType, Q_ARG(ByteArray*, &ba), Q_ARG(int, fd));
 		return nullptr;
 	}
 	} /// switch()
@@ -135,6 +142,7 @@ int main(int argc, char *argv[])
 	
 	QApplication qapp(argc, argv);
 	qRegisterMetaType<cornus::io::Task*>();
+	qRegisterMetaType<cornus::ByteArray*>();
 	
 	/// The TasksWin hides/deletes itself
 	/// Currently it deletes itself, change later to just hide itself.

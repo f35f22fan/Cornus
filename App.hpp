@@ -132,7 +132,6 @@ private:
 	
 	Notepad notepad_ = {};
 	Clipboard clipboard_ = {};
-	
 	History *history_ = nullptr;
 	
 	friend class cornus::gui::Table;

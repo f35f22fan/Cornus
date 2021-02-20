@@ -23,12 +23,6 @@ ByteArray::add(const char *n, const usize size)
 }
 
 void
-ByteArray::add_msg_type(const io::socket::MsgType msg_type)
-{
-	add(reinterpret_cast<const char*>(&msg_type), sizeof msg_type);
-}
-
-void
 ByteArray::add_i8(const i8 n) {
 	add(reinterpret_cast<const char*>(&n), sizeof n);
 }
@@ -287,6 +281,12 @@ ByteArray::Send(int fd, bool close_socket) const
 	}
 	
 	return so_far == size_;
+}
+
+void
+ByteArray::set_msg_id(const io::socket::MsgBits msg_type)
+{
+	add(reinterpret_cast<const char*>(&msg_type), sizeof msg_type);
 }
 
 }

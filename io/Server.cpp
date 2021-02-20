@@ -2,6 +2,7 @@
 
 #include "../ByteArray.hpp"
 #include "../DesktopFile.hpp"
+#include "../prefs.hh"
 #include "../str.hxx"
 #include "../gui/TasksWin.hpp"
 #include "io.hh"
@@ -12,14 +13,21 @@
 
 namespace cornus::io {
 
+bool Contains(QVector<DesktopFile*> &vec, const QString &id,
+	const DesktopFile::Type t)
+{
+	for (DesktopFile *p: vec) {
+		if (p->type() == t && p->GetId() == id)
+			return true;
+	}
+	
+	return false;
+}
+
 Server::Server()
 {
 	io::SetupEnvSearchPaths(search_icons_dirs_, xdg_data_dirs_);
 	tasks_win_ = new gui::TasksWin();
-	
-//	auto *p = DesktopFile::FromPath("/usr/share/applications/firefox.desktop");
-//	delete p;
-	
 	LoadDesktopFiles();
 	mtl_info("In total %d desktop files", desktop_files_.size());
 }
@@ -60,6 +68,36 @@ void Server::CutToClipboard(const QString &s)
 	QApplication::clipboard()->setMimeData(mime);
 }
 
+QVector<DesktopFile*>
+Server::GetOrderPrefFor(QString mime)
+{
+	QVector<DesktopFile*> vec;
+	QString filename = mime.replace('/', '-');
+	QString save_dir = cornus::prefs::QueryMimeConfigDirPath();
+	if (!save_dir.endsWith('/'))
+		save_dir.append('/');
+	
+	QString full_path = save_dir + filename;
+	ByteArray buf;
+	if (ReadFile(full_path, buf) != io::Err::Ok) {
+		return vec;
+	}
+	
+	while (buf.has_more()) {
+		DesktopFile::Type t = (DesktopFile::Type)buf.next_i8();
+		QString id = buf.next_string();
+		auto *p = desktop_files_.value(id, nullptr);
+		if (p == nullptr) {
+			mtl_printq2("Desktop File not found for ", id);
+			continue;
+		}
+		
+		vec.append(p);
+	}
+	
+	return vec;
+}
+
 void Server::LoadDesktopFiles()
 {
 	for (const auto &next: xdg_data_dirs_) {
@@ -96,20 +134,45 @@ void Server::LoadDesktopFilesFrom(QString dir_path)
 		}
 		
 		auto *p = DesktopFile::FromPath(full_path);
-		if (p != nullptr)
-			desktop_files_.append(p);
+		if (p != nullptr) {
+			desktop_files_.insert(p->GetId(), p);
+		}
 	}
 }
 
-void Server::SendOpenWithList(QString mime, int fd)
+void Server::SendDesktopFilesById(ByteArray *ba, const int fd)
 {
-//	mtl_printq2("Received query for mime: ", mime);
-	ByteArray ba;
-	
-	for (DesktopFile *next: desktop_files_) {
-		if (next->SupportsMime(mime)) {
-			next->WriteTo(ba);
+	ByteArray reply;
+	while (ba->has_more()) {
+		QString id = ba->next_string();
+		DesktopFile *p = desktop_files_.value(id, nullptr);
+		if (p == nullptr) {
+			mtl_printq2("Not found by ID: ", id);
+			continue;
 		}
+		
+		reply.add_string(id);
+		p->WriteTo(reply);
+	}
+	
+	reply.Send(fd);
+}
+
+void Server::SendOpenWithList(QString mime, const int fd)
+{
+	QVector<DesktopFile*> vec = GetOrderPrefFor(mime);
+	
+	foreach (DesktopFile *p, desktop_files_)
+	{
+		if (!p->SupportsMime(mime))
+			continue;
+		if (!Contains(vec, p->GetId(), p->type()))
+			vec.append(p);
+	}
+	
+	ByteArray ba;
+	for (DesktopFile *next: vec) {
+		next->WriteTo(ba);
 	}
 	
 	ba.Send(fd);

@@ -6,6 +6,7 @@
 #include "CountFolder.hpp"
 #include "../DesktopFile.hpp"
 #include "../ExecInfo.hpp"
+#include "OpenOrderPane.hpp"
 #include "../io/io.hh"
 #include "../io/File.hpp"
 #include "../io/socket.hh"
@@ -105,9 +106,9 @@ Table::~Table() {
 	open_with_.vec.clear();
 }
 
-void SendClipboard(const QString &s, io::socket::MsgBits msg_type) {
+void SendClipboard(const QString &s, io::socket::MsgBits msg_id) {
 	auto ba = new ByteArray();
-	ba->add_msg_type(msg_type);
+	ba->set_msg_id(msg_id);
 	ba->add_string(s);
 	io::socket::SendAsync(ba);
 }
@@ -125,6 +126,13 @@ Table::AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path)
 	for (auto &action: actions) {
 		open_with_menu->addAction(action);
 	}
+	
+	open_with_menu->addSeparator();
+	QAction *action = new QAction(tr("Change Preference Order.."));
+	connect(action, &QAction::triggered, [=] {
+		OpenOrderPane pane(app_);
+	});
+	open_with_menu->addAction(action);
 	
 	main_menu->addMenu(open_with_menu);
 }
@@ -164,14 +172,14 @@ Table::ActionPaste(QVector<int> &indices)
 	if (!clipboard.has_files())
 		return;
 	
-	io::socket::MsgType io_op = 0;
+	io::socket::MsgBits io_op = io::socket::MsgBits::None;
 	if (clipboard.action == ClipboardAction::Copy)
 		io_op = io::socket::MsgBits::Copy;
 	else
 		io_op = io::socket::MsgBits::Move;
 	
 	auto *ba = new ByteArray();
-	ba->add_msg_type(io_op);
+	ba->set_msg_id(io_op);
 	QString to_dir = app_->current_dir();
 	ba->add_string(to_dir);
 	ba->add_i32(clipboard.file_paths.size());
@@ -311,7 +319,7 @@ Table::CreateOpenWithList(const QString &full_path)
 		return ret;
 	
 	ByteArray send_ba;
-	send_ba.add_msg_type(io::socket::MsgBits::SendOpenWithList);
+	send_ba.set_msg_id(io::socket::MsgBits::SendOpenWithList);
 	send_ba.add_string(mime);
 	
 	if (!send_ba.Send(fd, false))
@@ -343,6 +351,8 @@ Table::CreateOpenWithList(const QString &full_path)
 		connect(action, &QAction::triggered, this, &Table::LaunchFromOpenWithMenu);
 		ret.append(action);
 	}
+	
+	
 	
 	return ret;
 }
@@ -420,11 +430,11 @@ Table::FinishDropOperation(QVector<io::File*> *files_vec,
 	io::File *to_dir, Qt::DropAction drop_action, Qt::DropActions possible_actions)
 {
 	CHECK_PTR_VOID(files_vec);
-	io::socket::MsgType io_operation = io::socket::MsgFlagsFor(drop_action)
+	io::socket::MsgBits io_operation = io::socket::MsgFlagsFor(drop_action)
 		| io::socket::MsgFlagsForMany(possible_actions);
 	//mtl_info("flags: %u", u32(io_operation));
 	auto *ba = new ByteArray();
-	ba->add_msg_type(io_operation);
+	ba->set_msg_id(io_operation);
 	ba->add_string(to_dir->build_full_path());
 	ba->add_i32(files_vec->size());
 	

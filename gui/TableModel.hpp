@@ -5,7 +5,6 @@
 #include "../err.hpp"
 #include "../io/decl.hxx"
 #include "../io/io.hh"
-#include "../types.hxx"
 
 #include <QAbstractTableModel>
 #include <QVector>

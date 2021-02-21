@@ -77,7 +77,7 @@ private:
 	bool AnyArchive(const QVector<QString> &extensions) const;
 	void ClearDndAnimation(const QPoint &drop_coord);
 	bool CreateMimeWithSelectedFiles(const ClipboardAction action,
-		QVector<int> &indices, QString &ret);
+		QVector<int> &indices, QStringList &list);
 	
 	QVector<QAction*>
 	CreateOpenWithList(const QString &full_path);

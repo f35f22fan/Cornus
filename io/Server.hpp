@@ -18,8 +18,8 @@ public:
 	gui::TasksWin* tasks_win() const { return tasks_win_; }
 	
 public slots:
-	void CutToClipboard(const QString &s);
-	void CopyToClipboard(const QString &s);
+	void CutURLsToClipboard(ByteArray *ba);
+	void CopyURLsToClipboard(ByteArray *ba);
 	void LoadDesktopFiles();
 	void LoadDesktopFilesFrom(QString dir_path);
 	void SendAllDesktopFiles(const int fd);

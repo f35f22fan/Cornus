@@ -18,41 +18,39 @@ Server::Server()
 	io::SetupEnvSearchPaths(search_icons_dirs_, xdg_data_dirs_);
 	tasks_win_ = new gui::TasksWin();
 	LoadDesktopFiles();
-	mtl_info("In total %d desktop files", desktop_files_.size());
+///	mtl_info("In total %d desktop files", desktop_files_.size());
 }
 
 Server::~Server() {}
 
-void Server::CopyToClipboard(const QString &s)
+void Server::CopyURLsToClipboard(ByteArray *ba)
 {
 	QMimeData *mime = new QMimeData();
 	
-	auto list = s.splitRef('\n');
 	QList<QUrl> urls;
-	for (auto &next: list) {
-		urls.append(QUrl::fromLocalFile(next.toString()));
+	while (ba->has_more()) {
+		urls.append(QUrl(ba->next_string()));
 	}
 	
 	mime->setUrls(urls);
 	QApplication::clipboard()->setMimeData(mime);
 }
 
-void Server::CutToClipboard(const QString &s)
+void Server::CutURLsToClipboard(ByteArray *ba)
 {
 	QMimeData *mime = new QMimeData();
 	
-	auto list = s.splitRef('\n');
 	QList<QUrl> urls;
-	for (auto &next: list) {
-		urls.append(QUrl::fromLocalFile(next.toString()));
+	while (ba->has_more()) {
+		urls.append(QUrl(ba->next_string()));
 	}
 	
 	mime->setUrls(urls);
 	
-	QByteArray ba;
+	QByteArray kde_mark;
 	char c = '1';
-	ba.append(c);
-	mime->setData(str::KdeCutMime, ba);
+	kde_mark.append(c);
+	mime->setData(str::KdeCutMime, kde_mark);
 	
 	QApplication::clipboard()->setMimeData(mime);
 }

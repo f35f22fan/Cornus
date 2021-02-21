@@ -55,17 +55,15 @@ void* ProcessRequest(void *ptr)
 	}
 	case (MsgType)io::socket::MsgBits::CopyToClipboard: {
 		close(fd);
-		QString s = ba.next_string();
-		QMetaObject::invokeMethod(server, "CopyToClipboard",
-			ConnectionType, Q_ARG(QString, s));
+		QMetaObject::invokeMethod(server, "CopyURLsToClipboard",
+			ConnectionType, Q_ARG(ByteArray*, &ba));
 		
 		return nullptr;
 	}
 	case (MsgType)io::socket::MsgBits::CutToClipboard: {
 		close(fd);
-		QString s = ba.next_string();
-		QMetaObject::invokeMethod(server, "CutToClipboard",
-			ConnectionType, Q_ARG(QString, s));
+		QMetaObject::invokeMethod(server, "CutURLsToClipboard",
+			ConnectionType, Q_ARG(ByteArray*, &ba));
 		
 		return nullptr;
 	}

@@ -112,10 +112,13 @@ Table::~Table() {
 	open_with_.remove_vec.clear();
 }
 
-void SendClipboard(const QString &s, io::socket::MsgBits msg_id) {
+void SendURLsClipboard(const QStringList &list, io::socket::MsgBits msg_id) {
 	auto ba = new ByteArray();
 	ba->set_msg_id(msg_id);
-	ba->add_string(s);
+	for (const auto &next: list)
+	{
+		ba->add_string(next);
+	}
 	io::socket::SendAsync(ba);
 }
 
@@ -146,20 +149,20 @@ Table::AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path)
 void
 Table::ActionCopy(QVector<int> &indices)
 {
-	QString s;
-	if(!CreateMimeWithSelectedFiles(ClipboardAction::Copy, indices, s))
+	QStringList list;
+	if(!CreateMimeWithSelectedFiles(ClipboardAction::Copy, indices, list))
 		return;
 	
-	SendClipboard(s, io::socket::MsgBits::CopyToClipboard);
+	SendURLsClipboard(list, io::socket::MsgBits::CopyToClipboard);
 }
 
 void
 Table::ActionCut(QVector<int> &indices) {
-	QString data;
-	if (!CreateMimeWithSelectedFiles(ClipboardAction::Cut, indices, data))
+	QStringList list;
+	if (!CreateMimeWithSelectedFiles(ClipboardAction::Cut, indices, list))
 		return;
 	
-	SendClipboard(data, io::socket::MsgBits::CutToClipboard);
+	SendURLsClipboard(list, io::socket::MsgBits::CutToClipboard);
 }
 
 void
@@ -262,45 +265,35 @@ Table::ClearDndAnimation(const QPoint &drop_coord)
 
 bool
 Table::CreateMimeWithSelectedFiles(const ClipboardAction action,
-	QVector<int> &indices, QString &ret)
+	QVector<int> &indices, QStringList &list)
 {
-	QStringList urls;
-	{
-		auto &files = app_->view_files();
-		MutexGuard guard(&files.mutex);
-		
-		io::FileBits flag = io::FileBits::Empty;
-		if (action == ClipboardAction::Cut)
-			flag = io::FileBits::ActionCut;
-		else if (action == ClipboardAction::Copy)
-			flag = io::FileBits::ActionCopy;
-		else if (action == ClipboardAction::Paste)
-			flag = io::FileBits::ActionPaste;
-		else if (action == ClipboardAction::Link)
-			flag = io::FileBits::PasteLink;
-		
-		int i = -1;
-		for (io::File *next: files.data.vec) {
-			i++;
-			
-			if (next->selected()) {
-				indices.append(i);
-				next->toggle_flag(flag, true);
-				urls.append(next->build_full_path());
-			} else {
-				if (next->clear_all_actions_if_needed())
-					indices.append(i);
-			}
-		}
-	}
+	auto &files = app_->view_files();
+	MutexGuard guard(&files.mutex);
 	
-	const int count = urls.size();
+	io::FileBits flag = io::FileBits::Empty;
+	if (action == ClipboardAction::Cut)
+		flag = io::FileBits::ActionCut;
+	else if (action == ClipboardAction::Copy)
+		flag = io::FileBits::ActionCopy;
+	else if (action == ClipboardAction::Paste)
+		flag = io::FileBits::ActionPaste;
+	else if (action == ClipboardAction::Link)
+		flag = io::FileBits::PasteLink;
+	
 	int i = -1;
-	for (auto &path: urls) {
+	for (io::File *next: files.data.vec)
+	{
 		i++;
-		ret.append(path);
-		if (i < count - 1)
-			ret.append('\n');
+		
+		if (next->selected()) {
+			indices.append(i);
+			next->toggle_flag(flag, true);
+			QString s = next->build_full_path();
+			list.append(QUrl::fromLocalFile(s).toString());
+		} else {
+			if (next->clear_all_actions_if_needed())
+				indices.append(i);
+		}
 	}
 	
 	return true;

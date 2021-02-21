@@ -19,7 +19,9 @@ OpenOrderTable::OpenOrderTable(App *app, OpenOrderModel *model)
 	hh->setSectionResizeMode(0, QHeaderView::Stretch);
 }
 
-OpenOrderTable::~OpenOrderTable() {}
+OpenOrderTable::~OpenOrderTable() {
+	delete model_;
+}
 
 QSize
 OpenOrderTable::sizeHint() const

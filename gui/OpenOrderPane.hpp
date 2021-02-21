@@ -1,13 +1,15 @@
 #pragma once
 
 #include <QDialog>
-#include <QDialogButtonBox>
 
 #include "../decl.hxx"
 #include "decl.hxx"
 #include "../err.hpp"
 
 QT_BEGIN_NAMESPACE
+class QAbstractButton;
+class QComboBox;
+class QDialogButtonBox;
 class QPushButton;
 QT_END_NAMESPACE
 
@@ -31,10 +33,15 @@ protected:
 
 private:
 	NO_ASSIGN_COPY_MOVE(OpenOrderPane);
+	
+	void AddSelectedCustomItem();
 	void ButtonClicked(QAbstractButton *button);
+	QWidget *CreateAddingCustomItem();
 	void CreateGui();
+	int GetSelectedRowIndex();
 	void MoveItem(const Direction d);
 	void QueryData();
+	void RemoveSelectedItem();
 	void Save();
 	bool WasOrderModified() const;
 	
@@ -44,8 +51,11 @@ private:
 	
 	OpenOrderTable *table_ = nullptr;
 	OpenOrderModel *model_ = nullptr;
-	QVector<DesktopFile*> vec_;
+	QVector<DesktopFile*> open_with_original_vec_;
+	QVector<DesktopFile*> removed_vec_;
+	QVector<DesktopFile*> all_desktop_files_;
 	QString mime_;
-	QPushButton *up_btn_ = nullptr, *down_btn_ = nullptr;
+	QPushButton *up_btn_ = nullptr, *down_btn_ = nullptr, *remove_btn_ = nullptr;
+	QComboBox *add_custom_cb_ = nullptr;
 };
 }

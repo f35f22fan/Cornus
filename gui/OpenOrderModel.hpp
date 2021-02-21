@@ -13,6 +13,9 @@ public:
 	OpenOrderModel(cornus::App *app, OpenOrderPane *oop);
 	virtual ~OpenOrderModel();
 	
+	void AppendItem(DesktopFile *item);
+	void RemoveItem(const int index);
+	
 	void SetData(QVector<DesktopFile*> &p);
 	
 	QVariant

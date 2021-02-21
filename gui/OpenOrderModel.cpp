@@ -18,6 +18,15 @@ OpenOrderModel::~OpenOrderModel() {
 		delete next;
 }
 
+void
+OpenOrderModel::AppendItem(DesktopFile *item)
+{
+	int at = vec_.size();
+	beginInsertRows(QModelIndex(), at, at);
+	vec_.append(item);
+	endInsertRows();
+}
+
 QVariant
 OpenOrderModel::data(const QModelIndex &index, int role) const
 {
@@ -49,13 +58,7 @@ OpenOrderModel::data(const QModelIndex &index, int role) const
 //			return option.palette.light();
 	} else if (role == Qt::ForegroundRole) {
 	} else if (role == Qt::DecorationRole) {
-		QString icon_str = item->GetIcon();
-		if (icon_str.isEmpty())
-			return {};
-		if (icon_str.startsWith('/'))
-			return QIcon(icon_str);
-		else
-			return QIcon::fromTheme(icon_str);
+		return item->CreateQIcon();
 	}
 	return {};
 }
@@ -72,6 +75,14 @@ OpenOrderModel::headerData(int section_i, Qt::Orientation orientation, int role)
 		return {};
 	}
 	return {};
+}
+
+void
+OpenOrderModel::RemoveItem(const int index)
+{
+	beginRemoveRows(QModelIndex(), index, index);
+	vec_.remove(index);
+	endRemoveRows();
 }
 
 void

@@ -100,10 +100,16 @@ model_(tm)
 Table::~Table() {
 	delete model_;
 	
-	for (auto *next: open_with_.vec) {
+	for (auto *next: open_with_.add_vec) {
 		delete next;
 	}
-	open_with_.vec.clear();
+	
+	for (auto *next: open_with_.remove_vec) {
+		delete next;
+	}
+	
+	open_with_.add_vec.clear();
+	open_with_.remove_vec.clear();
 }
 
 void SendClipboard(const QString &s, io::socket::MsgBits msg_id) {
@@ -303,10 +309,14 @@ Table::CreateMimeWithSelectedFiles(const ClipboardAction action,
 QVector<QAction*>
 Table::CreateOpenWithList(const QString &full_path)
 {
-	for (auto *next: open_with_.vec) {
+	for (auto *next: open_with_.add_vec) {
 		delete next;
 	}
-	open_with_.vec.clear();
+	for (auto *next: open_with_.remove_vec) {
+		delete next;
+	}
+	open_with_.add_vec.clear();
+	open_with_.remove_vec.clear();
 	open_with_.full_path = full_path;
 	
 	QString mime = app_->QueryMimeType(full_path);
@@ -330,29 +340,26 @@ Table::CreateOpenWithList(const QString &full_path)
 		return ret;
 	
 	while (receive_ba.has_more()) {
+		const DesktopFile::Action action = (DesktopFile::Action)receive_ba.next_i8();
 		auto *next = DesktopFile::From(receive_ba);
-		if (next != nullptr)
-			open_with_.vec.append(next);
+		if (next != nullptr) {
+			if (action == DesktopFile::Action::Add)
+				open_with_.add_vec.append(next);
+			else
+				open_with_.remove_vec.append(next);
+		}
 	}
 	
-	for (DesktopFile *next: open_with_.vec)
+	for (DesktopFile *next: open_with_.add_vec)
 	{
 		QString n = next->GetName();
 		QAction *action = new QAction(n);
 		QVariant v = QVariant::fromValue((void *) next);
 		action->setData(v);
-		QString s = next->GetIcon();
-		if (s.startsWith('/')) {
-			action->setIcon(QIcon(s));
-		} else if (!s.isEmpty()) {
-			action->setIcon(QIcon::fromTheme(s));
-		}
-		
+		action->setIcon(next->CreateQIcon());
 		connect(action, &QAction::triggered, this, &Table::LaunchFromOpenWithMenu);
 		ret.append(action);
 	}
-	
-	
 	
 	return ret;
 }
@@ -1567,4 +1574,5 @@ Table::UpdateLineHeight() {
 }
 
 } // cornus::gui::
+
 

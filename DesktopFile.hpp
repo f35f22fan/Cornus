@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QIcon>
 #include <QMap>
 
 #include "decl.hxx"
@@ -42,12 +43,19 @@ public:
 		JustExePath,
 	};
 	
+	enum class Action: i8 {
+		None = 0,
+		Add, /// used in prefs file to mark items to be added/removed
+		Remove
+	};
+
 	virtual ~DesktopFile();
 	
 	static DesktopFile* From(ByteArray &ba);
 	static DesktopFile* FromPath(const QString &full_path);
 	static DesktopFile* JustExePath(const QString &full_path);
 	DesktopFile* Clone() const;
+	QIcon CreateQIcon();
 	
 	const QString& full_path() const { return full_path_; }
 	void full_path(const QString &s) { full_path_ = s; }
@@ -66,6 +74,7 @@ public:
 	
 	QString GetIcon() const;
 	QString GetName() const;
+	QString GetGenericName() const;
 	
 	const QString& name() const { return name_; }
 	
@@ -82,4 +91,8 @@ private:
 	QMap<QString, desktopfile::Group*> groups_;
 	desktopfile::Group *main_group_ = nullptr;
 };
-}
+
+int DesktopFileIndex(QVector<DesktopFile*> &vec, const QString &id,
+	const DesktopFile::Type t);
+
+} /// namespace

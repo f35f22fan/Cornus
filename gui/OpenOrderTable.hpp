@@ -12,6 +12,7 @@ public:
 	OpenOrderTable(App *app, OpenOrderModel *model);
 	virtual ~OpenOrderTable();
 	
+	OpenOrderModel* model() const { return model_; }
 	virtual QSize sizeHint() const;
 	
 private:

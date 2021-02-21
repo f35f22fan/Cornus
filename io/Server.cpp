@@ -13,17 +13,6 @@
 
 namespace cornus::io {
 
-bool Contains(QVector<DesktopFile*> &vec, const QString &id,
-	const DesktopFile::Type t)
-{
-	for (DesktopFile *p: vec) {
-		if (p->type() == t && p->GetId() == id)
-			return true;
-	}
-	
-	return false;
-}
-
 Server::Server()
 {
 	io::SetupEnvSearchPaths(search_icons_dirs_, xdg_data_dirs_);
@@ -68,10 +57,10 @@ void Server::CutToClipboard(const QString &s)
 	QApplication::clipboard()->setMimeData(mime);
 }
 
-QVector<DesktopFile*>
-Server::GetOrderPrefFor(QString mime)
+void
+Server::GetOrderPrefFor(QString mime, QVector<DesktopFile*> &add_vec,
+	QVector<DesktopFile*> &remove_vec)
 {
-	QVector<DesktopFile*> vec;
 	QString filename = mime.replace('/', '-');
 	QString save_dir = cornus::prefs::QueryMimeConfigDirPath();
 	if (!save_dir.endsWith('/'))
@@ -79,23 +68,26 @@ Server::GetOrderPrefFor(QString mime)
 	
 	QString full_path = save_dir + filename;
 	ByteArray buf;
+	
 	if (ReadFile(full_path, buf) != io::Err::Ok) {
-		return vec;
+		return;
 	}
 	
 	while (buf.has_more()) {
-		DesktopFile::Type t = (DesktopFile::Type)buf.next_i8();
+		const DesktopFile::Action action = (DesktopFile::Action)buf.next_i8();
+		
 		QString id = buf.next_string();
-		auto *p = desktop_files_.value(id, nullptr);
+		DesktopFile *p = desktop_files_.value(id, nullptr);
 		if (p == nullptr) {
 			mtl_printq2("Desktop File not found for ", id);
 			continue;
 		}
 		
-		vec.append(p);
+		if (action == DesktopFile::Action::Add)
+			add_vec.append(p);
+		else
+			remove_vec.append(p);
 	}
-	
-	return vec;
 }
 
 void Server::LoadDesktopFiles()
@@ -140,6 +132,17 @@ void Server::LoadDesktopFilesFrom(QString dir_path)
 	}
 }
 
+void Server::SendAllDesktopFiles(const int fd)
+{
+	ByteArray ba;
+	foreach (DesktopFile *p, desktop_files_)
+	{
+		p->WriteTo(ba);
+	}
+	
+	ba.Send(fd);
+}
+
 void Server::SendDesktopFilesById(ByteArray *ba, const int fd)
 {
 	ByteArray reply;
@@ -160,18 +163,28 @@ void Server::SendDesktopFilesById(ByteArray *ba, const int fd)
 
 void Server::SendOpenWithList(QString mime, const int fd)
 {
-	QVector<DesktopFile*> vec = GetOrderPrefFor(mime);
+	QVector<DesktopFile*> send_vec;
+	QVector<DesktopFile*> remove_vec;
+	GetOrderPrefFor(mime, send_vec, remove_vec);
 	
 	foreach (DesktopFile *p, desktop_files_)
 	{
 		if (!p->SupportsMime(mime))
 			continue;
-		if (!Contains(vec, p->GetId(), p->type()))
-			vec.append(p);
+		if (DesktopFileIndex(send_vec, p->GetId(), p->type()) == -1) {
+			if (DesktopFileIndex(remove_vec, p->GetId(), p->type()) == -1)
+				send_vec.append(p);
+		}
 	}
 	
 	ByteArray ba;
-	for (DesktopFile *next: vec) {
+	for (DesktopFile *next: send_vec) {
+		ba.add_i8((i8)DesktopFile::Action::Add);
+		next->WriteTo(ba);
+	}
+	
+	for (DesktopFile *next: remove_vec) {
+		ba.add_i8((i8)DesktopFile::Action::Remove);
 		next->WriteTo(ba);
 	}
 	

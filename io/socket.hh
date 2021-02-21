@@ -20,6 +20,7 @@ enum class MsgBits: MsgType {
 	QuitServer,
 	SendOpenWithList,
 	SendDesktopFilesById,
+	SendAllDesktopFiles,
 	CopyToClipboard,
 	CutToClipboard,
 	
@@ -82,8 +83,8 @@ inline MsgBits MsgFlagsForMany(const Qt::DropActions action)
 	return bits;
 }
 
-int Client(const char *addr_str);
-int Server(const char *addr_str);
+int Client(const char *addr_str = cornus::SocketPath);
+int Server(const char *addr_str = cornus::SocketPath);
 
 void SendAsync(ByteArray *ba, const char *socket_path = nullptr,
 	const bool delete_path = false);

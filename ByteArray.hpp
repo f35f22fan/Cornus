@@ -28,7 +28,7 @@ public:
 	void add_f32(const float n);
 	void add_f64(const double n);
 	void add_string(const QString &s);
-	
+	void Clear();
 	char *data() const { return data_; }
 	const char *constData() const { return data_; }
 	

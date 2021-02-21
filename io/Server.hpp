@@ -22,13 +22,14 @@ public slots:
 	void CopyToClipboard(const QString &s);
 	void LoadDesktopFiles();
 	void LoadDesktopFilesFrom(QString dir_path);
+	void SendAllDesktopFiles(const int fd);
 	void SendOpenWithList(QString mime, const int fd);
 	void SendDesktopFilesById(cornus::ByteArray *ba, const int fd);
 
 private:
 	NO_ASSIGN_COPY_MOVE(Server);
 	
-	QVector<DesktopFile*> GetOrderPrefFor(QString mime);
+	void GetOrderPrefFor(QString mime, QVector<DesktopFile *> &add_vec, QVector<DesktopFile *> &remove_vec);
 	void SetupEnvSearchPaths();
 	
 	gui::TasksWin *tasks_win_ = nullptr;

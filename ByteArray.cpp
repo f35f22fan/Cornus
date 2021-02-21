@@ -9,8 +9,7 @@ namespace cornus {
 ByteArray::ByteArray() {}
 ByteArray::~ByteArray()
 {
-	delete[] data_;
-	data_ = nullptr;
+	Clear();
 }
 
 void
@@ -91,6 +90,13 @@ ByteArray::alloc(const usize exact_size)
 	
 	heap_size_ = exact_size;
 	data_ = new char[exact_size];
+}
+
+void
+ByteArray::Clear() {
+	delete[] data_;
+	data_ = nullptr;
+	size_ = heap_size_ = at_ = 0;
 }
 
 void

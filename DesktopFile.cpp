@@ -7,6 +7,20 @@
 
 namespace cornus {
 
+int DesktopFileIndex(QVector<DesktopFile*> &vec, const QString &id,
+	const DesktopFile::Type t)
+{
+	int i = 0;
+	for (DesktopFile *p: vec) {
+		if (p->type() == t && p->GetId() == id) {
+			return i;
+		}
+		i++;
+	}
+	
+	return -1;
+}
+
 const auto MainGroupName = QLatin1String("Desktop Entry");
 const auto Exec = QLatin1String("Exec");
 
@@ -165,6 +179,19 @@ DesktopFile::Clone() const
 	return p;
 }
 
+QIcon
+DesktopFile::CreateQIcon()
+{
+	QString s = GetIcon();
+	if (s.isEmpty())
+		return QIcon::fromTheme(QLatin1String("application-x-executable"));
+	
+	if (s.startsWith('/'))
+		return QIcon(s);
+	else
+		return QIcon::fromTheme(s);
+}
+
 DesktopFile*
 DesktopFile::From(ByteArray &ba)
 {
@@ -242,11 +269,18 @@ QString
 DesktopFile::GetIcon() const
 {
 	if (is_desktop_file() && main_group_) {
-		QString s = main_group_->value(QLatin1String("Icon"));
-		return s;
+		return main_group_->value(QLatin1String("Icon"));
 	}
 	
-	return QLatin1String("application-x-executable");
+	return QString();
+}
+
+QString
+DesktopFile::GetGenericName() const {
+	if (is_desktop_file() && main_group_)
+		return main_group_->value(QLatin1String("GenericName"));
+	
+	return QString();
 }
 
 QString

@@ -13,7 +13,8 @@
 namespace cornus::gui {
 struct OpenWith {
 	QString full_path;
-	QVector<DesktopFile*> vec;
+	QVector<DesktopFile*> add_vec;
+	QVector<DesktopFile*> remove_vec;
 };
 
 class Table : public QTableView {

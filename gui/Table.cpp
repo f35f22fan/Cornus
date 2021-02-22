@@ -137,7 +137,7 @@ Table::AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path)
 	}
 	
 	open_with_menu->addSeparator();
-	QAction *action = new QAction(tr("Change Preference Order.."));
+	QAction *action = new QAction(tr("Preferences.."));
 	connect(action, &QAction::triggered, [=] {
 		OpenOrderPane pane(app_);
 	});
@@ -858,8 +858,7 @@ Table::LaunchFromOpenWithMenu()
 	QAction *act = qobject_cast<QAction *>(sender());
 	QVariant v = act->data();
 	DesktopFile *p = (DesktopFile*) v.value<void *>();
-	QString working_dir = app_->current_dir();
-	p->LaunchByMainGroup(open_with_.full_path, working_dir);
+	p->Launch(open_with_.full_path, app_->current_dir());
 }
 
 void

@@ -49,7 +49,6 @@ void ReadEvent(int inotify_fd, char *buf,
 	{
 		struct inotify_event *ev = (struct inotify_event*) p;
 		QString dir_path = fd_to_path.value(ev->wd).toLocal8Bit();
-///		mtl_info("Inside dir: %s", dir_ba.data());
 		add = sizeof(struct inotify_event) + ev->len;
 		const auto mask = ev->mask;
 		const bool is_dir = mask & IN_ISDIR;
@@ -63,8 +62,10 @@ void ReadEvent(int inotify_fd, char *buf,
 			if (p != nullptr)
 			{
 				auto guard = desktop_files.guard();
+#ifdef CORNUS_DEBUG_SERVER_INOTIFY
 				auto ba = full_path.toLocal8Bit();
 				mtl_info("Created: %s", ba.data());
+#endif
 				desktop_files.hash.insert(p->GetId(), p);
 			}
 		} else if (mask & IN_DELETE) {
@@ -78,8 +79,10 @@ void ReadEvent(int inotify_fd, char *buf,
 				DesktopFile *p = it.value();
 				if (p->full_path() == full_path) {
 					desktop_files.hash.erase(it);
+#ifdef CORNUS_DEBUG_SERVER_INOTIFY
 					auto ba = full_path.toLocal8Bit();
 					mtl_info("Deleted %s", ba.data());
+#endif
 					break;
 				}
 			}
@@ -100,8 +103,10 @@ void ReadEvent(int inotify_fd, char *buf,
 				DesktopFile *p = it.value();
 				if (p->full_path() == full_path) {
 					desktop_files.hash.erase(it);
+#ifdef CORNUS_DEBUG_SERVER_INOTIFY
 					auto ba = full_path.toLocal8Bit();
-					mtl_info("MovedFrom(Deleted) %s", ba.data());
+					mtl_info("IN_MOVED_FROM(Deleted) %s", ba.data());
+#endif
 					break;
 				}
 			}
@@ -114,8 +119,10 @@ void ReadEvent(int inotify_fd, char *buf,
 			if (p != nullptr)
 			{
 				auto guard = desktop_files.guard();
+#ifdef CORNUS_DEBUG_SERVER_INOTIFY
 				auto ba = full_path.toLocal8Bit();
 				mtl_info("IN_MOVED_TO (Created): %s", ba.data());
+#endif
 				desktop_files.hash.insert(p->GetId(), p);
 			}
 		} else if (mask & IN_Q_OVERFLOW) {
@@ -134,12 +141,14 @@ void ReadEvent(int inotify_fd, char *buf,
 				DesktopFile *p = it.value();
 				if (p->full_path() == full_path) {
 					p->Reload();
+#ifdef CORNUS_DEBUG_SERVER_INOTIFY
 					auto ba = full_path.toLocal8Bit();
 					mtl_info("Reloaded %s", ba.data());
+#endif
 					break;
 				}
 			}
-		} else if (mask & IN_IGNORED || mask & IN_CLOSE_NOWRITE) {
+		} else if (mask & IN_IGNORED) {
 		} else {
 			mtl_warn("Unhandled inotify event: %u", mask);
 		}
@@ -378,6 +387,37 @@ void Server::SendDesktopFilesById(ByteArray *ba, const int fd)
 			
 			reply.add_string(id);
 			p->WriteTo(reply);
+		}
+	}
+	
+	reply.Send(fd);
+}
+
+void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
+{
+	QString full_path = ba->next_string();
+	QMimeType mt = mime_db_.mimeTypeForFile(full_path);
+	QString mime = mt.name();
+	
+	QVector<DesktopFile*> send_vec;
+	QVector<DesktopFile*> remove_vec;
+	GetOrderPrefFor(mime, send_vec, remove_vec);
+	
+	ByteArray reply;
+	if (!send_vec.isEmpty())
+	{
+		DesktopFile *p = send_vec[0];
+		p->WriteTo(reply);
+	} else {
+		auto guard = desktop_files_.guard();
+		foreach (DesktopFile *p, desktop_files_.hash)
+		{
+			if (!p->SupportsMime(mime))
+				continue;
+			if (DesktopFileIndex(remove_vec, p->GetId(), p->type()) != -1)
+				continue;
+			p->WriteTo(reply);
+			break;
 		}
 	}
 	

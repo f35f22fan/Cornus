@@ -6,6 +6,7 @@
 #include "../err.hpp"
 #include "io.hh"
 
+#include <QMimeDatabase>
 #include <QVector>
 #include <QHash>
 
@@ -35,9 +36,9 @@ public slots:
 	void LoadDesktopFiles();
 	void LoadDesktopFilesFrom(QString dir_path);
 	void SendAllDesktopFiles(const int fd);
-	void SendOpenWithList(QString mime, const int fd);
+	void SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd);
 	void SendDesktopFilesById(cornus::ByteArray *ba, const int fd);
-
+	void SendOpenWithList(QString mime, const int fd);
 private:
 	NO_ASSIGN_COPY_MOVE(Server);
 	
@@ -51,5 +52,6 @@ private:
 	DesktopFiles desktop_files_ = {};
 	io::Notify notify_ = {};
 	QStringList watch_desktop_file_dirs_;
+	QMimeDatabase mime_db_;
 };
 }

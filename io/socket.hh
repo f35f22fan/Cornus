@@ -19,6 +19,7 @@ enum class MsgBits: MsgType {
 	CheckAlive ,
 	QuitServer,
 	SendOpenWithList,
+	SendDefaultDesktopFileForFullPath,
 	SendDesktopFilesById,
 	SendAllDesktopFiles,
 	CopyToClipboard,

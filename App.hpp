@@ -85,6 +85,7 @@ private:
 	void GoToAndSelect(const QString full_path);
 	void IconByTruncName(io::File &file, const QString &truncated, QIcon **icon = nullptr);
 	void IconByFileName(io::File &file, const QString &filename, QIcon **ret_icon = nullptr);
+	void OpenWithDefaultApp(const QString &full_path);
 	void ProcessAndWriteTo(const QString ext,
 		const QString &from_full_path, QString to_dir);
 	void RegisterShortcuts();

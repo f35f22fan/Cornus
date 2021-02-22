@@ -62,7 +62,7 @@ public:
 	
 	QString GetId() const;
 	bool IsApp() const;
-	void LaunchByMainGroup(const QString &full_path, const QString &working_dir);
+	void Launch(const QString &full_path, const QString &working_dir);
 	desktopfile::Group* main_group() const { return main_group_; }
 	
 	bool is_desktop_file() const { return type_ == Type::DesktopFile; }

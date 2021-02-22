@@ -73,6 +73,11 @@ void* ProcessRequest(void *ptr)
 			ConnectionType, Q_ARG(QString, mime), Q_ARG(int, fd));
 		return nullptr;
 	}
+	case (MsgType)io::socket::MsgBits::SendDefaultDesktopFileForFullPath: {
+		QMetaObject::invokeMethod(server, "SendDefaultDesktopFileForFullPath",
+			ConnectionType, Q_ARG(ByteArray*, &ba), Q_ARG(int, fd));
+		return nullptr;
+	}
 	case (MsgType)io::socket::MsgBits::SendDesktopFilesById: {
 		QMetaObject::invokeMethod(server, "SendDesktopFilesById",
 			ConnectionType, Q_ARG(ByteArray*, &ba), Q_ARG(int, fd));

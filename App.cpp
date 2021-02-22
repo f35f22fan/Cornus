@@ -16,6 +16,7 @@ extern "C" {
 
 #include "App.hpp"
 #include "AutoDelete.hh"
+#include "DesktopFile.hpp"
 #include "ExecInfo.hpp"
 #include "History.hpp"
 #include "io/disks.hh"
@@ -674,8 +675,7 @@ void App::FileDoubleClicked(io::File *file, const gui::Column col)
 			if (info.is_elf() || info.is_shell_script()) {
 				RunExecutable(full_path, info);
 			} else {
-				QUrl url = QUrl::fromLocalFile(full_path);
-				QDesktopServices::openUrl(url);
+				OpenWithDefaultApp(full_path);
 			}
 		}
 	}
@@ -966,6 +966,27 @@ void App::OpenTerminal() {
 	
 	QStringList arguments;
 	QProcess::startDetached(*path, arguments, current_dir_);
+}
+
+void App::OpenWithDefaultApp(const QString &full_path)
+{
+//	QUrl url = QUrl::fromLocalFile(full_path);
+//	QDesktopServices::openUrl(url);
+	
+	ByteArray ba;
+	ba.set_msg_id(io::socket::MsgBits::SendDefaultDesktopFileForFullPath);
+	ba.add_string(full_path);
+	int fd = io::socket::Client();
+	CHECK_TRUE_VOID((fd != -1));
+	CHECK_TRUE_VOID(ba.Send(fd, false));
+	ba.Clear();
+	CHECK_TRUE_VOID(ba.Receive(fd));
+	
+	CHECK_TRUE_VOID((ba.size() != 0));
+	
+	DesktopFile *p = DesktopFile::From(ba);
+	CHECK_PTR_VOID(p);
+	p->Launch(full_path, current_dir_);
 }
 
 void App::ProcessAndWriteTo(const QString ext,

@@ -70,7 +70,6 @@ Group::IsMain() const {
 void
 Group::Launch(const QString &full_path, const QString &working_dir)
 {
-	
 	QString exec = value(Exec);
 	if (exec.isEmpty())
 		return;
@@ -351,7 +350,7 @@ bool DesktopFile::IsApp() const
 	return main_group_->value(QLatin1String("Type")) == QLatin1String("Application");
 }
 
-void DesktopFile::LaunchByMainGroup(const QString &full_path, const QString &working_dir)
+void DesktopFile::Launch(const QString &full_path, const QString &working_dir)
 {
 	if (main_group_ != nullptr)
 		main_group_->Launch(full_path, working_dir);

@@ -13,7 +13,6 @@ public:
 	bool Signal(pthread_cond_t *cond);
 	
 private:
-	NO_ASSIGN_COPY_MOVE(MutexGuard);
 	pthread_mutex_t *mutex_ = nullptr;
 };
 

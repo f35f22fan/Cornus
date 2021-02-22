@@ -275,8 +275,8 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 #endif
 	i64 time_worked;
 	
-	while (so_far < file_size) {
-		//isize count = sendfile(output_fd, input_fd, &off, chunk);
+	while (so_far < file_size)
+	{
 		isize count = copy_file_range(input_fd, &in_off, output_fd, &out_off, chunk, 0);
 		if (count == -1) {
 			if (errno == EAGAIN)

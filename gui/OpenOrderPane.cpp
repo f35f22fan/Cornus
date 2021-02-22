@@ -268,17 +268,26 @@ void OpenOrderPane::Save()
 	if (!save_dir.endsWith('/'))
 		save_dir.append('/');
 	
-	QVector<DesktopFile*> &vec = model_->vec();
+	QVector<DesktopFile*> &model_vec = model_->vec();
 	ByteArray ba;
 	
-	for (DesktopFile *next: vec) {
+	for (DesktopFile *next: model_vec)
+	{
 		ba.add_i8(i8(DesktopFile::Action::Add));
 		ba.add_string(next->GetId());
 	}
 	
-	for (DesktopFile *next: removed_vec_) {
-		ba.add_i8(i8(DesktopFile::Action::Remove));
-		ba.add_string(next->GetId());
+	for (DesktopFile *next: removed_vec_)
+	{
+		if (next->SupportsMime(mime_)) {
+			ba.add_i8(i8(DesktopFile::Action::Remove));
+			ba.add_string(next->GetId());
+		} else {
+			auto ba = next->GetId().toLocal8Bit();
+			auto mime_ba = mime_.toLocal8Bit();
+			mtl_info("Not including %s because it doesn't support "
+				"\"%s\" anyway", ba.data(), mime_ba.data());
+		}
 	}
 	
 	QString filename = mime_.replace('/', '-');

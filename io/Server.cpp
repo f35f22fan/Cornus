@@ -1,27 +1,234 @@
 #include "Server.hpp"
 
+#include "../AutoDelete.hh"
 #include "../ByteArray.hpp"
 #include "../DesktopFile.hpp"
 #include "../prefs.hh"
 #include "../str.hxx"
 #include "../gui/TasksWin.hpp"
-#include "io.hh"
 
 #include <QApplication>
 #include <QClipboard>
 #include <QMimeData>
 
+#include <sys/epoll.h>
+
 namespace cornus::io {
+
+
+MutexGuard DesktopFiles::guard() const
+{
+	return MutexGuard(&mutex);
+}
+
+const size_t kInotifyEventBufLen = 8 * (sizeof(struct inotify_event) + 16);
+
+struct DesktopFileWatchArgs {
+	QStringList dir_paths;
+	cornus::io::Server *server = nullptr;
+};
+
+void ReadEvent(int inotify_fd, char *buf,
+	bool &has_been_unmounted_or_deleted, io::Server *server,
+	QHash<int, QString> &fd_to_path)
+{
+	const ssize_t num_read = read(inotify_fd, buf, kInotifyEventBufLen);
+	
+	if (num_read <= 0)
+	{
+		if (num_read == -1)
+			mtl_status(errno);
+		return;
+	}
+	
+	DesktopFiles &desktop_files = server->desktop_files();
+	ssize_t add = 0;
+	const QString desktop = QLatin1String(".desktop");
+	
+	for (char *p = buf; p < buf + num_read; p += add)
+	{
+		struct inotify_event *ev = (struct inotify_event*) p;
+		QString dir_path = fd_to_path.value(ev->wd).toLocal8Bit();
+///		mtl_info("Inside dir: %s", dir_ba.data());
+		add = sizeof(struct inotify_event) + ev->len;
+		const auto mask = ev->mask;
+		const bool is_dir = mask & IN_ISDIR;
+		
+		if (mask & IN_CREATE) {
+			QString name(ev->name);
+			if (is_dir || !name.endsWith(desktop))
+				continue;
+			QString full_path = dir_path + name;
+			DesktopFile *p = DesktopFile::FromPath(full_path);
+			if (p != nullptr)
+			{
+				auto guard = desktop_files.guard();
+				auto ba = full_path.toLocal8Bit();
+				mtl_info("Created: %s", ba.data());
+				desktop_files.hash.insert(p->GetId(), p);
+			}
+		} else if (mask & IN_DELETE) {
+			QString name(ev->name);
+			if (is_dir || !name.endsWith(desktop))
+				continue;
+			QString full_path = dir_path + name;
+			for (auto it = desktop_files.hash.constBegin();
+				it != desktop_files.hash.constEnd(); it++)
+			{
+				DesktopFile *p = it.value();
+				if (p->full_path() == full_path) {
+					desktop_files.hash.erase(it);
+					auto ba = full_path.toLocal8Bit();
+					mtl_info("Deleted %s", ba.data());
+					break;
+				}
+			}
+		} else if (mask & IN_DELETE_SELF) {
+			mtl_warn("IN_DELETE_SELF");
+			has_been_unmounted_or_deleted = true;
+			break;
+		} else if (mask & IN_MOVE_SELF) {
+			mtl_warn("IN_MOVE_SELF");
+		} else if (mask & IN_MOVED_FROM) {
+			QString name(ev->name);
+			if (is_dir || !name.endsWith(desktop))
+				continue;
+			QString full_path = dir_path + name;
+			for (auto it = desktop_files.hash.constBegin();
+				it != desktop_files.hash.constEnd(); it++)
+			{
+				DesktopFile *p = it.value();
+				if (p->full_path() == full_path) {
+					desktop_files.hash.erase(it);
+					auto ba = full_path.toLocal8Bit();
+					mtl_info("MovedFrom(Deleted) %s", ba.data());
+					break;
+				}
+			}
+		} else if (mask & IN_MOVED_TO) {
+			QString name(ev->name);
+			if (is_dir || !name.endsWith(desktop))
+				continue;
+			QString full_path = dir_path + name;
+			DesktopFile *p = DesktopFile::FromPath(full_path);
+			if (p != nullptr)
+			{
+				auto guard = desktop_files.guard();
+				auto ba = full_path.toLocal8Bit();
+				mtl_info("IN_MOVED_TO (Created): %s", ba.data());
+				desktop_files.hash.insert(p->GetId(), p);
+			}
+		} else if (mask & IN_Q_OVERFLOW) {
+			mtl_warn("IN_Q_OVERFLOW");
+		} else if (mask & IN_UNMOUNT) {
+			has_been_unmounted_or_deleted = true;
+			break;
+		} else if (mask & IN_CLOSE_WRITE) {
+			QString name(ev->name);
+			if (is_dir || !name.endsWith(desktop))
+				continue;
+			QString full_path = dir_path + name;
+			for (auto it = desktop_files.hash.constBegin();
+				it != desktop_files.hash.constEnd(); it++)
+			{
+				DesktopFile *p = it.value();
+				if (p->full_path() == full_path) {
+					p->Reload();
+					auto ba = full_path.toLocal8Bit();
+					mtl_info("Reloaded %s", ba.data());
+					break;
+				}
+			}
+		} else if (mask & IN_IGNORED || mask & IN_CLOSE_NOWRITE) {
+		} else {
+			mtl_warn("Unhandled inotify event: %u", mask);
+		}
+	}
+}
+
+void* WatchDesktopFileDirs(void *void_args)
+{
+	pthread_detach(pthread_self());
+	CHECK_PTR_NULL(void_args);
+	
+	DesktopFileWatchArgs *args = (DesktopFileWatchArgs*)void_args;
+	Server *server = args->server;
+	AutoDelete ad_args(args);
+	char *buf = new char[kInotifyEventBufLen];
+	AutoDeleteArr ad_arr(buf);
+	Notify &notify = server->notify();
+	
+	auto event_types = IN_CREATE | IN_DELETE | IN_DELETE_SELF
+		| IN_MOVE_SELF | IN_CLOSE_WRITE | IN_MOVE; /// IN_MODIFY
+	QHash<int, QString> fd_to_path;
+	for (const QString &next: args->dir_paths)
+	{
+		auto path = next.toLocal8Bit();
+		int wd = inotify_add_watch(notify.fd, path.data(), event_types);
+		
+		if (wd == -1) {
+			mtl_status(errno);
+			return nullptr;
+		}
+		
+		fd_to_path.insert(wd, next);
+	}
+	
+	int epfd = epoll_create(1);
+	
+	if (epfd == -1) {
+		mtl_status(errno);
+		return 0;
+	}
+	
+	struct epoll_event pev;
+	pev.events = EPOLLIN;
+	pev.data.fd = notify.fd;
+	
+	if (epoll_ctl(epfd, EPOLL_CTL_ADD, notify.fd, &pev)) {
+		mtl_status(errno);
+		close(epfd);
+		return nullptr;
+	}
+	
+	struct epoll_event poll_event;
+	const int seconds = 1 * 1000;
+	
+	while (true)
+	{
+		int event_count = epoll_wait(epfd, &poll_event, 1, seconds);
+		bool has_been_unmounted_or_deleted = false;
+		
+		if (event_count > 0) {
+			ReadEvent(poll_event.data.fd, buf,
+				has_been_unmounted_or_deleted, server, fd_to_path);
+		}
+		
+		if (has_been_unmounted_or_deleted) {
+			break;
+		}
+	}
+	
+	if (close(epfd)) {
+		mtl_status(errno);
+	}
+	
+	return nullptr;
+}
 
 Server::Server()
 {
+	notify_.Init();
+	
 	io::SetupEnvSearchPaths(search_icons_dirs_, xdg_data_dirs_);
 	tasks_win_ = new gui::TasksWin();
 	LoadDesktopFiles();
 ///	mtl_info("In total %d desktop files", desktop_files_.size());
 }
 
-Server::~Server() {}
+Server::~Server() {
+	notify_.Close();
+}
 
 void Server::CopyURLsToClipboard(ByteArray *ba)
 {
@@ -55,8 +262,7 @@ void Server::CutURLsToClipboard(ByteArray *ba)
 	QApplication::clipboard()->setMimeData(mime);
 }
 
-void
-Server::GetOrderPrefFor(QString mime, QVector<DesktopFile*> &add_vec,
+void Server::GetOrderPrefFor(QString mime, QVector<DesktopFile*> &add_vec,
 	QVector<DesktopFile*> &remove_vec)
 {
 	QString filename = mime.replace('/', '-');
@@ -75,7 +281,7 @@ Server::GetOrderPrefFor(QString mime, QVector<DesktopFile*> &add_vec,
 		const DesktopFile::Action action = (DesktopFile::Action)buf.next_i8();
 		
 		QString id = buf.next_string();
-		DesktopFile *p = desktop_files_.value(id, nullptr);
+		DesktopFile *p = desktop_files_.hash.value(id, nullptr);
 		if (p == nullptr) {
 			mtl_printq2("Desktop File not found for ", id);
 			continue;
@@ -97,6 +303,15 @@ void Server::LoadDesktopFiles()
 		dir.append(QLatin1String("applications/"));
 		LoadDesktopFilesFrom(dir);
 	}
+	
+	pthread_t th;
+	DesktopFileWatchArgs *args = new DesktopFileWatchArgs();
+	args->server = this;
+	args->dir_paths = watch_desktop_file_dirs_;
+	
+	int status = pthread_create(&th, NULL, io::WatchDesktopFileDirs, args);
+	if (status != 0)
+		mtl_status(status);
 }
 
 void Server::LoadDesktopFilesFrom(QString dir_path)
@@ -107,6 +322,9 @@ void Server::LoadDesktopFilesFrom(QString dir_path)
 	QVector<QString> names;
 	if (io::ListFileNames(dir_path, names) != io::Err::Ok)
 		return;
+	
+	watch_desktop_file_dirs_.append(dir_path);
+	mtl_printq2("Inotify for: ", dir_path);
 	
 	struct statx stx;
 	const auto flags = 0;///AT_SYMLINK_NOFOLLOW;
@@ -125,7 +343,8 @@ void Server::LoadDesktopFilesFrom(QString dir_path)
 		
 		auto *p = DesktopFile::FromPath(full_path);
 		if (p != nullptr) {
-			desktop_files_.insert(p->GetId(), p);
+			auto guard = desktop_files_.guard();
+			desktop_files_.hash.insert(p->GetId(), p);
 		}
 	}
 }
@@ -133,9 +352,12 @@ void Server::LoadDesktopFilesFrom(QString dir_path)
 void Server::SendAllDesktopFiles(const int fd)
 {
 	ByteArray ba;
-	foreach (DesktopFile *p, desktop_files_)
 	{
-		p->WriteTo(ba);
+		auto guard = desktop_files_.guard();
+		foreach (DesktopFile *p, desktop_files_.hash)
+		{
+			p->WriteTo(ba);
+		}
 	}
 	
 	ba.Send(fd);
@@ -144,16 +366,19 @@ void Server::SendAllDesktopFiles(const int fd)
 void Server::SendDesktopFilesById(ByteArray *ba, const int fd)
 {
 	ByteArray reply;
-	while (ba->has_more()) {
-		QString id = ba->next_string();
-		DesktopFile *p = desktop_files_.value(id, nullptr);
-		if (p == nullptr) {
-			mtl_printq2("Not found by ID: ", id);
-			continue;
+	{
+		auto guard = desktop_files_.guard();
+		while (ba->has_more()) {
+			QString id = ba->next_string();
+			DesktopFile *p = desktop_files_.hash.value(id, nullptr);
+			if (p == nullptr) {
+				mtl_printq2("Not found by ID: ", id);
+				continue;
+			}
+			
+			reply.add_string(id);
+			p->WriteTo(reply);
 		}
-		
-		reply.add_string(id);
-		p->WriteTo(reply);
 	}
 	
 	reply.Send(fd);
@@ -165,13 +390,16 @@ void Server::SendOpenWithList(QString mime, const int fd)
 	QVector<DesktopFile*> remove_vec;
 	GetOrderPrefFor(mime, send_vec, remove_vec);
 	
-	foreach (DesktopFile *p, desktop_files_)
 	{
-		if (!p->SupportsMime(mime))
-			continue;
-		if (DesktopFileIndex(send_vec, p->GetId(), p->type()) == -1) {
-			if (DesktopFileIndex(remove_vec, p->GetId(), p->type()) == -1)
-				send_vec.append(p);
+		auto guard = desktop_files_.guard();
+		foreach (DesktopFile *p, desktop_files_.hash)
+		{
+			if (!p->SupportsMime(mime))
+				continue;
+			if (DesktopFileIndex(send_vec, p->GetId(), p->type()) == -1) {
+				if (DesktopFileIndex(remove_vec, p->GetId(), p->type()) == -1)
+					send_vec.append(p);
+			}
 		}
 	}
 	

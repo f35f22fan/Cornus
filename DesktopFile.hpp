@@ -68,6 +68,7 @@ public:
 	bool is_desktop_file() const { return type_ == Type::DesktopFile; }
 	bool is_just_exe_path() const { return type_ == Type::JustExePath; }
 	
+	bool Reload();
 	bool SupportsMime(const QString &mime) const;
 	Type type() const { return type_; }
 	void WriteTo(ByteArray &ba) const;

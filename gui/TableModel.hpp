@@ -15,20 +15,9 @@
 
 namespace cornus::gui {
 
-struct UpdateTableArgs {
-	QVector<int> indices;
-	i32 prev_count = -1;
-	i32 new_count = -1;
-	i32 dir_id = -1;
-};
-}
-Q_DECLARE_METATYPE(cornus::gui::UpdateTableArgs);
-
-namespace cornus::gui {
-
-class TableModel: public QAbstractTableModel {
+class TableModel: public QAbstractTableModel
+{
 	Q_OBJECT
-	
 public:
 	TableModel(cornus::App *app);
 	virtual ~TableModel();
@@ -61,7 +50,7 @@ public:
 		return true;
 	}
 	
-	Notify& notify() { return notify_; }
+	io::Notify& notify() { return notify_; }
 	
 	virtual bool removeRows(int row, int count, const QModelIndex &parent) override;
 	virtual bool removeColumns(int column, int count, const QModelIndex &parent) override {
@@ -89,7 +78,7 @@ public slots:
 private:
 	
 	cornus::App *app_ = nullptr;
-	Notify notify_ = {};
+	io::Notify notify_ = {};
 	QString scroll_to_and_select_;
 	int tried_to_scroll_to_count_ = 0;
 };

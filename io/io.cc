@@ -22,6 +22,26 @@
 
 namespace cornus::io {
 
+void Notify::Init()
+{
+	if (fd == -1)
+	{
+		fd = inotify_init();
+		if (fd == -1)
+			mtl_status(errno);
+	}
+}
+
+void Notify::Close()
+{
+	if (fd != -1 && pthread_mutex_lock(&watches_mutex) == 0) {
+		close(fd);
+		fd = -1;
+		pthread_mutex_unlock(&watches_mutex);
+	}
+}
+
+
 bool CopyFileFromTo(const QString &from_full_path, QString to_dir)
 {
 	if (!to_dir.endsWith('/'))

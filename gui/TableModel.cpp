@@ -55,7 +55,6 @@ int FindPlace(io::File *new_file, QVector<io::File*> &files_vec)
 	return 0;
 }
 
-
 void InsertFile(io::File *new_file, QVector<io::File*> &files_vec,
 	int *inserted_at)
 {
@@ -67,7 +66,7 @@ void InsertFile(io::File *new_file, QVector<io::File*> &files_vec,
 }
 
 void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
-	QVector<int> &update_indices, bool &has_been_unmounted_or_deleted,
+	bool &has_been_unmounted_or_deleted,
 	const bool with_hidden_files, cornus::gui::TableModel *model,
 	const int dir_id)
 {
@@ -269,7 +268,7 @@ void* WatchDir(void *void_args)
 	AutoDelete ad_args(args);
 	char *buf = new char[kInotifyEventBufLen];
 	AutoDeleteArr ad_arr(buf);
-	cornus::gui::Notify &notify = args->table_model->notify();
+	io::Notify &notify = args->table_model->notify();
 	
 	auto path = args->dir_path.toLocal8Bit();
 	auto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE | IN_DELETE_SELF
@@ -302,8 +301,6 @@ void* WatchDir(void *void_args)
 	struct epoll_event poll_event;
 	const int seconds = 1 * 1000;
 	io::Files &files = app->view_files();
-	UpdateTableArgs method_args;
-	method_args.dir_id = args->dir_id;
 	
 	while (true)
 	{
@@ -328,29 +325,19 @@ void* WatchDir(void *void_args)
 			
 			if (args->dir_id != files.data.dir_id)
 				break;
-			
-			method_args.prev_count = files.data.vec.size();
 		}
 	
 		bool has_been_unmounted_or_deleted = false;
 		
 		if (event_count > 0)
 			ReadEvent(poll_event.data.fd, buf, &files,
-				method_args.indices, has_been_unmounted_or_deleted,
+				has_been_unmounted_or_deleted,
 				with_hidden_files, args->table_model, args->dir_id);
 		
 		if (has_been_unmounted_or_deleted) {
 			arw.RemoveWatch(wd);
 			break;
 		}
-	
-		method_args.new_count = files.data.vec.size();
-		
-//		if (!method_args.indices.isEmpty()) {
-//			QMetaObject::invokeMethod(args->table_model, "UpdateTable",
-//				Q_ARG(cornus::gui::UpdateTableArgs, method_args));
-//			method_args.indices.clear();
-//		}
 	}
 	
 	if (close(epfd)) {
@@ -372,16 +359,11 @@ void* WatchDir(void *void_args)
 
 TableModel::TableModel(cornus::App *app): app_(app)
 {
-	qRegisterMetaType<cornus::gui::UpdateTableArgs>();
-	
-	if (notify_.fd == -1)
-		notify_.fd = inotify_init();
+	notify_.Init();
 }
 
 TableModel::~TableModel()
-{
-	
-}
+{}
 
 void
 TableModel::DeleteSelectedFiles()

@@ -3,6 +3,7 @@
 #include <sys/inotify.h>
 #include "gui/decl.hxx"
 #include "MutexGuard.hpp"
+#include "io/io.hh"
 
 namespace cornus {
 
@@ -16,7 +17,7 @@ int fd_ = -1;
 
 class AutoRemoveWatch {
 public:
-	AutoRemoveWatch(cornus::gui::Notify &notify, int wd):
+	AutoRemoveWatch(io::Notify &notify, int wd):
 		notify_(notify), wd_(wd)
 	{
 		MutexGuard guard(&notify.watches_mutex);
@@ -50,7 +51,7 @@ public:
 		}
 	}
 private:
-	cornus::gui::Notify &notify_;
+	io::Notify &notify_;
 	int wd_ = -1;
 };
 

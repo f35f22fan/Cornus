@@ -152,7 +152,12 @@ bool Group::SupportsMime(const QString &mime) const
 
 DesktopFile::DesktopFile() {}
 
-DesktopFile::~DesktopFile() {}
+DesktopFile::~DesktopFile() {
+	foreach (auto *next, groups_) {
+		delete next;
+	}
+	groups_.clear();
+}
 
 DesktopFile*
 DesktopFile::Clone() const
@@ -350,6 +355,21 @@ void DesktopFile::LaunchByMainGroup(const QString &full_path, const QString &wor
 {
 	if (main_group_ != nullptr)
 		main_group_->Launch(full_path, working_dir);
+}
+
+bool DesktopFile::Reload()
+{
+	main_group_ = nullptr;
+	type_ = Type::None;
+	name_.clear();
+	id_cached_.clear();
+	
+	foreach (auto *next, groups_) {
+		delete next;
+	}
+	groups_.clear();
+	
+	return Init(full_path_);
 }
 
 bool DesktopFile::SupportsMime(const QString &mime) const

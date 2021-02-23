@@ -461,7 +461,7 @@ App::CreateNewMenu()
 	for (const auto &name: names) {
 		QString from_full_path = full_path + '/' + name;
 		
-		QString ext = io::GetFilenameExtension(name).toString();
+		QString ext = io::GetFileNameExtension(name).toString();
 		if (ext.isEmpty())
 			continue;
 		
@@ -981,12 +981,12 @@ void App::OpenWithDefaultApp(const QString &full_path)
 	CHECK_TRUE_VOID(ba.Send(fd, false));
 	ba.Clear();
 	CHECK_TRUE_VOID(ba.Receive(fd));
-	
-	CHECK_TRUE_VOID((ba.size() != 0));
+	CHECK_TRUE_VOID((!ba.is_empty()));
 	
 	DesktopFile *p = DesktopFile::From(ba);
 	CHECK_PTR_VOID(p);
 	p->Launch(full_path, current_dir_);
+	delete p;
 }
 
 void App::ProcessAndWriteTo(const QString ext,

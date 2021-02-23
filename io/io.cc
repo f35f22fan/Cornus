@@ -464,7 +464,7 @@ mtl_printq(s);
 }
 
 QStringRef
-GetFilenameExtension(const QString &name)
+GetFileNameExtension(const QString &name)
 {
 	int dot = name.lastIndexOf('.');
 	

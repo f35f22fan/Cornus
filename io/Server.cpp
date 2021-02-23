@@ -290,7 +290,14 @@ void Server::GetOrderPrefFor(QString mime, QVector<DesktopFile*> &add_vec,
 		const DesktopFile::Action action = (DesktopFile::Action)buf.next_i8();
 		
 		QString id = buf.next_string();
-		DesktopFile *p = desktop_files_.hash.value(id, nullptr);
+		DesktopFile *p = nullptr;
+		
+		if (id.startsWith('/')) {
+			p = DesktopFile::JustExePath(id);
+		} else {
+			p = desktop_files_.hash.value(id, nullptr);
+		}
+		
 		if (p == nullptr) {
 			mtl_printq2("Desktop File not found for ", id);
 			continue;

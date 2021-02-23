@@ -33,7 +33,7 @@ public:
 	const char *constData() const { return data_; }
 	
 	bool has_more() const { return at_ < size_; }
-	
+	bool is_empty() const { return size_ == 0; }
 	void next(char *p, const usize sz);
 	i8 next_i8();
 	u8 next_u8();

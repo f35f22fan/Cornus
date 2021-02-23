@@ -35,6 +35,7 @@ private:
 	NO_ASSIGN_COPY_MOVE(OpenOrderPane);
 	
 	void AddSelectedCustomItem();
+	void AskAddCustomExecutable();
 	void ButtonClicked(QAbstractButton *button);
 	QWidget *CreateAddingCustomItem();
 	void CreateGui();
@@ -54,6 +55,7 @@ private:
 	QVector<DesktopFile*> open_with_original_vec_;
 	QVector<DesktopFile*> removed_vec_;
 	QVector<DesktopFile*> all_desktop_files_;
+	DesktopFile *custom_binary_ = nullptr;
 	QString mime_;
 	QPushButton *up_btn_ = nullptr, *down_btn_ = nullptr, *remove_btn_ = nullptr;
 	QComboBox *add_custom_cb_ = nullptr;

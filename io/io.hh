@@ -185,7 +185,7 @@ FloatToString(const float number, const int precision);
 void GetClipboardFiles(const QMimeData &mime, Clipboard &cl);
 
 QStringRef
-GetFilenameExtension(const QString &name);
+GetFileNameExtension(const QString &name);
 
 QStringRef
 GetFileNameOfFullPath(const QString &full_path);

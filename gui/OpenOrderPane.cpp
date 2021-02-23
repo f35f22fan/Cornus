@@ -3,6 +3,7 @@
 #include "../App.hpp"
 #include "../ByteArray.hpp"
 #include "../DesktopFile.hpp"
+#include "../ExecInfo.hpp"
 #include "../io/socket.hh"
 #include "../prefs.hh"
 #include "OpenOrderModel.hpp"
@@ -12,6 +13,7 @@
 #include <QBoxLayout>
 #include <QComboBox>
 #include <QDialogButtonBox>
+#include <QFileDialog>
 #include <QFrame>
 #include <QItemSelectionModel>
 #include <QLabel>
@@ -50,6 +52,7 @@ OpenOrderPane::~OpenOrderPane()
 	open_with_original_vec_.clear();
 	removed_vec_.clear();
 	all_desktop_files_.clear();
+	delete custom_binary_;
 }
 
 void OpenOrderPane::AddSelectedCustomItem()
@@ -63,6 +66,38 @@ void OpenOrderPane::AddSelectedCustomItem()
 	
 	model_->AppendItem(p->Clone());
 	adjustSize();
+}
+
+void OpenOrderPane::AskAddCustomExecutable()
+{
+	QFileDialog dialog(app_);
+	dialog.setFileMode(QFileDialog::AnyFile);
+	dialog.setViewMode(QFileDialog::Detail);
+	dialog.setDirectory(app_->current_dir());
+	
+	if (!dialog.exec())
+		return;
+	
+	QStringList filenames = dialog.selectedFiles();
+	if (filenames.isEmpty())
+		return;
+	
+	const QString &full_path = filenames[0];
+	QString ext = io::GetFileNameExtension(full_path).toString();
+	ExecInfo info = app_->QueryExecInfo(full_path, ext);
+	if (!info.is_elf() && !info.is_shell_script())
+	{
+		app_->TellUser(tr("The file you selected is not an executable"));
+		return;
+	} else if (!info.has_exec_bit()) {
+		QString s = tr("The file's exec bit is not set.\n\nHint: Select the file and press Ctrl+E");
+		app_->TellUser(s);
+		return;
+	}
+	
+	DesktopFile *p = DesktopFile::JustExePath(full_path);
+	CHECK_PTR_VOID(p);
+	model_->AppendItem(p);
 }
 
 void OpenOrderPane::ButtonClicked(QAbstractButton *btn)
@@ -97,6 +132,7 @@ QWidget* OpenOrderPane::CreateAddingCustomItem()
 	
 	std::sort(all_desktop_files_.begin(), all_desktop_files_.end(),
 		cornus::gui::SortDesktopFiles);
+	
 	add_custom_cb_ = new QComboBox();
 	const QString two_points = QLatin1String("..");
 	const int max_len = 40;
@@ -129,12 +165,24 @@ QWidget* OpenOrderPane::CreateAddingCustomItem()
 	p->setLayout(layout);
 	layout->addWidget(add_custom_cb_);
 	
-	QPushButton *btn = new QPushButton();
-	btn->setIcon(QIcon::fromTheme(QLatin1String("list-add")));
-	btn->setText(tr("Add To List"));
-	connect(btn, &QPushButton::clicked, this, &OpenOrderPane::AddSelectedCustomItem);
+	{
+		QPushButton *btn = new QPushButton();
+		btn->setIcon(QIcon::fromTheme(QLatin1String("list-add")));
+		btn->setText(tr("Add To List"));
+		connect(btn, &QPushButton::clicked, this, &OpenOrderPane::AddSelectedCustomItem);
+		
+		layout->addWidget(btn);
+	}
 	
-	layout->addWidget(btn);
+	{
+		QPushButton *btn = new QPushButton();
+		btn->setIcon(QIcon::fromTheme(QLatin1String("application-x-executable")));
+		btn->setText(tr("Custom..."));
+		btn->setToolTip(tr("Add Custom Executable..."));
+		connect(btn, &QPushButton::clicked, this, &OpenOrderPane::AskAddCustomExecutable);
+		
+		layout->addWidget(btn);
+	}
 	
 	return p;
 }

@@ -352,8 +352,17 @@ bool DesktopFile::IsApp() const
 
 void DesktopFile::Launch(const QString &full_path, const QString &working_dir)
 {
-	if (main_group_ != nullptr)
-		main_group_->Launch(full_path, working_dir);
+	if (is_desktop_file())
+	{
+		if (main_group_ != nullptr)
+			main_group_->Launch(full_path, working_dir);
+	} else if (is_just_exe_path()) {
+		QStringList args;
+		args.append(full_path);
+		QProcess::startDetached(full_path_, args, working_dir);
+	} else {
+		mtl_trace();
+	}
 }
 
 bool DesktopFile::Reload()

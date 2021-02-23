@@ -5,6 +5,7 @@
 #include "../decl.hxx"
 #include "../err.hpp"
 #include "../gui/decl.hxx"
+#include "../MutexGuard.hpp"
 
 #include <chrono>
 #include <stdio.h>
@@ -97,9 +98,13 @@ struct FilesData {
 };
 
 struct Files {
-	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+	mutable pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 	FilesData data = {};
+	
+	MutexGuard guard() const {
+		return MutexGuard(&mutex);
+	}
 	
 	inline int Lock() {
 		int status = pthread_mutex_lock(&mutex);

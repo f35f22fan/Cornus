@@ -230,7 +230,7 @@ void FigureOutSelectPath(QString &select_path, QString &go_to_path)
 
 App::App()
 {
-	history_ = new History();
+	history_ = new History(this);
 	qRegisterMetaType<cornus::io::File*>();
 	qRegisterMetaType<cornus::io::FilesData*>();
 	qRegisterMetaType<cornus::PartitionEvent*>();
@@ -742,6 +742,13 @@ bool App::GoTo(const Action action, DirPath dp, const cornus::Reload r, QString 
 
 void App::GoToFinish(cornus::io::FilesData *new_data)
 {
+	if (new_data->action != Action::Back) {
+		history_->Record();
+		for (auto &next: history_->recorded()) {
+			mtl_printq2("recorded: ", next);
+		}
+	}
+	
 	AutoDelete ad(new_data);
 	int count = new_data->vec.size();
 	table_->mouse_over_file_name_index(-1);
@@ -749,7 +756,11 @@ void App::GoToFinish(cornus::io::FilesData *new_data)
 	current_dir_ = new_data->processed_dir_path;
 	history_->Add(new_data->action, current_dir_);
 	
-	if (new_data->scroll_to_and_select.isEmpty())
+	if (new_data->action == Action::Back) {
+		QVector<QString> list;
+		history_->GetSelectedFiles(list);
+		table_->SelectByLowerCase(list);
+	} else if (new_data->scroll_to_and_select.isEmpty())
 		table_->ScrollToRow(0);
 	
 	QString dir_name = QDir(new_data->processed_dir_path).dirName();

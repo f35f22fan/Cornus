@@ -19,6 +19,10 @@ class Prefs;
 const QString AppIconPath = QLatin1String(":/resources/cornus.webp");
 const char *const SocketPath = "\0cornus_socket";
 
+enum class StringCase: i8 {
+	Lower,
+	AsIs,
+};
 
 enum class Action: i8 {
 	None = 0,

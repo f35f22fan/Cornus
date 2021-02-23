@@ -35,6 +35,8 @@ public:
 	/// returns row index & cloned file if on file name, otherwise -1
 	int GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file, QString *full_path = nullptr);
 	int GetFirstSelectedFile(io::File **ret_cloned_file);
+	void GetSelectedFileNames(QVector<QString> &names,
+		const StringCase str_case = StringCase::AsIs);
 	QString GetFirstSelectedFileFullPath(QString *ext);
 	inline int GetIconSize();
 	int GetSelectedFilesCount(QVector<QString> *extensions = nullptr);
@@ -46,6 +48,7 @@ public:
 	void ScrollToRow(int row);
 	void ScrollToAndSelectRow(const int row, const bool deselect_others);
 	void SelectAllFilesNTS(const bool flag, QVector<int> &indices);
+	void SelectByLowerCase(QVector<QString> filenames);
 	void SelectRowSimple(const int row, const bool deselect_others = false);
 	void ShowVisibleColumnOptions(QPoint pos);
 	void SyncWith(const cornus::Clipboard &cl, QVector<int> &indices);

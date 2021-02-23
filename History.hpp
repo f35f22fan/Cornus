@@ -6,18 +6,29 @@
 #include "err.hpp"
 
 namespace cornus {
+
+struct HistoryItem {
+	QString dir_path;
+	QVector<QString> selected_filenames;
+};
+
 class History {
 public:
-	History();
+	History(App *app);
 	virtual ~History();
 	
 	void Add(const Action action, const QString &s);
 	QString Back();
-
+	void GetSelectedFiles(QVector<QString> &list);
+	void Record();
+	QVector<QString>& recorded() { return recorded_; }
+	
 private:
 	NO_ASSIGN_COPY_MOVE(History);
 	
-	QVector<QString> paths_;
+	QVector<HistoryItem> vec_;
+	QVector<QString> recorded_;
 	i32 index_ = -1;
+	App *app_ = nullptr;
 };
 }

@@ -558,6 +558,31 @@ Table::GetSelectedArchives(QVector<QString> &urls)
 	}
 }
 
+void
+Table::GetSelectedFileNames(QVector<QString> &names, const StringCase str_case)
+{
+	io::Files &files = app_->view_files();
+	MutexGuard guard = files.guard();
+	for (io::File *next: files.data.vec) {
+		if (next->selected()) {
+			switch (str_case) {
+			case StringCase::AsIs: {
+				names.append(next->name());
+				break;
+			}
+			case StringCase::Lower: {
+				names.append(next->name_lower());
+				break;
+			}
+			default: {
+				mtl_trace();
+			}
+			} /// switch()
+		}
+	}
+	
+}
+
 int
 Table::GetSelectedFilesCount(QVector<QString> *extensions) {
 	io::Files &files = app_->view_files();
@@ -1073,6 +1098,9 @@ Table::ProcessAction(const QString &action)
 bool
 Table::ScrollToAndSelect(QString full_path)
 {
+	if (full_path.isEmpty())
+		return false;
+	
 	QStringRef path_ref;
 	/// first remove trailing '/' or search will fail:
 	if (full_path.endsWith('/'))
@@ -1142,6 +1170,45 @@ void
 Table::ScrollToAndSelectRow(const int row, const bool deselect_others) {
 	ScrollToRow(row);
 	SelectRowSimple(row, deselect_others);
+}
+
+void
+Table::SelectByLowerCase(QVector<QString> filenames)
+{
+	if (filenames.isEmpty())
+		return;
+	
+	QVector<int> indices;
+	int ni, fi = 0;
+	QString full_path;
+	io::Files &files = app_->view_files();
+	{
+		MutexGuard guard = files.guard();
+		auto &vec = files.data.vec;
+		
+		for (io::File *next: vec) {
+			int count = filenames.size();
+			if (count == 0)
+				break;
+			ni = 0;
+			for (const QString &name: filenames) {
+				if (next->name_lower() == name) {
+					if (full_path.isEmpty()) {
+						full_path = next->build_full_path();
+					}
+					next->selected(true);
+					indices.append(fi);
+					filenames.remove(ni);
+					break;
+				}
+				ni++;
+			}
+		}
+		fi++;
+	}
+	
+	model_->UpdateIndices(indices);
+	ScrollToAndSelect(full_path);
 }
 
 void

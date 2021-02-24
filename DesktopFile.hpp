@@ -65,6 +65,7 @@ public:
 	void Launch(const QString &full_path, const QString &working_dir);
 	desktopfile::Group* main_group() const { return main_group_; }
 	
+	bool ToBeRunInTerminal() const;
 	bool is_desktop_file() const { return type_ == Type::DesktopFile; }
 	bool is_just_exe_path() const { return type_ == Type::JustExePath; }
 	

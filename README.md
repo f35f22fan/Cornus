@@ -22,6 +22,7 @@ Building:
 * Ctrl+A => Select all files
 * Ctrl+E => Toggle exec bit of selected file(s)
 * D => Display contents of selected file
+* Ctrl+F => Search for file by name (then hit Enter to search forward or Ctrl+Enter for backwards)
 
 ---
 ##### BTC: bc1qzs8ux6m0t4jj98furra8pvx2ll80qchr5v4ru6

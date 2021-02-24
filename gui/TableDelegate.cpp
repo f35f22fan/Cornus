@@ -66,10 +66,18 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	sel_rect.setWidth(actual_wide);
 	const bool mouse_over = table_->mouse_over_file_name_index() == row;
 	
-	if (mouse_over || paint_as_selected || file->selected()) {
-		QColor c = option.palette.highlight().color();
-		if (mouse_over && !file->selected())
-			c = c.lighter(150);
+	if (mouse_over || paint_as_selected || file->selected() || file->selected_by_search()) {
+		QColor c;
+		if (file->selected_by_search()) {
+			if (file->selected_by_search_active())
+				c = QColor(0, 255, 0);
+			else
+				c = QColor(150, 255, 150);
+		} else {
+			c = option.palette.highlight().color();
+			if (mouse_over && !file->selected())
+				c = c.lighter(150);
+		}
 		QPainterPath path;
 		int less = 2;
 		sel_rect.setY(sel_rect.y() + less / 2 + 1);/// +1 for line width
@@ -97,7 +105,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 		how_many.append(QChar(')'));
 	}
 	
-	QString link_data = QString("  🠚 ");
+	QString link_data = QString(" 🠚 ");
 	if (t->cycles < 0) {
 		if (-t->cycles == io::LinkTarget::MaxCycles) {
 			link_data.append("Symlink chain too large");
@@ -134,7 +142,6 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	QPen pen(brush.color());
 	painter->setPen(pen);
 	painter->drawText(link_data_rect, text_alignment_, link_data);
-	
 }
 
 void

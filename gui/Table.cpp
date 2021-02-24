@@ -313,8 +313,6 @@ Table::CreateOpenWithList(const QString &full_path)
 	open_with_.full_path = full_path;
 	
 	QString mime = app_->QueryMimeType(full_path);
-	app_->ProcessMime(mime);
-	
 	QVector<QAction*> ret;
 	
 	int fd = io::socket::Client(cornus::SocketPath);
@@ -1136,6 +1134,9 @@ Table::ScrollToAndSelect(QString full_path)
 void
 Table::ScrollToRow(int row)
 {
+	if (row < 0)
+		return;
+	
 	const int rh = verticalHeader()->defaultSectionSize();
 	const int header_h = horizontalHeader()->height();
 	int visible_rows = (height() - header_h) / rh;

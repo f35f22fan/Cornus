@@ -25,6 +25,7 @@ extern "C" {
 #include "io/socket.hh"
 #include "gui/actions.hxx"
 #include "gui/Location.hpp"
+#include "gui/SearchPane.hpp"
 #include "gui/SidePane.hpp"
 #include "gui/SidePaneItem.hpp"
 #include "gui/SidePaneModel.hpp"
@@ -527,8 +528,21 @@ void App::CreateGui()
 	{
 		table_model_ = new gui::TableModel(this);
 		table_ = new gui::Table(table_model_, this);
+		table_->setContentsMargins(0, 0, 0, 0);
 		table_->ApplyPrefs();
-		main_splitter_->addWidget(table_);
+		
+		QWidget *table_pane = new QWidget();
+		QBoxLayout *vlayout = new QBoxLayout(QBoxLayout::TopToBottom);
+		vlayout->setContentsMargins(0, 0, 0, 0);
+		vlayout->setSpacing(0);
+		table_pane->setLayout(vlayout);
+		vlayout->addWidget(table_);
+		
+		search_pane_ = new gui::SearchPane(this);
+		vlayout->addWidget(search_pane_);
+		search_pane_->setVisible(false);
+		
+		main_splitter_->addWidget(table_pane);
 		{
 			MutexGuard guard(&view_files_.mutex);
 			view_files_.data.widgets_created(true);
@@ -675,6 +689,7 @@ void App::FileDoubleClicked(io::File *file, const gui::Column col)
 			if (info.is_elf() || info.is_shell_script()) {
 				RunExecutable(full_path, info);
 			} else {
+				mtl_info();
 				OpenWithDefaultApp(full_path);
 			}
 		}
@@ -983,7 +998,6 @@ void App::OpenWithDefaultApp(const QString &full_path)
 {
 //	QUrl url = QUrl::fromLocalFile(full_path);
 //	QDesktopServices::openUrl(url);
-	
 	ByteArray ba;
 	ba.set_msg_id(io::socket::MsgBits::SendDefaultDesktopFileForFullPath);
 	ba.add_string(full_path);
@@ -1116,15 +1130,6 @@ void App::ProcessAndWriteTo(const QString ext,
 	}
 }
 
-void App::ProcessMime(QString &mime)
-{
-	const auto PlainText = QLatin1String("text/plain");
-	
-	if (mime.startsWith("text/"))
-		mime = PlainText;
-	
-}
-
 ExecInfo
 App::QueryExecInfo(io::File &file) {
 	return QueryExecInfo(file.build_full_path(), file.cache().ext.toString());
@@ -1164,73 +1169,94 @@ App::QueryMimeType(const QString &full_path) {
 	return mt.name();
 }
 
-void App::RegisterShortcuts() {
-	auto *shortcut = new QShortcut(QKeySequence(Qt::ALT + Qt::Key_Up), this);
-	shortcut->setContext(Qt::ApplicationShortcut);
-	connect(shortcut, &QShortcut::activated, this, &App::GoUp);
-	
-	shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_H), this);
-	shortcut->setContext(Qt::ApplicationShortcut);
-	
-	connect(shortcut, &QShortcut::activated, [=] {
-		prefs_->show_hidden_files(!prefs_->show_hidden_files());
-		GoTo(Action::Reload, {current_dir_, Processed::Yes}, Reload::Yes);
-		prefs_->Save();
-	});
-	
-	shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_Q), this);
-	shortcut->setContext(Qt::ApplicationShortcut);
-	
-	connect(shortcut, &QShortcut::activated, [=] {
-		QApplication::quit();
-	});
-	
-	shortcut = new QShortcut(QKeySequence(Qt::SHIFT + Qt::Key_Delete), this);
-	shortcut->setContext(Qt::ApplicationShortcut);
-	
-	connect(shortcut, &QShortcut::activated, [=] {
-		table_model_->DeleteSelectedFiles();
-	});
-	
-	shortcut = new QShortcut(QKeySequence(Qt::Key_F2), this);
-	shortcut->setContext(Qt::ApplicationShortcut);
-	
-	connect(shortcut, &QShortcut::activated, [=] {
-		RenameSelectedFile();
-	});
-	
-	shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_I), this);
-	shortcut->setContext(Qt::ApplicationShortcut);
-	
-	connect(shortcut, &QShortcut::activated, [=] {
-		table_->setFocus();
-	});
-	
-	shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_L), this);
-	shortcut->setContext(Qt::ApplicationShortcut);
-	
-	connect(shortcut, &QShortcut::activated, [=] {
-		location_->setFocus();
-		location_->selectAll();
-	});
-	
-	shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_A), this);
-	shortcut->setContext(Qt::ApplicationShortcut);
-	
-	connect(shortcut, &QShortcut::activated, [=] {
-		table_->setFocus();
-		QVector<int> indices;
-		MutexGuard guard(&view_files_.mutex);
-		table_->SelectAllFilesNTS(true, indices);
-		table_model_->UpdateIndices(indices);
-	});
-	
-	shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_E), this);
-	shortcut->setContext(Qt::ApplicationShortcut);
-	
-	connect(shortcut, &QShortcut::activated, [=] {
-		SwitchExecBitOfSelectedFiles();
-	});
+void App::RegisterShortcuts()
+{
+	QShortcut *shortcut;
+	{
+		shortcut = new QShortcut(QKeySequence(Qt::ALT + Qt::Key_Up), this);
+		shortcut->setContext(Qt::ApplicationShortcut);
+		connect(shortcut, &QShortcut::activated, this, &App::GoUp);
+	}
+	{
+		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_H), this);
+		shortcut->setContext(Qt::ApplicationShortcut);
+		
+		connect(shortcut, &QShortcut::activated, [=] {
+			prefs_->show_hidden_files(!prefs_->show_hidden_files());
+			GoTo(Action::Reload, {current_dir_, Processed::Yes}, Reload::Yes);
+			prefs_->Save();
+		});
+	}
+	{
+		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_F), this);
+		shortcut->setContext(Qt::ApplicationShortcut);
+		
+		connect(shortcut, &QShortcut::activated, [=] {
+			search_pane_->setVisible(true);
+			search_pane_->RequestFocus();
+		});
+	}
+	{
+		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_Q), this);
+		shortcut->setContext(Qt::ApplicationShortcut);
+		
+		connect(shortcut, &QShortcut::activated, [=] {
+			QApplication::quit();
+		});
+	}
+	{
+		shortcut = new QShortcut(QKeySequence(Qt::SHIFT + Qt::Key_Delete), this);
+		shortcut->setContext(Qt::ApplicationShortcut);
+		
+		connect(shortcut, &QShortcut::activated, [=] {
+			table_model_->DeleteSelectedFiles();
+		});
+	}
+	{
+		shortcut = new QShortcut(QKeySequence(Qt::Key_F2), this);
+		shortcut->setContext(Qt::ApplicationShortcut);
+		
+		connect(shortcut, &QShortcut::activated, [=] {
+			RenameSelectedFile();
+		});
+	}
+	{
+		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_I), this);
+		shortcut->setContext(Qt::ApplicationShortcut);
+		
+		connect(shortcut, &QShortcut::activated, [=] {
+			table_->setFocus();
+		});
+	}
+	{
+		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_L), this);
+		shortcut->setContext(Qt::ApplicationShortcut);
+		
+		connect(shortcut, &QShortcut::activated, [=] {
+			location_->setFocus();
+			location_->selectAll();
+		});
+	}
+	{
+		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_A), this);
+		shortcut->setContext(Qt::ApplicationShortcut);
+		
+		connect(shortcut, &QShortcut::activated, [=] {
+			table_->setFocus();
+			QVector<int> indices;
+			MutexGuard guard(&view_files_.mutex);
+			table_->SelectAllFilesNTS(true, indices);
+			table_model_->UpdateIndices(indices);
+		});
+	}
+	{
+		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_E), this);
+		shortcut->setContext(Qt::ApplicationShortcut);
+		
+		connect(shortcut, &QShortcut::activated, [=] {
+			SwitchExecBitOfSelectedFiles();
+		});
+	}
 }
 
 void App::Reload() {

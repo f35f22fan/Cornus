@@ -94,6 +94,12 @@ public:
 	bool selected() const { return (bits_ & FileBits::Selected) != FileBits::Empty; }
 	void selected(const bool add) { toggle_flag(FileBits::Selected, add); }
 	
+	bool selected_by_search() const { return (bits_ & FileBits::SelectedBySearch) != FileBits::Empty; }
+	void selected_by_search(const bool add) { toggle_flag(FileBits::SelectedBySearch, add); }
+	
+	bool selected_by_search_active() const { return (bits_ & FileBits::SelectedBySearchActive) != FileBits::Empty; }
+	void selected_by_search_active(const bool add) { toggle_flag(FileBits::SelectedBySearchActive, add); }
+	
 	LinkTarget *link_target() const { return link_target_; }
 	void link_target(LinkTarget *p) { link_target_ = p; }
 	

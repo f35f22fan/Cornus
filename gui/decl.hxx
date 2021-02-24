@@ -21,6 +21,7 @@ class OpenOrderPane;
 class OpenOrderTable;
 class OpenWithPane;
 class PrefsPane;
+class SearchPane;
 class SidePane;
 class SidePaneItem;
 class SidePaneModel;

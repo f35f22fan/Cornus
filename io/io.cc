@@ -41,7 +41,6 @@ void Notify::Close()
 	}
 }
 
-
 bool CopyFileFromTo(const QString &from_full_path, QString to_dir)
 {
 	if (!to_dir.endsWith('/'))
@@ -614,6 +613,15 @@ MapPosixError(int e)
 	case EIO: return Err::IO;
 	default: return Err::Other;
 	}
+}
+
+void ProcessMime(QString &mime)
+{
+	const auto PlainText = QLatin1String("text/plain");
+	
+	if (mime.startsWith("text/"))
+		mime = PlainText;
+	
 }
 
 bool

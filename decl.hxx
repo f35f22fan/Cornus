@@ -24,6 +24,11 @@ enum class StringCase: i8 {
 	AsIs,
 };
 
+enum class Direction: i8 {
+	Next,
+	Prev,
+};
+
 enum class Action: i8 {
 	None = 0,
 	Up,

@@ -220,6 +220,9 @@ MapPosixTypeToLocal(const mode_t mode) {
 	}
 }
 
+void
+ProcessMime(QString &mime);
+
 io::Err
 ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	const i64 read_max = -1, mode_t *ret_mode = nullptr);

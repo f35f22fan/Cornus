@@ -405,6 +405,7 @@ void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 	QString full_path = ba->next_string();
 	QMimeType mt = mime_db_.mimeTypeForFile(full_path);
 	QString mime = mt.name();
+	io::ProcessMime(mime);
 	
 	QVector<DesktopFile*> send_vec;
 	QVector<DesktopFile*> remove_vec;
@@ -419,7 +420,7 @@ void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 		auto guard = desktop_files_.guard();
 		foreach (DesktopFile *p, desktop_files_.hash)
 		{
-			if (!p->SupportsMime(mime))
+			if (!p->SupportsMime(mime) || p->ToBeRunInTerminal())
 				continue;
 			if (DesktopFileIndex(remove_vec, p->GetId(), p->type()) != -1)
 				continue;
@@ -433,6 +434,7 @@ void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 
 void Server::SendOpenWithList(QString mime, const int fd)
 {
+	io::ProcessMime(mime);
 	QVector<DesktopFile*> send_vec;
 	QVector<DesktopFile*> remove_vec;
 	GetOrderPrefFor(mime, send_vec, remove_vec);
@@ -441,7 +443,7 @@ void Server::SendOpenWithList(QString mime, const int fd)
 		auto guard = desktop_files_.guard();
 		foreach (DesktopFile *p, desktop_files_.hash)
 		{
-			if (!p->SupportsMime(mime))
+			if (!p->SupportsMime(mime) || p->ToBeRunInTerminal())
 				continue;
 			if (DesktopFileIndex(send_vec, p->GetId(), p->type()) == -1) {
 				if (DesktopFileIndex(remove_vec, p->GetId(), p->type()) == -1)

@@ -388,6 +388,18 @@ bool DesktopFile::SupportsMime(const QString &mime) const
 	return main_group_->SupportsMime(mime);
 }
 
+bool DesktopFile::ToBeRunInTerminal() const
+{
+	if (!is_desktop_file())
+		return false;
+	
+	if (main_group_ == nullptr)
+		return false;
+	
+	return main_group_->value(QLatin1String("Terminal")).toLower()
+		== QLatin1String("true");
+}
+
 void DesktopFile::WriteTo(ByteArray &ba) const
 {
 	ba.add_i8(i8(type_));

@@ -59,10 +59,12 @@ namespace cornus::io {
 	enum class FileBits: u8 {
 		Empty = 0,
 		Selected = 1u << 0,
-		ActionCut = 1u << 1,
-		ActionCopy = 1u << 2,
-		ActionPaste = 1u << 3,
-		PasteLink = 1u << 4,
+		SelectedBySearch = 1u << 1,
+		SelectedBySearchActive = 1u << 2,
+		ActionCut = 1u << 3,
+		ActionCopy = 1u << 4,
+		ActionPaste = 1u << 5,
+		PasteLink = 1u << 6,
 	};
 	
 	inline FileBits operator | (FileBits a, FileBits b) {

@@ -70,9 +70,9 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 		QColor c;
 		if (file->selected_by_search()) {
 			if (file->selected_by_search_active())
-				c = QColor(0, 255, 0);
+				c = QColor(173,255,47);
 			else
-				c = QColor(150, 255, 150);
+				c = QColor(255,255,150);
 		} else {
 			c = option.palette.highlight().color();
 			if (mouse_over && !file->selected())

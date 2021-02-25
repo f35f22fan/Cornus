@@ -123,8 +123,10 @@ void SearchPane::ScrollToNext(const Direction dir)
 		
 		if (dir == Direction::Next)
 		{
-			int i = 0;
-			for (io::File *next: vec) {
+			int i = (select_row_ == -1) ? 0 : select_row_;
+			const int count = vec.size();
+			for (; i < count; i++) {
+				io::File *next = vec[i];
 				if (next->selected_by_search())
 				{
 					if (select_row_ < i) {
@@ -139,15 +141,12 @@ void SearchPane::ScrollToNext(const Direction dir)
 						indices.append(i);
 					}
 				}
-				i++;
 			}
 		} else {
-			int i = vec.size() - 1;
-			auto end = vec.constEnd();
-			while (end != vec.constBegin())
+			int i = (select_row_ == -1) ? vec.size() - 1 : select_row_;
+			for (; i >= 0; i--)
 			{
-				end--;
-				io::File *next = *end;
+				io::File *next = vec[i];
 				if (next->selected_by_search())
 				{
 					if (select_row_ > i) {
@@ -162,7 +161,6 @@ void SearchPane::ScrollToNext(const Direction dir)
 						indices.append(i);
 					}
 				}
-				i--;
 			}
 		}
 		

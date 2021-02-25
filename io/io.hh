@@ -221,6 +221,9 @@ MapPosixTypeToLocal(const mode_t mode) {
 }
 
 void
+PasteLinks(const QVector<QString> &full_paths, QString target_dir);
+
+void
 ProcessMime(QString &mime);
 
 io::Err

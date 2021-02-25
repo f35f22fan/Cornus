@@ -75,6 +75,10 @@ struct Clipboard {
 	inline bool has_files() const {
 		return action != ClipboardAction::None && !file_paths.isEmpty();
 	}
+	
+	inline int file_count() const { 
+		return file_paths.size();
+	}
 };
 
 enum class PartitionEventType: u8 {

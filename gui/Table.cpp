@@ -166,7 +166,7 @@ Table::ActionCut(QVector<int> &indices) {
 }
 
 void
-Table::ActionPaste(QVector<int> &indices)
+Table::ActionPaste()
 {
 	const QClipboard *qclipboard = QApplication::clipboard();
 	const QMimeData *mime = qclipboard->mimeData();
@@ -175,11 +175,12 @@ Table::ActionPaste(QVector<int> &indices)
 		return;
 	}
 	
-	cornus::Clipboard clipboard;
-	io::GetClipboardFiles(*mime, clipboard);
+//	cornus::Clipboard clipboard;
+//	io::GetClipboardFiles(*mime, clipboard);
 	
-	if (!clipboard.has_files())
-		return;
+//	if (!clipboard.has_files())
+//		return;
+	const Clipboard &clipboard = app_->clipboard();
 	
 	io::socket::MsgBits io_op = io::socket::MsgBits::None;
 	if (clipboard.action == ClipboardAction::Copy)
@@ -198,6 +199,27 @@ Table::ActionPaste(QVector<int> &indices)
 	}
 	
 	io::socket::SendAsync(ba);
+}
+
+void
+Table::ActionPasteLinks()
+{
+	const QClipboard *qclipboard = QApplication::clipboard();
+	const QMimeData *mime = qclipboard->mimeData();
+	 // mimeData can be 0 according to https://bugs.kde.org/show_bug.cgi?id=335053
+	if (!mime) {
+		return;
+	}
+	
+//	cornus::Clipboard clipboard;
+//	io::GetClipboardFiles(*mime, clipboard);
+	
+//	if (!clipboard.has_files())
+//		return;
+	
+	const Clipboard &clipboard = app_->clipboard();
+	
+	io::PasteLinks(clipboard.file_paths, app_->current_dir());
 }
 
 bool
@@ -826,7 +848,7 @@ Table::keyPressEvent(QKeyEvent *event)
 		else if (key == Qt::Key_X)
 			ActionCut(indices);
 		else if (key == Qt::Key_V) {
-			ActionPaste(indices);
+			ActionPaste();
 		}
 	}
 	
@@ -1364,10 +1386,22 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 	QMenu *menu = new QMenu();
 	menu->setAttribute(Qt::WA_DeleteOnClose);
 	
+	QString dir_full_path;
+	QString file_under_mouse_full_path;
+	{
+		io::File *file = nullptr;
+		if (GetFileUnderMouse(local_pos, &file) != -1) {
+			cornus::AutoDelete ad(file);
+			file_under_mouse_full_path = file->build_full_path();
+			if (file->is_dir()) {
+				dir_full_path = file_under_mouse_full_path;
+			}
+		}
+	}
+	
 	if (selected_count == 1) {
-		QString full_path;
-		if (GetFileUnderMouse(local_pos, nullptr, &full_path) != -1)
-			AddOpenWithMenuTo(menu, full_path);
+		if (!file_under_mouse_full_path.isEmpty())
+			AddOpenWithMenuTo(menu, file_under_mouse_full_path);
 	}
 	
 	QMenu *new_menu = app_->CreateNewMenu();
@@ -1389,24 +1423,26 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-copy")));
 	}
 	
-	{ // paste
-		QAction *action = menu->addAction(tr("Paste"));
-		connect(action, &QAction::triggered, [this] {
-			ActionPaste(this->indices_);
-		});
-		action->setIcon(QIcon::fromTheme(QLatin1String("edit-paste")));
-		menu->addSeparator();
-	}
-	
-	QString dir_full_path;
+	const Clipboard &clipboard = app_->clipboard();
+	if (clipboard.has_files())
 	{
-		io::File *file = nullptr;
-		if (GetFileUnderMouse(local_pos, &file) != -1) {
-			cornus::AutoDelete ad(file);
-			if (file->is_dir()) {
-				dir_full_path = file->build_full_path();
-			}
+		QString file_count_str = QLatin1String(" (")
+			+ QString::number(clipboard.file_count()) + ')';
+		{ // paste
+			QAction *action = menu->addAction(tr("Paste") + file_count_str);
+			connect(action, &QAction::triggered, [this] {
+				ActionPaste();
+			});
+			action->setIcon(QIcon::fromTheme(QLatin1String("edit-paste")));
 		}
+		{
+			QAction *action = menu->addAction(tr("Paste Link") + file_count_str);
+			connect(action, &QAction::triggered, [this] {
+				ActionPasteLinks();
+			});
+			action->setIcon(QIcon::fromTheme(QLatin1String("edit-paste")));
+		}
+		menu->addSeparator();
 	}
 	
 	if (selected_count > 0) {

@@ -615,7 +615,29 @@ MapPosixError(int e)
 	}
 }
 
-void ProcessMime(QString &mime)
+void
+PasteLinks(const QVector<QString> &full_paths, QString target_dir)
+{
+	if (!target_dir.endsWith('/'))
+		target_dir.append('/');
+	
+	for (const QString &in_full_path: full_paths)
+	{
+		QString filename = io::GetFileNameOfFullPath(in_full_path).toString();
+		if (filename.isEmpty())
+			continue;
+		
+		auto target_path_ba = in_full_path.toLocal8Bit();
+		auto new_file_path = (target_dir + filename).toLocal8Bit();
+		int status = symlink(target_path_ba.data(), new_file_path.data());
+		
+		if (status != 0)
+			mtl_status(errno);
+	}
+}
+
+void
+ProcessMime(QString &mime)
 {
 	const auto PlainText = QLatin1String("text/plain");
 	

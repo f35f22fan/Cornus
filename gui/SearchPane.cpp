@@ -53,6 +53,12 @@ void SearchPane::CreateGui()
 		});
 		layout->addWidget(btn);
 	}
+	{
+		auto *btn = new QPushButton();
+		btn->setIcon(QIcon::fromTheme(QLatin1String("window-close")));
+		connect(btn, &QPushButton::clicked, this, &SearchPane::ActionHide);
+		layout->addWidget(btn);
+	}
 }
 
 void SearchPane::DeselectAll()
@@ -63,9 +69,10 @@ void SearchPane::DeselectAll()
 		MutexGuard guard = files.guard();
 		auto &vec = files.data.vec;
 		int i = 0;
+		const auto bits = io::FileBits::SelectedBySearch | io::FileBits::SelectedBySearchActive;
 		for (io::File *next: vec) {
-			if (next->selected_by_search()) {
-				next->selected_by_search(false);
+			if (next->has(bits)) {
+				next->toggle_flag(bits, false);
 				indices.append(i);
 			}
 			i++;

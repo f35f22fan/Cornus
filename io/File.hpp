@@ -31,6 +31,7 @@ public:
 	QString build_full_path() const;
 	FileCache& cache() { return cache_; }
 	void ClearCache();
+	bool has(const io::FileBits bits) { return (bits_ & bits) != FileBits::Empty; }
 	bool has_exec_bit() const;
 	bool has_link_target() const { return is_symlink() && link_target_ != nullptr; }
 	void ReadLinkTarget();

@@ -233,6 +233,7 @@ Server::Server()
 	tasks_win_ = new gui::TasksWin();
 	LoadDesktopFiles();
 ///	mtl_info("In total %d desktop files", desktop_files_.size());
+	InitTrayIcon();
 }
 
 Server::~Server() {
@@ -269,6 +270,36 @@ void Server::CutURLsToClipboard(ByteArray *ba)
 	mime->setData(str::KdeCutMime, kde_mark);
 	
 	QApplication::clipboard()->setMimeData(mime);
+}
+
+void Server::ExtractingArchiveFinished(const i64 pid)
+{
+	if (!running_archives_.contains(pid))
+		return;
+	ArchiveInfo info = running_archives_.value(pid);
+	running_archives_.remove(pid);
+	
+	if (time(NULL) - info.time_started < 5)
+		return;
+	
+	const int count = running_archives_.size();
+	QString msg;
+	if (count == 0) {
+		msg = tr("Finished extraction to: ") + info.to_dir;
+	} else {
+		msg = QString::number(count) + tr(" archive jobs remaining");
+	}
+	
+	tray_icon_->showMessage(tr("Extraction update"), msg);
+}
+
+void Server::ExtractingArchiveStarted(ArchiveInfo *info)
+{
+	info->time_started = time(NULL);
+	running_archives_.insert(info->pid, *info);
+	QString count = QString::number(running_archives_.size());
+	QString msg = count + tr(" archive job(s)");
+	tray_icon_->setToolTip(msg);
 }
 
 void Server::GetOrderPrefFor(QString mime, QVector<DesktopFile*> &add_vec,
@@ -310,6 +341,15 @@ void Server::GetOrderPrefFor(QString mime, QVector<DesktopFile*> &add_vec,
 	}
 }
 
+void Server::InitTrayIcon()
+{
+	tray_icon_ = new QSystemTrayIcon();
+	tray_icon_->setIcon(QIcon(":/resources/cornus_io.webp"));
+	tray_icon_->setVisible(true);
+	tray_icon_->setToolTip("cornus I/O daemon");
+	connect(tray_icon_, &QSystemTrayIcon::activated, this, &Server::SysTrayClicked);
+}
+
 void Server::LoadDesktopFiles()
 {
 	for (const auto &next: xdg_data_dirs_) {
@@ -340,7 +380,7 @@ void Server::LoadDesktopFilesFrom(QString dir_path)
 		return;
 	
 	watch_desktop_file_dirs_.append(dir_path);
-	mtl_printq2("Inotify for: ", dir_path);
+///	mtl_printq2("Inotify for: ", dir_path);
 	
 	struct statx stx;
 	const auto flags = 0;///AT_SYMLINK_NOFOLLOW;
@@ -363,6 +403,12 @@ void Server::LoadDesktopFilesFrom(QString dir_path)
 			desktop_files_.hash.insert(p->GetId(), p);
 		}
 	}
+}
+
+void Server::RemoveRunningArchive(const i64 pid, const int exit_code,
+	const QProcess::ExitStatus exit_status)
+{
+	running_archives_.remove(pid);
 }
 
 void Server::SendAllDesktopFiles(const int fd)
@@ -405,7 +451,7 @@ void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 	QString full_path = ba->next_string();
 	QMimeType mt = mime_db_.mimeTypeForFile(full_path);
 	QString mime = mt.name();
-	io::ProcessMime(mime);
+	///io::ProcessMime(mime);
 	
 	QVector<DesktopFile*> send_vec;
 	QVector<DesktopFile*> remove_vec;
@@ -434,7 +480,7 @@ void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 
 void Server::SendOpenWithList(QString mime, const int fd)
 {
-	io::ProcessMime(mime);
+	///io::ProcessMime(mime);
 	QVector<DesktopFile*> send_vec;
 	QVector<DesktopFile*> remove_vec;
 	GetOrderPrefFor(mime, send_vec, remove_vec);
@@ -452,6 +498,23 @@ void Server::SendOpenWithList(QString mime, const int fd)
 		}
 	}
 	
+	if (send_vec.isEmpty() && remove_vec.isEmpty())
+	{
+		io::ProcessMime(mime);
+		{
+			auto guard = desktop_files_.guard();
+			foreach (DesktopFile *p, desktop_files_.hash)
+			{
+				if (!p->SupportsMime(mime) || p->ToBeRunInTerminal())
+					continue;
+				if (DesktopFileIndex(send_vec, p->GetId(), p->type()) == -1) {
+					if (DesktopFileIndex(remove_vec, p->GetId(), p->type()) == -1)
+						send_vec.append(p);
+				}
+			}
+		}
+	}
+	
 	ByteArray ba;
 	for (DesktopFile *next: send_vec) {
 		ba.add_i8((i8)DesktopFile::Action::Add);
@@ -465,6 +528,18 @@ void Server::SendOpenWithList(QString mime, const int fd)
 	
 	ba.Send(fd);
 }
+
+void Server::SysTrayClicked()
+{
+	static bool flag = true;
+	tasks_win_->setVisible(flag);
+	if (flag) {
+		tasks_win_->raise();
+	}
+	flag = !flag;
+}
+
 } // namespace
+
 
 

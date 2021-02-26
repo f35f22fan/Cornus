@@ -211,6 +211,8 @@ void OpenOrderPane::CreateGui()
 	QWidget *w = CreateAddingCustomItem();
 	if (w)
 		layout->addWidget(w);
+	else
+		mtl_trace();
 	
 	button_box_ = new QDialogButtonBox (QDialogButtonBox::Ok
 		| QDialogButtonBox::Cancel);

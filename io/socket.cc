@@ -85,8 +85,13 @@ void SendAsync(ByteArray *ba, const char *socket_path, const bool delete_path)
 {
 	auto *data = new SendData();
 	data->ba = ba;
-	data->delete_addr = (socket_path == nullptr) ? false : delete_path;
-	data->addr = (socket_path == nullptr) ? cornus::SocketPath : socket_path;
+	if (socket_path == nullptr) {
+		data->addr = cornus::SocketPath;
+		data->delete_addr = false;
+	} else {
+		data->addr = socket_path;
+		data->delete_addr = delete_path;
+	}
 	pthread_t th;
 	int status = pthread_create(&th, NULL, SendTh, data);
 	if (status != 0) {

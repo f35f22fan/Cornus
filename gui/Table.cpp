@@ -126,10 +126,6 @@ void
 Table::AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path)
 {
 	QVector<QAction*> actions = CreateOpenWithList(full_path);
-	
-	if (actions.isEmpty())
-		return;
-
 	auto *open_with_menu = new QMenu(tr("Open &With"));
 	
 	for (auto &action: actions) {
@@ -168,18 +164,6 @@ Table::ActionCut(QVector<int> &indices) {
 void
 Table::ActionPaste()
 {
-	const QClipboard *qclipboard = QApplication::clipboard();
-	const QMimeData *mime = qclipboard->mimeData();
-	 // mimeData can be 0 according to https://bugs.kde.org/show_bug.cgi?id=335053
-	if (!mime) {
-		return;
-	}
-	
-//	cornus::Clipboard clipboard;
-//	io::GetClipboardFiles(*mime, clipboard);
-	
-//	if (!clipboard.has_files())
-//		return;
 	const Clipboard &clipboard = app_->clipboard();
 	
 	io::socket::MsgBits io_op = io::socket::MsgBits::None;
@@ -199,27 +183,24 @@ Table::ActionPaste()
 	}
 	
 	io::socket::SendAsync(ba);
+	
+	if (clipboard.action == ClipboardAction::Cut) {
+		/// Not using qclipboard->clear() because it doesn't work:
+		QApplication::clipboard()->setMimeData(new QMimeData());
+	}
 }
 
 void
 Table::ActionPasteLinks()
 {
-	const QClipboard *qclipboard = QApplication::clipboard();
-	const QMimeData *mime = qclipboard->mimeData();
-	 // mimeData can be 0 according to https://bugs.kde.org/show_bug.cgi?id=335053
-	if (!mime) {
-		return;
-	}
-	
-//	cornus::Clipboard clipboard;
-//	io::GetClipboardFiles(*mime, clipboard);
-	
-//	if (!clipboard.has_files())
-//		return;
-	
 	const Clipboard &clipboard = app_->clipboard();
-	
 	io::PasteLinks(clipboard.file_paths, app_->current_dir());
+	
+	if (clipboard.action == ClipboardAction::Cut)
+	{
+		/// Not using qclipboard->clear() because it doesn't work:
+		QApplication::clipboard()->setMimeData(new QMimeData());
+	}
 }
 
 bool

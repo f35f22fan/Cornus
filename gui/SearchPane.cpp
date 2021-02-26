@@ -32,6 +32,7 @@ void SearchPane::CreateGui()
 	layout->setContentsMargins(0, 0, 2, 2);
 	
 	search_le_ = new QLineEdit();
+	search_le_->setPlaceholderText(tr("Search..."));
 	search_le_->installEventFilter(this);
 	connect(search_le_, &QLineEdit::textChanged, this, &SearchPane::TextChanged);
 	layout->addWidget(search_le_);

@@ -154,11 +154,13 @@ private:
 	void CopyRegularFile(const QString &from_path, const QString &dest_path,
 		const mode_t mode, const i64 file_size);
 	i64 CountTotalSize();
+	ActUponAnswer DealWithFileExistsAnswer(const i64 file_size);
+	ActUponAnswer DealWithWriteFailedAnswer(const i64 file_size);
 	void DeleteFile(const QString &full_path, struct statx &stx);
 	void DeleteFiles();
 	bool TryAtomicMove();
-	ActUponAnswer DealWithFileExistsAnswer(const i64 file_size);
-	ActUponAnswer DealWithWriteFailedAnswer(const i64 file_size);
+	int TryCreateRegularFile(const QString &dest_path, const int WriteFlags,
+		const mode_t mode, const i64 file_size);
 	
 	TaskData data_ = {};
 	TaskProgress progress_ = {};

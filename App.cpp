@@ -646,23 +646,14 @@ void App::ExtractTo(const QString &to_dir)
 	QVector<QString> urls;
 	table_->GetSelectedArchives(urls);
 	
-	if (urls.isEmpty())
-		return;
-	
-	QProcess ps;
-	ps.setWorkingDirectory(to_dir);
-	ps.setProgram(QLatin1String("ark"));
-	QStringList args;
-	
-	args.append(QLatin1String("-b"));
-	args.append(QLatin1String("-a"));
-	
-	for (const auto &next: urls) {
-		args.append(next);
+	ByteArray *ba = new ByteArray();
+	ba->set_msg_id(io::socket::MsgBits::ExtractArchives);
+	ba->add_string(to_dir);
+	for (auto &next: urls) {
+		ba->add_string(next);
 	}
 	
-	ps.setArguments(args);
-	ps.startDetached();
+	io::socket::SendAsync(ba);
 }
 
 void App::FileDoubleClicked(io::File *file, const gui::Column col)

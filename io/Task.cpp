@@ -69,8 +69,7 @@ Task::Task() {}
 
 Task::~Task() {}
 
-void
-Task::CopyFiles()
+void Task::CopyFiles()
 {
 	i64 total_size = CountTotalSize();
 	if (total_size < 0) {
@@ -83,8 +82,7 @@ Task::CopyFiles()
 	}
 }
 
-void
-Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
+void Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 {
 	int last_slash_index = file_path.lastIndexOf('/');
 	if (last_slash_index == -1) {
@@ -166,8 +164,7 @@ Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 	}
 }
 
-void
-Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
+void Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 	const mode_t mode, const i64 file_size)
 {
 	auto from_ba = from_path.toLocal8Bit();
@@ -180,88 +177,12 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 	}
 	
 	AutoCloseFd input_ac(input_fd);
+	const int WarnIfExistsFlags = O_CREAT | O_EXCL | O_LARGEFILE
+		| O_NOFOLLOW | O_NOATIME | O_WRONLY;
+	int output_fd = TryCreateRegularFile(dest_path, WarnIfExistsFlags, mode, file_size);
 	
-	auto dest_ba = dest_path.toLocal8Bit();
-	const auto WarnIfExistsFlags = O_CREAT | O_EXCL | O_LARGEFILE | O_NOFOLLOW | O_NOATIME | O_WRONLY;;
-	const auto OverwriteFlags = O_CREAT | O_TRUNC | O_LARGEFILE | O_NOFOLLOW | O_NOATIME | O_WRONLY;
-	auto WriteFlags = WarnIfExistsFlags;
-	int output_fd = -1;
-
-	while (true) {
-		data_.Lock();
-		const auto file_exists_answer = data_.task_question_.file_exists_answer;
-		const auto write_failed_answer = data_.task_question_.write_failed_answer;
-		data_.Unlock();
-		
-		switch (file_exists_answer) {
-		case FileExistsAnswer::None: break;
-		case FileExistsAnswer::Overwrite: {
-			mtl_info("Overwrite");
-			data_.Lock();
-			data_.task_question_.file_exists_answer = FileExistsAnswer::None;
-			data_.Unlock();
-			WriteFlags = OverwriteFlags;
-			break;
-		}
-		case FileExistsAnswer::OverwriteAll: {
-			mtl_info("Overwrite All");
-			WriteFlags = OverwriteFlags;
-			break;
-		}
-		default: {
-			mtl_trace();
-		}
-		} /// switch()
-
-		output_fd = ::open(dest_ba, WriteFlags, mode);
-		if (output_fd == -1) {
-			if (errno == EEXIST) {
-				if (file_exists_answer == FileExistsAnswer::SkipAll) {
-					mtl_info("Skip All");
-					return;
-				}
-				TaskQuestion question = {};
-				question.explanation = QObject::tr("File exists");
-				question.file_path_in_question = dest_path;
-				question.question = io::Question::FileExists;
-				data_.ChangeState(TaskState::AwatingAnswer, &question);
-				ActUponAnswer aua = DealWithFileExistsAnswer(file_size);
-				if (aua == ActUponAnswer::Retry)
-					continue;
-				else if (aua == ActUponAnswer::Skip)
-					return;
-				else if (aua == ActUponAnswer::Abort)
-					return;
-				else {
-					mtl_trace();
-					return;
-				}
-			} else {
-				if (write_failed_answer == WriteFailedAnswer::SkipAll) {
-					mtl_info("Skip All");
-					return;
-				}
-				
-				TaskQuestion question = {};
-				question.explanation = strerror(errno);
-				question.file_path_in_question = dest_path;
-				question.question = io::Question::WriteFailed;
-				data_.ChangeState(TaskState::AwatingAnswer, &question);
-				ActUponAnswer answer = DealWithWriteFailedAnswer(file_size);
-				if (answer == ActUponAnswer::Retry) {
-					continue;
-				} else if (answer == ActUponAnswer::Skip) {
-					return;
-				} else if (answer == ActUponAnswer::Abort) {
-					return;
-				}
-				mtl_trace();
-				return;
-			}
-		} else {
-			break;
-		}
-	}
+	if (output_fd == -1)
+		return;
 	
 	AutoCloseFd output_ac(output_fd);
 	i64 so_far = 0;
@@ -332,8 +253,7 @@ Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 	}
 }
 
-i64
-Task::CountTotalSize()
+i64 Task::CountTotalSize()
 {
 	io::CountRecursiveInfo info = {};
 	for (const auto &path: file_paths_)
@@ -377,14 +297,12 @@ void Task::DeleteFile(const QString &full_path, struct statx &stx)
 		mtl_warn("%s", strerror(errno));
 }
 
-void
-Task::DeleteFiles() {
+void Task::DeleteFiles() {
 	for (const auto &path: file_paths_)
 		DeleteFile(path, stx_);
 }
 
-Task*
-Task::From(cornus::ByteArray &ba)
+Task* Task::From(cornus::ByteArray &ba)
 {
 	auto *task = new Task();
 	task->ops_ = ba.next_u32();
@@ -399,13 +317,13 @@ Task::From(cornus::ByteArray &ba)
 	return task;
 }
 
-void
-Task::StartIO()
+void Task::StartIO()
 {
 	data_.ChangeState(TaskState::Continue);
 	if (!to_dir_path_.isEmpty() && !to_dir_path_.endsWith('/'))
 		to_dir_path_.append('/');
 	
+///#define DEBUG_EXEC_PATH
 	using io::socket::MsgType;
 	
 	if (ops_ & (MsgType)io::socket::MsgBits::AtomicMove) {
@@ -418,20 +336,30 @@ mtl_info("Atomic move failed");
 	}
 	
 	if (ops_ & (MsgType)io::socket::MsgBits::Copy) {
+#ifdef DEBUG_EXEC_PATH
 mtl_info("Copy");
+#endif
 		CopyFiles();
 	} else if (ops_ & (MsgType)io::socket::MsgBits::Move) {
-mtl_info("Move, trying to do atomic move..");
+#ifdef DEBUG_EXEC_PATH
+		mtl_info("Move, trying to do atomic move..");
+#endif
 		if (TryAtomicMove()) {
+#ifdef DEBUG_EXEC_PATH
 mtl_info("Succeeded.");
+#endif
 			data().ChangeState(io::TaskState::Finished);
 		} else {
+#ifdef DEBUG_EXEC_PATH
 mtl_info("Failed, doing manual copy/delete");
+#endif
 			CopyFiles();
 			DeleteFiles();
 		}
 	} else {
+#ifdef DEBUG_EXEC_PATH
 mtl_info("Just copy");
+#endif
 		CopyFiles();
 	}
 	
@@ -444,8 +372,7 @@ mtl_info("Just copy");
 	}
 }
 
-bool
-Task::TryAtomicMove()
+bool Task::TryAtomicMove()
 {
 	for (QString &path: file_paths_) {
 		io::File *file = io::FileFromPath(path);
@@ -461,6 +388,86 @@ Task::TryAtomicMove()
 	}
 	
 	return true;
+}
+
+int Task::TryCreateRegularFile(const QString &dest_path, const int WriteFlags,
+	const mode_t mode, const i64 file_size)
+{
+	const int OverwriteFlags = O_CREAT | O_TRUNC | O_LARGEFILE | O_NOFOLLOW | O_NOATIME | O_WRONLY;
+	auto dest_ba = dest_path.toLocal8Bit();
+	int file_flags = WriteFlags;
+	
+	while (true)
+	{
+		data_.Lock();
+		const auto file_exists_answer = data_.task_question_.file_exists_answer;
+		const auto write_failed_answer = data_.task_question_.write_failed_answer;
+		data_.Unlock();
+		
+		switch (file_exists_answer)
+		{
+		case FileExistsAnswer::None: break;
+		case FileExistsAnswer::Overwrite: {
+			data_.Lock();
+			data_.task_question_.file_exists_answer = FileExistsAnswer::None;
+			data_.Unlock();
+			file_flags = OverwriteFlags;
+			break;
+		}
+		case FileExistsAnswer::OverwriteAll: {
+			file_flags = OverwriteFlags;
+			break;
+		}
+		default: {
+			mtl_trace();
+			return -1;
+		}
+		} /// switch()
+
+		const int fd = ::open(dest_ba, file_flags, mode);
+		if (fd != -1)
+			return fd;
+		
+		if (errno == EEXIST)
+		{
+			if (file_exists_answer == FileExistsAnswer::SkipAll)
+				return -1;
+			
+			TaskQuestion question = {};
+			question.explanation = QObject::tr("File exists");
+			question.file_path_in_question = dest_path;
+			question.question = io::Question::FileExists;
+			data_.ChangeState(TaskState::AwatingAnswer, &question);
+			ActUponAnswer aua = DealWithFileExistsAnswer(file_size);
+			if (aua == ActUponAnswer::Retry)
+				continue;
+			else if (aua == ActUponAnswer::Skip)
+				return -1;
+			else if (aua == ActUponAnswer::Abort)
+				return -1;
+			else {
+				mtl_trace();
+				return -1;
+			}
+		} else {
+			if (write_failed_answer == WriteFailedAnswer::SkipAll)
+				return -1;
+			
+			TaskQuestion question = {};
+			question.explanation = strerror(errno);
+			question.file_path_in_question = dest_path;
+			question.question = io::Question::WriteFailed;
+			data_.ChangeState(TaskState::AwatingAnswer, &question);
+			ActUponAnswer answer = DealWithWriteFailedAnswer(file_size);
+			switch(answer)
+			{
+			case ActUponAnswer::Retry: { break; }
+			case ActUponAnswer::Skip: { return -1; }
+			case ActUponAnswer::Abort: { return -1; }
+			default: {mtl_trace(); return -1;}
+			} /// switch()
+		}
+	}
 }
 
 ActUponAnswer

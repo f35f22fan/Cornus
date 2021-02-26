@@ -7,8 +7,11 @@
 #include "io.hh"
 
 #include <QMimeDatabase>
+#include <QProcess>
 #include <QVector>
 #include <QHash>
+#include <QMetaType> /// Q_DECLARE_METATYPE()
+#include <QSystemTrayIcon>
 
 namespace cornus::io {
 
@@ -19,6 +22,19 @@ struct DesktopFiles {
 	
 	MutexGuard guard() const;
 };
+
+struct ArchiveInfo {
+	QVector<QString> urls;
+	QString to_dir;
+	QString error;
+	i64 time_started = -1;
+	i64 pid = -1;
+};
+}
+
+Q_DECLARE_METATYPE(cornus::io::ArchiveInfo*);
+
+namespace cornus::io {
 
 class Server: public QObject {
 	Q_OBJECT
@@ -31,6 +47,8 @@ public:
 	gui::TasksWin* tasks_win() const { return tasks_win_; }
 	
 public slots:
+	void ExtractingArchiveFinished(const i64 pid);
+	void ExtractingArchiveStarted(cornus::io::ArchiveInfo *info);
 	void CutURLsToClipboard(ByteArray *ba);
 	void CopyURLsToClipboard(ByteArray *ba);
 	void LoadDesktopFiles();
@@ -43,7 +61,10 @@ private:
 	NO_ASSIGN_COPY_MOVE(Server);
 	
 	void GetOrderPrefFor(QString mime, QVector<DesktopFile *> &add_vec, QVector<DesktopFile *> &remove_vec);
+	void InitTrayIcon();
+	void RemoveRunningArchive(const i64 pid, const int exit_code, const QProcess::ExitStatus exit_status);
 	void SetupEnvSearchPaths();
+	void SysTrayClicked();
 	
 	gui::TasksWin *tasks_win_ = nullptr;
 	cornus::Clipboard clipboard_ = {};
@@ -53,5 +74,7 @@ private:
 	io::Notify notify_ = {};
 	QStringList watch_desktop_file_dirs_;
 	QMimeDatabase mime_db_;
+	QHash <i64, ArchiveInfo> running_archives_;
+	QSystemTrayIcon *tray_icon_ = nullptr;
 };
 }

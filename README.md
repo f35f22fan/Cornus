@@ -4,7 +4,7 @@
 ##### Requirements: Linux 5.3+
 ---
 Building:
-* sudo apt-get install qt5-default libdbus-c++-dev libudisks2-dev libdconf-dev cmake git
+* sudo apt-get install qt5-default libdbus-c++-dev libudisks2-dev libdconf-dev cmake git ark
 * mkdir build
 * cd build
 * cmake ..
@@ -33,3 +33,10 @@ Building:
 
 ### Screenshot with light theme:
 ![](resources/Screenshot_light.webp)
+
+
+##### Differences from other file browsers like Nautilus or Dolphin:
+* If needed right click a file -> Open With -> Preferences... to set a default app with which to open this type of file.
+* To see the tree of links of a symbolic link double-click the icon of the link in the browser.
+* Press 'D' after selecting a non-folder to display its contents. The built-in text editor is meant for a quick update of its contents or a glean into the file, not as a full blown text editor. Files' contents unrecognized as text files can be viewed but not updated.
+*  You can easily set your own icons for files of different types by dropping an icon into the "file_icons" folder with the proper extension as its name, browse the folder "file_icons" to see what I mean.

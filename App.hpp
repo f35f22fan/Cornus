@@ -33,6 +33,7 @@ public:
 	void AskCreateNewFile(io::File *file, const QString &title);
 	const Clipboard& clipboard() { return clipboard_; }
 	const QString& current_dir() const { return current_dir_; }
+	i32 current_dir_id() const;
 	void DisplayFileContents(const int row, io::File *cloned_file = nullptr);
 	void ExtractAskDestFolder();
 	void ExtractTo(const QString &to_dir);

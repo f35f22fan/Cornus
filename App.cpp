@@ -561,6 +561,12 @@ void App::CreateGui()
 	}
 }
 
+i32 App::current_dir_id() const
+{
+	auto guard = view_files_.guard();
+	return view_files_.data.dir_id;
+}
+
 void App::DisplayFileContents(const int row, io::File *cloned_file)
 {
 	if (row == -1) {

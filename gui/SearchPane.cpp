@@ -3,6 +3,7 @@
 #include "../App.hpp"
 #include "../io/File.hpp"
 #include "../MutexGuard.hpp"
+#include "SearchLineEdit.hpp"
 #include "Table.hpp"
 #include "TableModel.hpp"
 
@@ -22,6 +23,8 @@ void SearchPane::ActionHide()
 	DeselectAll();
 	setVisible(false);
 	select_row_ = -1;
+	last_dir_id_ = -1;
+	search_le_->SetFound(-1);
 	app_->table()->setFocus();
 }
 
@@ -31,14 +34,23 @@ void SearchPane::CreateGui()
 	setLayout(layout);
 	layout->setContentsMargins(0, 0, 2, 2);
 	
-	search_le_ = new QLineEdit();
+	search_le_ = new SearchLineEdit();
 	search_le_->setPlaceholderText(tr("Search..."));
 	search_le_->installEventFilter(this);
 	connect(search_le_, &QLineEdit::textChanged, this, &SearchPane::TextChanged);
 	layout->addWidget(search_le_);
 	
 	{
-		auto *btn = new QPushButton(tr("Prev"));
+		case_sensitive_ = new QCheckBox();
+		case_sensitive_->setText("Case Sensitive");
+		layout->addWidget(case_sensitive_);
+		connect(case_sensitive_, &QCheckBox::toggled, [this] {
+			this->TextChanged(search_le_->text());
+		});
+	}
+	
+	{
+		auto *btn = new QPushButton();
 		btn->setIcon(QIcon::fromTheme(QLatin1String("go-previous")));
 		connect(btn, &QPushButton::clicked, [=] {
 			ScrollToNext(Direction::Prev);
@@ -46,7 +58,7 @@ void SearchPane::CreateGui()
 		layout->addWidget(btn);
 	}
 	{
-		auto *btn = new QPushButton(tr("Next"));
+		auto *btn = new QPushButton();
 		btn->setIcon(QIcon::fromTheme(QLatin1String("go-next")));
 		connect(btn, &QPushButton::clicked, [=] {
 			ScrollToNext(Direction::Next);
@@ -114,8 +126,8 @@ void SearchPane::RequestFocus()
 
 void SearchPane::ScrollToNext(const Direction dir)
 {
-	if (last_current_dir_ != app_->current_dir()) {
-		last_current_dir_ = app_->current_dir();
+	if (last_dir_id_ != app_->current_dir_id()) {
+		last_dir_id_ = app_->current_dir_id();
 		TextChanged(search_le_->text());
 		return;
 	}
@@ -187,13 +199,14 @@ void SearchPane::TextChanged(const QString &s)
 {
 	QString search = s.trimmed().toLower();
 	if (search.isEmpty()) {
+		search_le_->SetFound(-1);
 		DeselectAll();
 		return;
 	}
-	if (last_current_dir_ != app_->current_dir()) {
-		last_current_dir_ = app_->current_dir();
-	}
+	
+	last_dir_id_ = app_->current_dir_id();
 	select_row_ = -1;
+	i32 found = 0;
 	QVector<int> indices;
 	{
 		auto &files = app_->view_files();
@@ -201,7 +214,9 @@ void SearchPane::TextChanged(const QString &s)
 		auto &vec = files.data.vec;
 		int i = 0;
 		for (io::File *next: vec) {
-			if (next->name_lower().indexOf(search) != -1) {
+			const QString &s = lower() ? next->name_lower() : next->name();
+			if (s.indexOf(search) != -1) {
+				found++;
 				if (!next->selected_by_search()) {
 					next->selected_by_search(true);
 					indices.append(i);
@@ -220,6 +235,7 @@ void SearchPane::TextChanged(const QString &s)
 		}
 	}
 	
+	search_le_->SetFound(found);
 	app_->table()->model()->UpdateIndices(indices);
 	if (select_row_ != -1)
 		app_->table()->ScrollToRow(select_row_);

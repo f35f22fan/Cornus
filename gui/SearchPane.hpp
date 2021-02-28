@@ -4,6 +4,7 @@
 #include "decl.hxx"
 #include "../err.hpp"
 
+#include <QCheckBox>
 #include <QLineEdit>
 #include <QPushButton>
 
@@ -24,12 +25,14 @@ private:
 	
 	void ActionHide();
 	void CreateGui();
+	bool lower() const { return !case_sensitive_->isChecked(); }
 	void DeselectAll();
 	void ScrollToNext(const Direction dir);
 	
 	App *app_ = nullptr;
-	QLineEdit *search_le_ = nullptr;
+	QCheckBox *case_sensitive_ = nullptr;
+	SearchLineEdit *search_le_ = nullptr;
 	int select_row_ = -1;
-	QString last_current_dir_;
+	i32 last_dir_id_ = -1;
 };
 }

@@ -21,6 +21,7 @@ class OpenOrderPane;
 class OpenOrderTable;
 class OpenWithPane;
 class PrefsPane;
+class SearchLineEdit;
 class SearchPane;
 class SidePane;
 class SidePaneItem;

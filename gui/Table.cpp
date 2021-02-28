@@ -1033,34 +1033,6 @@ void
 Table::paintEvent(QPaintEvent *event)
 {
 	QTableView::paintEvent(event);
-	
-	/**
-	if (drop_coord_.y() == -1)
-		return;
-	
-	const i32 row_h = rowHeight(0);
-	
-	if (row_h < 1)
-		return;
-	
-	QPainter painter(viewport());
-	QPen pen(QColor(0, 0, 255));
-	pen.setWidthF(2.0);
-	painter.setPen(pen);
-	
-	int y = drop_coord_.y();
-	
-	int rem = y % row_h;
-	
-	if (rem < row_h / 2)
-		y -= rem;
-	else
-		y += row_h - rem;
-	
-	if (y > 0)
-		y -= 1;
-	
-	painter.drawLine(0, y, width(), y); */
 }
 
 void

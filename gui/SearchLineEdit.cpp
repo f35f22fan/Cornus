@@ -18,11 +18,10 @@ void SearchLineEdit::paintEvent(QPaintEvent *evt)
 		return;
 	
 	auto fm = fontMetrics();
-	QString s = '(' + QString::number(found_) + QLatin1String(")   ");
-	int w = fm.boundingRect(s).width();
+	const QString s = '(' + QString::number(found_) + ')';
+	int w = fm.boundingRect(s).width() + 5;
 	QPainter painter(this);
 	QPen pen(QColor(0, 0, 255));
-	///pen.setWidthF(2.0);
 	painter.setPen(pen);
 	QRectF r(width() - w, 0, w, height());
 	QTextOption option;

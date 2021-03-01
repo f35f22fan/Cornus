@@ -1439,16 +1439,54 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 		menu->addSeparator();
 		
 		{
-			QAction *action = extract->addAction(tr("Extract Here"));
+			QAction *action = extract->addAction(tr("Here"));
 			connect(action, &QAction::triggered, [=] {
 				app_->ExtractTo(app_->current_dir());
 			});
 		}
 		
 		{
-			QAction *action = extract->addAction(tr("Extract To.."));
+			QAction *action = extract->addAction(tr("Ask Destination"));
 			connect(action, &QAction::triggered, [=] { app_->ExtractAskDestFolder(); });
 		}
+	}
+	
+	if (selected_count > 0) {
+		QMenu *archive_menu = new QMenu(tr("Archive As"));
+		menu->addSeparator();
+		menu->addMenu(archive_menu);
+		QIcon *icon = app_->GetIcon(QLatin1String("zip"));
+		if (icon != nullptr)
+			archive_menu->setIcon(*icon);
+		menu->addSeparator();
+		
+		QStringList exts = {
+			QLatin1String("tar.gz"), QLatin1String("zip"),
+			QLatin1String("tar.xz"), QLatin1String("zst"),
+			QLatin1String("7z")
+		};
+		
+//		QMenu *archive_here = new QMenu(tr("Here"));
+//		archive_menu->addMenu(archive_here);
+		
+		for (const auto &ext: exts)
+		{
+			QAction *action = archive_menu->addAction(ext);
+			connect(action, &QAction::triggered, [=] {
+				app_->ArchiveTo(app_->current_dir(), ext);
+			});
+		}
+		
+//		QMenu *archive_to = new QMenu(tr("Ask Destination"));
+//		archive_menu->addMenu(archive_to);
+		
+//		for (const auto &ext: exts)
+//		{
+//			QAction *action = archive_to->addAction(ext);
+//			connect(action, &QAction::triggered, [=] {
+//				app_->ArchiveAskDestArchivePath(ext);
+//			});
+//		}
 	}
 	
 	QString count_folder = dir_full_path.isEmpty() ? app_->current_dir() : dir_full_path;

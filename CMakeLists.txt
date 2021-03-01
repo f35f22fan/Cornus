@@ -98,14 +98,14 @@ foreach(f IN LISTS cornus_io_src_files)
 endforeach()
    
 set (cornus_exe "cornus")
-add_executable(${cornus_exe} ${cornus_src_files} resources.qrc)
+add_executable(${cornus_exe} ${cornus_src_files} resources/resources.qrc)
 target_include_directories(${cornus_exe} PRIVATE
     ${UDISKS_INCLUDE_DIRS} ${DCONF_INCLUDE_DIRS})
 target_link_libraries(${cornus_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
     ${UDISKS_LDFLAGS} ${DCONF_LDFLAGS} pthread)
    
 set (cornus_io_exe "cornus_io")
-add_executable(${cornus_io_exe} ${cornus_io_src_files} resources.qrc)
+add_executable(${cornus_io_exe} ${cornus_io_src_files} resources/resources.qrc)
 target_include_directories(${cornus_io_exe} PRIVATE
     ${UDISKS_INCLUDE_DIRS} ${DCONF_INCLUDE_DIRS})
 target_link_libraries(${cornus_io_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus

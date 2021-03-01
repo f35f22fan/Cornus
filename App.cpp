@@ -292,6 +292,52 @@ App::~App()
 }
 
 void
+App::ArchiveAskDestArchivePath(const QString &ext)
+{
+	QUrl url = QFileDialog::getExistingDirectoryUrl(this,
+		tr("Archive destination folder"), QUrl::fromLocalFile(current_dir_));
+	
+	if (url.isEmpty())
+		return;
+	
+	QString to = url.toLocalFile();
+	ArchiveTo(to, ext);
+}
+
+void App::ArchiveTo(const QString &dir_path, const QString &ext)
+{
+	QVector<QString> urls;
+	table_->GetSelectedFileNames(urls);
+	if (urls.isEmpty())
+		return;
+	
+	QString files_dir = current_dir_;
+	if (!files_dir.endsWith('/'))
+		files_dir.append('/');
+	
+	for (int i = 0; i < urls.size(); i++) {
+		QString s = QUrl(files_dir + urls[i]).toString();
+		urls[i] = s;
+	}
+	
+	QProcess process;
+	process.setWorkingDirectory(dir_path);
+	process.setProgram(QLatin1String("ark"));
+	QStringList args;
+	
+	args.append(QLatin1String("-c"));
+	args.append(QLatin1String("-f"));
+	args.append(ext);
+	
+	for (const auto &next: urls) {
+		args.append(next);
+	}
+	
+	process.setArguments(args);
+	process.startDetached();
+}
+
+void
 App::AskCreateNewFile(io::File *file, const QString &title)
 {
 	AutoDelete ad(file);
@@ -639,7 +685,7 @@ void App::ExtractAskDestFolder()
 {
 	QUrl dir = QUrl::fromLocalFile(current_dir_);
 	QUrl url = QFileDialog::getExistingDirectoryUrl(this,
-		tr("Archive destination folder"), dir);
+		tr("Extract destination folder"), dir);
 	
 	if (url.isEmpty())
 		return;
@@ -651,15 +697,23 @@ void App::ExtractTo(const QString &to_dir)
 {
 	QVector<QString> urls;
 	table_->GetSelectedArchives(urls);
+	if (urls.isEmpty())
+		return;
 	
-	ByteArray *ba = new ByteArray();
-	ba->set_msg_id(io::socket::MsgBits::ExtractArchives);
-	ba->add_string(to_dir);
-	for (auto &next: urls) {
-		ba->add_string(next);
+	QProcess process;
+	process.setWorkingDirectory(to_dir);
+	process.setProgram(QLatin1String("ark"));
+	QStringList args;
+	
+	args.append(QLatin1String("-b"));
+	args.append(QLatin1String("-a"));
+	
+	for (const auto &next: urls) {
+		args.append(next);
 	}
 	
-	io::socket::SendAsync(ba);
+	process.setArguments(args);
+	process.startDetached();
 }
 
 void App::FileDoubleClicked(io::File *file, const gui::Column col)

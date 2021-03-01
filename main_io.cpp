@@ -29,61 +29,6 @@ struct args_data {
 	int fd = -1;
 };
 
-void ExtractArchives(ByteArray *ba, io::Server *server)
-{
-	QString to_dir = ba->next_string();
-	mtl_printq2("to dir: ", to_dir);
-	QVector<QString> urls;
-	while (ba->has_more()) {
-		QString s = ba->next_string();
-		urls.append(s);
-		mtl_printq2("Extract file: ", s);
-	}
-	
-	if (urls.isEmpty()) {
-		mtl_info("Returning");
-		return;
-	}
-	
-	QProcess *ps = new QProcess();
-	ps->setWorkingDirectory(to_dir);
-	ps->setProgram(QLatin1String("ark"));
-	QStringList args;
-	
-	args.append(QLatin1String("-b"));
-	args.append(QLatin1String("-a"));
-	
-	for (const auto &next: urls) {
-		args.append(next);
-	}
-	
-	ps->setArguments(args);
-	
-	cornus::io::ArchiveInfo info;
-	ps->start();
-	info.urls = urls;
-	info.to_dir = to_dir;
-	
-	CHECK_TRUE_VOID(ps->waitForStarted());
-	info.pid = ps->processId();
-	
-	QObject::connect(ps, &QProcess::errorOccurred, [server, &info] {
-		mtl_info("An error occured!");
-		QMetaObject::invokeMethod(server, "ExtractingArchiveFinished",
-			ConnectionType, Q_ARG(const i64, info.pid));
-	});
-
-	
-	QMetaObject::invokeMethod(server, "ExtractingArchiveStarted",
-		ConnectionType, Q_ARG(cornus::io::ArchiveInfo*, &info));
-	
-	const i64 max_wait_time = 120 * 60 * 1000; // 2 hours
-	CHECK_TRUE_VOID(ps->waitForFinished(max_wait_time));
-	
-	QMetaObject::invokeMethod(server, "ExtractingArchiveFinished",
-		ConnectionType, Q_ARG(const i64, info.pid));
-}
-
 void* ProcessRequest(void *ptr)
 {
 	pthread_detach(pthread_self());
@@ -122,11 +67,6 @@ void* ProcessRequest(void *ptr)
 		
 		return nullptr;
 	}
-	case (MsgType)io::socket::MsgBits::ExtractArchives: {
-		close(fd);
-		ExtractArchives(&ba, server);
-		return nullptr;
-	}
 	case (MsgType)io::socket::MsgBits::SendOpenWithList: {
 		QString mime = ba.next_string();
 		QMetaObject::invokeMethod(server, "SendOpenWithList",
@@ -163,7 +103,6 @@ void* ProcessRequest(void *ptr)
 	
 	return nullptr;
 }
-
 
 void* StartServerSocket(void *args)
 {
@@ -210,7 +149,6 @@ int main(int argc, char *argv[])
 	QApplication qapp(argc, argv);
 	qRegisterMetaType<cornus::io::Task*>();
 	qRegisterMetaType<cornus::ByteArray*>();
-	qRegisterMetaType<cornus::io::ArchiveInfo*>();
 	
 	/// The TasksWin hides/deletes itself
 	/// Currently it deletes itself, change later to just hide itself.

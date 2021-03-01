@@ -74,6 +74,8 @@ public slots:
 private:
 	NO_ASSIGN_COPY_MOVE(App);
 	
+	void ArchiveAskDestArchivePath(const QString &ext);
+	void ArchiveTo(const QString &target_dir_path, const QString &ext);
 	void ClipboardChanged(QClipboard::Mode mode);
 	QMenu* CreateNewMenu();
 	void CreateGui();

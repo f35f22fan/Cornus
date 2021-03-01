@@ -272,36 +272,6 @@ void Server::CutURLsToClipboard(ByteArray *ba)
 	QApplication::clipboard()->setMimeData(mime);
 }
 
-void Server::ExtractingArchiveFinished(const i64 pid)
-{
-	if (!running_archives_.contains(pid))
-		return;
-	ArchiveInfo info = running_archives_.value(pid);
-	running_archives_.remove(pid);
-	
-	if (time(NULL) - info.time_started < 5)
-		return;
-	
-	const int count = running_archives_.size();
-	QString msg;
-	if (count == 0) {
-		msg = tr("Finished extraction to: ") + info.to_dir;
-	} else {
-		msg = QString::number(count) + tr(" archive jobs remaining");
-	}
-	
-	tray_icon_->showMessage(tr("Extraction update"), msg);
-}
-
-void Server::ExtractingArchiveStarted(ArchiveInfo *info)
-{
-	info->time_started = time(NULL);
-	running_archives_.insert(info->pid, *info);
-	QString count = QString::number(running_archives_.size());
-	QString msg = count + tr(" archive job(s)");
-	tray_icon_->setToolTip(msg);
-}
-
 void Server::GetOrderPrefFor(QString mime, QVector<DesktopFile*> &add_vec,
 	QVector<DesktopFile*> &remove_vec)
 {
@@ -344,7 +314,7 @@ void Server::GetOrderPrefFor(QString mime, QVector<DesktopFile*> &add_vec,
 void Server::InitTrayIcon()
 {
 	tray_icon_ = new QSystemTrayIcon();
-	tray_icon_->setIcon(QIcon(":/resources/cornus_io.webp"));
+	tray_icon_->setIcon(QIcon(cornus::AppIconPath));
 	tray_icon_->setVisible(true);
 	tray_icon_->setToolTip("cornus I/O daemon");
 	connect(tray_icon_, &QSystemTrayIcon::activated, this, &Server::SysTrayClicked);
@@ -403,12 +373,6 @@ void Server::LoadDesktopFilesFrom(QString dir_path)
 			desktop_files_.hash.insert(p->GetId(), p);
 		}
 	}
-}
-
-void Server::RemoveRunningArchive(const i64 pid, const int exit_code,
-	const QProcess::ExitStatus exit_status)
-{
-	running_archives_.remove(pid);
 }
 
 void Server::SendAllDesktopFiles(const int fd)

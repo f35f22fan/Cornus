@@ -194,12 +194,18 @@ void
 Table::ActionPasteLinks()
 {
 	const Clipboard &clipboard = app_->clipboard();
-	io::PasteLinks(clipboard.file_paths, app_->current_dir());
+	QString err;
+	QString first_one = io::PasteLinks(clipboard.file_paths, app_->current_dir(), &err);
+	model_->set_scroll_to_and_select(first_one);
 	
 	if (clipboard.action == ClipboardAction::Cut)
 	{
 		/// Not using qclipboard->clear() because it doesn't work:
 		QApplication::clipboard()->setMimeData(new QMimeData());
+	}
+	
+	if (!err.isEmpty()) {
+		app_->TellUser(tr("Paste Link Error: ") + err);
 	}
 }
 
@@ -1098,7 +1104,9 @@ Table::ScrollToAndSelect(QString full_path)
 		}
 	}
 	
-	CHECK_TRUE((row != -1));
+	if (row == -1)
+		return false;
+	
 	ScrollToRow(row);
 	SelectRowSimple(row);
 	shift_select_.base_row = row;

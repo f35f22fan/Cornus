@@ -190,7 +190,7 @@ FloatToString(const float number, const int precision);
 void GetClipboardFiles(const QMimeData &mime, Clipboard &cl);
 
 QStringRef
-GetFileNameExtension(const QString &name);
+GetFileNameExtension(const QString &name, QStringRef *base_name = nullptr);
 
 QStringRef
 GetFileNameOfFullPath(const QString &full_path);
@@ -220,8 +220,10 @@ MapPosixTypeToLocal(const mode_t mode) {
 	}
 }
 
-void
-PasteLinks(const QVector<QString> &full_paths, QString target_dir);
+QString
+NewNamePattern(const QString &filename, const int next);
+
+QString PasteLinks(const QVector<QString> &full_paths, QString target_dir, QString *err);
 
 void
 ProcessMime(QString &mime);

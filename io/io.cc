@@ -400,6 +400,9 @@ void
 GetClipboardFiles(const QMimeData &mime, cornus::Clipboard &cl)
 {
 	cl.file_paths.clear();
+	cl.action = ClipboardAction::None;
+	cl.type = ClipboardType::None;
+	
 	QString text = mime.text();
 	/// Need a regex because Nautilus in KDE inserts 'r' instead of just '\n'
 	QRegularExpression regex("[\r\n]");
@@ -412,10 +415,8 @@ GetClipboardFiles(const QMimeData &mime, cornus::Clipboard &cl)
 mtl_info("Nautilus style clipboard");
 #endif
 		cl.type = ClipboardType::Nautilus;
-		if (list.size() < 3) {
-			cl.action = ClipboardAction::None;
+		if (list.size() < 3)
 			return;
-		}
 		
 		for (int i = 2; i < list.size(); i++) {
 			const QString s = list[i].toString();
@@ -440,9 +441,6 @@ mtl_info("KDE style clipboard");
 	
 	if (kde_cut_action) {
 		cl.type = ClipboardType::KDE;
-	} else {
-		/// otherwise not sure about clipboard type
-		cl.type = ClipboardType::None;
 	}
 	
 #ifdef CORNUS_CLIPBOARD_CLIENT_DEBUG
@@ -463,12 +461,16 @@ mtl_printq(s);
 }
 
 QStringRef
-GetFileNameExtension(const QString &name)
+GetFileNameExtension(const QString &name, QStringRef *base_name)
 {
 	int dot = name.lastIndexOf('.');
 	
 	if (dot == -1 || (dot == name.size() - 1))
 		return QStringRef();
+	
+	if (base_name != nullptr) {
+		*base_name = name.midRef(0, dot);
+	}
 	
 	return name.midRef(dot + 1);
 }
@@ -615,11 +617,29 @@ MapPosixError(int e)
 	}
 }
 
-void
-PasteLinks(const QVector<QString> &full_paths, QString target_dir)
+QString
+NewNamePattern(const QString &filename, const int next)
+{
+	if (next == 0)
+		return filename;
+	
+	QStringRef base_name;
+	QStringRef ext = io::GetFileNameExtension(filename, &base_name);
+	QString num_str = QLatin1String(" (") + QString::number(next) + ')';
+	if (ext.isEmpty())
+		return filename + num_str;
+		
+	return base_name + num_str + '.' + ext;
+}
+
+QString
+PasteLinks(const QVector<QString> &full_paths, QString target_dir,
+	QString *error)
 {
 	if (!target_dir.endsWith('/'))
 		target_dir.append('/');
+	
+	QString first_successful;
 	
 	for (const QString &in_full_path: full_paths)
 	{
@@ -628,12 +648,29 @@ PasteLinks(const QVector<QString> &full_paths, QString target_dir)
 			continue;
 		
 		auto target_path_ba = in_full_path.toLocal8Bit();
-		auto new_file_path = (target_dir + filename).toLocal8Bit();
-		int status = symlink(target_path_ba.data(), new_file_path.data());
-		
-		if (status != 0)
-			mtl_status(errno);
+		i32 next = 0;
+		while (true)
+		{
+			QString full_path = target_dir + io::NewNamePattern(filename, next);
+			next++;
+			auto new_file_path = full_path.toLocal8Bit();
+			int status = symlink(target_path_ba.data(), new_file_path.data());
+			
+			if (status == 0) {
+				if (first_successful.isEmpty())
+					first_successful = full_path;
+				break;
+			} else if (errno == EEXIST) {
+				continue;
+			} else {
+				if (error != nullptr)
+					*error = strerror(errno);
+				break;
+			}
+		}
 	}
+	
+	return first_successful;
 }
 
 void

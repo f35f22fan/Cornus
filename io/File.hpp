@@ -137,6 +137,9 @@ public:
 	void type(const FileType t) { type_ = t; }
 	FileType type() const { return type_; }
 	
+	isize xattr_size() const { return xattr_size_; }
+	void xattr_size(const isize n) { xattr_size_ = n; }
+	
 private:
 	NO_ASSIGN_COPY_MOVE(File);
 	
@@ -153,6 +156,7 @@ private:
 	io::Files *files_ = nullptr;
 	QString dp_;
 	i64 size_ = -1;
+	isize xattr_size_ = -1;
 	FileID id_ = {};
 	struct statx_timestamp time_created_ = {};
 	struct statx_timestamp time_modified_ = {};

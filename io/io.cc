@@ -16,6 +16,7 @@
 #include <cmath>
 #include <bits/stdc++.h> /// std::sort()
 #include <sys/stat.h>
+#include <sys/xattr.h>
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
@@ -589,6 +590,10 @@ ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 		
 		auto *file = new io::File(ptr);
 		FillInStx(*file, stx, &name);
+		if (file->is_regular()) {
+			const isize sz = listxattr(ba.data(), NULL, 0);
+			file->xattr_size(sz);
+		}
 		
 		if (file->is_symlink()) {
 			auto *target = new LinkTarget();
@@ -905,6 +910,11 @@ ReloadMeta(io::File &file)
 	}
 	
 	FillInStx(file, stx, nullptr);
+	
+	if (file.is_regular()) {
+		const isize sz = listxattr(ba.data(), NULL, 0);
+		file.xattr_size(sz);
+	}
 	
 	if (file.is_symlink()) {
 		auto *target = new LinkTarget();

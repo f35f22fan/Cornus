@@ -10,6 +10,7 @@
 
 #include <sys/sendfile.h>
 #include <sys/stat.h>
+#include <sys/xattr.h>
 #include <fcntl.h>
 #include <string.h>
 #include <time.h>
@@ -252,6 +253,77 @@ void Task::CopyRegularFile(const QString &from_path, const QString &new_dir_path
 		if (status != 0)
 			mtl_status(status);
 #endif
+	}
+	
+	CopyXAttr(input_fd, output_fd);
+}
+
+void
+Task::CopyXAttr(const int input_fd, const int output_fd)
+{
+	isize buflen = flistxattr(input_fd, NULL, 0);
+	if (buflen == 0)
+		return; /// no attributes
+	
+	if (buflen == -1)
+	{
+		mtl_status(errno);
+		return;
+	}
+	
+	/// Allocate the buffer.
+	char *buf = (char*)malloc(buflen);
+	if (buf == NULL)
+		return;
+	
+	AutoFree af(buf);
+	/// Copy the list of attribute keys to the buffer.
+	buflen = flistxattr(input_fd, buf, buflen);
+	CHECK_TRUE_VOID((buflen != -1));
+	
+	/** Loop over the list of zero terminated strings with the
+		attribute keys. Use the remaining buffer length to determine
+		the end of the list. */
+	char *key = buf;
+	while (buflen > 0)
+	{
+		/// output attribute key.
+		///mtl_info("key: \"%s\"", key);
+		
+		/// Determine length of the value.
+		isize vallen = fgetxattr(input_fd, key, NULL, 0);
+		if (vallen <= 0)
+			break;
+		
+		/// One extra byte is needed to append 0x00.
+		char *val = (char*) malloc(vallen + 1);
+		if (val == NULL)
+		{
+			mtl_status(errno);
+			break;
+		}
+		AutoFree af_val(val);
+		
+		/// Copy value to buffer.
+		vallen = fgetxattr(input_fd, key, val, vallen);
+		if (vallen == -1)
+		{
+			mtl_status(errno);
+			break;
+		}
+		
+		val[vallen] = 0;
+		///mtl_info("value: \"%s\", length: %ld", val, vallen);
+		
+		int status = fsetxattr(output_fd, key, val, vallen, 0);
+//		if (status != 0) {
+//			mtl_status(errno);
+//		}
+		
+		/// Forward to next attribute key.
+		const isize keylen = strlen(key) + 1;
+		buflen -= keylen;
+		key += keylen;
 	}
 }
 

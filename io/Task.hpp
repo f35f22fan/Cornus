@@ -153,6 +153,7 @@ private:
 	void CopyFileToDir(const QString &file_path, const QString &dir_path);
 	void CopyRegularFile(const QString &from_path, const QString &new_dir_path,
 		const QString &filename, const mode_t mode, const i64 file_size);
+	void CopyXAttr(const int input_fd, const int output_fd);
 	i64 CountTotalSize();
 	ActUponAnswer DealWithFileExistsAnswer(const i64 file_size);
 	ActUponAnswer DealWithWriteFailedAnswer(const i64 file_size);

@@ -140,7 +140,7 @@ void Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 				return;
 		}
 	} else if (S_ISREG(mode)) {
-		CopyRegularFile(file_path, new_dir_path + file_name, mode, file_size);
+		CopyRegularFile(file_path, new_dir_path, file_name.toString(), mode, file_size);
 	} else if (S_ISLNK(mode)) {
 		
 		QString link_target_path;
@@ -164,8 +164,8 @@ void Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 	}
 }
 
-void Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
-	const mode_t mode, const i64 file_size)
+void Task::CopyRegularFile(const QString &from_path, const QString &new_dir_path,
+	const QString &filename, const mode_t mode, const i64 file_size)
 {
 	auto from_ba = from_path.toLocal8Bit();
 	int input_fd = ::open(from_ba.data(), O_RDONLY | O_LARGEFILE);
@@ -179,7 +179,9 @@ void Task::CopyRegularFile(const QString &from_path, const QString &dest_path,
 	AutoCloseFd input_ac(input_fd);
 	const int WarnIfExistsFlags = O_CREAT | O_EXCL | O_LARGEFILE
 		| O_NOFOLLOW | O_NOATIME | O_WRONLY;
-	int output_fd = TryCreateRegularFile(dest_path, WarnIfExistsFlags, mode, file_size);
+	QString dest_path;
+	int output_fd = TryCreateRegularFile(new_dir_path, filename,
+		WarnIfExistsFlags, mode, file_size, dest_path);
 	
 	if (output_fd == -1)
 		return;
@@ -390,12 +392,14 @@ bool Task::TryAtomicMove()
 	return true;
 }
 
-int Task::TryCreateRegularFile(const QString &dest_path, const int WriteFlags,
-	const mode_t mode, const i64 file_size)
+int Task::TryCreateRegularFile(const QString &new_dir_path,
+	const QString &filename, const int WriteFlags,
+	const mode_t mode, const i64 file_size, QString &dest_path)
 {
 	const int OverwriteFlags = O_CREAT | O_TRUNC | O_LARGEFILE | O_NOFOLLOW | O_NOATIME | O_WRONLY;
-	auto dest_ba = dest_path.toLocal8Bit();
 	int file_flags = WriteFlags;
+	int next = 0;
+	dest_path = new_dir_path + io::NewNamePattern(filename, next);
 	
 	while (true)
 	{
@@ -407,6 +411,17 @@ int Task::TryCreateRegularFile(const QString &dest_path, const int WriteFlags,
 		switch (file_exists_answer)
 		{
 		case FileExistsAnswer::None: break;
+		case FileExistsAnswer::AutoRename: {
+			data_.Lock();
+			data_.task_question_.file_exists_answer = FileExistsAnswer::None;
+			data_.Unlock();
+			dest_path = new_dir_path + io::NewNamePattern(filename, next);
+			break;
+		}
+		case FileExistsAnswer::AutoRenameAll: {
+			dest_path = new_dir_path + io::NewNamePattern(filename, next);
+			break;
+		}
 		case FileExistsAnswer::Overwrite: {
 			data_.Lock();
 			data_.task_question_.file_exists_answer = FileExistsAnswer::None;
@@ -423,8 +438,9 @@ int Task::TryCreateRegularFile(const QString &dest_path, const int WriteFlags,
 			return -1;
 		}
 		} /// switch()
-
-		const int fd = ::open(dest_ba, file_flags, mode);
+		
+		auto dest_ba = dest_path.toLocal8Bit();
+		const int fd = ::open(dest_ba.data(), file_flags, mode);
 		if (fd != -1)
 			return fd;
 		
@@ -477,6 +493,8 @@ Task::DealWithFileExistsAnswer(const i64 file_size)
 		None = 0,
 		Overwrite,
 		OverwriteAll,
+		AutoRename,
+		AutoRenameAll,
 		Skip,
 		SkipAll,
 		Abort
@@ -496,6 +514,12 @@ Task::DealWithFileExistsAnswer(const i64 file_size)
 		return ActUponAnswer::Retry;
 	}
 	case FileExistsAnswer::OverwriteAll: {
+		return ActUponAnswer::Retry;
+	}
+	case FileExistsAnswer::AutoRename: {
+		return ActUponAnswer::Retry;
+	}
+	case FileExistsAnswer::AutoRenameAll: {
 		return ActUponAnswer::Retry;
 	}
 	case FileExistsAnswer::Skip: {

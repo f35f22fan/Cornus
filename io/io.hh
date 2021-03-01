@@ -221,7 +221,7 @@ MapPosixTypeToLocal(const mode_t mode) {
 }
 
 QString
-NewNamePattern(const QString &filename, const int next);
+NewNamePattern(const QString &filename, i32 &next);
 
 QString PasteLinks(const QVector<QString> &full_paths, QString target_dir, QString *err);
 

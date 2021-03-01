@@ -139,6 +139,22 @@ TaskGui::CreateFileExistsPane()
 	}
 	
 	{
+		auto *btn = new QPushButton(tr("Auto Rename"));
+		connect(btn, &QPushButton::clicked, [=] {
+			SendFileExistsAnswer(io::FileExistsAnswer::AutoRename);
+		});
+		hlayout->addWidget(btn);
+	}
+	
+	{
+		auto *btn = new QPushButton(tr("Auto Rename All"));
+		connect(btn, &QPushButton::clicked, [=] {
+			SendFileExistsAnswer(io::FileExistsAnswer::AutoRenameAll);
+		});
+		hlayout->addWidget(btn);
+	}
+	
+	{
 		auto *btn = new QPushButton(tr("Overwrite"));
 		connect(btn, &QPushButton::clicked, [=] {
 			SendFileExistsAnswer(io::FileExistsAnswer::Overwrite);
@@ -173,6 +189,7 @@ void TaskGui::CreateGui()
 	setLayout(stack_.layout);
 	
 	stack_.progress_index = stack_.layout->addWidget(CreateProgressPane());
+	adjustSize();
 }
 
 QWidget*
@@ -336,7 +353,7 @@ TaskGui::ProcessAction(const QString &action)
 	}
 }
 
-QSize TaskGui::minimumSizeHint() const { return sizeHint(); }
+//QSize TaskGui::minimumSizeHint() const { return sizeHint(); }
 
 void
 TaskGui::SendFileExistsAnswer(const io::FileExistsAnswer answer)
@@ -356,10 +373,10 @@ TaskGui::SendWriteFailedAnswer(const io::WriteFailedAnswer answer)
 	timer_->start();
 }
 
-QSize TaskGui::sizeHint() const {
-	int rh = fontMetrics().boundingRect("Aj").height();
-	return QSize(750, rh * 3);
-}
+//QSize TaskGui::sizeHint() const {
+//	int rh = fontMetrics().boundingRect("Aj").height();
+//	return QSize(-1, rh * 3);
+//}
 
 void TaskGui::TaskStateChanged(const io::TaskState new_state)
 {

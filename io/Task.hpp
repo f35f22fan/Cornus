@@ -151,16 +151,17 @@ private:
 	Task();
 	void CopyFiles();
 	void CopyFileToDir(const QString &file_path, const QString &dir_path);
-	void CopyRegularFile(const QString &from_path, const QString &dest_path,
-		const mode_t mode, const i64 file_size);
+	void CopyRegularFile(const QString &from_path, const QString &new_dir_path,
+		const QString &filename, const mode_t mode, const i64 file_size);
 	i64 CountTotalSize();
 	ActUponAnswer DealWithFileExistsAnswer(const i64 file_size);
 	ActUponAnswer DealWithWriteFailedAnswer(const i64 file_size);
 	void DeleteFile(const QString &full_path, struct statx &stx);
 	void DeleteFiles();
 	bool TryAtomicMove();
-	int TryCreateRegularFile(const QString &dest_path, const int WriteFlags,
-		const mode_t mode, const i64 file_size);
+	int TryCreateRegularFile(const QString &new_dir_path,
+		const QString &filename, const int WriteFlags,
+		const mode_t mode, const i64 file_size, QString &dest_path);
 	
 	TaskData data_ = {};
 	TaskProgress progress_ = {};

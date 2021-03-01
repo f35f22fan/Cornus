@@ -618,14 +618,17 @@ MapPosixError(int e)
 }
 
 QString
-NewNamePattern(const QString &filename, const int next)
+NewNamePattern(const QString &filename, i32 &next)
 {
-	if (next == 0)
+	if (next == 0) {
+		next++;
 		return filename;
+	}
 	
 	QStringRef base_name;
-	QStringRef ext = io::GetFileNameExtension(filename, &base_name);
-	QString num_str = QLatin1String(" (") + QString::number(next) + ')';
+	const QStringRef ext = io::GetFileNameExtension(filename, &base_name);
+	const QString num_str = QLatin1String(" (") + QString::number(next) + ')';
+	next++;
 	if (ext.isEmpty())
 		return filename + num_str;
 		
@@ -652,7 +655,6 @@ PasteLinks(const QVector<QString> &full_paths, QString target_dir,
 		while (true)
 		{
 			QString full_path = target_dir + io::NewNamePattern(filename, next);
-			next++;
 			auto new_file_path = full_path.toLocal8Bit();
 			int status = symlink(target_path_ba.data(), new_file_path.data());
 			

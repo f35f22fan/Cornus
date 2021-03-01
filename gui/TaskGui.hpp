@@ -20,8 +20,8 @@ public:
 	~TaskGui();
 	static TaskGui* From(io::Task *task, gui::TasksWin *tw);
 	
-	virtual QSize sizeHint() const override;
-	virtual QSize minimumSizeHint() const override;
+//	virtual QSize sizeHint() const override;
+//	virtual QSize minimumSizeHint() const override;
 	
 	void CheckTaskState();
 	void TaskStateChanged(const io::TaskState new_state);

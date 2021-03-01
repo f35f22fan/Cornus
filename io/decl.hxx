@@ -26,6 +26,8 @@ namespace cornus::io {
 		OverwriteAll,
 		Skip,
 		SkipAll,
+		AutoRename,
+		AutoRenameAll,
 		Abort
 	};
 	

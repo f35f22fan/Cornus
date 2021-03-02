@@ -34,6 +34,10 @@ public:
 	bool has(const io::FileBits bits) { return (bits_ & bits) != FileBits::Empty; }
 	bool has_exec_bit() const;
 	bool has_link_target() const { return is_symlink() && link_target_ != nullptr; }
+	bool can_have_xattr() const { return is_regular() ||
+		is_symlink() || is_dir(); }
+	QHash<QString, QString>& ext_attrs() { return ext_attrs_; }
+	bool  has_ext_attrs() const { return ext_attrs_.size() > 0; }
 	void ReadLinkTarget();
 	
 	bool is_dir() const { return type_ == FileType::Dir; }
@@ -117,6 +121,7 @@ public:
 		return (files_ == nullptr) ? dp_ : files_->data.processed_dir_path; }
 	
 	io::Files* files() const { return files_; }
+	void files(io::Files *ptr) { files_ = ptr; dp_.clear(); }
 	
 	void id(const FileID d) { id_ = d; }
 	FileID id() const { return id_; }
@@ -137,9 +142,6 @@ public:
 	void type(const FileType t) { type_ = t; }
 	FileType type() const { return type_; }
 	
-	isize xattr_size() const { return xattr_size_; }
-	void xattr_size(const isize n) { xattr_size_ = n; }
-	
 private:
 	NO_ASSIGN_COPY_MOVE(File);
 	
@@ -156,7 +158,7 @@ private:
 	io::Files *files_ = nullptr;
 	QString dp_;
 	i64 size_ = -1;
-	isize xattr_size_ = -1;
+	QHash<QString, QString> ext_attrs_;
 	FileID id_ = {};
 	struct statx_timestamp time_created_ = {};
 	struct statx_timestamp time_modified_ = {};

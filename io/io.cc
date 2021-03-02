@@ -563,8 +563,6 @@ ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 	const bool hide_hidden_files = !data.show_hidden_files();
 	struct dirent *entry;
 	struct statx stx;
-	const auto flags = AT_SYMLINK_NOFOLLOW;
-	const auto fields = STATX_ALL;
 	
 	while ((entry = readdir(dp)))
 	{
@@ -580,28 +578,13 @@ ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 		if (ff != nullptr && !ff(data.processed_dir_path, name))
 			continue;
 		
-		QString full_path = data.processed_dir_path + name;
-		auto ba = full_path.toLocal8Bit();
-		
-		if (statx(0, ba.data(), flags, fields, &stx) != 0) {
-			mtl_warn("statx(): %s: \"%s\"", strerror(errno), entry->d_name);
-			continue;
-		}
-		
 		auto *file = new io::File(ptr);
-		FillInStx(*file, stx, &name);
-		if (file->is_regular()) {
-			const isize sz = listxattr(ba.data(), NULL, 0);
-			file->xattr_size(sz);
-		}
-		
-		if (file->is_symlink()) {
-			auto *target = new LinkTarget();
-			ReadLink(ba.data(), *target, data.processed_dir_path);
-			file->link_target_ = target;
-		}
-		
-		data.vec.append(file);
+		file->name(name);
+
+		if (ReloadMeta(*file, stx, &data.processed_dir_path))
+			data.vec.append(file);
+		else
+			delete file;
 	}
 	
 	closedir(dp);
@@ -895,30 +878,96 @@ ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	return Err::Ok;
 }
 
-bool
-ReloadMeta(io::File &file)
+void ReadXAttrs(io::File &file, const QByteArray &full_path)
 {
-	auto ba = file.build_full_path().toLocal8Bit();
+	if (!file.can_have_xattr())
+		return;
 	
-	struct statx stx;
+	isize buflen = llistxattr(full_path.data(), NULL, 0);
+	if (buflen == 0)
+		return; /// no attributes
+	
+	if (buflen == -1)
+	{
+		mtl_warn("%s: %s", full_path.data(), strerror(errno));
+		return;
+	}
+	
+	/// Allocate the buffer.
+	char *buf = (char*)malloc(buflen);
+	CHECK_PTR_VOID(buf);
+	
+	AutoFree af(buf);
+	/// Copy the list of attribute keys to the buffer.
+	buflen = llistxattr(full_path.data(), buf, buflen);
+	CHECK_TRUE_VOID((buflen != -1));
+	
+	/** Loop over the list of zero terminated strings with the
+		attribute keys. Use the remaining buffer length to determine
+		the end of the list. */
+	char *key = buf;
+	QHash<QString, QString> &ext_attrs = file.ext_attrs();
+	ext_attrs.clear();
+	
+	while (buflen > 0)
+	{
+		/// Determine length of the value.
+		isize vallen = lgetxattr(full_path.constData(), key, NULL, 0);
+		if (vallen <= 0)
+			break;
+		
+		/// One extra byte is needed to append 0x00.
+		char *val = (char*) malloc(vallen + 1);
+		if (val == NULL)
+		{
+			mtl_status(errno);
+			break;
+		}
+		AutoFree af_val(val);
+		
+		/// Copy value to buffer.
+		vallen = lgetxattr(full_path.constData(), key, val, vallen);
+		if (vallen == -1)
+		{
+			mtl_status(errno);
+			break;
+		}
+		
+		val[vallen] = 0;
+		ext_attrs.insert(key, val);
+		///mtl_info("Ext attr: \"%s\": \"%s\"", key, val);
+		
+		/// Forward to next attribute key.
+		const isize keylen = strlen(key) + 1;
+		buflen -= keylen;
+		key += keylen;
+	}
+}
+
+bool
+ReloadMeta(io::File &file, struct statx &stx, QString *dir_path)
+{
+	QByteArray full_path;
+	if (dir_path != nullptr) {
+		full_path = (*dir_path + file.name()).toLocal8Bit();
+	} else {
+		full_path = file.build_full_path().toLocal8Bit();
+	}
 	const auto flags = AT_SYMLINK_NOFOLLOW;
 	const auto fields = STATX_ALL;
 	
-	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
-		mtl_warn("statx(): %s: \"%s\"", strerror(errno), ba.data());
+	if (statx(0, full_path.data(), flags, fields, &stx) != 0) {
+		mtl_warn("statx(): %s: \"%s\"", strerror(errno), full_path.data());
 		return false;
 	}
 	
 	FillInStx(file, stx, nullptr);
-	
-	if (file.is_regular()) {
-		const isize sz = listxattr(ba.data(), NULL, 0);
-		file.xattr_size(sz);
-	}
+	ReadXAttrs(file, full_path);
 	
 	if (file.is_symlink()) {
 		auto *target = new LinkTarget();
-		ReadLink(ba.data(), *target, file.dir_path());
+		ReadLink(full_path.data(), *target,
+			(dir_path != nullptr) ? *dir_path : file.dir_path());
 		delete file.link_target();
 		file.link_target(target);
 	}

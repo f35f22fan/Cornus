@@ -133,7 +133,7 @@ void* GoToTh(void *p)
 	io::FilesData *new_data = new io::FilesData();
 	io::Files &view_files = app->view_files();
 	{
-		MutexGuard guard(&view_files.mutex);
+		MutexGuard guard = view_files.guard();
 		new_data->sorting_order = view_files.data.sorting_order;
 	}
 
@@ -615,11 +615,6 @@ i32 App::current_dir_id() const
 
 void App::DisplayFileContents(const int row, io::File *cloned_file)
 {
-	if (row == -1) {
-		HideTextEditor();
-		return;
-	}
-	
 	if (cloned_file == nullptr)
 		cloned_file = table_->GetFileAt(row);
 	if (cloned_file == nullptr)
@@ -724,7 +719,7 @@ void App::FileDoubleClicked(io::File *file, const gui::Column col)
 		if (file->is_symlink()) {
 			DisplaySymlinkInfo(*file);
 		} else {
-			mtl_info("Display access permissions");
+			DisplayFileContents(-1, file->Clone());
 		}
 	} else if (col == gui::Column::FileName) {
 		if (file->is_dir()) {
@@ -958,6 +953,9 @@ void App::GoUp()
 }
 
 void App::HideTextEditor() {
+	if (notepad_.stack->currentIndex() == notepad_.window_index)
+		return;
+	
 	setWindowTitle(notepad_.saved_window_title);
 	toolbar_->setVisible(true);
 	notepad_.stack->setCurrentIndex(notepad_.window_index);

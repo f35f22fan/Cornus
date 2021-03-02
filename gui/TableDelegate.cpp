@@ -50,10 +50,10 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 {
 	auto str_rect = fm.boundingRect(file->name());
 	
-	if (file->xattr_size() > 0) {
+	/*if (file->has_ext_attrs()) {
 		QPen pen(QColor(255, 0, 0));
 		painter->setPen(pen);
-	} else if (!file->is_dir_or_so() && file->has_exec_bit()) {
+	} else*/ if (!file->is_dir_or_so() && file->has_exec_bit()) {
 		QPen pen(QColor(0, 100, 0));
 		painter->setPen(pen);
 	}
@@ -164,6 +164,10 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 		text = QLatin1String("S");
 	} if (file->is_pipe()) {
 		text = QLatin1String("P");
+	}
+	
+	if (file->has_ext_attrs()) {
+		text.append("\u2022");
 	}
 	
 	QBrush brush = option.palette.brush(QPalette::QPalette::PlaceholderText);

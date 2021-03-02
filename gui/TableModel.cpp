@@ -80,6 +80,7 @@ void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
 	const auto ConnectionType = Qt::BlockingQueuedConnection;
 	
 	ssize_t add = 0;
+	struct statx stx;
 	
 	for (char *p = buf; p < buf + num_read; p += add) {
 		struct inotify_event *ev = (struct inotify_event*) p;
@@ -102,7 +103,7 @@ mtl_trace("IN_ATTRIB: %s", ev->name);
 				MutexGuard guard(&files->mutex);
 				found = Find(files->data.vec, name, is_dir, &update_index);
 				if (found != nullptr) {
-					if (!io::ReloadMeta(*found))
+					if (!io::ReloadMeta(*found, stx))
 					{
 						mtl_trace("%s", ev->name);
 						continue;
@@ -129,7 +130,7 @@ mtl_trace("IN_CREATE: %s", ev->name);
 			io::File *new_file = new io::File(files);
 			new_file->name(name);
 			
-			if (!io::ReloadMeta(*new_file))
+			if (!io::ReloadMeta(*new_file, stx))
 				mtl_trace();
 			FileEvent evt = {};
 			evt.new_file = new_file;
@@ -235,7 +236,7 @@ mtl_trace("IN_CLOSE: %s", ev->name);
 				MutexGuard guard(&files->mutex);
 				found = Find(files->data.vec, ev->name, is_dir, &update_index);
 				if (found != nullptr) {
-					if (!io::ReloadMeta(*found))
+					if (!io::ReloadMeta(*found, stx))
 					{
 						mtl_trace("%s", ev->name);
 						continue;
@@ -476,6 +477,8 @@ TableModel::InotifyEvent(gui::FileEvent evt)
 			return;
 	}
 	
+	struct statx stx;
+	
 	switch (evt.type) {
 	case FileEventType::Changed: {
 #ifdef CORNUS_DEBUG_INOTIFY
@@ -536,7 +539,7 @@ TableModel::InotifyEvent(gui::FileEvent evt)
 			{
 				MutexGuard guard(&files.mutex);
 				files.data.vec[to_index] = new_file;
-				io::ReloadMeta(*new_file);
+				io::ReloadMeta(*new_file, stx);
 			}
 			UpdateSingleRow(to_index);
 			break;
@@ -544,7 +547,7 @@ TableModel::InotifyEvent(gui::FileEvent evt)
 		
 		{
 			MutexGuard guard(&files.mutex);
-			if (!io::ReloadMeta(*new_file)) {
+			if (!io::ReloadMeta(*new_file, stx)) {
 				mtl_printq2("Failed to reload info on ", new_file->name());
 			}
 			to_index = FindPlace(new_file, files.data.vec);

@@ -238,7 +238,7 @@ ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_d
 bool
 ReadLinkSimple(const char *file_path, QString &result);
 
-bool ReloadMeta(io::File &file);
+bool ReloadMeta(io::File &file, struct statx &stx, QString *dir_path = nullptr);
 
 bool SameFiles(const QString &path1, const QString &path2,
 	io::Err *ret_error = nullptr);

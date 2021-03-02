@@ -159,9 +159,6 @@ void Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 			auto state = data_.GetState(nullptr, &time_worked);
 			progress_.AddProgress(file_size, time_worked);
 		}
-	} else {
-		mtl_trace("fifos/pipes/sockets/block devices not copied: %s",
-			file_ba.data());
 	}
 }
 
@@ -273,8 +270,7 @@ Task::CopyXAttr(const int input_fd, const int output_fd)
 	
 	/// Allocate the buffer.
 	char *buf = (char*)malloc(buflen);
-	if (buf == NULL)
-		return;
+	CHECK_PTR_VOID(buf);
 	
 	AutoFree af(buf);
 	/// Copy the list of attribute keys to the buffer.
@@ -313,12 +309,13 @@ Task::CopyXAttr(const int input_fd, const int output_fd)
 		}
 		
 		val[vallen] = 0;
-		///mtl_info("value: \"%s\", length: %ld", val, vallen);
-		
 		int status = fsetxattr(output_fd, key, val, vallen, 0);
-//		if (status != 0) {
-//			mtl_status(errno);
-//		}
+		if (status != 0)
+		{
+			 /// usually fails on "security.capabilities"
+			if (errno != EPERM)
+				mtl_status(errno);
+		}
 		
 		/// Forward to next attribute key.
 		const isize keylen = strlen(key) + 1;

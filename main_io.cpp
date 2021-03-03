@@ -13,6 +13,7 @@
 #include "AutoDelete.hh"
 #include "ByteArray.hpp"
 #include "decl.hxx"
+#include "defines.hxx"
 #include "err.hpp"
 #include "io/decl.hxx"
 #include "io/Server.hpp"
@@ -88,6 +89,25 @@ void* ProcessRequest(void *ptr)
 			ConnectionType, Q_ARG(int, fd));
 		return nullptr;
 	}
+	case (MsgType) io::socket::MsgBits::QuitServer: {
+#ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
+		mtl_info("Received QuitServer signal over socket");
+#endif
+		close(fd);
+		
+		cornus::io::ServerLife &life = server->life();
+		life.Lock();
+		life.exit = true;
+		life.Unlock();
+		
+		ByteArray ba;
+		ba.set_msg_id(io::socket::MsgBits::None);
+#ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
+		mtl_info("Waking up server to process it...");
+#endif
+		io::socket::SendSync(ba);
+		return nullptr;
+	}
 	} /// switch()
 	
 	close(fd);
@@ -104,11 +124,11 @@ void* ProcessRequest(void *ptr)
 	return nullptr;
 }
 
-void* StartServerSocket(void *args)
+void* ListenTh(void *args)
 {
 	pthread_detach(pthread_self());
-	
 	auto *server = (io::Server*)args;
+	io::ServerLife &life = server->life();
 	
 	int server_sock_fd = cornus::io::socket::Server(cornus::SocketPath);
 	if (server_sock_fd == -1) {
@@ -120,10 +140,22 @@ void* StartServerSocket(void *args)
 	
 	while (true) {
 		int client_fd = accept(server_sock_fd, NULL, NULL);
-		
 		if (client_fd == -1) {
 			mtl_status(errno);
 			break;
+		}
+		
+		if (life.Lock())
+		{
+			const bool do_exit = life.exit;
+			life.Unlock();
+			
+			if (do_exit) {
+#ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
+				mtl_info("Server is quitting");
+#endif
+				break;
+			}
 		}
 		
 		auto *args = new args_data();
@@ -136,7 +168,11 @@ void* StartServerSocket(void *args)
 		}
 	}
 	
+	close(server_sock_fd);
+	QMetaObject::invokeMethod(server, "QuitGuiApp", ConnectionType);
+#ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
 	mtl_info("Server socket closed");
+#endif
 	return nullptr;
 }
 }
@@ -155,10 +191,27 @@ int main(int argc, char *argv[])
 	auto *server = new cornus::io::Server();
 	
 	pthread_t th;
-	int status = pthread_create(&th, NULL, cornus::StartServerSocket, server);
+	int status = pthread_create(&th, NULL, cornus::ListenTh, server);
 	if (status != 0)
 		mtl_status(status);
 	
-	return qapp.exec();
+	cornus::io::ServerLife &life = server->life();
+	int ret;
+	while (true) {
+		ret = qapp.exec();
+		
+		life.Lock();
+		const bool do_exit = life.exit;
+		life.Unlock();
+		if (do_exit)
+		{
+#ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
+			mtl_info("Exiting main loop");
+#endif
+			break;
+		}
+	}
+	
+	return ret;
 }
 

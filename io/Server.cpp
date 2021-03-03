@@ -3,10 +3,12 @@
 #include "../AutoDelete.hh"
 #include "../ByteArray.hpp"
 #include "../DesktopFile.hpp"
+#include "../defines.hxx"
 #include "../prefs.hh"
 #include "../str.hxx"
 #include "../gui/TasksWin.hpp"
 
+#include <QAction>
 #include <QApplication>
 #include <QClipboard>
 #include <QMimeData>
@@ -160,9 +162,9 @@ void* WatchDesktopFileDirs(void *void_args)
 	pthread_detach(pthread_self());
 	CHECK_PTR_NULL(void_args);
 	
-	DesktopFileWatchArgs *args = (DesktopFileWatchArgs*)void_args;
+	QScopedPointer<DesktopFileWatchArgs> args((DesktopFileWatchArgs*) void_args);
 	Server *server = args->server;
-	AutoDelete ad_args(args);
+	
 	char *buf = new char[kInotifyEventBufLen];
 	AutoDeleteArr ad_arr(buf);
 	Notify &notify = server->notify();
@@ -237,7 +239,9 @@ Server::Server()
 }
 
 Server::~Server() {
+	mtl_trace();
 	notify_.Close();
+	delete tray_menu_;
 }
 
 void Server::CopyURLsToClipboard(ByteArray *ba)
@@ -318,6 +322,23 @@ void Server::InitTrayIcon()
 	tray_icon_->setVisible(true);
 	tray_icon_->setToolTip("cornus I/O daemon");
 	connect(tray_icon_, &QSystemTrayIcon::activated, this, &Server::SysTrayClicked);
+	
+	tray_menu_ = new QMenu(tasks_win_);
+	tray_icon_->setContextMenu(tray_menu_);
+	
+	{
+		QAction *action = tray_menu_->addAction(tr("Hide"));
+		action->setIcon(QIcon::fromTheme(QLatin1String("go-bottom")));
+		connect(action, &QAction::triggered, [=] {SetTrayVisible(false);});
+	}
+	
+	{
+		QAction *action = tray_menu_->addAction(tr("Quit"));
+		action->setIcon(QIcon::fromTheme(QLatin1String("application-exit")));
+		connect(action, &QAction::triggered, [=] {
+			io::socket::SendQuitSignalToServer();
+		});
+	}
 }
 
 void Server::LoadDesktopFiles()
@@ -373,6 +394,17 @@ void Server::LoadDesktopFilesFrom(QString dir_path)
 			desktop_files_.hash.insert(p->GetId(), p);
 		}
 	}
+}
+
+void Server::QuitGuiApp()
+{
+#ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
+	mtl_info("Quitting GUI App");
+#endif
+	QCoreApplication::quit();
+#ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
+	mtl_info("Done.");
+#endif
 }
 
 void Server::SendAllDesktopFiles(const int fd)
@@ -501,6 +533,11 @@ void Server::SysTrayClicked()
 		tasks_win_->raise();
 	}
 	flag = !flag;
+}
+
+void Server::SetTrayVisible(const bool yes)
+{
+	tray_icon_->setVisible(yes);
 }
 
 } // namespace

@@ -6,6 +6,7 @@
 #include "../err.hpp"
 #include "io.hh"
 
+#include <QMenu>
 #include <QMimeDatabase>
 #include <QProcess>
 #include <QVector>
@@ -30,6 +31,7 @@ public:
 	virtual ~Server();
 	
 	DesktopFiles& desktop_files() { return desktop_files_; }
+	io::ServerLife& life() { return life_; }
 	io::Notify& notify() { return notify_; }
 	gui::TasksWin* tasks_win() const { return tasks_win_; }
 	
@@ -38,6 +40,7 @@ public slots:
 	void CopyURLsToClipboard(ByteArray *ba);
 	void LoadDesktopFiles();
 	void LoadDesktopFilesFrom(QString dir_path);
+	void QuitGuiApp();
 	void SendAllDesktopFiles(const int fd);
 	void SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd);
 	void SendDesktopFilesById(cornus::ByteArray *ba, const int fd);
@@ -47,6 +50,7 @@ private:
 	
 	void GetOrderPrefFor(QString mime, QVector<DesktopFile *> &add_vec, QVector<DesktopFile *> &remove_vec);
 	void InitTrayIcon();
+	void SetTrayVisible(const bool yes);
 	void SetupEnvSearchPaths();
 	void SysTrayClicked();
 	
@@ -59,5 +63,7 @@ private:
 	QStringList watch_desktop_file_dirs_;
 	QMimeDatabase mime_db_;
 	QSystemTrayIcon *tray_icon_ = nullptr;
+	QMenu *tray_menu_ = nullptr;
+	io::ServerLife life_ = {};
 };
 }

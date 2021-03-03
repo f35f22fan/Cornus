@@ -104,6 +104,13 @@ void SendAsync(ByteArray *ba, const char *socket_path, const bool delete_path)
 	}
 }
 
+void SendQuitSignalToServer()
+{
+	ByteArray *ba = new ByteArray();
+	ba->set_msg_id(MsgBits::QuitServer);
+	SendAsync(ba);
+}
+
 bool SendSync(const ByteArray &ba, const char *socket_path)
 {
 	auto *addr = (socket_path == nullptr) ? cornus::SocketPath : socket_path;

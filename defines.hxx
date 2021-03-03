@@ -2,6 +2,7 @@
 
 namespace cornus {
 
+// #define CORNUS_DEBUG_SERVER_SHUTDOWN
 // #define CORNUS_DEBUG_SERVER_INOTIFY
 // #define CORNUS_DEBUG_INOTIFY
 // #define CORNUS_WAITED_FOR_WIDGETS

@@ -16,7 +16,7 @@ namespace cornus::io::socket {
 using MsgType = u32;
 enum class MsgBits: MsgType {
 	None = 0,
-	CheckAlive ,
+	CheckAlive,
 	QuitServer,
 	SendOpenWithList,
 	SendDefaultDesktopFileForFullPath,
@@ -89,6 +89,8 @@ int Server(const char *addr_str = cornus::SocketPath);
 
 void SendAsync(ByteArray *ba, const char *socket_path = nullptr,
 	const bool delete_path = false);
+
+void SendQuitSignalToServer();
 
 bool SendSync(const ByteArray &ba, const char *socket_path = nullptr);
 }

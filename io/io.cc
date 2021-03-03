@@ -1139,11 +1139,7 @@ int CompareStrings(const QString &a, const QString &b)
 		if (ac.isDigit())
 		{
 			if (!bc.isDigit())
-			{
-				if (ac == bc)
-					return 0;
 				return ac < bc ? -1 : 1;
-			}
 			
 			QStringRef a_digits = GetDigits(a, i);
 			QStringRef b_digits = GetDigits(b, i);

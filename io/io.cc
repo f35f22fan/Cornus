@@ -218,8 +218,7 @@ void Delete(io::File *file) {
 	file->DeleteFromDisk();
 }
 
-bool
-EnsureDir(const QString &dir_path, const QString &subdir)
+bool EnsureDir(const QString &dir_path, const QString &subdir)
 {
 	auto d = dir_path;
 	
@@ -246,8 +245,7 @@ EnsureDir(const QString &dir_path, const QString &subdir)
 	return mkdir(ba.data(), DirPermissions) == 0;
 }
 
-bool
-ExpandLinksInDirPath(QString &unprocessed_dir_path, QString &processed_dir_path)
+bool ExpandLinksInDirPath(QString &unprocessed_dir_path, QString &processed_dir_path)
 {
 	QString dir_path = QDir::cleanPath(unprocessed_dir_path);
 	
@@ -292,8 +290,7 @@ ExpandLinksInDirPath(QString &unprocessed_dir_path, QString &processed_dir_path)
 	return true;
 }
 
-bool
-FileExistsCstr(const char *path, FileType *file_type)
+bool FileExistsCstr(const char *path, FileType *file_type)
 {
 	struct statx stx;
 	const auto flags = AT_SYMLINK_NOFOLLOW;
@@ -372,8 +369,7 @@ FileTypeToString(const FileType t)
 	return nullptr;
 }
 
-void
-FillInStx(io::File &file, const struct statx &stx, const QString *name)
+void FillInStx(io::File &file, const struct statx &stx, const QString *name)
 {
 	using io::FileType;
 	if (name != nullptr)
@@ -397,8 +393,7 @@ FloatToString(const float number, const int precision)
 	return QString::number(number, 'f', precision);
 }
 
-void
-GetClipboardFiles(const QMimeData &mime, cornus::Clipboard &cl)
+void GetClipboardFiles(const QMimeData &mime, cornus::Clipboard &cl)
 {
 	cl.file_paths.clear();
 	cl.action = ClipboardAction::None;
@@ -509,8 +504,7 @@ bool IsNearlyEqual(double x, double y)
 	// see Knuth section 4.2.2 pages 217-218
 }
 
-io::Err
-ListFileNames(const QString &full_dir_path, QVector<QString> &vec)
+Err ListFileNames(const QString &full_dir_path, QVector<QString> &vec)
 {
 	struct dirent *entry;
 	auto dir_path_ba = full_dir_path.toLocal8Bit();
@@ -542,8 +536,7 @@ ListFileNames(const QString &full_dir_path, QVector<QString> &vec)
 	return Err::Ok;
 }
 
-io::Err
-ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
+Err ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 {
 	if (!data.unprocessed_dir_path.isEmpty()) {
 		if (!ExpandLinksInDirPath(data.unprocessed_dir_path, data.processed_dir_path))
@@ -593,8 +586,7 @@ ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 	return Err::Ok;
 }
 
-Err
-MapPosixError(int e)
+Err MapPosixError(int e)
 {
 	using io::Err;
 	
@@ -663,8 +655,7 @@ PasteLinks(const QVector<QString> &full_paths, QString target_dir,
 	return first_successful;
 }
 
-void
-ProcessMime(QString &mime)
+void ProcessMime(QString &mime)
 {
 	const auto PlainText = QLatin1String("text/plain");
 	
@@ -673,8 +664,7 @@ ProcessMime(QString &mime)
 	
 }
 
-bool
-ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_dir)
+bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_dir)
 {
 	if (link_target.cycles == LinkTarget::MaxCycles) {
 		link_target.cycles *= -1;
@@ -774,8 +764,7 @@ ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_d
 	return true;
 }
 
-bool
-ReadLinkSimple(const char *file_path, QString &result)
+bool ReadLinkSimple(const char *file_path, QString &result)
 {
 	struct statx stx;
 	const auto flags = AT_SYMLINK_NOFOLLOW;
@@ -821,8 +810,7 @@ ReadLinkSimple(const char *file_path, QString &result)
 	return true;
 }
 
-io::Err
-ReadFile(const QString &full_path, cornus::ByteArray &buffer,
+io::Err ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	const i64 read_max, mode_t *ret_mode)
 {
 	// This function follows links, it makes no sense not to
@@ -944,8 +932,7 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 	}
 }
 
-bool
-ReloadMeta(io::File &file, struct statx &stx, QString *dir_path)
+bool ReloadMeta(io::File &file, struct statx &stx, QString *dir_path)
 {
 	QByteArray full_path;
 	if (dir_path != nullptr) {
@@ -975,31 +962,34 @@ ReloadMeta(io::File &file, struct statx &stx, QString *dir_path)
 	return true;
 }
 
-bool
-SameFiles(const QString &path1, const QString &path2, io::Err *ret_error)
+bool SameFiles(const QString &path1, const QString &path2, io::Err *ret_error)
 {
-	struct stat st;
+	struct statx stx;
 	auto ba = path1.toLocal8Bit();
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_INO;
 	
-	if (lstat(ba.data(), &st) == -1) {
+	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
 		if (ret_error != nullptr)
 			*ret_error = MapPosixError(errno);
+		mtl_trace();
 		return false;
 	}
 	
-	auto id1 = FileID::New(st);
+	auto id1 = FileID::NewStx(stx);
 	ba = path2.toLocal8Bit();
 	
-	if (lstat(ba.data(), &st) == -1) {
+	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
 		if (ret_error != nullptr)
 			*ret_error = MapPosixError(errno);
+		mtl_trace();
 		return false;
 	}
 	
 	if (ret_error != nullptr)
 		*ret_error = io::Err::Ok;
 	
-	auto id2 = FileID::New(st);
+	auto id2 = FileID::NewStx(stx);
 	return id1 == id2;
 }
 
@@ -1087,8 +1077,100 @@ SizeToString(const i64 sz, const bool short_version)
 	return io::FloatToString(rounded, 1) + type;
 }
 
-bool
-SortFiles(io::File *a, io::File *b) 
+int CompareDigits(QStringRef a, QStringRef b)
+{
+	int i = 0;
+	for (; i < a.size(); i++) {
+		if (a[i] != '0')
+			break;
+	}
+	if (i != 0)
+		a = a.mid(i);
+	
+	i = 0;
+	for (; i < b.size(); i++) {
+		if (b[i] != '0')
+			break;
+	}
+	
+	if (i != 0)
+		b = b.mid(i);
+	
+	if (a.size() != b.size())
+		return a.size() < b.size() ? -1 : 1;
+	
+	i = 0;
+	for (; i < a.size(); i++)
+	{
+		const int an = a[i].digitValue();
+		const int bn = b[i].digitValue();
+		if (an != bn)
+			return (an < bn) ? -1 : 1;
+	}
+	
+	return 0;
+}
+
+QStringRef GetDigits(const QString &s, const int from)
+{
+	const int max = s.size();
+	int k = from;
+	for (; k < max; k++)
+	{
+		const QChar c = s[k];
+		if (!c.isDigit())
+			return s.midRef(from, k - from);
+	}
+	
+	return s.midRef(from);
+}
+
+int CompareStrings(const QString &a, const QString &b)
+{
+/** Lexically compares this @a with @b and returns
+ an integer less than, equal to, or greater than zero if @a
+ is less than, equal to, or greater than the other string. */
+	const int max = std::min(a.size(), b.size());
+	for (int i = 0; i < max; i++)
+	{
+		const QChar ac = a[i];
+		const QChar bc = b[i];
+		
+		if (ac.isDigit())
+		{
+			if (!bc.isDigit())
+			{
+				if (ac == bc)
+					return 0;
+				return ac < bc ? -1 : 1;
+			}
+			
+			QStringRef a_digits = GetDigits(a, i);
+			QStringRef b_digits = GetDigits(b, i);
+			
+			const int digit_result = CompareDigits(a_digits, b_digits);
+//			if (true) {
+//				auto ax = a_digits.toLocal8Bit();
+//				auto bx = b_digits.toLocal8Bit();
+//				mtl_info("\"%s\" vs \"%s\" = %d", ax.data(), bx.data(), digit_result);
+//			}
+			if (digit_result != 0)
+				return digit_result;
+			
+			i += a_digits.size();
+		}
+		
+		if (ac != bc)
+			return ac < bc ? -1 : 1;
+	}
+	
+	if (a.size() == b.size())
+		return 0;
+	
+	return a.size() < b.size() ? -1 : 1;
+}
+
+bool SortFiles(io::File *a, io::File *b) 
 {
 /** Note: this function MUST be implemented with strict weak ordering
   otherwise it randomly crashes (because of undefined behavior),
@@ -1102,7 +1184,8 @@ SortFiles(io::File *a, io::File *b)
 		return false;
 	
 	if (order.column == gui::Column::FileName) {
-		int n = a->name_lower().compare(b->name_lower());
+		///a->name_lower().compare(b->name_lower());
+		int n = CompareStrings(a->name_lower(), b->name_lower());
 		bool result = n >= 0 ? false : true;
 		return order.ascending ? result : !result;
 	}
@@ -1127,7 +1210,7 @@ SortFiles(io::File *a, io::File *b)
 	
 	if (order.column == gui::Column::Size) {
 		if (a->size() == b->size()) {
-			int n = a->name_lower().compare(b->name_lower());
+			int n = CompareStrings(a->name_lower(), b->name_lower());
 			bool result = n >= 0 ? false : true;
 			return order.ascending ? result : !result;
 		}
@@ -1143,7 +1226,7 @@ SortFiles(io::File *a, io::File *b)
 		}
 		// next, order by extension:
 		if (a->cache().ext == b->cache().ext) {
-			int n = a->name_lower().compare(b->name_lower());
+			int n = CompareStrings(a->name_lower(), b->name_lower());
 			bool result = n >= 0 ? false : true;
 			return order.ascending ? result : !result;
 		}
@@ -1156,8 +1239,7 @@ SortFiles(io::File *a, io::File *b)
 	return false;
 }
 
-isize
-TryReadFile(const QString &full_path, char *buf, const i64 how_much,
+isize TryReadFile(const QString &full_path, char *buf, const i64 how_much,
 	ExecInfo *info)
 {
 	auto ba = full_path.toLocal8Bit();
@@ -1181,8 +1263,7 @@ TryReadFile(const QString &full_path, char *buf, const i64 how_much,
 	return ret;
 }
 
-io::Err
-WriteToFile(const QString &full_path, const char *data, const i64 size,
+io::Err WriteToFile(const QString &full_path, const char *data, const i64 size,
 	mode_t *custom_mode)
 {
 	auto path = full_path.toLocal8Bit();

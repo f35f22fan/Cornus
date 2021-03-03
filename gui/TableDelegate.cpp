@@ -134,13 +134,8 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 			link_data.append(how_many);
 	}
 	
-	int w = text_rect.width() - str_rect.width();
-	
-	if (w <= 10)
-		return;
-	
-	auto link_data_rect = QRect(text_rect.x() + str_rect.width(), text_rect.y(),
-		text_rect.width() - str_rect.width(), text_rect.height());
+	QRect link_data_rect = text_rect;
+	link_data_rect.setX(text_rect.x() + str_rect.width());
 	QBrush brush = option.palette.brush(QPalette::PlaceholderText);
 	QPen pen(brush.color());
 	painter->setPen(pen);

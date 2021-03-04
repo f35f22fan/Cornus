@@ -60,7 +60,7 @@ void ReadEvent(int inotify_fd, char *buf,
 			if (is_dir || !name.endsWith(desktop))
 				continue;
 			QString full_path = dir_path + name;
-			DesktopFile *p = DesktopFile::FromPath(full_path);
+			DesktopFile *p = DesktopFile::FromPath(full_path, server->possible_categories());
 			if (p != nullptr)
 			{
 				auto guard = desktop_files.guard();
@@ -117,7 +117,7 @@ void ReadEvent(int inotify_fd, char *buf,
 			if (is_dir || !name.endsWith(desktop))
 				continue;
 			QString full_path = dir_path + name;
-			DesktopFile *p = DesktopFile::FromPath(full_path);
+			DesktopFile *p = DesktopFile::FromPath(full_path, server->possible_categories());
 			if (p != nullptr)
 			{
 				auto guard = desktop_files.guard();
@@ -230,8 +230,7 @@ void* WatchDesktopFileDirs(void *void_args)
 Server::Server()
 {
 	notify_.Init();
-	
-	io::SetupEnvSearchPaths(search_icons_dirs_, xdg_data_dirs_);
+	io::InitEnvInfo(desktop_, search_icons_dirs_, xdg_data_dirs_, possible_categories_);
 	tasks_win_ = new gui::TasksWin();
 	LoadDesktopFiles();
 ///	mtl_info("In total %d desktop files", desktop_files_.size());
@@ -387,7 +386,7 @@ void Server::LoadDesktopFilesFrom(QString dir_path)
 			continue;
 		}
 		
-		auto *p = DesktopFile::FromPath(full_path);
+		auto *p = DesktopFile::FromPath(full_path, possible_categories_);
 		if (p != nullptr) {
 			auto guard = desktop_files_.guard();
 			desktop_files_.hash.insert(p->GetId(), p);
@@ -461,7 +460,7 @@ void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 		auto guard = desktop_files_.guard();
 		foreach (DesktopFile *p, desktop_files_.hash)
 		{
-			if (!p->SupportsMime(mime, mime_info) || p->ToBeRunInTerminal())
+			if (!p->Supports(mime, mime_info, desktop_))
 				continue;
 			if (DesktopFileIndex(remove_vec, p->GetId(), p->type()) != -1)
 				continue;
@@ -484,7 +483,7 @@ void Server::SendOpenWithList(QString mime, const int fd)
 		auto guard = desktop_files_.guard();
 		foreach (DesktopFile *p, desktop_files_.hash)
 		{
-			bool ok = p->SupportsMime(mime, mime_info) && !p->ToBeRunInTerminal();
+			bool ok = p->Supports(mime, mime_info, desktop_);
 			
 			if (!ok)
 				continue;

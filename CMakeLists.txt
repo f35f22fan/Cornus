@@ -25,6 +25,7 @@ set(cornus_src_files main.cpp
     App.cpp App.hpp
     AutoDelete.hh
     ByteArray.cpp ByteArray.hpp
+    category.cc category.hh
     decl.hxx
     defines.hxx
     DesktopFile.cpp DesktopFile.hpp
@@ -72,11 +73,12 @@ endforeach()
 
 set(cornus_io_src_files main_io.cpp
     AutoDelete.hh
-    defines.hxx
-    err.hpp
+    category.cc category.hh
     ByteArray.cpp ByteArray.hpp
+    defines.hxx
     DesktopFile.cpp DesktopFile.hpp
     ElapsedTimer.cpp ElapsedTimer.hpp
+    err.hpp
     MutexGuard.cpp MutexGuard.hpp
     prefs.cc prefs.hh
 

@@ -7,6 +7,28 @@
 
 namespace cornus {
 
+///mpv: Categories=AudioVideo;Audio;Video;Player;TV;
+///Totem: Categories=GTK;GNOME;AudioVideo;Player;Video;
+///VLC: Categories=AudioVideo;Player;Recorder;
+
+///clementine: Categories=AudioVideo;Player;Qt;Audio;
+///rhythmbox: Categories=GNOME;GTK;AudioVideo;
+///         : Categories=GNOME;GTK;AudioVideo;Audio;Player;
+
+///Gwenview: Categories=Qt;KDE;Graphics;Viewer;Photography;
+///Shotwell: Categories=Graphics;Photography;GNOME;GTK;
+///          Categories=Graphics;Viewer;Photography;GNOME;GTK;
+
+///Categories=GNOME;GTK;Utility;TextEditor;
+///Categories=Qt;KDE;Utility;TextEditor;
+
+namespace str {
+static const QString Categories = QStringLiteral("Categories");
+static const QString MimeType = QStringLiteral("MimeType");
+static const QString NotShowIn = QStringLiteral("NotShowIn");
+static const QString OnlyShowIn = QStringLiteral("OnlyShowIn");
+}
+
 int DesktopFileIndex(QVector<DesktopFile*> &vec, const QString &id,
 	const DesktopFile::Type t)
 {
@@ -26,15 +48,6 @@ const auto Exec = QLatin1String("Exec");
 
 namespace desktopfile {
 
-const QString CategoriesStr = QLatin1String("Categories");
-const QString MimeTypeStr = QLatin1String("MimeType");
-
-const QString TextEditor_lower = QLatin1String("texteditor");
-const QString Qt_lower = QLatin1String("qt");
-const QString Gnome_lower = QLatin1String("gnome");
-const QString KDE_lower = QLatin1String("kde");
-const QString GTK_lower = QLatin1String("gtk");
-
 Group::Group(const QString &name): name_(name) {}
 Group::~Group() {}
 
@@ -45,6 +58,8 @@ Group::Clone() const
 	p->mimetypes_ = mimetypes_;
 	p->kv_map_ = kv_map_;
 	p->categories_ = categories_;
+	p->only_show_in_ = only_show_in_;
+	p->not_show_in_ = not_show_in_;
 	
 	return p;
 }
@@ -53,37 +68,48 @@ Group*
 Group::From(ByteArray &ba)
 {
 	Group *p = new Group(ba.next_string());
-	const u8 category_count = ba.next_u8();
-	for (auto i = 0; i < category_count; i++)
+	
 	{
-		p->categories_.append(static_cast<Category>(ba.next_u8()));
+		const u8 count = ba.next_u8();
+		for (u8 i = 0; i < count; i++)
+			p->only_show_in_.append(static_cast<Category>(ba.next_u8()));
 	}
-	
-	const i32 mime_count = ba.next_i32();
-	
-	for (i32 i = 0; i < mime_count; i++) {
-		QString s = ba.next_string();
-		p->mimetypes_.append(s);
+	{
+		const u8 count = ba.next_u8();
+		for (u8 i = 0; i < count; i++)
+			p->not_show_in_.append(static_cast<Category>(ba.next_u8()));
 	}
-	
-	const i32 kv_count = ba.next_i32();
-	
-	for (i32 i = 0; i < kv_count; i++) {
-		QString key = ba.next_string();
-		QString val = ba.next_string();
-		p->kv_map_.insert(key, val);
+	{
+		const u8 count = ba.next_u8();
+		for (u8 i = 0; i < count; i++)
+			p->categories_.append(static_cast<Category>(ba.next_u8()));
+	}
+	{
+		const i32 count = ba.next_i32();
+		for (i32 i = 0; i < count; i++)
+		{
+			QString s = ba.next_string();
+			p->mimetypes_.append(s);
+		}
+	}
+	{
+		const i32 count = ba.next_i32();
+		for (i32 i = 0; i < count; i++)
+		{
+			QString key = ba.next_string();
+			QString val = ba.next_string();
+			p->kv_map_.insert(key, val);
+		}
 	}
 	
 	return p;
 }
 
-bool
-Group::IsMain() const {
+bool Group::IsMain() const {
 	return name_ == MainGroupName;
 }
 
-void
-Group::Launch(const QString &full_path, const QString &working_dir)
+void Group::Launch(const QString &full_path, const QString &working_dir)
 {
 	QString exec = value(Exec);
 	if (exec.isEmpty())
@@ -119,7 +145,8 @@ void Group::ListKV()
 	}
 }
 
-void Group::ParseLine(const QStringRef &line)
+void Group::ParseLine(const QStringRef &line,
+	const QHash<QString, Category> &possible_categories)
 {
 	int sep = line.indexOf('=');
 	if (sep == -1)
@@ -133,31 +160,47 @@ void Group::ParseLine(const QStringRef &line)
 	
 	kv_map_.insert(key, value);
 	
-	if (mimetypes_.isEmpty() && key == MimeTypeStr) {
+	if (mimetypes_.isEmpty() && key == str::MimeType) {
 		mimetypes_ = value.split(';', Qt::SkipEmptyParts);
-	} else if (key == CategoriesStr) {
+	} else if (key == str::Categories) {
 		auto categories = value.splitRef(';', Qt::SkipEmptyParts);
 		for (QStringRef &next: categories)
 		{
-			const QString lower_str = next.toString().toLower();
-			Category new_category = Category::None;
-			
-			if (lower_str == TextEditor_lower)
-				new_category = Category::TextEditor;
-			else if (lower_str == Gnome_lower)
-				new_category = Category::Gnome;
-			else if (lower_str == KDE_lower)
-				new_category = Category::KDE;
-			
-			if (new_category != Category::None)
-				categories_.append(new_category);
+			Category c = possible_categories.value(next.toString().toLower(), Category::None);
+			if (c != Category::None)
+				categories_.append(c);
+		}
+	} else if (key == str::OnlyShowIn || key == str::NotShowIn) {
+		const bool only_show_in = key == str::OnlyShowIn;
+		auto categories = value.splitRef(';', Qt::SkipEmptyParts);
+		for (QStringRef &next: categories)
+		{
+			Category c = possible_categories.value(next.toString().toLower(), Category::None);
+			if (c != Category::None) {
+				if (only_show_in)
+					only_show_in_.append(c);
+				else
+					not_show_in_.append(c);
+			}
 		}
 	}
 }
 
-bool Group::SupportsMime(const QString &mime, const MimeInfo info) const
+bool Group::Supports(const QString &mime, const MimeInfo info,
+	const Category desktop) const
 {
+	if (not_show_in_.contains(desktop))
+		return false;
+	
+	if (!only_show_in_.isEmpty() && !only_show_in_.contains(desktop))
+		return false;
 	if (info == MimeInfo::Text && is_text_editor())
+		return true;
+	if (info == MimeInfo::Image && is_image_viewer())
+		return true;
+	if (info == MimeInfo::Audio && is_audio_player())
+		return true;
+	if (info == MimeInfo::Video && is_video_player())
 		return true;
 	
 	return mimetypes_.contains(mime);
@@ -166,6 +209,14 @@ bool Group::SupportsMime(const QString &mime, const MimeInfo info) const
 void Group::WriteTo(ByteArray &ba)
 {
 	ba.add_string(name_);
+	ba.add_u8((u8)only_show_in_.size());
+	for (const auto &next: only_show_in_)
+		ba.add_u8(static_cast<u8>(next));
+	
+	ba.add_u8((u8)not_show_in_.size());
+	for (const auto &next: not_show_in_)
+		ba.add_u8(static_cast<u8>(next));
+	
 	ba.add_u8((u8)categories_.size());
 	for (const Category &next: categories_) {
 		ba.add_u8(static_cast<u8>(next));
@@ -266,11 +317,11 @@ DesktopFile::From(ByteArray &ba)
 }
 
 DesktopFile*
-DesktopFile::FromPath(const QString &full_path)
+DesktopFile::FromPath(const QString &full_path, const QHash<QString, Category> &h)
 {
 	DesktopFile *p = new DesktopFile();
 	
-	if (p->Init(full_path))
+	if (p->Init(full_path, h))
 		return p;
 
 	delete p;
@@ -284,6 +335,20 @@ DesktopFile::JustExePath(const QString &full_path)
 	p->type_ = Type::JustExePath;
 	p->full_path_ = full_path;
 	return p;
+}
+
+MimeInfo
+DesktopFile::GetForMime(const QString &mime)
+{
+	if (mime.startsWith(QLatin1String("text/")) || mime == QLatin1String("application/x-desktop"))
+		return MimeInfo::Text;
+	if (mime.startsWith(QLatin1String("image/")))
+		return MimeInfo::Image;
+	if (mime.startsWith(QLatin1String("audio/")))
+		return MimeInfo::Audio;
+	if (mime.startsWith(QLatin1String("video/")))
+		return MimeInfo::Video;
+	return MimeInfo::None;
 }
 
 QString
@@ -338,10 +403,12 @@ DesktopFile::GetName() const
 	return QString();
 }
 
-bool DesktopFile::Init(const QString &full_path)
+bool DesktopFile::Init(const QString &full_path,
+	const QHash<QString, Category> &possible_categories)
 {
 	type_ = Type::DesktopFile;
 	full_path_ = full_path;
+	possible_categories_ = &possible_categories;
 	auto ref = io::GetFileNameOfFullPath(full_path_);
 	int index = ref.lastIndexOf(QLatin1String(".desktop"));
 	if (index == -1)
@@ -374,7 +441,7 @@ bool DesktopFile::Init(const QString &full_path)
 		}
 		
 		CHECK_PTR(group);
-		group->ParseLine(line);
+		group->ParseLine(line, possible_categories);
 		groups_.insert(group->name(), group);
 	}
 	
@@ -416,15 +483,25 @@ bool DesktopFile::Reload()
 	}
 	groups_.clear();
 	
-	return Init(full_path_);
+	if (possible_categories_ == nullptr)
+	{
+		mtl_trace();
+		return false;
+	}
+	
+	return Init(full_path_, *possible_categories_);
 }
 
-bool DesktopFile::SupportsMime(const QString &mime, const MimeInfo info) const
+bool DesktopFile::Supports(const QString &mime, const MimeInfo info,
+	const Category desktop) const
 {
 	if (!main_group_)
 		return false;
 	
-	return main_group_->SupportsMime(mime, info);
+	if (desktop != Category::None && ToBeRunInTerminal())
+		return false;
+	
+	return main_group_->Supports(mime, info, desktop);
 }
 
 bool DesktopFile::ToBeRunInTerminal() const

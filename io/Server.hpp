@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../category.hh"
 #include "../MutexGuard.hpp"
 #include "../gui/decl.hxx"
 #include "../decl.hxx"
@@ -33,6 +34,7 @@ public:
 	DesktopFiles& desktop_files() { return desktop_files_; }
 	io::ServerLife& life() { return life_; }
 	io::Notify& notify() { return notify_; }
+	const QHash<QString, Category>& possible_categories() const { return possible_categories_; }
 	gui::TasksWin* tasks_win() const { return tasks_win_; }
 	
 public slots:
@@ -51,7 +53,6 @@ private:
 	void GetOrderPrefFor(QString mime, QVector<DesktopFile *> &add_vec, QVector<DesktopFile *> &remove_vec);
 	void InitTrayIcon();
 	void SetTrayVisible(const bool yes);
-	void SetupEnvSearchPaths();
 	void SysTrayClicked();
 	
 	gui::TasksWin *tasks_win_ = nullptr;
@@ -65,5 +66,7 @@ private:
 	QSystemTrayIcon *tray_icon_ = nullptr;
 	QMenu *tray_menu_ = nullptr;
 	io::ServerLife life_ = {};
+	Category desktop_ = Category::None;
+	QHash<QString, Category> possible_categories_;
 };
 }

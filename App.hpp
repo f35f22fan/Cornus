@@ -1,5 +1,6 @@
 #pragma once
 
+#include "category.hh"
 #include "decl.hxx"
 #include "err.hpp"
 #include "io/decl.hxx"
@@ -7,6 +8,7 @@
 #include "gui/decl.hxx"
 
 #include <QClipboard>
+#include <QHash>
 #include <QIcon>
 #include <QMainWindow>
 #include <QMap>
@@ -34,6 +36,7 @@ public:
 	const Clipboard& clipboard() { return clipboard_; }
 	const QString& current_dir() const { return current_dir_; }
 	i32 current_dir_id() const;
+	Category desktop() const { return desktop_; }
 	void DisplayFileContents(const int row, io::File *cloned_file = nullptr);
 	void ExtractAskDestFolder();
 	void ExtractTo(const QString &to_dir);
@@ -50,6 +53,7 @@ public:
 	gui::Location* location() { return location_; }
 	QSplitter* main_splitter() const { return main_splitter_; }
 	void OpenTerminal();
+	const QHash<QString, Category>& possible_categories() const { return possible_categories_; }
 	Prefs& prefs() { return *prefs_; }
 	inline ExecInfo QueryExecInfo(io::File &file);
 	ExecInfo QueryExecInfo(const QString &full_path, const QString &ext);
@@ -137,6 +141,8 @@ private:
 	Clipboard clipboard_ = {};
 	History *history_ = nullptr;
 	gui::SearchPane *search_pane_ = nullptr;
+	Category desktop_ = Category::None;
+	QHash<QString, Category> possible_categories_;
 	
 	friend class cornus::gui::Table;
 };

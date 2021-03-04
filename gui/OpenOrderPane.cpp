@@ -329,7 +329,7 @@ void OpenOrderPane::Save()
 	const auto info = DesktopFile::GetForMime(mime_);
 	for (DesktopFile *next: removed_vec_)
 	{
-		if (next->SupportsMime(mime_, info)) {
+		if (next->Supports(mime_, info, app_->desktop())) {
 			ba.add_i8(i8(DesktopFile::Action::Remove));
 			ba.add_string(next->GetId());
 		} else {

@@ -253,7 +253,7 @@ App::App()
 	prefs_->Load();
 	GoToInitialDir();
 	SetupIconNames();
-	io::SetupEnvSearchPaths(search_icons_dirs_, xdg_data_dirs_);
+	io::InitEnvInfo(desktop_, search_icons_dirs_, xdg_data_dirs_, possible_categories_);
 	CreateGui();
 	RegisterShortcuts();
 	resize(800, 600);

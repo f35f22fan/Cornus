@@ -3,6 +3,7 @@
 #include <QIcon>
 #include <QMap>
 
+#include "category.hh"
 #include "decl.hxx"
 #include "err.hpp"
 
@@ -10,22 +11,13 @@ namespace cornus {
 
 enum class MimeInfo: u8 {
 	None,
-	Text
+	Audio,
+	Video,
+	Image,
+	Text,
 };
 
 namespace desktopfile {
-
-enum class Category: u8 {
-	None = 0,
-	TextEditor,
-	KDE,
-	Gnome,
-	Qt,
-	Gtk,
-};
-
-///Categories=GNOME;GTK;Utility;TextEditor;
-///Categories=Qt;KDE;Utility;TextEditor;
 
 class Group {
 	
@@ -38,9 +30,9 @@ public:
 	bool IsMain() const;
 	void Launch(const QString &full_path, const QString &working_dir);
 	const QString& name() const { return name_; }
-	void ParseLine(const QStringRef &line);
+	void ParseLine(const QStringRef &line, const QHash<QString, Category> &possible_categories);
 	QMap<QString, QString>& map() { return kv_map_; }
-	bool SupportsMime(const QString &mime, const MimeInfo info) const;
+	bool Supports(const QString &mime, const MimeInfo info, const Category desktop) const;
 	void WriteTo(ByteArray &ba);
 	QString value(const QString &key) const { return kv_map_.value(key); }
 	void ListKV();
@@ -49,7 +41,13 @@ public:
 	
 	bool for_gnome() const { return categories_.contains(Category::Gnome); }
 	bool for_kde() const { return categories_.contains(Category::KDE); }
+	bool is_image_viewer() const { return categories_.contains(Category::Photography)
+		&& categories_.contains(Category::Viewer); }
 	bool is_text_editor() const { return categories_.contains(Category::TextEditor); }
+	bool is_audio_player() const { return categories_.contains(Category::Player) &&
+		categories_.contains(Category::Audio); }
+	bool is_video_player() const { return categories_.contains(Category::Player) &&
+		categories_.contains(Category::Video); }
 	
 private:
 	NO_ASSIGN_COPY_MOVE(Group);
@@ -57,6 +55,8 @@ private:
 	QMap<QString, QString> kv_map_;
 	QStringList mimetypes_;
 	QVector<Category> categories_;
+	QVector<Category> only_show_in_;
+	QVector<Category> not_show_in_;
 	
 	friend class DesktopFile;
 };
@@ -75,20 +75,15 @@ public:
 		Add, /// used in prefs file to mark items to be added/removed
 		Remove
 	};
-	
-	static MimeInfo GetForMime(const QString &mime)
-	{
-		if (mime.startsWith(QLatin1String("text/")))
-			return MimeInfo::Text;
-		return MimeInfo::None;
-	}
 
 	virtual ~DesktopFile();
 	
 	static DesktopFile* From(ByteArray &ba);
-	static DesktopFile* FromPath(const QString &full_path);
+	static DesktopFile* FromPath(const QString &full_path, const QHash<QString, Category> &h);
 	static DesktopFile* JustExePath(const QString &full_path);
 	DesktopFile* Clone() const;
+	
+	static MimeInfo GetForMime(const QString &mime);
 	QIcon CreateQIcon();
 	
 	const QString& full_path() const { return full_path_; }
@@ -108,7 +103,8 @@ public:
 	bool is_just_exe_path() const { return type_ == Type::JustExePath; }
 	
 	bool Reload();
-	bool SupportsMime(const QString &mime, const MimeInfo info) const;
+	bool Supports(const QString &mime, const MimeInfo info,
+		const Category desktop) const;
 	Type type() const { return type_; }
 	void WriteTo(ByteArray &ba) const;
 	
@@ -122,7 +118,7 @@ private:
 	NO_ASSIGN_COPY_MOVE(DesktopFile);
 	DesktopFile();
 	
-	bool Init(const QString &full_path);
+	bool Init(const QString &full_path, const QHash<QString, Category> &possible_categories);
 	
 	Type type_ = Type::None;
 	QString full_path_;
@@ -130,6 +126,7 @@ private:
 	mutable QString id_cached_;
 	QMap<QString, desktopfile::Group*> groups_;
 	desktopfile::Group *main_group_ = nullptr;
+	const QHash<QString, Category> *possible_categories_ = nullptr;
 };
 
 int DesktopFileIndex(QVector<DesktopFile*> &vec, const QString &id,

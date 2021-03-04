@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../ByteArray.hpp"
+#include "../category.hh"
 #include "decl.hxx"
 #include "../decl.hxx"
 #include "../err.hpp"
@@ -19,6 +20,7 @@
 #include <stdlib.h>
 #include <sys/sysmacros.h>
 
+#include <QHash>
 #include <QMetaType> /// Q_DECLARE_METATYPE()
 #include <QMimeData>
 #include <QStringRef>
@@ -243,8 +245,9 @@ bool ReloadMeta(io::File &file, struct statx &stx, QString *dir_path = nullptr);
 bool SameFiles(const QString &path1, const QString &path2,
 	io::Err *ret_error = nullptr);
 
-void SetupEnvSearchPaths(QVector<QString> &search_icons_dirs,
-	QVector<QString> &xdg_data_dirs);
+void InitEnvInfo(Category &desktop, QVector<QString> &search_icons_dirs,
+	QVector<QString> &xdg_data_dirs,
+	QHash<QString, Category> &possible_categories);
 
 QString
 SizeToString(const i64 sz, const bool short_version = false);

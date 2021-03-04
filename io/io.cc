@@ -993,8 +993,9 @@ bool SameFiles(const QString &path1, const QString &path2, io::Err *ret_error)
 	return id1 == id2;
 }
 
-void SetupEnvSearchPaths(QVector<QString> &search_icons_dirs,
-	QVector<QString> &xdg_data_dirs)
+void InitEnvInfo(Category &desktop, QVector<QString> &search_icons_dirs,
+QVector<QString> &xdg_data_dirs,
+QHash<QString, Category> &possible_categories)
 {
 	xdg_data_dirs.clear();
 	{
@@ -1010,7 +1011,12 @@ void SetupEnvSearchPaths(QVector<QString> &search_icons_dirs,
 	
 //	mtl_printq2("Theme name: ", theme_name_);
 	
+	category::InitAll(possible_categories);
 	auto env = QProcessEnvironment::systemEnvironment();
+	QString str = env.value(QLatin1String("XDG_CURRENT_DESKTOP")).toLower();
+	desktop = possible_categories.value(str, Category::None);
+//	auto ba = str.toLocal8Bit();
+//	mtl_info("Desktop value: %u for: %s", (u8)desktop, ba.data());
 	
 	QString xdg_data_home = env.value(QLatin1String("XDG_DATA_HOME"));
 	if (xdg_data_home.isEmpty())

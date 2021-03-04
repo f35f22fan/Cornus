@@ -8,8 +8,27 @@
 
 namespace cornus {
 
+enum class MimeInfo: u8 {
+	None,
+	Text
+};
+
 namespace desktopfile {
+
+enum class Category: u8 {
+	None = 0,
+	TextEditor,
+	KDE,
+	Gnome,
+	Qt,
+	Gtk,
+};
+
+///Categories=GNOME;GTK;Utility;TextEditor;
+///Categories=Qt;KDE;Utility;TextEditor;
+
 class Group {
+	
 public:
 	Group(const QString &name);
 	~Group();
@@ -21,15 +40,23 @@ public:
 	const QString& name() const { return name_; }
 	void ParseLine(const QStringRef &line);
 	QMap<QString, QString>& map() { return kv_map_; }
-	bool SupportsMime(const QString &mime) const;
+	bool SupportsMime(const QString &mime, const MimeInfo info) const;
 	void WriteTo(ByteArray &ba);
 	QString value(const QString &key) const { return kv_map_.value(key); }
 	void ListKV();
+	
+	const QVector<Category>& categories() const { return categories_; }
+	
+	bool for_gnome() const { return categories_.contains(Category::Gnome); }
+	bool for_kde() const { return categories_.contains(Category::KDE); }
+	bool is_text_editor() const { return categories_.contains(Category::TextEditor); }
+	
 private:
 	NO_ASSIGN_COPY_MOVE(Group);
 	QString name_;
 	QMap<QString, QString> kv_map_;
 	QStringList mimetypes_;
+	QVector<Category> categories_;
 	
 	friend class DesktopFile;
 };
@@ -48,6 +75,13 @@ public:
 		Add, /// used in prefs file to mark items to be added/removed
 		Remove
 	};
+	
+	static MimeInfo GetForMime(const QString &mime)
+	{
+		if (mime.startsWith(QLatin1String("text/")))
+			return MimeInfo::Text;
+		return MimeInfo::None;
+	}
 
 	virtual ~DesktopFile();
 	
@@ -62,6 +96,10 @@ public:
 	
 	QString GetId() const;
 	bool IsApp() const;
+	bool IsTextEditor() const {
+		return main_group_ != nullptr &&
+		main_group_->is_text_editor();
+	}
 	void Launch(const QString &full_path, const QString &working_dir);
 	desktopfile::Group* main_group() const { return main_group_; }
 	
@@ -70,7 +108,7 @@ public:
 	bool is_just_exe_path() const { return type_ == Type::JustExePath; }
 	
 	bool Reload();
-	bool SupportsMime(const QString &mime) const;
+	bool SupportsMime(const QString &mime, const MimeInfo info) const;
 	Type type() const { return type_; }
 	void WriteTo(ByteArray &ba) const;
 	

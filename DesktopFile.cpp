@@ -25,6 +25,16 @@ const auto MainGroupName = QLatin1String("Desktop Entry");
 const auto Exec = QLatin1String("Exec");
 
 namespace desktopfile {
+
+const QString CategoriesStr = QLatin1String("Categories");
+const QString MimeTypeStr = QLatin1String("MimeType");
+
+const QString TextEditor_lower = QLatin1String("texteditor");
+const QString Qt_lower = QLatin1String("qt");
+const QString Gnome_lower = QLatin1String("gnome");
+const QString KDE_lower = QLatin1String("kde");
+const QString GTK_lower = QLatin1String("gtk");
+
 Group::Group(const QString &name): name_(name) {}
 Group::~Group() {}
 
@@ -34,6 +44,7 @@ Group::Clone() const
 	Group *p = new Group(name_);
 	p->mimetypes_ = mimetypes_;
 	p->kv_map_ = kv_map_;
+	p->categories_ = categories_;
 	
 	return p;
 }
@@ -42,16 +53,20 @@ Group*
 Group::From(ByteArray &ba)
 {
 	Group *p = new Group(ba.next_string());
-	i32 mime_count = ba.next_i32();
-	auto name = p->name().toLocal8Bit();
-//	mtl_info("mime_count: %d, group: %s", mime_count, name.data());
+	const u8 category_count = ba.next_u8();
+	for (auto i = 0; i < category_count; i++)
+	{
+		p->categories_.append(static_cast<Category>(ba.next_u8()));
+	}
+	
+	const i32 mime_count = ba.next_i32();
 	
 	for (i32 i = 0; i < mime_count; i++) {
 		QString s = ba.next_string();
 		p->mimetypes_.append(s);
 	}
 	
-	i32 kv_count = ba.next_i32();
+	const i32 kv_count = ba.next_i32();
 	
 	for (i32 i = 0; i < kv_count; i++) {
 		QString key = ba.next_string();
@@ -91,7 +106,6 @@ Group::Launch(const QString &full_path, const QString &working_dir)
 ///"/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=ghb --file-forwarding fr.handbrake.ghb @@ %f @@"
 }
 
-
 void Group::ListKV()
 {
 	QMapIterator<QString, QString> it(kv_map_);
@@ -102,24 +116,6 @@ void Group::ListKV()
 		auto key = it.key().toLocal8Bit();
 		auto val = it.value().toLocal8Bit();
 		mtl_info("\"%s\": \"%s\"", key.data(), val.data());
-	}
-}
-
-void Group::WriteTo(ByteArray &ba)
-{
-	ba.add_string(name_);
-	ba.add_i32(mimetypes_.size());
-	for (auto &mime: mimetypes_)
-	{
-		ba.add_string(mime);
-	}
-	ba.add_i32(kv_map_.size());
-	QMapIterator<QString, QString> it(kv_map_);
-	while (it.hasNext())
-	{
-		it.next();
-		ba.add_string(it.key());
-		ba.add_string(it.value());
 	}
 }
 
@@ -137,14 +133,57 @@ void Group::ParseLine(const QStringRef &line)
 	
 	kv_map_.insert(key, value);
 	
-	if (mimetypes_.isEmpty() && key == QLatin1String("MimeType")) {
+	if (mimetypes_.isEmpty() && key == MimeTypeStr) {
 		mimetypes_ = value.split(';', Qt::SkipEmptyParts);
+	} else if (key == CategoriesStr) {
+		auto categories = value.splitRef(';', Qt::SkipEmptyParts);
+		for (QStringRef &next: categories)
+		{
+			const QString lower_str = next.toString().toLower();
+			Category new_category = Category::None;
+			
+			if (lower_str == TextEditor_lower)
+				new_category = Category::TextEditor;
+			else if (lower_str == Gnome_lower)
+				new_category = Category::Gnome;
+			else if (lower_str == KDE_lower)
+				new_category = Category::KDE;
+			
+			if (new_category != Category::None)
+				categories_.append(new_category);
+		}
 	}
 }
 
-bool Group::SupportsMime(const QString &mime) const
+bool Group::SupportsMime(const QString &mime, const MimeInfo info) const
 {
+	if (info == MimeInfo::Text && is_text_editor())
+		return true;
+	
 	return mimetypes_.contains(mime);
+}
+
+void Group::WriteTo(ByteArray &ba)
+{
+	ba.add_string(name_);
+	ba.add_u8((u8)categories_.size());
+	for (const Category &next: categories_) {
+		ba.add_u8(static_cast<u8>(next));
+	}
+	
+	ba.add_i32(mimetypes_.size());
+	for (auto &mime: mimetypes_)
+	{
+		ba.add_string(mime);
+	}
+	ba.add_i32(kv_map_.size());
+	QMapIterator<QString, QString> it(kv_map_);
+	while (it.hasNext())
+	{
+		it.next();
+		ba.add_string(it.key());
+		ba.add_string(it.value());
+	}
 }
 
 } // namespace
@@ -380,12 +419,12 @@ bool DesktopFile::Reload()
 	return Init(full_path_);
 }
 
-bool DesktopFile::SupportsMime(const QString &mime) const
+bool DesktopFile::SupportsMime(const QString &mime, const MimeInfo info) const
 {
 	if (!main_group_)
 		return false;
 	
-	return main_group_->SupportsMime(mime);
+	return main_group_->SupportsMime(mime, info);
 }
 
 bool DesktopFile::ToBeRunInTerminal() const

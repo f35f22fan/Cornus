@@ -239,7 +239,6 @@ Server::Server()
 }
 
 Server::~Server() {
-	mtl_trace();
 	notify_.Close();
 	delete tray_menu_;
 }
@@ -448,7 +447,7 @@ void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 	QMimeType mt = mime_db_.mimeTypeForFile(full_path);
 	QString mime = mt.name();
 	///io::ProcessMime(mime);
-	
+	const auto mime_info = DesktopFile::GetForMime(mime);
 	QVector<DesktopFile*> send_vec;
 	QVector<DesktopFile*> remove_vec;
 	GetOrderPrefFor(mime, send_vec, remove_vec);
@@ -462,7 +461,7 @@ void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 		auto guard = desktop_files_.guard();
 		foreach (DesktopFile *p, desktop_files_.hash)
 		{
-			if (!p->SupportsMime(mime) || p->ToBeRunInTerminal())
+			if (!p->SupportsMime(mime, mime_info) || p->ToBeRunInTerminal())
 				continue;
 			if (DesktopFileIndex(remove_vec, p->GetId(), p->type()) != -1)
 				continue;
@@ -476,7 +475,7 @@ void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 
 void Server::SendOpenWithList(QString mime, const int fd)
 {
-	///io::ProcessMime(mime);
+	const auto mime_info = DesktopFile::GetForMime(mime);
 	QVector<DesktopFile*> send_vec;
 	QVector<DesktopFile*> remove_vec;
 	GetOrderPrefFor(mime, send_vec, remove_vec);
@@ -485,28 +484,15 @@ void Server::SendOpenWithList(QString mime, const int fd)
 		auto guard = desktop_files_.guard();
 		foreach (DesktopFile *p, desktop_files_.hash)
 		{
-			if (!p->SupportsMime(mime) || p->ToBeRunInTerminal())
+			bool ok = p->SupportsMime(mime, mime_info) && !p->ToBeRunInTerminal();
+			
+			if (!ok)
 				continue;
-			if (DesktopFileIndex(send_vec, p->GetId(), p->type()) == -1) {
+			
+			if (DesktopFileIndex(send_vec, p->GetId(), p->type()) == -1)
+			{
 				if (DesktopFileIndex(remove_vec, p->GetId(), p->type()) == -1)
 					send_vec.append(p);
-			}
-		}
-	}
-	
-	if (send_vec.isEmpty() && remove_vec.isEmpty())
-	{
-		io::ProcessMime(mime);
-		{
-			auto guard = desktop_files_.guard();
-			foreach (DesktopFile *p, desktop_files_.hash)
-			{
-				if (!p->SupportsMime(mime) || p->ToBeRunInTerminal())
-					continue;
-				if (DesktopFileIndex(send_vec, p->GetId(), p->type()) == -1) {
-					if (DesktopFileIndex(remove_vec, p->GetId(), p->type()) == -1)
-						send_vec.append(p);
-				}
 			}
 		}
 	}

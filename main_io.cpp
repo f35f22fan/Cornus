@@ -188,7 +188,8 @@ int main(int argc, char *argv[])
 	
 	/// The TasksWin hides/deletes itself
 	/// Currently it deletes itself, change later to just hide itself.
-	auto *server = new cornus::io::Server();
+	cornus::io::Server *server = new cornus::io::Server();
+	cornus::AutoDelete server_ad(server);
 	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, cornus::ListenTh, server);

@@ -231,6 +231,7 @@ void FigureOutSelectPath(QString &select_path, QString &go_to_path)
 
 App::App()
 {
+	mtl_printq2("app icon: ", AppIconPath);
 	history_ = new History(this);
 	qRegisterMetaType<cornus::io::File*>();
 	qRegisterMetaType<cornus::io::FilesData*>();

@@ -39,7 +39,9 @@ public:
 		const StringCase str_case = StringCase::AsIs);
 	QString GetFirstSelectedFileFullPath(QString *ext);
 	inline int GetIconSize();
+	int GetRowHeight() const;
 	int GetSelectedFilesCount(QVector<QString> *extensions = nullptr);
+	i32 GetVisibleRowsCount() const;
 	bool mouse_down() const { return mouse_down_; }
 	i32 mouse_over_file_name_index() const { return mouse_over_file_name_; }
 	void mouse_over_file_name_index(const i32 n) { mouse_over_file_name_ = n; }

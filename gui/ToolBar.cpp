@@ -94,7 +94,9 @@ void ToolBar::ShowAboutThisAppDialog()
 	" for Linux written in C++17 & Qt5<hr/>"
 	"Author: f35f22fan@gmail.com<br/>"
 	"GitHub: https://github.com/f35f22fan/Cornus<br/><br/><br/>"
-	"<img src=\":resources/cornus.webp\" width=256 height=256></img>"
+	"<img src=\"";
+	str += AppIconPath;
+	str += "\" width=128 height=128></img>"
 	"<br/><br/><i><small>Cornus Mas is also a wild and "
 	"relatively rare tree & fruit that the author of this app happens "
 	"to cultivate that tastes as a mixture of cranberry and sour cherry."

@@ -289,7 +289,8 @@ void Server::GetOrderPrefFor(QString mime, QVector<DesktopFile*> &add_vec,
 		return;
 	}
 	
-	while (buf.has_more()) {
+	while (buf.has_more())
+	{
 		const DesktopFile::Action action = (DesktopFile::Action)buf.next_i8();
 		
 		QString id = buf.next_string();
@@ -445,7 +446,6 @@ void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 	QString full_path = ba->next_string();
 	QMimeType mt = mime_db_.mimeTypeForFile(full_path);
 	QString mime = mt.name();
-	///io::ProcessMime(mime);
 	const auto mime_info = DesktopFile::GetForMime(mime);
 	QVector<DesktopFile*> send_vec;
 	QVector<DesktopFile*> remove_vec;
@@ -458,15 +458,23 @@ void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 		p->WriteTo(reply);
 	} else {
 		auto guard = desktop_files_.guard();
+		QVector<DesktopFile*> priority_2;
 		foreach (DesktopFile *p, desktop_files_.hash)
 		{
-			if (!p->Supports(mime, mime_info, desktop_))
+			Priority pr = p->Supports(mime, mime_info, desktop_);
+			if (pr == Priority::Ignore)
 				continue;
-			if (DesktopFileIndex(remove_vec, p->GetId(), p->type()) != -1)
+			if (ContainsDesktopFile(remove_vec, p->GetId(), p->type()))
 				continue;
-			p->WriteTo(reply);
-			break;
+			if (pr == Priority::_1) {
+				p->WriteTo(reply);
+				break;
+			} else {
+				priority_2.append(p);
+			}
 		}
+		if (!priority_2.isEmpty())
+			priority_2[0]->WriteTo(reply);
 	}
 	
 	reply.Send(fd);
@@ -477,24 +485,36 @@ void Server::SendOpenWithList(QString mime, const int fd)
 	const auto mime_info = DesktopFile::GetForMime(mime);
 	QVector<DesktopFile*> send_vec;
 	QVector<DesktopFile*> remove_vec;
+	QVector<DesktopFile*> priority_1;
+	QVector<DesktopFile*> priority_2;
 	GetOrderPrefFor(mime, send_vec, remove_vec);
 	
 	{
 		auto guard = desktop_files_.guard();
 		foreach (DesktopFile *p, desktop_files_.hash)
 		{
-			bool ok = p->Supports(mime, mime_info, desktop_);
+			Priority pr = p->Supports(mime, mime_info, desktop_);
 			
-			if (!ok)
+			if (pr == Priority::Ignore)
 				continue;
 			
-			if (DesktopFileIndex(send_vec, p->GetId(), p->type()) == -1)
+			if (!ContainsDesktopFile(send_vec, p->GetId(), p->type())
+				&& !ContainsDesktopFile(remove_vec, p->GetId(), p->type()))
 			{
-				if (DesktopFileIndex(remove_vec, p->GetId(), p->type()) == -1)
-					send_vec.append(p);
+				if (pr == Priority::_1)
+					priority_1.append(p);
+				else if (pr == Priority::_2)
+					priority_2.append(p);
+				else
+					mtl_trace();
 			}
 		}
 	}
+	
+	for (auto *next: priority_1)
+		send_vec.append(next);
+	for (auto *next: priority_2)
+		send_vec.append(next);
 	
 	ByteArray ba;
 	for (DesktopFile *next: send_vec) {

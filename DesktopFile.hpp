@@ -17,6 +17,12 @@ enum class MimeInfo: u8 {
 	Text,
 };
 
+enum class Priority: i8 {
+	_1,
+	_2,
+	Ignore,
+};
+
 namespace desktopfile {
 
 class Group {
@@ -32,7 +38,7 @@ public:
 	const QString& name() const { return name_; }
 	void ParseLine(const QStringRef &line, const QHash<QString, Category> &possible_categories);
 	QMap<QString, QString>& map() { return kv_map_; }
-	bool Supports(const QString &mime, const MimeInfo info, const Category desktop) const;
+	Priority Supports(const QString &mime, const MimeInfo info, const Category desktop) const;
 	void WriteTo(ByteArray &ba);
 	QString value(const QString &key) const { return kv_map_.value(key); }
 	void ListKV();
@@ -103,7 +109,7 @@ public:
 	bool is_just_exe_path() const { return type_ == Type::JustExePath; }
 	
 	bool Reload();
-	bool Supports(const QString &mime, const MimeInfo info,
+	Priority Supports(const QString &mime, const MimeInfo info,
 		const Category desktop) const;
 	Type type() const { return type_; }
 	void WriteTo(ByteArray &ba) const;
@@ -129,7 +135,7 @@ private:
 	const QHash<QString, Category> *possible_categories_ = nullptr;
 };
 
-int DesktopFileIndex(QVector<DesktopFile*> &vec, const QString &id,
-	const DesktopFile::Type t);
+bool ContainsDesktopFile(QVector<DesktopFile*> &vec, const QString &id,
+	const DesktopFile::Type t, int *ret_index = nullptr);
 
 } /// namespace

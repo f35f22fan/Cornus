@@ -50,10 +50,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 {
 	auto str_rect = fm.boundingRect(file->name());
 	
-	/*if (file->has_ext_attrs()) {
-		QPen pen(QColor(255, 0, 0));
-		painter->setPen(pen);
-	} else*/ if (!file->is_dir_or_so() && file->has_exec_bit()) {
+	if (!file->is_dir_or_so() && file->has_exec_bit()) {
 		QPen pen(QColor(0, 100, 0));
 		painter->setPen(pen);
 	}
@@ -108,7 +105,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 		how_many.append(QChar(')'));
 	}
 	
-	QString link_data = QString(" 🠚 ");
+	QString link_data = QString(" → ");
 	if (t->cycles < 0) {
 		if (-t->cycles == io::LinkTarget::MaxCycles) {
 			link_data.append("Symlink chain too large");

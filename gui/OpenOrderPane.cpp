@@ -59,8 +59,8 @@ void OpenOrderPane::AddSelectedCustomItem()
 {
 	QVariant v = add_custom_cb_->currentData();
 	DesktopFile *p = (DesktopFile*)v.value<void*>();
-	const int index = DesktopFileIndex(removed_vec_, p->GetId(), p->type());
-	if (index != -1) {
+	int index;
+	if (ContainsDesktopFile(removed_vec_, p->GetId(), p->type(), &index)) {
 		removed_vec_.remove(index);
 	}
 	
@@ -329,7 +329,7 @@ void OpenOrderPane::Save()
 	const auto info = DesktopFile::GetForMime(mime_);
 	for (DesktopFile *next: removed_vec_)
 	{
-		if (next->Supports(mime_, info, app_->desktop())) {
+		if (next->Supports(mime_, info, app_->desktop()) != Priority::Ignore) {
 			ba.add_i8(i8(DesktopFile::Action::Remove));
 			ba.add_string(next->GetId());
 		} else {

@@ -29,18 +29,20 @@ static const QString NotShowIn = QStringLiteral("NotShowIn");
 static const QString OnlyShowIn = QStringLiteral("OnlyShowIn");
 }
 
-int DesktopFileIndex(QVector<DesktopFile*> &vec, const QString &id,
-	const DesktopFile::Type t)
+bool ContainsDesktopFile(QVector<DesktopFile*> &vec, const QString &id,
+	const DesktopFile::Type t, int *ret_index)
 {
 	int i = 0;
 	for (DesktopFile *p: vec) {
 		if (p->type() == t && p->GetId() == id) {
-			return i;
+			if (ret_index != nullptr)
+				*ret_index = i;
+			return true;
 		}
 		i++;
 	}
 	
-	return -1;
+	return false;
 }
 
 const auto MainGroupName = QLatin1String("Desktop Entry");
@@ -186,24 +188,24 @@ void Group::ParseLine(const QStringRef &line,
 	}
 }
 
-bool Group::Supports(const QString &mime, const MimeInfo info,
+Priority Group::Supports(const QString &mime, const MimeInfo info,
 	const Category desktop) const
 {
 	if (not_show_in_.contains(desktop))
-		return false;
+		return Priority::Ignore;
 	
 	if (!only_show_in_.isEmpty() && !only_show_in_.contains(desktop))
-		return false;
+		return Priority::Ignore;
 	if (info == MimeInfo::Text && is_text_editor())
-		return true;
+		return Priority::_1;
 	if (info == MimeInfo::Image && is_image_viewer())
-		return true;
+		return Priority::_1;
 	if (info == MimeInfo::Audio && is_audio_player())
-		return true;
+		return Priority::_1;
 	if (info == MimeInfo::Video && is_video_player())
-		return true;
+		return Priority::_1;
 	
-	return mimetypes_.contains(mime);
+	return mimetypes_.contains(mime) ? Priority::_2 : Priority::Ignore;
 }
 
 void Group::WriteTo(ByteArray &ba)
@@ -492,14 +494,14 @@ bool DesktopFile::Reload()
 	return Init(full_path_, *possible_categories_);
 }
 
-bool DesktopFile::Supports(const QString &mime, const MimeInfo info,
+Priority DesktopFile::Supports(const QString &mime, const MimeInfo info,
 	const Category desktop) const
 {
 	if (!main_group_)
-		return false;
+		return Priority::Ignore;
 	
 	if (desktop != Category::None && ToBeRunInTerminal())
-		return false;
+		return Priority::Ignore;
 	
 	return main_group_->Supports(mime, info, desktop);
 }

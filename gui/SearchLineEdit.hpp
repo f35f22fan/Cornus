@@ -11,13 +11,20 @@ public:
 	SearchLineEdit(QWidget *parent = nullptr);
 	virtual ~SearchLineEdit();
 	
-	void SetFound(const i32 n) { found_ = n; repaint(); }
+	i32 count() const { return count_; }
+	void SetCount(const i32 count) { count_ = count; }
+	void SetAt(const i32 at, const bool do_repaint) {
+		at_ = at;
+		if (do_repaint)
+			repaint();
+	}
 	
 protected:
 	virtual void paintEvent(QPaintEvent *evt) override;
 
 private:
 	NO_ASSIGN_COPY_MOVE(SearchLineEdit);
-	i32 found_ = -1;
+	i32 count_ = -1;
+	i32 at_ = -1;
 };
 }

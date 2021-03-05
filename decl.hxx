@@ -16,7 +16,12 @@ class History;
 class MutexGuard;
 class Prefs;
 
-const QString AppIconPath = QLatin1String(":/io.github.Cornus.webp");
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 2)
+const QString AppIconPath = QLatin1String(":/cornus.mas.png");
+#else
+const QString AppIconPath = QLatin1String(":/cornus.mas.webp");
+#endif
+
 const char *const SocketPath = "\0cornus_socket";
 
 enum class StringCase: i8 {

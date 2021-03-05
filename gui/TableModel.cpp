@@ -722,11 +722,15 @@ TableModel::UpdateIndices(const QVector<int> &indices)
 		}
 	}
 	
+	const int count_per_page = app_->table()->GetVisibleRowsCount();
+	
 	if (min == -1 || max == -1) {
-		//mtl_info("(-1) update range: %d", args.new_count);
+		UpdateVisibleArea();
+	} else if ((max - min) > count_per_page) {
+		mtl_trace("Max: %d, min: %d, count per page: %d",
+			max, min, count_per_page);
 		UpdateVisibleArea();
 	} else {
-		//mtl_info("update range min: %d, max: %d", min, max);
 		UpdateRowRange(min, max);
 	}
 }
@@ -750,12 +754,12 @@ TableModel::UpdateRange(int row1, Column c1, int row2, Column c2)
 }
 
 void
-TableModel::UpdateVisibleArea() {
+TableModel::UpdateVisibleArea()
+{
 	gui::Table *table = app_->table();
-	QScrollBar *vs = table->verticalScrollBar();
-	int row_start = table->rowAt(vs->value());
-	int row_count = table->rowAt(table->height());
-	UpdateRowRange(row_start, row_start + row_count);
+	int row_start = table->verticalScrollBar()->value() / table->GetRowHeight();
+	int count_per_page = table->GetVisibleRowsCount();
+	UpdateRowRange(row_start, row_start + count_per_page);
 }
 
 }

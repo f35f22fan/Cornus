@@ -1,6 +1,7 @@
 <!DOCTYPE RCC><RCC version="1.0">
 <qresource>
-  <file>io.github.Cornus.webp</file>
+  <file>cornus.mas.webp</file>
+  <file>cornus.mas.png</file>
 </qresource>
 </RCC> 
  

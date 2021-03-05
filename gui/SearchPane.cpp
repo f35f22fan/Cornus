@@ -20,12 +20,26 @@ SearchPane::~SearchPane() {}
 
 void SearchPane::ActionHide()
 {
-	DeselectAll();
+///#define CORNUS_DEBUG_HIDE
+
+#ifdef CORNUS_DEBUG_HIDE
+mtl_trace("%ld", time(NULL));
+#endif
 	setVisible(false);
+#ifdef CORNUS_DEBUG_HIDE
+mtl_trace("%ld", time(NULL));
+#endif
+	DeselectAll();
+#ifdef CORNUS_DEBUG_HIDE
+mtl_trace("%ld", time(NULL));
+#endif
 	select_row_ = -1;
 	last_dir_id_ = -1;
-	search_le_->SetFound(-1);
+	search_le_->SetCount(-1);
 	app_->table()->setFocus();
+#ifdef CORNUS_DEBUG_HIDE
+mtl_trace("%ld", time(NULL));
+#endif
 }
 
 void SearchPane::CreateGui()
@@ -132,6 +146,7 @@ void SearchPane::ScrollToNext(const Direction dir)
 		return;
 	}
 	
+	i32 at = 0;
 	QVector<int> indices;
 	{
 		auto &files = app_->view_files();
@@ -188,8 +203,15 @@ void SearchPane::ScrollToNext(const Direction dir)
 			/// undo if next/prev not found
 			deactive->selected_by_search_active(true);
 		}
+		
+		for (int i = 0; i <= select_row_; i++) {
+			io::File *next = vec[i];
+			if (next->selected_by_search())
+				at++;
+		}
 	}
 	
+	search_le_->SetAt(at, true);
 	app_->table()->model()->UpdateIndices(indices);
 	if (select_row_ != -1)
 		app_->table()->ScrollToRow(select_row_);
@@ -199,14 +221,15 @@ void SearchPane::TextChanged(const QString &s)
 {
 	QString search = s.trimmed().toLower();
 	if (search.isEmpty()) {
-		search_le_->SetFound(-1);
+		search_le_->SetCount(-1);
 		DeselectAll();
 		return;
 	}
 	
 	last_dir_id_ = app_->current_dir_id();
 	select_row_ = -1;
-	i32 found = 0;
+	i32 found = 0, at = 0;
+	bool found_current = false;
 	QVector<int> indices;
 	{
 		auto &files = app_->view_files();
@@ -217,11 +240,14 @@ void SearchPane::TextChanged(const QString &s)
 			const QString &s = lower() ? next->name_lower() : next->name();
 			if (s.indexOf(search) != -1) {
 				found++;
+				if (!found_current)
+					at++;
 				if (!next->selected_by_search()) {
 					next->selected_by_search(true);
 					indices.append(i);
 				}
 				if (select_row_ == -1) {
+					found_current = true;
 					next->selected_by_search_active(true);
 					select_row_ = i;
 					indices.append(i);
@@ -235,7 +261,8 @@ void SearchPane::TextChanged(const QString &s)
 		}
 	}
 	
-	search_le_->SetFound(found);
+	search_le_->SetCount(found);
+	search_le_->SetAt(at, true);
 	app_->table()->model()->UpdateIndices(indices);
 	if (select_row_ != -1)
 		app_->table()->ScrollToRow(select_row_);

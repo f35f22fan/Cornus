@@ -545,6 +545,9 @@ Table::GetIconSize() {
 	return verticalHeader()->defaultSectionSize() - 12;
 }
 
+int
+Table::GetRowHeight() const { return verticalHeader()->defaultSectionSize(); }
+
 void
 Table::GetSelectedArchives(QVector<QString> &urls)
 {
@@ -606,6 +609,12 @@ Table::GetSelectedFilesCount(QVector<QString> *extensions) {
 	}
 	
 	return count;
+}
+
+i32
+Table::GetVisibleRowsCount() const
+{
+	return (height() - horizontalHeader()->height()) / GetRowHeight();
 }
 
 void
@@ -1122,7 +1131,7 @@ Table::ScrollToRow(int row)
 	
 	const int rh = verticalHeader()->defaultSectionSize();
 	const int header_h = horizontalHeader()->height();
-	int visible_rows = (height() - header_h) / rh;
+	int visible_rows = GetVisibleRowsCount();
 	const int diff = height() % rh;
 	if (diff > 0)
 		visible_rows++;

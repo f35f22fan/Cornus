@@ -14,11 +14,12 @@ void SearchLineEdit::paintEvent(QPaintEvent *evt)
 {
 	QLineEdit::paintEvent(evt);
 	
-	if (found_ == -1)
+	if (count_ == -1)
 		return;
 	
 	auto fm = fontMetrics();
-	const QString s = '(' + QString::number(found_) + ')';
+	const QString s = '(' + QString::number(at_) + '/' +
+		QString::number(count_) + ')';
 	int w = fm.boundingRect(s).width() + 5;
 	QPainter painter(this);
 	QPen pen(QColor(0, 0, 255));

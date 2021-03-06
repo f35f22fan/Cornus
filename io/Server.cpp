@@ -13,10 +13,10 @@
 #include <QClipboard>
 #include <QMimeData>
 
+#include <bits/stdc++.h> /// std::sort()
 #include <sys/epoll.h>
 
 namespace cornus::io {
-
 
 MutexGuard DesktopFiles::guard() const
 {
@@ -458,7 +458,7 @@ void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 		p->WriteTo(reply);
 	} else {
 		auto guard = desktop_files_.guard();
-		QVector<DesktopFile*> priority_2;
+		QMap<Priority, DesktopFile*> priorities;
 		foreach (DesktopFile *p, desktop_files_.hash)
 		{
 			Priority pr = p->Supports(mime, mime_info, desktop_);
@@ -466,18 +466,25 @@ void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 				continue;
 			if (ContainsDesktopFile(remove_vec, p->GetId(), p->type()))
 				continue;
-			if (pr == Priority::_1) {
+			if (pr == Priority::Highest) {
 				p->WriteTo(reply);
 				break;
 			} else {
-				priority_2.append(p);
+				priorities.insert(pr, p);
 			}
 		}
-		if (!priority_2.isEmpty())
-			priority_2[0]->WriteTo(reply);
+		if (!priorities.isEmpty())
+			priorities.first()->WriteTo(reply);
 	}
 	
 	reply.Send(fd);
+}
+
+bool SortByPriority(DesktopFile *a, DesktopFile *b)
+{
+	if (a->priority() == b->priority())
+		return false;
+	return a->priority() < b->priority() ? false : true;
 }
 
 void Server::SendOpenWithList(QString mime, const int fd)
@@ -485,8 +492,7 @@ void Server::SendOpenWithList(QString mime, const int fd)
 	const auto mime_info = DesktopFile::GetForMime(mime);
 	QVector<DesktopFile*> send_vec;
 	QVector<DesktopFile*> remove_vec;
-	QVector<DesktopFile*> priority_1;
-	QVector<DesktopFile*> priority_2;
+	QVector<DesktopFile*> priorities;
 	GetOrderPrefFor(mime, send_vec, remove_vec);
 	
 	{
@@ -501,20 +507,17 @@ void Server::SendOpenWithList(QString mime, const int fd)
 			if (!ContainsDesktopFile(send_vec, p->GetId(), p->type())
 				&& !ContainsDesktopFile(remove_vec, p->GetId(), p->type()))
 			{
-				if (pr == Priority::_1)
-					priority_1.append(p);
-				else if (pr == Priority::_2)
-					priority_2.append(p);
-				else
-					mtl_trace();
+				p->priority(pr);
+				priorities.append(p);
 			}
 		}
 	}
 	
-	for (auto *next: priority_1)
+	std::sort(priorities.begin(), priorities.end(), SortByPriority);
+	
+	foreach (DesktopFile *next, priorities) {
 		send_vec.append(next);
-	for (auto *next: priority_2)
-		send_vec.append(next);
+	}
 	
 	ByteArray ba;
 	for (DesktopFile *next: send_vec) {

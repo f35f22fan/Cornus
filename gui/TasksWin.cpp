@@ -56,7 +56,7 @@ void TasksWin::TaskDone(TaskGui *tg, const io::TaskState state)
 	adjustSize();
 	
 	if (layout_->count() == 0) {
-		mtl_info("no more tasks! hiding");
+///		mtl_info("no more tasks! hiding");
 		setVisible(false);
 	}
 }

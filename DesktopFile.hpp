@@ -18,9 +18,10 @@ enum class MimeInfo: u8 {
 };
 
 enum class Priority: i8 {
-	_1,
-	_2,
-	Ignore,
+	Ignore = -1,
+	Highest = 3,
+	High = 2,
+	Low = 1,
 };
 
 namespace desktopfile {
@@ -120,6 +121,9 @@ public:
 	
 	const QString& name() const { return name_; }
 	
+	Priority priority() const { return priority_; }
+	void priority(const Priority n) { priority_ = n; }
+	
 private:
 	NO_ASSIGN_COPY_MOVE(DesktopFile);
 	DesktopFile();
@@ -127,6 +131,7 @@ private:
 	bool Init(const QString &full_path, const QHash<QString, Category> &possible_categories);
 	
 	Type type_ = Type::None;
+	Priority priority_ = Priority::Ignore;
 	QString full_path_;
 	QString name_;
 	mutable QString id_cached_;

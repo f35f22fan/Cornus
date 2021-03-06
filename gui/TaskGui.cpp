@@ -46,7 +46,7 @@ void TaskGui::CheckTaskState()
 	const io::TaskState state = task_->data().GetState(&task_question_);
 
 	if (state & (io::TaskState::Finished | io::TaskState::Abort)) {
-		mtl_info("Finished! Removing task GUI");
+///		mtl_info("Finished! Removing task GUI");
 		tasks_win_->TaskDone(this, state);
 		return;
 	}

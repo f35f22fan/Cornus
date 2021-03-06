@@ -352,8 +352,12 @@ Table::CreateOpenWithList(const QString &full_path)
 	
 	for (DesktopFile *next: open_with_.add_vec)
 	{
-		QString n = next->GetName();
-		QAction *action = new QAction(n);
+		QString name = next->GetName();
+		QString generic = next->GetGenericName();
+		if (!generic.isEmpty()) {
+			name += QLatin1String(" (") + generic + ')';
+		}
+		QAction *action = new QAction(name);
 		QVariant v = QVariant::fromValue((void *) next);
 		action->setData(v);
 		action->setIcon(next->CreateQIcon());

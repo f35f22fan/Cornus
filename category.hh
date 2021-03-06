@@ -43,7 +43,7 @@ static const QString KDE = QStringLiteral("kde");
 static const QString Xfce = QStringLiteral("xfce");
 static const QString Ubuntu = QStringLiteral("ubuntu");
 static const QString Unity = QStringLiteral("unity");
-static const QString GTK = QStringLiteral("gtk");
+static const QString Gtk = QStringLiteral("gtk");
 static const QString Qt = QStringLiteral("qt");
 }
 

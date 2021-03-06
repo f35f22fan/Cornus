@@ -45,6 +45,18 @@ bool ContainsDesktopFile(QVector<DesktopFile*> &vec, const QString &id,
 	return false;
 }
 
+Category GetToolkitFor(const Category desktop)
+{
+	switch(desktop) {
+	case Category::KDE: return Category::Qt;
+	case Category::Gnome: return Category::Gtk;
+	case Category::Ubuntu: return Category::Gtk;
+	case Category::Unity: return Category::Gtk;
+	case Category::Xfce: return Category::Gtk;
+	default: return Category::Qt;
+	}
+}
+
 const auto MainGroupName = QLatin1String("Desktop Entry");
 const auto Exec = QLatin1String("Exec");
 
@@ -196,16 +208,26 @@ Priority Group::Supports(const QString &mime, const MimeInfo info,
 	
 	if (!only_show_in_.isEmpty() && !only_show_in_.contains(desktop))
 		return Priority::Ignore;
-	if (info == MimeInfo::Text && is_text_editor())
-		return Priority::_1;
-	if (info == MimeInfo::Image && is_image_viewer())
-		return Priority::_1;
-	if (info == MimeInfo::Audio && is_audio_player())
-		return Priority::_1;
-	if (info == MimeInfo::Video && is_video_player())
-		return Priority::_1;
 	
-	return mimetypes_.contains(mime) ? Priority::_2 : Priority::Ignore;
+	const Category toolkit = GetToolkitFor(desktop);
+	const bool has_tk = categories_.contains(toolkit);
+	
+	if (info != MimeInfo::None)
+	{
+		if (info == MimeInfo::Text && is_text_editor())
+			return has_tk ? Priority::Highest : Priority::High;
+		if (info == MimeInfo::Image && is_image_viewer())
+			return has_tk ? Priority::Highest : Priority::High;
+		if (info == MimeInfo::Audio && is_audio_player())
+			return has_tk ? Priority::Highest : Priority::High;
+		if (info == MimeInfo::Video && is_video_player())
+			return has_tk ? Priority::Highest : Priority::High;
+	}
+	
+	if (!mimetypes_.contains(mime))
+		return Priority::Ignore;
+	
+	return has_tk ? Priority::High : Priority::Low;
 }
 
 void Group::WriteTo(ByteArray &ba)
@@ -502,6 +524,8 @@ Priority DesktopFile::Supports(const QString &mime, const MimeInfo info,
 	
 	if (desktop != Category::None && ToBeRunInTerminal())
 		return Priority::Ignore;
+	
+///	mtl_printq(GetName());
 	
 	return main_group_->Supports(mime, info, desktop);
 }

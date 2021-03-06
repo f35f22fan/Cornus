@@ -77,13 +77,13 @@ void TaskGui::CheckTaskState()
 			info_->setText(progress_.details);
 		}
 		if (last_state != state) {
-			play_pause_btn_->setIcon(pause_icon_);
+			work_pause_btn_->setIcon(pause_icon_);
 			last_state = state;
 		}
 	} else if (state & io::TaskState::Pause) {
 		timer_->stop();
 		if (last_state != state) {
-			play_pause_btn_->setIcon(continue_icon_);
+			work_pause_btn_->setIcon(continue_icon_);
 			last_state = state;
 		}
 	} else if (state & io::TaskState::AwatingAnswer) {
@@ -221,12 +221,12 @@ TaskGui::CreateProgressPane()
 		auto state = task_->data().GetState(&task_question_);
 		QIcon &icon = (state == io::TaskState::Continue) ?
 			pause_icon_ : continue_icon_;
-		play_pause_btn_ = new QToolButton();
-		play_pause_btn_->setIcon(icon);
-		connect(play_pause_btn_, &QToolButton::clicked, [=] {
+		work_pause_btn_ = new QToolButton();
+		work_pause_btn_->setIcon(icon);
+		connect(work_pause_btn_, &QToolButton::clicked, [=] {
 			ProcessAction(actions::IOContinue);
 		});
-		layout->addWidget(play_pause_btn_);
+		layout->addWidget(work_pause_btn_);
 	}
 	{
 		auto *btn = new QToolButton();
@@ -342,6 +342,7 @@ TaskGui::ProcessAction(const QString &action)
 		} else if (state & io::TaskState::Pause) {
 			new_state = io::TaskState::Continue;
 		} else {
+			new_state = io::TaskState::None;
 			mtl_trace();
 		}
 		data.ChangeState(new_state);
@@ -381,10 +382,10 @@ TaskGui::SendWriteFailedAnswer(const io::WriteFailedAnswer answer)
 void TaskGui::TaskStateChanged(const io::TaskState new_state)
 {
 	if (new_state & io::TaskState::Continue) {
-		play_pause_btn_->setIcon(pause_icon_);
+		work_pause_btn_->setIcon(pause_icon_);
 		timer_->start();
 	} else if (new_state & io::TaskState::Pause) {
-		play_pause_btn_->setIcon(continue_icon_);
+		work_pause_btn_->setIcon(continue_icon_);
 	}
 }
 

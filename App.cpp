@@ -35,6 +35,7 @@ extern "C" {
 #include "gui/ToolBar.hpp"
 #include "prefs.hh"
 #include "Prefs.hpp"
+#include "str.hxx"
 
 #include <QApplication>
 #include <QBoxLayout>
@@ -231,7 +232,6 @@ void FigureOutSelectPath(QString &select_path, QString &go_to_path)
 
 App::App()
 {
-	mtl_printq2("app icon: ", AppIconPath);
 	history_ = new History(this);
 	qRegisterMetaType<cornus::io::File*>();
 	qRegisterMetaType<cornus::io::FilesData*>();
@@ -731,12 +731,34 @@ void App::FileDoubleClicked(io::File *file, const gui::Column col)
 				GoTo(Action::To, {file->link_target()->path, Processed::Yes});
 			}
 		} else if (file->is_regular() || file->is_symlink()) {
-			QString full_path = file->build_full_path();
-			ExecInfo info = QueryExecInfo(full_path, file->cache().ext.toString());
+			
+			QString ext;
+			QString full_path;
+			bool has_exec_bit = false;
+			if (file->is_regular()) {
+				ext = file->cache().ext.toString();
+				has_exec_bit = file->has_exec_bit();
+				full_path = file->build_full_path();
+			} else {
+				io::LinkTarget *target = file->link_target();
+				if (target == nullptr)
+					return;
+				full_path = target->path;
+				has_exec_bit = io::HasExecBit(full_path) == Bool::Yes;
+				ext = io::GetFileNameExtension(full_path).toString().toLower();
+			}
+			
+			if (ext == str::Desktop)
+			{
+				LaunchOrOpenDesktopFile(full_path,
+					has_exec_bit, RunAction::ChooseBasedOnExecBit);
+				return;
+			}
+			
+			ExecInfo info = QueryExecInfo(full_path, ext);
 			if (info.is_elf() || info.is_shell_script()) {
 				RunExecutable(full_path, info);
 			} else {
-				mtl_info();
 				OpenWithDefaultApp(full_path);
 			}
 		}
@@ -983,6 +1005,27 @@ void App::IconByFileName(io::File &file, const QString &filename,
 		*ret_icon = icon;
 }
 
+void App::LaunchOrOpenDesktopFile(const QString &full_path,
+	const bool has_exec_bit, const RunAction action) const
+{
+	bool open = action == RunAction::Open;
+	if (!open)
+		open = (action == RunAction::ChooseBasedOnExecBit) && !has_exec_bit;
+	
+	if (open)
+	{
+		OpenWithDefaultApp(full_path);
+		return;
+	}
+	
+	DesktopFile *df = DesktopFile::FromPath(full_path, possible_categories_);
+	if (df == nullptr)
+		return;
+	
+	df->LaunchEmpty(current_dir_);
+	delete df;
+}
+
 void App::LoadIcon(io::File &file)
 {
 	if (file.is_dir_or_so()) {
@@ -1044,7 +1087,7 @@ void App::OpenTerminal() {
 	QProcess::startDetached(*path, arguments, current_dir_);
 }
 
-void App::OpenWithDefaultApp(const QString &full_path)
+void App::OpenWithDefaultApp(const QString &full_path) const
 {
 //	QUrl url = QUrl::fromLocalFile(full_path);
 //	QDesktopServices::openUrl(url);

@@ -40,8 +40,8 @@ public:
 	
 private:
 	
-	App *app_ = nullptr;
-	OpenOrderPane *oop_ = nullptr;
+//	App *app_ = nullptr;
+//	OpenOrderPane *oop_ = nullptr;
 	OpenOrderTable *table_ = nullptr;
 	QVector<DesktopFile*> vec_;
 };

@@ -12,7 +12,7 @@
 
 namespace cornus::gui {
 
-PrefsPane::PrefsPane(App *app): app_(app), QDialog(app)
+PrefsPane::PrefsPane(App *app): QDialog(app), app_(app)
 {
 	CreateGui();
 	setWindowTitle(tr("Preferences"));

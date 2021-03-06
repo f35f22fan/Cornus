@@ -268,14 +268,14 @@ SidePane::items() const { return app_->side_pane_items(); }
 void
 SidePane::keyPressEvent(QKeyEvent *event)
 {
-	const int key = event->key();
-	auto *app = model_->app();
-	const auto modifiers = event->modifiers();
-	const bool any_modifiers = (modifiers != Qt::NoModifier);
-	const bool shift = (modifiers & Qt::ShiftModifier);
-	QVector<int> indices;
+//	const int key = event->key();
+//	auto *app = model_->app();
+//	const auto modifiers = event->modifiers();
+//	const bool any_modifiers = (modifiers != Qt::NoModifier);
+//	const bool shift = (modifiers & Qt::ShiftModifier);
+//	QVector<int> indices;
 	
-	model_->UpdateIndices(indices);
+//	model_->UpdateIndices(indices);
 }
 
 void
@@ -296,12 +296,12 @@ SidePane::mouseDoubleClickEvent(QMouseEvent *evt)
 {
 	QTableView::mouseDoubleClickEvent(evt);
 	
-	i32 col = columnAt(evt->pos().x());
-	auto *app = model_->app();
+//	i32 col = columnAt(evt->pos().x());
+//	auto *app = model_->app();
 	
-	if (evt->button() == Qt::LeftButton) {
+//	if (evt->button() == Qt::LeftButton) {
 		
-	}
+//	}
 }
 
 void

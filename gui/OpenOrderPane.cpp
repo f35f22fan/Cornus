@@ -28,7 +28,9 @@ bool SortDesktopFiles(DesktopFile *a, DesktopFile *b)
 	return n >= 0 ? false : true;
 }
 
-OpenOrderPane::OpenOrderPane(App *app): app_(app), QDialog(app)
+OpenOrderPane::OpenOrderPane(App *app):
+QDialog(app), app_(app)
+
 {
 	CreateGui();
 	QueryData();

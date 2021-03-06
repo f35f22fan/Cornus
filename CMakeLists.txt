@@ -7,6 +7,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if (DEFINED ENV{PREFER_CLANG})
+SET (CMAKE_C_COMPILER "/usr/bin/clang-11")
+SET (CMAKE_CXX_COMPILER "/usr/bin/clang++-11")
+SET (CMAKE_CXX_FLAGS "-Wall")
+endif()
+
 find_package(Qt5 COMPONENTS Core Gui Widgets DBus REQUIRED)
 include(FindPkgConfig)
 

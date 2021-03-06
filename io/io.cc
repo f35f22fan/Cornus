@@ -497,6 +497,18 @@ GetFileNameOfFullPath(const QString &full_path)
 	return QStringRef();
 }
 
+Bool HasExecBit(const QString &full_path)
+{
+	struct statx stx;
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_MODE;
+	auto ba = full_path.toLocal8Bit();
+	if (statx(0, ba.data(), flags, fields, &stx) == -1) {
+		return Bool::None;
+	}
+	
+	return (stx.stx_mode & io::ExecBits) ? Bool::Yes : Bool::No;
+}
 
 void InitEnvInfo(Category &desktop, QVector<QString> &search_icons_dirs,
 QVector<QString> &xdg_data_dirs,

@@ -1362,10 +1362,10 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 	
 	QString dir_full_path;
 	QString file_under_mouse_full_path;
+	io::File *file = nullptr;
+	cornus::AutoDelete ad(file);
 	{
-		io::File *file = nullptr;
 		if (GetFileUnderMouse(local_pos, &file) != -1) {
-			cornus::AutoDelete ad(file);
 			file_under_mouse_full_path = file->build_full_path();
 			if (file->is_dir()) {
 				dir_full_path = file_under_mouse_full_path;
@@ -1373,9 +1373,33 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 		}
 	}
 	
-	if (selected_count == 1) {
-		if (!file_under_mouse_full_path.isEmpty())
-			AddOpenWithMenuTo(menu, file_under_mouse_full_path);
+	if (selected_count == 1 && !file_under_mouse_full_path.isEmpty()) {
+		if (file->cache().ext == str::Desktop)
+		{
+			DesktopFile *df = DesktopFile::FromPath(file_under_mouse_full_path,
+				app_->possible_categories());
+			if (df != nullptr)
+			{
+				{
+					QAction *action = menu->addAction(tr("Run"));
+					connect(action, &QAction::triggered, [=] {
+						app_->LaunchOrOpenDesktopFile(file_under_mouse_full_path,
+							false, RunAction::Run);
+					});
+					action->setIcon(df->CreateQIcon());
+				}
+				{
+					QAction *action = menu->addAction(tr("Open"));
+					connect(action, &QAction::triggered, [=] {
+						app_->LaunchOrOpenDesktopFile(file_under_mouse_full_path,
+							false, RunAction::Open);
+					});
+					action->setIcon(df->CreateQIcon());
+				}
+				delete df;
+			}
+		}
+		AddOpenWithMenuTo(menu, file_under_mouse_full_path);
 	}
 	
 	QMenu *new_menu = app_->CreateNewMenu();

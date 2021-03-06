@@ -9,8 +9,7 @@
 
 namespace cornus::gui {
 
-OpenOrderModel::OpenOrderModel(App *app, OpenOrderPane *oop):
-app_(app), oop_(oop)
+OpenOrderModel::OpenOrderModel(App *app, OpenOrderPane *oop)
 {}
 
 OpenOrderModel::~OpenOrderModel() {

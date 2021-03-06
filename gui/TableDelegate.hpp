@@ -46,11 +46,10 @@ private:
 		const QStyleOptionViewItem &option, QFontMetrics &fm,
 		const QRect &text_rect, const Column col) const;
 	
-	mutable int min_name_w_ = -1;
-	gui::Table *table_ = nullptr;
 	App *app_ = nullptr;
+	gui::Table *table_ = nullptr;
 	Qt::Alignment text_alignment_ = Qt::AlignLeft | Qt::AlignVCenter;
-	
+	mutable int min_name_w_ = -1;
 	mutable ClipboardIcons clipboard_icons_ = {};
 };
 

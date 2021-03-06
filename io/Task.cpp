@@ -132,6 +132,7 @@ void Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 			return;
 		}
 		auto state = data_.GetState(nullptr, &time_worked);
+		Q_UNUSED(state);
 		progress_.AddProgress(file_size, time_worked);
 		
 		for (const auto &name: names)
@@ -157,6 +158,7 @@ void Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 				return;
 			}
 			auto state = data_.GetState(nullptr, &time_worked);
+			Q_UNUSED(state);
 			progress_.AddProgress(file_size, time_worked);
 		}
 	}

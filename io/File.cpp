@@ -66,11 +66,10 @@ File::DeleteFromDisk() {
 
 bool
 File::has_exec_bit() const {
-	const auto ExecBits = S_IXUSR | S_IXGRP | S_IXOTH;
 	if (has_link_target()) {
-		return link_target_->mode & ExecBits;
+		return link_target_->mode & io::ExecBits;
 	}
-	return mode_ & ExecBits;
+	return mode_ & io::ExecBits;
 }
 
 void File::name(const QString &s)

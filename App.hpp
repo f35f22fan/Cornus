@@ -49,6 +49,7 @@ public:
 	void Reload();
 	void GoUp();
 	void HideTextEditor();
+	void LaunchOrOpenDesktopFile(const QString &full_path, const bool has_exec_bit, const RunAction action) const;
 	void LoadIcon(io::File &file);
 	gui::Location* location() { return location_; }
 	QSplitter* main_splitter() const { return main_splitter_; }
@@ -91,7 +92,7 @@ private:
 	void GoToAndSelect(const QString full_path);
 	void IconByTruncName(io::File &file, const QString &truncated, QIcon **icon = nullptr);
 	void IconByFileName(io::File &file, const QString &filename, QIcon **ret_icon = nullptr);
-	void OpenWithDefaultApp(const QString &full_path);
+	void OpenWithDefaultApp(const QString &full_path) const;
 	void ProcessAndWriteTo(const QString ext,
 		const QString &from_full_path, QString to_dir);
 	void RegisterShortcuts();

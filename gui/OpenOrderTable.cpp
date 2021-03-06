@@ -7,7 +7,7 @@
 namespace cornus::gui {
 
 OpenOrderTable::OpenOrderTable(App *app, OpenOrderModel *model)
-: app_(app), model_(model)
+: model_(model)
 {
 	setModel(model);
 	setUpdatesEnabled(true);

@@ -18,7 +18,7 @@ public:
 private:
 	NO_ASSIGN_COPY_MOVE(OpenOrderTable);
 	
-	App *app_ = nullptr;
+//	App *app_ = nullptr;
 	OpenOrderModel *model_ = nullptr;
 };
 }

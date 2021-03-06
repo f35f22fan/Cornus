@@ -47,9 +47,7 @@ private:
 	bool WasOrderModified() const;
 	
 	App *app_ = nullptr;
-	
 	QDialogButtonBox *button_box_ = nullptr;
-	
 	OpenOrderTable *table_ = nullptr;
 	OpenOrderModel *model_ = nullptr;
 	QVector<DesktopFile*> open_with_original_vec_;

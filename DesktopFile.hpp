@@ -36,6 +36,7 @@ public:
 	static Group* From(ByteArray &ba);
 	bool IsMain() const;
 	void Launch(const QString &full_path, const QString &working_dir);
+	void LaunchEmpty(const QString &working_dir);
 	const QString& name() const { return name_; }
 	void ParseLine(const QStringRef &line, const QHash<QString, Category> &possible_categories);
 	QMap<QString, QString>& map() { return kv_map_; }
@@ -103,6 +104,7 @@ public:
 		main_group_->is_text_editor();
 	}
 	void Launch(const QString &full_path, const QString &working_dir);
+	void LaunchEmpty(const QString &working_dir);
 	desktopfile::Group* main_group() const { return main_group_; }
 	
 	bool ToBeRunInTerminal() const;

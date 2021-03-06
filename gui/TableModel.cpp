@@ -563,6 +563,9 @@ TableModel::InotifyEvent(gui::FileEvent evt)
 		endInsertRows();
 		break;
 	}
+	default: {
+		mtl_trace();
+	}
 	} /// switch()		
 
 	if (!scroll_to_and_select_.isEmpty()) {

@@ -48,8 +48,7 @@ private:
 	QLabel *info_ = nullptr;
 	QLabel *speed_ = nullptr;
 	QTimer *timer_ = nullptr;
-	QToolButton *play_pause_btn_ = nullptr;
-	QToolButton *cancel_button_ = nullptr;
+	QToolButton *work_pause_btn_ = nullptr;
 	cornus::io::Progress progress_ = {};
 	QIcon continue_icon_, pause_icon_;
 	io::TaskQuestion task_question_ = {};

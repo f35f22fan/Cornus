@@ -28,6 +28,8 @@
 
 namespace cornus::io {
 
+const auto ExecBits = S_IXUSR | S_IXGRP | S_IXOTH;
+
 struct Notify {
 	int fd = -1;
 /** Why a map? => inotify_add_watch() only adds a new watch if
@@ -196,6 +198,8 @@ GetFileNameExtension(const QString &name, QStringRef *base_name = nullptr);
 
 QStringRef
 GetFileNameOfFullPath(const QString &full_path);
+
+Bool HasExecBit(const QString &full_path);
 
 inline bool IsNearlyEqual(double x, double y);
 

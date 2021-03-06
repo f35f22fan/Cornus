@@ -146,6 +146,32 @@ void Group::Launch(const QString &full_path, const QString &working_dir)
 ///"/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=ghb --file-forwarding fr.handbrake.ghb @@ %f @@"
 }
 
+void Group::LaunchEmpty(const QString &working_dir)
+{
+	QString exec = value(Exec);
+	if (exec.isEmpty())
+		return;
+	QStringList args = exec.split(' ', Qt::SkipEmptyParts);
+	
+	int i = 0;
+	for (auto &next: args) {
+		if (next.startsWith('%')) {
+			if (next == QLatin1String("%f") || next == QLatin1String("%F") ||
+				next == QLatin1String("%u") || next == QLatin1String("%U")) {
+				args.removeAt(i);
+				i--;
+			}
+		}
+		
+		i++;
+	}
+	
+	QString exe = args.takeFirst();
+	QProcess::startDetached(exe, args, working_dir);
+	
+///"/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=ghb --file-forwarding fr.handbrake.ghb @@ %f @@"
+}
+
 void Group::ListKV()
 {
 	QMapIterator<QString, QString> it(kv_map_);
@@ -495,6 +521,20 @@ void DesktopFile::Launch(const QString &full_path, const QString &working_dir)
 	}
 }
 
+void DesktopFile::LaunchEmpty(const QString &working_dir)
+{
+	if (is_desktop_file())
+	{
+		if (main_group_ != nullptr)
+			main_group_->LaunchEmpty(working_dir);
+	} else if (is_just_exe_path()) {
+		QStringList args;
+		QProcess::startDetached(full_path_, args, working_dir);
+	} else {
+		mtl_trace();
+	}
+}
+
 bool DesktopFile::Reload()
 {
 	main_group_ = nullptr;
@@ -560,5 +600,3 @@ void DesktopFile::WriteTo(ByteArray &ba) const
 }
 
 }
-
-

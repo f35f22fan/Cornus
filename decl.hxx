@@ -24,6 +24,18 @@ const QString AppIconPath = QLatin1String(":/cornus.mas.webp");
 
 const char *const SocketPath = "\0cornus_socket";
 
+enum class Bool: i8 {
+	Yes,
+	No,
+	None
+};
+
+enum class RunAction: i8 {
+	Run,
+	Open,
+	ChooseBasedOnExecBit
+};
+
 enum class StringCase: i8 {
 	Lower,
 	AsIs,

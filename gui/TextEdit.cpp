@@ -102,7 +102,7 @@ TextEdit::GetHiliteMode(const ByteArray &buf, io::File *file)
 		return HiliteMode::ShellScript;
 	
 	if (ext == QLatin1String("bashrc") || ext == QLatin1String("profile"))
-		return HiliteMode::PlainText;
+		return HiliteMode::ShellScript;
 	
 	if (ext == QLatin1String("desktop")) {
 		return HiliteMode::DesktopFile;

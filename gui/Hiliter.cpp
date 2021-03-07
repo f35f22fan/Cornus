@@ -61,7 +61,6 @@ void Hiliter::highlightBlock(const QString &text)
 	}
 }
 
-
 void Hiliter::SetupC_CPP()
 {
 	HighlightingRule rule;
@@ -177,26 +176,52 @@ void Hiliter::SetupShellScript()
 	HighlightingRule rule;
 	{ /// keywords
 		const QString keywords[] = {
-			QLatin1String("\\becho\\b"), QLatin1String("\\bread\\b"),
-			QLatin1String("\\bset\\b"), QLatin1String("\\bunset\\b"),
-			QLatin1String("\\breadonly\\b"), QLatin1String("\\bshift\\b"),
 			QLatin1String("\\bexport\\b"), QLatin1String("\\bif\\b"),
+			QLatin1String("\\belif\\b"), QLatin1String("\\bthen\\b"),
 			QLatin1String("\\bfi\\b"), QLatin1String("\\belse\\b"),
-			QLatin1String("\\bwhile\\b"), QLatin1String("\\bdo\\b"),
+			QLatin1String("\\bwhile\\b"), QLatin1String("\\bcat\\b"),
+			QLatin1String("\\bdo\\b"),
 			QLatin1String("\\bdone\\b"), QLatin1String("\\bfor\\b"),
 			QLatin1String("\\buntil\\b"), QLatin1String("\\bbreak\\b"),
 			QLatin1String("\\bcase\\b"), QLatin1String("\\besac\\b"),
-			QLatin1String("\\bcontinue\\b"), QLatin1String("\\bexit\\b"),
-			QLatin1String("\\breturn\\b"), QLatin1String("\\btrap\\b"),
-			QLatin1String("\\bwait\\b"), QLatin1String("\\beval\\b"),
-			QLatin1String("\\bexec\\b"), QLatin1String("\\bulimit\\b"),
-			QLatin1String("\\bumask\\b")
+			QLatin1String("\\bcontinue\\b"),
+			QLatin1String("\\breturn\\b"),
+			QLatin1String("\\beval\\b"),
+			QLatin1String("\\balias\\b"),
 		};
 		for (const QString &pattern : keywords) {
 			rule.pattern = QRegularExpression(pattern);
 			rule.format = formats_.keyword;
 			hiliting_rules_.append(rule);
 		}
+	}
+	
+	{
+		/// functions
+		const QString keywords[] = {
+		QLatin1String("\\becho\\b"), QLatin1String("\\bread\\b"),
+		QLatin1String("\\bset\\b"), QLatin1String("\\bunset\\b"),
+		QLatin1String("\\breadonly\\b"), QLatin1String("\\bshift\\b"),
+		QLatin1String("\\btput\\b"), QLatin1String("\\btest\\b"),
+		QLatin1String("\\bcat\\b"),
+		QLatin1String("\\bexit\\b"),
+		QLatin1String("\\btrap\\b"),
+		QLatin1String("\\bwait\\b"), QLatin1String("\\beval\\b"),
+		QLatin1String("\\bexec\\b"), QLatin1String("\\bulimit\\b"),
+		QLatin1String("\\bumask\\b"),
+		QLatin1String("\\bsource\\b"),
+		};
+		for (const QString &pattern : keywords) {
+			rule.pattern = QRegularExpression(pattern);
+			rule.format = formats_.function;
+			hiliting_rules_.append(rule);
+		}
+	}
+	
+	{ /// single line comment
+		rule.pattern = QRegularExpression(QLatin1String("\\#[^\n]*"));
+		rule.format = formats_.single_line_comment;
+		hiliting_rules_.append(rule);
 	}
 }
 

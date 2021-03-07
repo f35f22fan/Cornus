@@ -32,6 +32,7 @@ File::Clone() const
 	File *file = new File(dir_path());
 	file->name_ = name_;
 	file->size_ = size_;
+	file->mode_ = mode_;
 	file->ext_attrs_ = ext_attrs_;
 	file->type_ = type_;
 	file->id_ = id_;

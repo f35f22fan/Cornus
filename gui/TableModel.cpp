@@ -730,8 +730,8 @@ TableModel::UpdateIndices(const QVector<int> &indices)
 	if (min == -1 || max == -1) {
 		UpdateVisibleArea();
 	} else if ((max - min) > count_per_page) {
-		mtl_trace("Max: %d, min: %d, count per page: %d",
-			max, min, count_per_page);
+//		mtl_trace("Max: %d, min: %d, count per page: %d",
+//			max, min, count_per_page);
 		UpdateVisibleArea();
 	} else {
 		UpdateRowRange(min, max);

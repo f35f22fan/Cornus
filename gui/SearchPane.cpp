@@ -29,6 +29,7 @@ mtl_trace("%ld", time(NULL));
 #ifdef CORNUS_DEBUG_HIDE
 mtl_trace("%ld", time(NULL));
 #endif
+	BeforeExiting();
 	DeselectAll();
 #ifdef CORNUS_DEBUG_HIDE
 mtl_trace("%ld", time(NULL));
@@ -40,6 +41,14 @@ mtl_trace("%ld", time(NULL));
 #ifdef CORNUS_DEBUG_HIDE
 mtl_trace("%ld", time(NULL));
 #endif
+}
+
+void SearchPane::BeforeExiting()
+{
+	if (select_row_ < 0 || last_dir_id_ != app_->current_dir_id())
+		return;
+	
+	app_->table()->SelectRowSimple(select_row_, true);
 }
 
 void SearchPane::CreateGui()

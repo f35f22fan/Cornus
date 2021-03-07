@@ -24,6 +24,7 @@ private:
 	NO_ASSIGN_COPY_MOVE(SearchPane);
 	
 	void ActionHide();
+	void BeforeExiting();
 	void CreateGui();
 	bool lower() const { return !case_sensitive_->isChecked(); }
 	void DeselectAll();

@@ -27,6 +27,8 @@ public:
 	gui::SidePaneItem* GetItemAtNTS(const QPoint &pos, bool clone, int *ret_index = nullptr);
 	inline int GetIconSize() { return verticalHeader()->defaultSectionSize(); }
 	int GetSelectedBookmarkCount();
+	i32 mouse_over_item_at() const { return mouse_over_item_at_; }
+	void mouse_over_item_at(const i32 n) { mouse_over_item_at_ = n; }
 	void ProcessAction(const QString &action);
 	void SelectProperPartition(const QString &full_path);
 	void SelectRowSimple(const int row, const bool skip_update = false);
@@ -42,9 +44,10 @@ protected:
 	virtual void dragMoveEvent(QDragMoveEvent *event) override;
 	
 	virtual void keyPressEvent(QKeyEvent *event) override;
-	virtual void mouseDoubleClickEvent(QMouseEvent *event) override;
+	virtual void leaveEvent(QEvent *evt) override;
 	virtual void mouseMoveEvent(QMouseEvent *evt) override;
 	virtual void mousePressEvent(QMouseEvent *event) override;
+	virtual void mouseReleaseEvent(QMouseEvent *evt) override;
 	
 	virtual void paintEvent(QPaintEvent *event) override;
 	virtual void resizeEvent(QResizeEvent *event) override;
@@ -62,10 +65,12 @@ private:
 	void UpdateLineHeight();
 	
 	SidePaneModel *model_ = nullptr;
+	i32 mouse_over_item_at_ = -1;
 	App *app_ = nullptr;
 	QPoint drop_coord_ = {-1, -1};
 	QPoint drag_start_pos_ = {-1, -1};
 	QMenu *menu_ = nullptr;
+	bool mouse_down_ = false;
 	
 };
 

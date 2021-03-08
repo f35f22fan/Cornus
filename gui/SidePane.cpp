@@ -41,6 +41,8 @@ SidePane::SidePane(SidePaneModel *tm, App *app) :
 model_(tm), app_(app)
 {
 	setModel(model_);
+/// enables receiving ordinary mouse events (when mouse is not down)
+	setMouseTracking(true);
 	setAlternatingRowColors(true);
 	auto *hz = horizontalHeader();
 	hz->setSortIndicatorShown(false);
@@ -201,7 +203,6 @@ SidePane::dropEvent(QDropEvent *evt)
 		QDataStream dataStreamRead(ba);
 		QStringList str_list;
 		dataStreamRead >> str_list;
-		
 		model_->MoveBookmarks(str_list, evt->pos());
 	}
 	
@@ -279,6 +280,15 @@ SidePane::keyPressEvent(QKeyEvent *event)
 }
 
 void
+SidePane::leaveEvent(QEvent *evt)
+{
+	drop_coord_ = {-1, -1};
+	int row = mouse_over_item_at_;
+	mouse_over_item_at_ = -1;
+	model_->UpdateSingleRow(row);
+}
+
+void
 SidePane::MountPartition(SidePaneItem *partition)
 {
 	auto *arg = new io::disks::MountPartitionData();
@@ -292,24 +302,30 @@ SidePane::MountPartition(SidePaneItem *partition)
 }
 
 void
-SidePane::mouseDoubleClickEvent(QMouseEvent *evt)
-{
-	QTableView::mouseDoubleClickEvent(evt);
-	
-//	i32 col = columnAt(evt->pos().x());
-//	auto *app = model_->app();
-	
-//	if (evt->button() == Qt::LeftButton) {
-		
-//	}
-}
-
-void
 SidePane::mouseMoveEvent(QMouseEvent *evt)
 {
-	if (drag_start_pos_.x() >= 0 || drag_start_pos_.y() >= 0)
+	if (mouse_down_ && (drag_start_pos_.x() >= 0 || drag_start_pos_.y() >= 0))
 	{
 		StartDrag(evt->pos());
+	}
+	
+	int row = -1;
+	{
+		io::Files &files = app_->view_files();
+		MutexGuard guard(&files.mutex);
+		row = rowAt(evt->pos().y());
+	}
+	
+	bool repaint = false;
+	i32 old_row = mouse_over_item_at_;
+	if (row != mouse_over_item_at_) {
+		repaint = true;
+		mouse_over_item_at_ = row;
+	}
+	
+	if (repaint) {
+		QVector<int> rows = {old_row, mouse_over_item_at_};
+		model_->UpdateIndices(rows);
 	}
 }
 
@@ -317,6 +333,7 @@ void
 SidePane::mousePressEvent(QMouseEvent *evt)
 {
 	QTableView::mousePressEvent(evt);
+	mouse_down_ = true;
 	
 	if (evt->button() == Qt::LeftButton) {
 		drag_start_pos_ = evt->pos();
@@ -371,6 +388,15 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 	if (!cloned_item->is_partition() || cloned_item->mounted())
 		model_->app()->GoTo(Action::To, {cloned_item->mount_path(), Processed::No});
 	model_->UpdateIndices(indices);
+}
+
+void
+SidePane::mouseReleaseEvent(QMouseEvent *evt)
+{
+	QTableView::mouseReleaseEvent(evt);
+	drag_start_pos_ = {-1, -1};
+	mouse_down_ = false;
+///	model_->UpdateIndices(indices);
 }
 
 void

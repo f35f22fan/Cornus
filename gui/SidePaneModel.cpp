@@ -247,9 +247,11 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 			return f;
 		}
 	} else if (role == Qt::BackgroundRole) {
-//		QStyleOptionViewItem option = table_->option();
-//		if (item->is_partition())
-//			return option.palette.light();
+		if (row == table_->mouse_over_item_at()) {
+			QStyleOptionViewItem option = table_->option();
+			QColor c = option.palette.highlight().color();
+			return c.lighter(150);
+		}
 	} else if (role == Qt::ForegroundRole) {
 		if (item->is_partition() && !item->mounted()) {
 			const int c = 110;
@@ -390,17 +392,13 @@ SidePaneModel::MoveBookmarks(QStringList str_list, const QPoint &pos)
 		return;
 	
 	const int rh = table_->verticalHeader()->defaultSectionSize();
-	int insert_at_row = table_->rowAt(pos.y());
-	
+	int insert_at_row = table_->rowAt(pos.y() + rh / 2);
 	auto &items = app_->side_pane_items();
 	{
 		MutexGuard guard(&items.mutex);
 		auto &vec = items.vec;
 		
-		if (insert_at_row != -1 && insert_at_row < vec.size()) {
-			if (pos.y() % rh >= (rh/2))
-				insert_at_row++;
-		} else {
+		if (insert_at_row == -1 || insert_at_row >= vec.size()) {
 			insert_at_row = vec.size();
 		}
 		
@@ -420,11 +418,10 @@ SidePaneModel::MoveBookmarks(QStringList str_list, const QPoint &pos)
 				taken_items.append(next);
 				items.vec.removeAt(i);
 				
-				if (i < insert_at_row)
+				if (i <= insert_at_row)
 					before_row_count++;
 			}
 		}
-		
 		int insert_at = insert_at_row - before_row_count;
 		for (int i = taken_items.size() - 1; i >= 0; i--) {
 			auto *next = taken_items[i];

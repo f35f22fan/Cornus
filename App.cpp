@@ -1534,18 +1534,19 @@ void App::SetupIconNames() {
 	
 	QDir dir(QCoreApplication::applicationDirPath());
 	const QString folder_name = QLatin1String("file_icons");
+	bool InLocalPath = true;
 	
-	if (dir.exists(folder_name)) {
-		icons_dir_ = dir.absoluteFilePath(folder_name);
-	} else {
+	if (!dir.exists(folder_name)) {
 		if (!dir.cdUp()) {
 			mtl_trace();
 			return;
 		}
 	
-		if (dir.exists(folder_name))
-			icons_dir_ = dir.absoluteFilePath(folder_name);
+		if (!dir.exists(folder_name))
+                        InLocalPath = false;
 	}
+
+	icons_dir_ = InLocalPath ? dir.absoluteFilePath(folder_name):"/usr/share/cornus/file_icons";
 	
 	if (io::ListFileNames(icons_dir_, available_icon_names_) != io::Err::Ok) {
 		mtl_trace();

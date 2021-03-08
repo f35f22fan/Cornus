@@ -1535,7 +1535,13 @@ void App::SetupIconNames() {
 	QDir dir(QCoreApplication::applicationDirPath());
 	const QString folder_name = QLatin1String("file_icons");
 	
-	if (dir.exists(folder_name)) {
+	QString home_icons = prefs::QueryAppConfigPath();
+	if (!home_icons.endsWith('/'))
+		home_icons.append('/');
+	home_icons.append(folder_name);
+	if (io::FileExists(home_icons)) {
+		icons_dir_ = home_icons;
+	} else if (dir.exists(folder_name)) {
 		icons_dir_ = dir.absoluteFilePath(folder_name);
 	} else {
 		if (!dir.cdUp()) {

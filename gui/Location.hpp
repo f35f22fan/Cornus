@@ -15,7 +15,6 @@ public:
 	Location(cornus::App *app);
 	virtual ~Location();
 	
-	void SetIncludeHiddenDirs(const bool flag);
 	void SetLocation(const QString &s);
 	
 protected:

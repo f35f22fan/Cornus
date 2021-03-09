@@ -34,15 +34,6 @@ void Location::HitEnter()
 	}
 }
 
-void Location::SetIncludeHiddenDirs(const bool flag)
-{
-	auto bits = QDir::Dirs | QDir::NoDot | QDir::NoDotDot;
-	if (flag)
-		bits |= QDir::Hidden;
-	
-	fs_model_->setFilter(bits);
-}
-
 void Location::SetLocation(const QString &s) {
 	setText(s);
 }
@@ -50,6 +41,8 @@ void Location::SetLocation(const QString &s) {
 void Location::Setup() {
 	QCompleter *completer = new QCompleter(this);
 	fs_model_ = new QFileSystemModel(completer);
+	auto bits = QDir::Dirs | QDir::NoDot | QDir::NoDotDot | QDir::Hidden;
+	fs_model_->setFilter(bits);
 	completer->setModel(fs_model_);
 	setCompleter(completer);
 

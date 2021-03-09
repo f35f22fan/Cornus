@@ -35,8 +35,11 @@ Building on Ubuntu:
 
 
 ##### Differences from other file browsers like Nautilus or Dolphin:
+* Files with the executable bit set are marked green.
 * If needed right click a file -> Open With -> Preferences... to set a default app with which to open a given type of file.
 * To see the tree of links of a symbolic link double-click the icon of the link in the browser.
 * Press 'D' after selecting a non-folder to display its contents. The built-in text editor is meant for a quick update of its contents or a glean into the file, not as a full blown text editor. Files' contents unrecognized as text files are opened in read-only mode.
-*  You can easily set your own icons for files of different types by dropping an icon into the "file_icons" folder with the proper extension as its name, browse the folder "file_icons" to see what I mean.
+* Files are deleted with Shift+Delete. No recycle bin. At least for now.
+* A grey dot near the icon of the file means the file has extended attributes.
+*  You can easily set your own icons for files of different types by dropping an icon into the "file_icons" folder with the proper extension as its name, browse the folder "file_icons" to see what I mean, probably located at "/usr/share/cornus/file_icons".
 * "cornus_io" is the I/O daemon that is started automatically, keep it in the same folder as "cornus".

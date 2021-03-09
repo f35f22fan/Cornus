@@ -682,8 +682,6 @@ TableModel::SwitchTo(io::FilesData *new_data)
 	
 	QVector<int> indices;
 	app_->table()->SyncWith(app_->clipboard(), indices);
-	app_->location()->SetIncludeHiddenDirs(new_data->show_hidden_files());
-	
 	WatchArgs *args = new WatchArgs {
 		.dir_id = dir_id,
 		.dir_path = new_data->processed_dir_path,

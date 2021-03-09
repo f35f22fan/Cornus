@@ -68,6 +68,8 @@ model_(tm), app_(app)
 	
 	int sz = GetIconSize();
 	setIconSize(QSize(sz, sz));
+	auto *vs = verticalScrollBar();
+	connect(vs, &QAbstractSlider::valueChanged, this, &SidePane::HiliteFileUnderMouse);
 }
 
 SidePane::~SidePane() {
@@ -263,6 +265,28 @@ SidePane::GetSelectedBookmark(int *index)
 	return nullptr;
 }
 
+void SidePane::HiliteFileUnderMouse()
+{
+	int row = -1;
+	{
+		io::Files &files = app_->view_files();
+		MutexGuard guard(&files.mutex);
+		row = rowAt(mouse_pos_.y());
+	}
+	
+	bool repaint = false;
+	i32 old_row = mouse_over_item_at_;
+	if (row != mouse_over_item_at_) {
+		repaint = true;
+		mouse_over_item_at_ = row;
+	}
+	
+	if (repaint) {
+		QVector<int> rows = {old_row, mouse_over_item_at_};
+		model_->UpdateIndices(rows);
+	}
+}
+
 gui::SidePaneItems&
 SidePane::items() const { return app_->side_pane_items(); }
 
@@ -304,28 +328,12 @@ SidePane::MountPartition(SidePaneItem *partition)
 void
 SidePane::mouseMoveEvent(QMouseEvent *evt)
 {
+	mouse_pos_ = evt->pos();
+	HiliteFileUnderMouse();
+	
 	if (mouse_down_ && (drag_start_pos_.x() >= 0 || drag_start_pos_.y() >= 0))
 	{
 		StartDrag(evt->pos());
-	}
-	
-	int row = -1;
-	{
-		io::Files &files = app_->view_files();
-		MutexGuard guard(&files.mutex);
-		row = rowAt(evt->pos().y());
-	}
-	
-	bool repaint = false;
-	i32 old_row = mouse_over_item_at_;
-	if (row != mouse_over_item_at_) {
-		repaint = true;
-		mouse_over_item_at_ = row;
-	}
-	
-	if (repaint) {
-		QVector<int> rows = {old_row, mouse_over_item_at_};
-		model_->UpdateIndices(rows);
 	}
 }
 

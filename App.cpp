@@ -1543,10 +1543,11 @@ void App::SetupIconNames() {
 		}
 	
 		if (!dir.exists(folder_name))
-                        InLocalPath = false;
+			InLocalPath = false;
 	}
 
-	icons_dir_ = InLocalPath ? dir.absoluteFilePath(folder_name):"/usr/share/cornus/file_icons";
+	icons_dir_ = InLocalPath ? dir.absoluteFilePath(folder_name) :
+		QLatin1String("/usr/share/cornus/") + folder_name;
 	
 	if (io::ListFileNames(icons_dir_, available_icon_names_) != io::Err::Ok) {
 		mtl_trace();

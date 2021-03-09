@@ -56,6 +56,7 @@ private:
 	
 	void ClearDndAnimation(const QPoint &drop_coord);
 	SidePaneItem* GetSelectedBookmark(int *index = nullptr);
+	void HiliteFileUnderMouse();
 	void MountPartition(SidePaneItem *partition);
 	void RenameSelectedBookmark();
 	void ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos);
@@ -69,6 +70,7 @@ private:
 	App *app_ = nullptr;
 	QPoint drop_coord_ = {-1, -1};
 	QPoint drag_start_pos_ = {-1, -1};
+	QPoint mouse_pos_ = {-1, -1};
 	QMenu *menu_ = nullptr;
 	bool mouse_down_ = false;
 	

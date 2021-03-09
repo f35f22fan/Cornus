@@ -95,6 +95,8 @@ model_(tm)
 	int sz = GetIconSize();
 	setIconSize(QSize(sz, sz));
 	SetCustomResizePolicy();
+	auto *vs = verticalScrollBar();
+	connect(vs, &QAbstractSlider::valueChanged, this, &Table::HiliteFileUnderMouse);
 }
 
 Table::~Table() {
@@ -806,6 +808,28 @@ Table::HandleMouseSelectionNoModif(const QPoint &pos, QVector<int> &indices,
 	}
 }
 
+void Table::HiliteFileUnderMouse()
+{
+	int row = -1;
+	{
+		io::Files &files = app_->view_files();
+		MutexGuard guard(&files.mutex);
+		row = IsOnFileNameStringNTS(mouse_pos_, nullptr);
+	}
+	
+	bool repaint = false;
+	i32 old_row = mouse_over_file_name_;
+	if (row != mouse_over_file_name_) {
+		repaint = true;
+		mouse_over_file_name_ = row;
+	}
+	
+	if (repaint) {
+		QVector<int> rows = {old_row, mouse_over_file_name_};
+		model_->UpdateIndices(rows);
+	}
+}
+
 int
 Table::IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file)
 {
@@ -964,32 +988,16 @@ Table::mouseDoubleClickEvent(QMouseEvent *evt)
 void
 Table::mouseMoveEvent(QMouseEvent *evt)
 {
-	int row = -1;
-	{
-		io::Files &files = app_->view_files();
-		MutexGuard guard(&files.mutex);
-		row = IsOnFileNameStringNTS(evt->pos(), nullptr);
-	}
-	
-	bool repaint = false;
-	i32 old_row = mouse_over_file_name_;
-	if (row != mouse_over_file_name_) {
-		repaint = true;
-		mouse_over_file_name_ = row;
-	}
+	mouse_pos_ = evt->pos();
+	HiliteFileUnderMouse();
 	
 	if (mouse_down_ && (drag_start_pos_.x() >= 0 || drag_start_pos_.y() >= 0)) {
-		auto diff = (evt->pos() - drag_start_pos_).manhattanLength();
+		auto diff = (mouse_pos_ - drag_start_pos_).manhattanLength();
 		if (diff >= QApplication::startDragDistance())
 		{
 			drag_start_pos_ = {-1, -1};
 			StartDragOperation();
 		}
-	}
-	
-	if (repaint) {
-		QVector<int> rows = {old_row, mouse_over_file_name_};
-		model_->UpdateIndices(rows);
 	}
 }
 

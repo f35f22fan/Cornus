@@ -96,7 +96,7 @@ private:
 	void HandleMouseSelectionCtrl(const QPoint &pos, QVector<int> &indices);
 	void HandleMouseSelectionShift(const QPoint &pos, QVector<int> &indices);
 	void HandleMouseSelectionNoModif(const QPoint &pos, QVector<int> &indices, bool mouse_pressed);
-	
+	void HiliteFileUnderMouse();
 	int IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file = nullptr);
 	void LaunchFromOpenWithMenu();
 	QPair<int, int> ListSelectedFiles(QList<QUrl> &list);
@@ -121,6 +121,7 @@ private:
 
 	QPoint drop_coord_ = {-1, -1};
 	QPoint drag_start_pos_ = {-1, -1};
+	QPoint mouse_pos_ = {-1, -1};
 	QVector<int> indices_;
 	OpenWith open_with_ = {};
 };

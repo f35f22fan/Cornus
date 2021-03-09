@@ -76,16 +76,17 @@ HiliteMode
 TextEdit::GetHiliteMode(const ByteArray &buf, io::File *file)
 {
 	auto ext = file->cache().ext;
-	
 	if (ext.isEmpty()) {
 		ExecInfo exec;
 		app_->TestExecBuf(buf.constData(), buf.size(), exec);
 		
 		if (exec.is_shell_script()) {
 			return HiliteMode::ShellScript;
-//		} else if (exec.is_script_python()) {
-//			return HiliteMode::Python;
 		}
+		
+		const QString mime = app_->QueryMimeType(file->build_full_path());
+		if (mime.startsWith(QLatin1String("text/")))
+			return HiliteMode::PlainText;
 		
 		return HiliteMode::None;
 	}
@@ -112,10 +113,15 @@ TextEdit::GetHiliteMode(const ByteArray &buf, io::File *file)
 		ext == QLatin1String("css") || ext == QLatin1String("php") ||
 		ext == QLatin1String("py") || ext == QLatin1String("java") ||
 		ext == QLatin1String("pl") || ext == QLatin1String("xml") ||
-		ext == QLatin1String("rs") || ext == QLatin1String("go")) {
+		ext == QLatin1String("rs") || ext == QLatin1String("go") ||
+		ext == QLatin1String("md") || ext == QLatin1String("qrc"))
+	{
 		return HiliteMode::PlainText;
 	}
 	
+	const QString mime = app_->QueryMimeType(file->build_full_path());
+	if (mime.startsWith(QLatin1String("text/")))
+		return HiliteMode::PlainText;
 	return HiliteMode::None;
 }
 

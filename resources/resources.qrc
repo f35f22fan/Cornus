@@ -1,7 +1,5 @@
 <!DOCTYPE RCC><RCC version="1.0">
 <qresource>
-  <file>cornus.mas.webp</file>
   <file>cornus.mas.png</file>
 </qresource>
-</RCC> 
- 
+</RCC>

@@ -775,15 +775,19 @@ SidePane::UnmountPartition(int row)
 }
 
 void
-SidePane::UpdateLineHeight() {
-	auto fm = fontMetrics();
-	int str_h = fm.height();
-	int ln = str_h * 1.3;
+SidePane::UpdateLineHeight()
+{
 	auto *vh = verticalHeader();
-	vh->setMinimumSectionSize(str_h);
-	vh->setMaximumSectionSize(ln);
+	if (false) {
+		auto fm = fontMetrics();
+		int str_h = fm.height();
+		int ln = str_h * 1.5;
+
+		vh->setMinimumSectionSize(str_h);
+		vh->setMaximumSectionSize(ln);
+		vh->setDefaultSectionSize(ln);
+	}
 	vh->setSectionResizeMode(QHeaderView::Fixed);
-	vh->setDefaultSectionSize(ln);
 	vh->setSectionsMovable(false);
 }
 

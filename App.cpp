@@ -357,8 +357,10 @@ App::AskCreateNewFile(io::File *file, const QString &title)
 		LoadIcon(*file);
 		QLabel *icon_label = new QLabel();
 		const QIcon *icon = file->cache().icon;
-		QPixmap pixmap = icon->pixmap(QSize(64, 64));
-		icon_label->setPixmap(pixmap);
+		if (icon != nullptr) {
+			QPixmap pixmap = icon->pixmap(QSize(64, 64));
+			icon_label->setPixmap(pixmap);
+		}
 		row->addWidget(icon_label);
 
 		QLabel *text_label = new QLabel();
@@ -461,8 +463,7 @@ App::ClipboardChanged(QClipboard::Mode mode)
 	table_model_->UpdateIndices(indices);
 }
 
-QMenu*
-App::CreateNewMenu()
+QMenu* App::CreateNewMenu()
 {
 	QMenu *menu = new QMenu(tr("Create &New"), this);
 	
@@ -1406,8 +1407,10 @@ void App::RenameSelectedFile()
 		LoadIcon(*file);
 		QLabel *icon_label = new QLabel();
 		const QIcon *icon = file->cache().icon;
-		QPixmap pixmap = icon->pixmap(QSize(48, 48));
-		icon_label->setPixmap(pixmap);
+		if (icon != nullptr) {
+			QPixmap pixmap = icon->pixmap(QSize(48, 48));
+			icon_label->setPixmap(pixmap);
+		}
 		row->addWidget(icon_label);
 		
 		QString mime;

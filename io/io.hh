@@ -230,6 +230,7 @@ QString
 NewNamePattern(const QString &filename, i32 &next);
 
 QString PasteLinks(const QVector<QString> &full_paths, QString target_dir, QString *err);
+QString PasteRelativeLinks(const QVector<QString> &full_paths, QString target_dir, QString *err);
 
 void
 ProcessMime(QString &mime);

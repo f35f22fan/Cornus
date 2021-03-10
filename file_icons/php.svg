@@ -1,26 +1,13 @@
-<svg width="32" xmlns="http://www.w3.org/2000/svg" height="32" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg width="64" height="64" version="1.1" viewBox="0 0 16.933 16.933" xmlns="http://www.w3.org/2000/svg">
  <defs>
-  <linearGradient id="a" y1="392.36" y2="365.36" x2="0" gradientUnits="userSpaceOnUse" gradientTransform="translate(309.57 152.44)">
-   <stop stop-color="#ffffff" stop-opacity="0"/>
-   <stop offset="1" stop-color="#ffffff" stop-opacity=".2"/>
+  <linearGradient id="a" x1="49.571" x2="51.714" y1="52.714" y2="54.857" gradientTransform="matrix(2.3333,0,0,2.3333,-68.667,-72.001)" gradientUnits="userSpaceOnUse">
+   <stop offset="0"/>
+   <stop stop-opacity="0" offset="1"/>
   </linearGradient>
-  <linearGradient id="b" y1="17" y2="24" x1="47" x2="54" gradientUnits="userSpaceOnUse" gradientTransform="translate(357.57 507.8)">
-   <stop stop-color="#060606"/>
-   <stop offset="1" stop-opacity="0"/>
-  </linearGradient>
-  <path id="c" d="m389.57 545.8v-28h15l7 7v21h-14z"/>
  </defs>
- <g transform="translate(-384.57-515.8)">
-  <g color-rendering="auto" color-interpolation-filters="linearRGB" shape-rendering="auto" image-rendering="auto" text-rendering="auto" color-interpolation="sRGB" color="#000000">
-   <use fill="#8373d7" xlink:href="#c"/>
-   <g transform="scale(1-1)">
-    <rect opacity=".5" x="389.57" y="-518.8" width="15" fill="#ffffff" height="1"/>
-    <rect opacity=".25" x="389.57" y="-545.8" width="22" height="1"/>
-   </g>
-   <path opacity=".6" fill-rule="evenodd" d="m411.57 524.8l-7-7v7z"/>
-  </g>
-  <path opacity=".2" fill="url(#b)" fill-rule="evenodd" d="m404.57 524.8l7 7v-7z"/>
-  <path opacity=".7" color-interpolation-filters="linearRGB" color="#000000" image-rendering="auto" color-rendering="auto" d="m401.66 526.8l-2.947 11h1.031l2.883-10.977zm-4.805 2l-2.961 3.145-.324.348.324.346 2.943 3.162.715-.695-2.621-2.813 2.639-2.797zm8.715 0c-1.108 0-2 2-2 2v1h1v-1c0 0 .446-1 1-1 .554 0 1 .446 1 1v2c-1.108 0-2 .892-2 2h1c0-.554 1-1 1-1h1v-3c0-1.108-.892-2-2-2m-.5 7c-.276 0-.5.224-.5.5 0 .276.224.5.5.5.276 0 .5-.224.5-.5 0-.276-.224-.5-.5-.5" color-interpolation="sRGB" text-rendering="auto" shape-rendering="auto"/>
-  <use fill="url(#a)" xlink:href="#c"/>
+ <g transform="scale(.26458)">
+  <rect x="8" y="4" width="48" height="56" ry="5" fill="#f4f4f4" style="paint-order:stroke fill markers"/>
+  <path d="m56 46-14 14h9c2.77 0 5-2.23 5-5z" fill="url(#a)" fill-rule="evenodd" opacity=".1" stroke-width="8.8191" style="paint-order:stroke fill markers"/>
  </g>
+ <path d="m8.3719 6.3242c-0.18989 0-0.36988 0.02179-0.53999 0.0653-0.16616 0.04352-0.3165 0.1009-0.45101 0.1721l0.15428 0.42734c0.24923-0.13451 0.50446-0.20176 0.76556-0.20176 0.20572 0 0.36202 0.05333 0.46883 0.16014 0.10681 0.10286 0.16014 0.23737 0.16014 0.40353 0 0.10286-0.02369 0.19786-0.07116 0.28489-0.04352 0.08703-0.1009 0.17012-0.1721 0.24925-0.07121 0.07912-0.14632 0.15816-0.22544 0.23728-0.07912 0.07517-0.15436 0.15826-0.22557 0.24925-0.07121 0.08703-0.13049 0.18203-0.17796 0.28489-0.04352 0.10286-0.0653 0.21749-0.0653 0.34408 0 0.08704 0.0079 0.17013 0.02368 0.24925h0.46285c-4e-3 -0.01978-0.0059-0.04144-0.0059-0.06518v-0.0653c0-0.13055 0.02571-0.24734 0.07714-0.35019 0.05143-0.10681 0.11476-0.20371 0.18993-0.29074 0.07516-0.09099 0.15813-0.17801 0.24912-0.26109s0.17408-0.1701 0.24925-0.26108c0.07517-0.09099 0.1385-0.18789 0.18993-0.29074 0.05143-0.10682 0.07714-0.22752 0.07714-0.36203 0-0.10681-0.01773-0.21752-0.05334-0.33224-0.03165-0.11868-0.09105-0.22559-0.17809-0.32053-0.08703-0.09494-0.20369-0.17208-0.35007-0.23142-0.14242-0.0633-0.32646-0.09496-0.55196-0.09496zm-1.5752 1.1098-2.5635 1.086v0.47469l2.5635 1.086 0.15428-0.45699-2.1066-0.86638 2.1066-0.86638zm3.3394 0-0.15428 0.45687 2.1066 0.86638-2.1066 0.86638 0.15428 0.45699 2.5636-1.086v-0.47469zm-1.8592 2.3796c-0.12264 0-0.21954 0.03952-0.29075 0.11864-0.07121 0.079119-0.1068 0.17209-0.1068 0.27891s0.03559 0.19978 0.1068 0.27891c0.07121 0.07912 0.16811 0.11877 0.29075 0.11877s0.21966-0.03965 0.29087-0.11877 0.1068-0.17209 0.1068-0.27891c0-0.10681-0.03559-0.19978-0.1068-0.27891-0.07121-0.07912-0.16823-0.11864-0.29087-0.11864z" enable-background="new" fill="#8f76e4"/>
 </svg>

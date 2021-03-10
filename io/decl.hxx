@@ -196,6 +196,7 @@ struct LinkTarget {
 	mode_t mode = 0;
 	FileType type = FileType::Unknown;
 	i8 cycles = 1; // @cycles is set negative when circular symlink detected.
+	bool is_relative = false;
 	static const i8 MaxCycles = 6;
 	
 	LinkTarget* Clone() {
@@ -204,6 +205,7 @@ struct LinkTarget {
 		p->chain_ids_ = chain_ids_;
 		p->chain_paths_ = chain_paths_;
 		p->type = type;
+		p->is_relative = is_relative;
 		p->cycles = cycles;
 		return p;
 	}

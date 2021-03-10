@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 Project(Cornus)
-#cmake_policy(SET CMP0100 NEW)
+if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.17)
+    cmake_policy(SET CMP0100 NEW)
+endif()
 
 # https://cmake.org/cmake/help/latest/prop_tgt/CXX_STANDARD.html
 set(CMAKE_CXX_STANDARD 17)

@@ -173,7 +173,10 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	QString text;
 	if (file->is_regular()) {
 	} else if (file->is_symlink()) {
-		text = QLatin1String("L");
+		if (file->link_target() != nullptr && file->link_target()->is_relative)
+			text = QLatin1String("l");
+		else
+			text = QLatin1String("L");
 	} else if (file->is_bloc_device()) {
 		text = QLatin1String("B");
 	} if (file->is_char_device()) {

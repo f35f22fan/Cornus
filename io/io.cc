@@ -737,6 +737,54 @@ PasteLinks(const QVector<QString> &full_paths, QString target_dir,
 	return first_successful;
 }
 
+QString
+PasteRelativeLinks(const QVector<QString> &full_paths, QString target_dir,
+	QString *error)
+{
+	if (!target_dir.endsWith('/'))
+		target_dir.append('/');
+	
+	QString first_successful;
+	
+	for (const QString &in_full_path: full_paths)
+	{
+		QString filename = io::GetFileNameOfFullPath(in_full_path).toString();
+		if (filename.isEmpty()) {
+			mtl_trace();
+			continue;
+		}
+		QString target = in_full_path;
+		if (target.startsWith(target_dir)) {
+			target = target.mid(target_dir.size());
+		}
+		auto target_path_ba = target.toLocal8Bit();
+		i32 next = 0;
+		while (true)
+		{
+			QString full_path = target_dir + io::NewNamePattern(filename, next);
+			auto link_path_ba = full_path.toLocal8Bit();
+			
+			int status = symlink(target_path_ba.data(), link_path_ba.data());
+//			mtl_info("status %d", status);
+//			mtl_info("target: %s", target_path_ba.data());
+//			mtl_info("link_path_ba: %s", link_path_ba.data());
+			if (status == 0) {
+				if (first_successful.isEmpty())
+					first_successful = full_path;
+				break;
+			} else if (errno == EEXIST) {
+				continue;
+			} else {
+				if (error != nullptr)
+					*error = strerror(errno);
+				break;
+			}
+		}
+	}
+	
+	return first_successful;
+}
+
 void ProcessMime(QString &mime)
 {
 	const auto PlainText = QLatin1String("text/plain");
@@ -807,7 +855,9 @@ bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &par
 	
 	buf[nbytes] = 0;
 	QString full_target_path = QString::fromLocal8Bit(buf, nbytes);
+	bool is_relative = false;
 	if (!full_target_path.startsWith('/')) {
+		is_relative = true;
 		QString s = parent_dir;
 		if (!parent_dir.endsWith('/'))
 			s.append('/');
@@ -828,8 +878,6 @@ bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &par
 			}
 			QString parent_dir2 = dir.absolutePath();
 			link_target.cycles++;
-//			mtl_info("%s", ba.data());
-//			mtl_printq2("parent_dir2: ", parent_dir2);
 			return ReadLink(ba.data(), link_target, parent_dir2);
 		}
 	} else {
@@ -837,9 +885,9 @@ bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &par
 //		return;
 	}
 	
-//	mtl_printq2("full_target_path: ", full_target_path);
 	link_target.chain_paths_.append(full_target_path);
 	link_target.path = full_target_path;
+	link_target.is_relative = is_relative;
 	link_target.mode = st.st_mode;
 	link_target.type = MapPosixTypeToLocal(st.st_mode);
 	

@@ -16,13 +16,7 @@ class History;
 class MutexGuard;
 class Prefs;
 
-///#if QT_VERSION < QT_VERSION_CHECK(5, 15, 2)
-/// Only use .png because apparently Fedora disabled webp in its Qt5 build.
 const QString AppIconPath = QLatin1String(":/cornus.mas.png");
-///#else
-///const QString AppIconPath = QLatin1String(":/cornus.mas.webp");
-///#endif
-
 const char *const SocketPath = "\0cornus_socket";
 
 enum class ThemeType: i8 {

@@ -211,6 +211,25 @@ Table::ActionPasteLinks()
 	}
 }
 
+void
+Table::ActionPasteRelativeLinks()
+{
+	const Clipboard &clipboard = app_->clipboard();
+	QString err;
+	QString first_one = io::PasteRelativeLinks(clipboard.file_paths, app_->current_dir(), &err);
+	model_->set_scroll_to_and_select(first_one);
+	
+	if (clipboard.action == ClipboardAction::Cut)
+	{
+		/// Not using qclipboard->clear() because it doesn't work:
+		QApplication::clipboard()->setMimeData(new QMimeData());
+	}
+	
+	if (!err.isEmpty()) {
+		app_->TellUser(tr("Paste Link Error: ") + err);
+	}
+}
+
 bool
 Table::AnyArchive(const QVector<QString> &extensions) const
 {
@@ -1483,6 +1502,13 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 			});
 			action->setIcon(QIcon::fromTheme(QLatin1String("edit-paste")));
 		}
+		{
+			QAction *action = menu->addAction(tr("Paste Relative Link") + file_count_str);
+			connect(action, &QAction::triggered, [this] {
+				ActionPasteRelativeLinks();
+			});
+			action->setIcon(QIcon::fromTheme(QLatin1String("edit-paste")));
+		}
 		menu->addSeparator();
 	}
 	
@@ -1736,15 +1762,19 @@ Table::SyncWith(const cornus::Clipboard &cl, QVector<int> &indices)
 }
 
 void
-Table::UpdateLineHeight() {
-	auto fm = fontMetrics();
-	int str_h = fm.height();
-	int ln = str_h * 1.3;
+Table::UpdateLineHeight()
+{
 	auto *vh = verticalHeader();
-	vh->setMinimumSectionSize(str_h);
-	vh->setMaximumSectionSize(ln);
+	if (false) {
+		auto fm = fontMetrics();
+		int str_h = fm.height();
+		int ln = str_h * 1.5;
+
+		vh->setMinimumSectionSize(str_h);
+		vh->setMaximumSectionSize(ln);
+		vh->setDefaultSectionSize(ln);
+	}
 	vh->setSectionResizeMode(QHeaderView::Fixed);
-	vh->setDefaultSectionSize(ln);
 	vh->setSectionsMovable(false);
 }
 

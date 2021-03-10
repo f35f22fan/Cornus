@@ -34,7 +34,7 @@ private:
 		const QStyleOptionViewItem &option, QFontMetrics &fm,
 		const QRect &text_rect) const;
 	
-	void DrawIcon(QPainter *painter, io::File *file,
+	void DrawIcon(QPainter *painter, io::File *file, const int row,
 		const QStyleOptionViewItem &option, QFontMetrics &fm,
 		const QRect &text_rect) const;
 	

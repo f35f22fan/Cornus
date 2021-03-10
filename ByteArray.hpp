@@ -56,7 +56,7 @@ public:
 	bool Receive(int fd, bool close_socket = true);
 	bool Send(int fd, bool close_socket = true) const;
 	void set_msg_id(const io::socket::MsgBits msg_id);
-	
+	QString toString() const { return QString::fromLocal8Bit(data_, size_); }
 private:
 	
 	char *data_ = nullptr;

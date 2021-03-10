@@ -70,12 +70,15 @@ public:
 	gui::Table* table() const { return table_; }
 	void TellUser(const QString &msg, const QString title = QString());
 	bool TestExecBuf(const char *buf, const isize size, ExecInfo &ret);
+	ThemeType theme_type() const { return theme_type_; }
 	io::Files& view_files() { return view_files_; }
 	bool ViewIsAt(const QString &dir_path) const;
 	
 public slots:
 	void GoToFinish(cornus::io::FilesData *new_data);
 	
+protected:
+	bool event(QEvent *event) override;
 private:
 	NO_ASSIGN_COPY_MOVE(App);
 	
@@ -84,6 +87,7 @@ private:
 	void ClipboardChanged(QClipboard::Mode mode);
 	QMenu* CreateNewMenu();
 	void CreateGui();
+	void DetectThemeType();
 	void DisplayMime(io::File *file);
 	void DisplaySymlinkInfo(io::File &file);
 	QString GetIconName(const QString &trunc);
@@ -144,6 +148,7 @@ private:
 	gui::SearchPane *search_pane_ = nullptr;
 	Category desktop_ = Category::None;
 	QHash<QString, Category> possible_categories_;
+	ThemeType theme_type_ = ThemeType::None;
 	
 	friend class cornus::gui::Table;
 };

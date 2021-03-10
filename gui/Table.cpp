@@ -471,7 +471,7 @@ Table::GetFileAt(const int row)
 }
 
 io::File*
-Table::GetFileAtNTS(const QPoint &pos, const bool clone, int *ret_file_index)
+Table::GetFileAtNTS(const QPoint &pos, const Clone clone, int *ret_file_index)
 {
 	int row = rowAt(pos.y());
 	if (row == -1) {
@@ -490,7 +490,7 @@ Table::GetFileAtNTS(const QPoint &pos, const bool clone, int *ret_file_index)
 	
 	io::File *file = vec[row];
 
-	return clone ? file->Clone() : file;
+	return (clone == Clone::Yes) ? file->Clone() : file;
 }
 
 int
@@ -810,34 +810,57 @@ Table::HandleMouseSelectionNoModif(const QPoint &pos, QVector<int> &indices,
 
 void Table::HiliteFileUnderMouse()
 {
-	int row = -1;
+	i32 name_row = -1, icon_row = -1;
 	{
 		io::Files &files = app_->view_files();
 		MutexGuard guard(&files.mutex);
-		row = IsOnFileNameStringNTS(mouse_pos_, nullptr);
+		name_row = IsOnFileNameStringNTS(mouse_pos_, nullptr);
+		if (name_row == -1)
+			icon_row = IsOnFileIconNTS(mouse_pos_, nullptr);
 	}
 	
 	bool repaint = false;
-	i32 old_row = mouse_over_file_name_;
-	if (row != mouse_over_file_name_) {
+	const i32 old_row = (icon_row != -1) ? mouse_over_file_icon_ : mouse_over_file_name_;
+	if (icon_row != mouse_over_file_icon_) {
 		repaint = true;
-		mouse_over_file_name_ = row;
+		mouse_over_file_icon_ = icon_row;
+	} else if (name_row != mouse_over_file_name_) {
+		repaint = true;
+		mouse_over_file_name_ = name_row;
 	}
 	
 	if (repaint) {
-		QVector<int> rows = {old_row, mouse_over_file_name_};
+		const i32 new_row = (icon_row != -1) ? mouse_over_file_icon_ : mouse_over_file_name_;
+		QVector<int> rows = {old_row, new_row};
 		model_->UpdateIndices(rows);
 	}
 }
 
-int
+i32
+Table::IsOnFileIconNTS(const QPoint &local_pos, io::File **ret_file)
+{
+	i32 col = columnAt(local_pos.x());
+	if (col != (int)Column::Icon) {
+		return -1;
+	}
+	io::File *file = GetFileAtNTS(local_pos, Clone::No);
+	if (file == nullptr)
+		return -1;
+	
+	if (ret_file != nullptr)
+		*ret_file = file;
+	
+	return rowAt(local_pos.y());
+}
+
+i32
 Table::IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file)
 {
 	i32 col = columnAt(local_pos.x());
 	if (col != (int)Column::FileName) {
 		return -1;
 	}
-	io::File *file = GetFileAtNTS(local_pos, false);
+	io::File *file = GetFileAtNTS(local_pos, Clone::No);
 	if (file == nullptr)
 		return -1;
 	
@@ -931,9 +954,12 @@ Table::LaunchFromOpenWithMenu()
 }
 
 void
-Table::leaveEvent(QEvent *evt) {
-	int row = mouse_over_file_name_;
+Table::leaveEvent(QEvent *evt)
+{
+	const i32 row = (mouse_over_file_name_ == -1)
+		? mouse_over_file_icon_ : mouse_over_file_name_;
 	mouse_over_file_name_ = -1;
+	mouse_over_file_icon_ = -1;
 	model_->UpdateSingleRow(row);
 }
 
@@ -967,19 +993,15 @@ Table::mouseDoubleClickEvent(QMouseEvent *evt)
 	auto *app = model_->app();
 	
 	if (evt->button() == Qt::LeftButton) {
-		if (col == i32(Column::Icon)) {
+		if (col == i32(Column::FileName)) {
 			io::Files &files = app_->view_files();
 			io::File *cloned_file = nullptr;
 			{
 				MutexGuard guard(&files.mutex);
-				cloned_file = GetFileAtNTS(evt->pos(), true);
+				cloned_file = GetFileAtNTS(evt->pos(), Clone::Yes);
 			}
-			if (cloned_file != nullptr)
-				app->FileDoubleClicked(cloned_file, Column::Icon);
-		} else if (col == i32(Column::FileName)) {
-			io::File *cloned_file = nullptr;
-			int row = GetFirstSelectedFile(&cloned_file);
-			if (row != -1)
+			
+			if (cloned_file)
 				app->FileDoubleClicked(cloned_file, Column::FileName);
 		}
 	}
@@ -1030,9 +1052,7 @@ Table::mousePressEvent(QMouseEvent *evt)
 	}
 	
 	if (right_click) {
-		{
-			HandleMouseRightClickSelection(evt->pos(), indices);
-		}
+		HandleMouseRightClickSelection(evt->pos(), indices);
 		ShowRightClickMenu(evt->globalPos(), evt->pos());
 	}
 	
@@ -1054,6 +1074,21 @@ Table::mouseReleaseEvent(QMouseEvent *evt)
 		HandleMouseSelectionNoModif(evt->pos(), indices, false);
 	
 	model_->UpdateIndices(indices);
+	
+	if (evt->button() == Qt::LeftButton) {
+		const i32 col = columnAt(evt->pos().x());
+		if (col == i32(Column::Icon))
+		{
+			io::Files &files = app_->view_files();
+			io::File *cloned_file = nullptr;
+			{
+				MutexGuard guard(&files.mutex);
+				cloned_file = GetFileAtNTS(evt->pos(), Clone::Yes);
+			}
+			if (cloned_file)
+				app_->FileDoubleClicked(cloned_file, Column::Icon);
+		}
+	}
 }
 
 void

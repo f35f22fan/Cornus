@@ -29,7 +29,7 @@ public:
 	TableModel* model() const { return model_; }
 	const QPoint& drop_coord() const { return drop_coord_; }
 	virtual void dropEvent(QDropEvent *event) override;
-	io::File* GetFileAtNTS(const QPoint &pos, const bool clone, int *ret_file_index = nullptr);
+	io::File* GetFileAtNTS(const QPoint &pos, const Clone clone, int *ret_file_index = nullptr);
 	io::File* GetFileAt(const int row); /// returns cloned file
 	void GetSelectedArchives(QVector<QString> &urls);
 	/// returns row index & cloned file if on file name, otherwise -1
@@ -43,6 +43,8 @@ public:
 	int GetSelectedFilesCount(QVector<QString> *extensions = nullptr);
 	i32 GetVisibleRowsCount() const;
 	bool mouse_down() const { return mouse_down_; }
+	i32 mouse_over_file_icon_index() const { return mouse_over_file_icon_; }
+	void mouse_over_file_icon_index(const i32 n) { mouse_over_file_icon_ = n; }
 	i32 mouse_over_file_name_index() const { return mouse_over_file_name_; }
 	void mouse_over_file_name_index(const i32 n) { mouse_over_file_name_ = n; }
 	const OpenWith& open_with() const { return open_with_; }
@@ -97,7 +99,8 @@ private:
 	void HandleMouseSelectionShift(const QPoint &pos, QVector<int> &indices);
 	void HandleMouseSelectionNoModif(const QPoint &pos, QVector<int> &indices, bool mouse_pressed);
 	void HiliteFileUnderMouse();
-	int IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file = nullptr);
+	i32 IsOnFileIconNTS(const QPoint &local_pos, io::File **ret_file = nullptr);
+	i32 IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file = nullptr);
 	void LaunchFromOpenWithMenu();
 	QPair<int, int> ListSelectedFiles(QList<QUrl> &list);
 	void SelectFileRangeNTS(const int row_start, const int row_end, QVector<int> &indices);
@@ -113,7 +116,7 @@ private:
 	TableDelegate *delegate_ = nullptr;
 	bool mouse_down_ = false;
 	i32 mouse_over_file_name_ = -1;
-	
+	i32 mouse_over_file_icon_ = -1;
 	struct ShiftSelect {
 		int base_row = -1;
 		int head_row = -1;

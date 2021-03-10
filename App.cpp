@@ -264,6 +264,7 @@ App::App()
 	connect(clipboard, &QClipboard::changed, this, &App::ClipboardChanged);
 	
 	ClipboardChanged(QClipboard::Clipboard);
+	DetectThemeType();
 }
 
 App::~App()
@@ -614,6 +615,16 @@ i32 App::current_dir_id() const
 	return view_files_.data.dir_id;
 }
 
+void App::DetectThemeType()
+{
+	const QStyleOptionViewItem option = side_pane_->option();
+	const QColor c = option.palette.window().color();
+	const i32 avg = (c.red() + c.green() + c.blue()) / 3;
+	theme_type_ = (avg > 150) ? ThemeType::Light : ThemeType::Dark;
+//	mtl_info("avg: %d, light: %s", avg, (theme_type_ == ThemeType::Light)
+//		? "true" : "false");
+}
+
 void App::DisplayFileContents(const int row, io::File *cloned_file)
 {
 	if (cloned_file == nullptr)
@@ -675,6 +686,24 @@ void App::DisplaySymlinkInfo(io::File &file)
 	}
 	
 	dialog.exec();
+}
+
+bool App::event(QEvent *evt)
+{
+/** NB: Retain the order - first call QWidget::event(evt) and then
+ everything else, otherwise DetectThemeType() won't get called
+ before the other widgets get repainted with the new theme. */
+	const auto ret = QWidget::event(evt);
+	switch (evt->type())
+	{
+	case QEvent::ApplicationPaletteChange: {
+		DetectThemeType();
+		break;
+	}
+	default:;
+	}
+	
+	return ret;
 }
 
 void App::ExtractAskDestFolder()
@@ -1525,16 +1554,11 @@ void App::SetDefaultIcon(io::File &file) {
 	}
 }
 
-void App::SetupIconNames() {
-	// .exe, .rpm, .run, .iso
-	
-	// in /media/data/Documents/BitcoinData/:
-	// .log = text/x-log
-	// .dat = application/octet-stream
-	
+void App::SetupIconNames()
+{
 	QDir dir(QCoreApplication::applicationDirPath());
 	const QString folder_name = QLatin1String("file_icons");
-	bool InLocalPath = true;
+	bool found = true;
 	
 	if (!dir.exists(folder_name)) {
 		if (!dir.cdUp()) {
@@ -1543,10 +1567,10 @@ void App::SetupIconNames() {
 		}
 	
 		if (!dir.exists(folder_name))
-			InLocalPath = false;
+			found = false;
 	}
 
-	icons_dir_ = InLocalPath ? dir.absoluteFilePath(folder_name) :
+	icons_dir_ = found ? dir.absoluteFilePath(folder_name) :
 		QLatin1String("/usr/share/cornus/") + folder_name;
 	
 	if (io::ListFileNames(icons_dir_, available_icon_names_) != io::Err::Ok) {

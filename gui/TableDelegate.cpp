@@ -75,8 +75,21 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 				c = QColor(10, 255, 10);
 		} else {
 			c = option.palette.highlight().color();
-			if (mouse_over && !file->selected())
-				c = c.lighter(150);
+			if (mouse_over && !file->selected()) {
+				const ThemeType t = app_->theme_type();
+				if (t == ThemeType::Dark) {
+					c = QColor(90, 90, 90);
+				} else if (t == ThemeType::Light) {
+					QColor n = c.lighter(180);
+					const int avg = (n.red() + n.green() + n.blue()) / 3;
+					if (avg >= 240)
+						c = c.lighter(140);
+					else
+						c = n;
+				} else {
+					mtl_trace();
+				}
+			}
 		}
 		QPainterPath path;
 		int less = 2;
@@ -141,9 +154,22 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 
 void
 TableDelegate::DrawIcon(QPainter *painter, io::File *file,
+	const int row,
 	const QStyleOptionViewItem &option, QFontMetrics &fm,
 	const QRect &text_rect) const
 {
+	const bool mouse_over = table_->mouse_over_file_icon_index() == row;
+	
+	if (mouse_over)
+	{
+		const ThemeType t = app_->theme_type();
+		const QColor c = (t == ThemeType::Light)
+			? QColor(150, 255, 150) : QColor(0, 80, 0);
+		
+		QRectF sel_rect = option.rect;
+		painter->fillRect(sel_rect, c);
+	}
+	
 	QString text;
 	if (file->is_regular()) {
 	} else if (file->is_symlink()) {
@@ -268,7 +294,7 @@ TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 	}
 	
 	if (col == Column::Icon) {
-		DrawIcon(painter, file, option, fm, text_rect);
+		DrawIcon(painter, file, row, option, fm, text_rect);
 	} else if (col == Column::FileName) {
 		DrawFileName(painter, file, row, option, fm, text_rect);
 	} else if (col == Column::Size) {

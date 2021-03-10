@@ -25,6 +25,17 @@ const QString AppIconPath = QLatin1String(":/cornus.mas.png");
 
 const char *const SocketPath = "\0cornus_socket";
 
+enum class ThemeType: i8 {
+	None,
+	Light,
+	Dark,
+};
+
+enum class Clone: i8 {
+	Yes,
+	No,
+};
+
 enum class Bool: i8 {
 	Yes,
 	No,

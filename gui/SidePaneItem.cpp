@@ -121,7 +121,7 @@ SidePaneItem::ReadStats() {
 	QString dev_path = full_path + QLatin1String("/dev");
 	buf.to(0);
 	CHECK_TRUE_VOID((io::ReadFile(dev_path, buf) == io::Err::Ok));
-	s = QString::fromLocal8Bit(buf.data(), buf.size()).trimmed();
+	s = buf.toString().trimmed();
 	auto list = s.splitRef(':');
 	i64 n = list[0].toLong(&ok);
 	if (ok) {

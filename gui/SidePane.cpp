@@ -411,7 +411,6 @@ void
 SidePane::paintEvent(QPaintEvent *evt)
 {
 	QTableView::paintEvent(evt);
-	
 	if (drop_coord_.y() == -1)
 		return;
 	

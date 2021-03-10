@@ -20,8 +20,7 @@
 namespace cornus::gui {
 namespace sidepane {
 
-bool
-SortSidePanes(SidePaneItem *a, SidePaneItem *b) 
+bool SortSidePanes(SidePaneItem *a, SidePaneItem *b) 
 {
 /** Note: this function MUST be implemented with strict weak ordering
   otherwise it randomly crashes (because of undefined behavior),
@@ -78,6 +77,7 @@ void LoadDrivePartitions(QString dir_path, QVector<SidePaneItem*> &vec)
 	if (!dir_path.endsWith('/'))
 		dir_path.append('/');
 	
+///	mtl_printq2("Dir path: ", dir_path);
 	QVector<QString> names;
 	CHECK_TRUE_VOID((io::ListFileNames(dir_path, names) == io::Err::Ok));
 	const QString sd_abc = QLatin1String("sd");

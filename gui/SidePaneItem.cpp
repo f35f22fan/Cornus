@@ -116,7 +116,7 @@ SidePaneItem::ReadStats()
 			return;
 		start++; /// skip '/'
 		drive_name = dev_path_.midRef(start, end - start);
-		partition_name = dev_path_.midRef(end);
+		partition_name = dev_path_.midRef(start);
 	}
 	
 	QString full_path = QLatin1String("/sys/block/") + drive_name

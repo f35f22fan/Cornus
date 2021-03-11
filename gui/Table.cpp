@@ -179,12 +179,21 @@ Table::ActionPaste()
 	QString to_dir = app_->current_dir();
 	ba->add_string(to_dir);
 	ba->add_i32(clipboard.file_paths.size());
-	
+	QString first_one;
 	for (const auto &next: clipboard.file_paths) {
+		if (first_one.isEmpty()) {
+			QString filename = io::GetFileNameOfFullPath(next).toString();
+			first_one = to_dir;
+			if (!first_one.endsWith('/'))
+				first_one.append('/');
+			first_one.append(filename);
+			mtl_printq2("first_one: ", first_one);
+		}
 		ba->add_string(next);
 	}
 	
 	io::socket::SendAsync(ba);
+	model_->set_scroll_to_and_select(first_one);
 	
 	if (clipboard.action == ClipboardAction::Cut) {
 		/// Not using qclipboard->clear() because it doesn't work:
@@ -193,32 +202,21 @@ Table::ActionPaste()
 }
 
 void
-Table::ActionPasteLinks()
+Table::ActionPasteLinks(const LinkType link)
 {
 	const Clipboard &clipboard = app_->clipboard();
 	QString err;
-	QString first_one = io::PasteLinks(clipboard.file_paths, app_->current_dir(), &err);
-	model_->set_scroll_to_and_select(first_one);
-	
-	if (clipboard.action == ClipboardAction::Cut)
-	{
-		/// Not using qclipboard->clear() because it doesn't work:
-		QApplication::clipboard()->setMimeData(new QMimeData());
+	QString first_one;
+	if (link == LinkType::Absolute)
+		first_one = io::PasteLinks(clipboard.file_paths, app_->current_dir(), &err);
+	else if (link == LinkType::Relative)
+		first_one = io::PasteRelativeLinks(clipboard.file_paths, app_->current_dir(), &err);
+	else {
+		mtl_trace();
+		return;
 	}
 	
-	if (!err.isEmpty()) {
-		app_->TellUser(tr("Paste Link Error: ") + err);
-	}
-}
-
-void
-Table::ActionPasteRelativeLinks()
-{
-	const Clipboard &clipboard = app_->clipboard();
-	QString err;
-	QString first_one = io::PasteRelativeLinks(clipboard.file_paths, app_->current_dir(), &err);
 	model_->set_scroll_to_and_select(first_one);
-	
 	if (clipboard.action == ClipboardAction::Cut)
 	{
 		/// Not using qclipboard->clear() because it doesn't work:
@@ -1498,14 +1496,14 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 		{
 			QAction *action = menu->addAction(tr("Paste Link") + file_count_str);
 			connect(action, &QAction::triggered, [this] {
-				ActionPasteLinks();
+				ActionPasteLinks(LinkType::Absolute);
 			});
 			action->setIcon(QIcon::fromTheme(QLatin1String("edit-paste")));
 		}
 		{
 			QAction *action = menu->addAction(tr("Paste Relative Link") + file_count_str);
 			connect(action, &QAction::triggered, [this] {
-				ActionPasteRelativeLinks();
+				ActionPasteLinks(LinkType::Relative);
 			});
 			action->setIcon(QIcon::fromTheme(QLatin1String("edit-paste")));
 		}

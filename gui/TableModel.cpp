@@ -478,7 +478,6 @@ TableModel::InotifyEvent(gui::FileEvent evt)
 	}
 	
 	struct statx stx;
-	
 	switch (evt.type) {
 	case FileEventType::Changed: {
 #ifdef CORNUS_DEBUG_INOTIFY
@@ -578,10 +577,11 @@ Hence the table can't scroll to it (returns false) as long as it hasn't
 received the new file name from the inotify thread. Which means that if
 it returns true all jobs are done (rename event processed, table
 found the new file, selected and scrolled to it). */
-		if (app_->table()->ScrollToAndSelect(scroll_to_and_select_))
+		if (app_->table()->ScrollToAndSelect(scroll_to_and_select_)) {
 			scroll_to_and_select_.clear();
-		else
+		} else {
 			tried_to_scroll_to_count_++;
+		}
 		
 		if (tried_to_scroll_to_count_ > 5) {
 			tried_to_scroll_to_count_ = 0;

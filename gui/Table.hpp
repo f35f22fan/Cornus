@@ -80,8 +80,7 @@ private:
 	void ActionCopy(QVector<int> &indices);
 	void ActionCut(QVector<int> &indices);
 	void ActionPaste();
-	void ActionPasteLinks();
-	void ActionPasteRelativeLinks();
+	void ActionPasteLinks(const LinkType link);
 	void AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path);
 	bool AnyArchive(const QVector<QString> &extensions) const;
 	void ClearDndAnimation(const QPoint &drop_coord);

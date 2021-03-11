@@ -95,10 +95,8 @@ void LoadUnmountedPartitions(QVector<SidePaneItem*> &vec)
 	QVector<QString> names;
 	const QString dir = QLatin1String("/sys/block/");
 	CHECK_TRUE_VOID((io::ListFileNames(dir, names) == io::Err::Ok));
-	const QString prefix = QLatin1String("sd");
-	
 	for (const QString &name: names) {
-		if (name.startsWith(prefix)) {
+		if (name.startsWith("sd") || name.startsWith("nvme")) {
 			LoadDrivePartitions(dir + name, vec);
 		}
 	}
@@ -115,16 +113,13 @@ void* LoadItems(void *args)
 /// mtl_info("Have read: %ld bytes", buf.size());
 	QString s = QString::fromLocal8Bit(buf.data(), buf.size());
 	auto list = s.splitRef('\n');
-	const QString prefix = QLatin1String("/dev/sd");
 	const QString skip_mount = QLatin1String("/boot/");
-	const QString skip_mount2 = QLatin1String("/home");
+	const QString skip_mount2 = QLatin1String("/home/");
 	InsertArgs method_args;
 	
 	for (auto &line: list)
 	{
-		if (!line.startsWith(prefix))
-			continue;
-		
+		if (line.startsWith("/dev/nvme") || line.startsWith("/dev/sd")) {
 		auto args = line.split(" ");
 		QStringRef mount_path = args[1];
 		
@@ -139,6 +134,7 @@ void* LoadItems(void *args)
 		p->type(gui::SidePaneItemType::Partition);
 		p->Init();
 		method_args.vec.append(p);
+		}
 	}
 	
 	LoadUnmountedPartitions(method_args.vec);

@@ -19,6 +19,11 @@ class Prefs;
 const QString AppIconPath = QLatin1String(":/cornus.mas.png");
 const char *const SocketPath = "\0cornus_socket";
 
+enum class Zoom: i8 {
+	In,
+	Out
+};
+
 enum class LinkType: i8 {
 	Absolute,
 	Relative

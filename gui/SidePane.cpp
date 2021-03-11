@@ -7,6 +7,7 @@
 #include "../io/io.hh"
 #include "../io/File.hpp"
 #include "../MutexGuard.hpp"
+#include "../Prefs.hpp"
 #include "SidePaneItem.hpp"
 #include "SidePaneModel.hpp"
 #include "TableDelegate.hpp"
@@ -789,6 +790,20 @@ SidePane::UpdateLineHeight()
 	}
 	vh->setSectionResizeMode(QHeaderView::Fixed);
 	vh->setSectionsMovable(false);
+}
+
+void
+SidePane::wheelEvent(QWheelEvent *evt)
+{
+	if (evt->modifiers() & Qt::ControlModifier)
+	{
+		auto y = evt->angleDelta().y();
+		const Zoom zoom = (y > 0) ? Zoom::In : Zoom::Out;
+		app_->prefs().AdjustCustomTableSize(zoom);
+		evt->ignore();
+	} else {
+		QTableView::wheelEvent(evt);
+	}
 }
 
 } // cornus::gui::

@@ -27,6 +27,7 @@ private:
 	
 	QDialogButtonBox *button_box_ = nullptr;
 	
+	QCheckBox *mark_extended_attrs_disabled_ = nullptr;
 	QCheckBox *show_hidden_files_ = nullptr;
 	QCheckBox *show_ms_files_loaded_ = nullptr;
 	QCheckBox *show_free_partition_space_ = nullptr;

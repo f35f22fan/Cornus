@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BasicTable.hpp"
 #include "../decl.hxx"
 #include "decl.hxx"
 #include "../io/decl.hxx"
@@ -13,7 +14,7 @@
 
 namespace cornus::gui {
 
-class SidePane : public QTableView {
+class SidePane : public BasicTable {
 	Q_OBJECT
 public:
 	SidePane(SidePaneModel *tm, App *app);
@@ -32,6 +33,7 @@ public:
 	void ProcessAction(const QString &action);
 	void SelectProperPartition(const QString &full_path);
 	void SelectRowSimple(const int row, const bool skip_update = false);
+	virtual void UpdateColumnSizes() override {}
 public slots:
 	void ClearEventInProgress(QString dev_path, QString error_msg);
 	void DeselectAllItems(const int except_row, const bool row_flag, QVector<int> &indices);
@@ -48,7 +50,7 @@ protected:
 	virtual void mouseMoveEvent(QMouseEvent *evt) override;
 	virtual void mousePressEvent(QMouseEvent *event) override;
 	virtual void mouseReleaseEvent(QMouseEvent *evt) override;
-	
+	virtual void wheelEvent(QWheelEvent *evt) override;
 	virtual void paintEvent(QPaintEvent *event) override;
 	virtual void resizeEvent(QResizeEvent *event) override;
 private:

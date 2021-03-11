@@ -4,6 +4,7 @@
 #include "decl.hxx"
 #include "../io/decl.hxx"
 #include "../err.hpp"
+#include "BasicTable.hpp"
 
 #include <QAbstractTableModel>
 #include <QMouseEvent>
@@ -17,7 +18,7 @@ struct OpenWith {
 	QVector<DesktopFile*> remove_vec;
 };
 
-class Table : public QTableView {
+class Table : public BasicTable {
 	Q_OBJECT
 public:
 	Table(TableModel *tm, App *app);
@@ -56,7 +57,7 @@ public:
 	void SelectRowSimple(const int row, const bool deselect_others = false);
 	void ShowVisibleColumnOptions(QPoint pos);
 	void SyncWith(const cornus::Clipboard &cl, QVector<int> &indices);
-	
+	virtual void UpdateColumnSizes() override { SetCustomResizePolicy(); }
 public slots:
 	bool ScrollToAndSelect(QString full_path);
 	
@@ -72,8 +73,10 @@ protected:
 	virtual void mouseMoveEvent(QMouseEvent *evt) override;
 	virtual void mousePressEvent(QMouseEvent *evt) override;
 	virtual void mouseReleaseEvent(QMouseEvent *evt) override;
-	
+	virtual void wheelEvent(QWheelEvent *event) override;
 	virtual void paintEvent(QPaintEvent *evt) override;
+	
+	
 private:
 	NO_ASSIGN_COPY_MOVE(Table);
 	

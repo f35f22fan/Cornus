@@ -187,7 +187,6 @@ Table::ActionPaste()
 			if (!first_one.endsWith('/'))
 				first_one.append('/');
 			first_one.append(filename);
-			mtl_printq2("first_one: ", first_one);
 		}
 		ba->add_string(next);
 	}
@@ -1774,6 +1773,20 @@ Table::UpdateLineHeight()
 	}
 	vh->setSectionResizeMode(QHeaderView::Fixed);
 	vh->setSectionsMovable(false);
+}
+
+void
+Table::wheelEvent(QWheelEvent *evt)
+{
+	if (evt->modifiers() & Qt::ControlModifier)
+	{
+		auto y = evt->angleDelta().y();
+		const Zoom zoom = (y > 0) ? Zoom::In : Zoom::Out;
+		app_->prefs().AdjustCustomTableSize(zoom);
+		evt->ignore();
+	} else {
+		QTableView::wheelEvent(evt);
+	}
 }
 
 } // cornus::gui::

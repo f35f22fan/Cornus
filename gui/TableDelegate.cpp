@@ -187,7 +187,7 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 		text = QLatin1String("P");
 	}
 	
-	if (file->has_ext_attrs()) {
+	if (!app_->prefs().mark_extended_attrs_disabled() && file->has_ext_attrs()) {
 		text.append("\u2022");
 	}
 	

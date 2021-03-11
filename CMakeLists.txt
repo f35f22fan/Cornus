@@ -46,6 +46,7 @@ set(cornus_src_files main.cpp
     Prefs.cpp Prefs.hpp
     
     gui/actions.hxx
+    gui/BasicTable.hpp
     gui/CountFolder.cpp gui/CountFolder.hpp
     gui/decl.hxx
     gui/Hiliter.cpp gui/Hiliter.hpp

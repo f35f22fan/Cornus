@@ -608,6 +608,8 @@ void App::CreateGui()
 		main_splitter_->setStretchFactor(0, 0);
 		main_splitter_->setStretchFactor(1, 1);
 	}
+
+	prefs_->UpdateTableSizes();
 }
 
 i32 App::current_dir_id() const

@@ -46,7 +46,7 @@ public:
 	
 	const QString& dev_path() const { return dev_path_; }
 	void dev_path(const QString &s) { dev_path_ = s;}
-	QString GetDevName() const;
+	QString GetPartitionName() const;
 	
 	const QString& fs() const { return fs_; }
 	void fs(const QString &s) { fs_ = s; }

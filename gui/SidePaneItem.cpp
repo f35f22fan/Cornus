@@ -79,7 +79,7 @@ SidePaneItem::DisplayString()
 }
 
 QString
-SidePaneItem::GetDevName() const
+SidePaneItem::GetPartitionName() const
 {
 	int index = dev_path_.lastIndexOf('/');
 	if (index == -1) {
@@ -98,13 +98,29 @@ SidePaneItem::Init()
 }
 
 void
-SidePaneItem::ReadStats() {
+SidePaneItem::ReadStats()
+{
+///	mtl_printq2("dev path: ", dev_path_);
 	int index = dev_path_.indexOf(QLatin1String("/sd"));
-	CHECK_TRUE_VOID((index != -1));
-	QStringRef sda_no_number = dev_path_.midRef(index + 1, 3);
-	QStringRef sda_with_number = dev_path_.midRef(index + 1);
-	QString full_path = QLatin1String("/sys/block/") + sda_no_number
-		+ '/' + sda_with_number;
+	QStringRef drive_name, partition_name;
+	if (index != -1)
+	{
+		drive_name = dev_path_.midRef(index + 1, 3);
+		partition_name = dev_path_.midRef(index + 1);
+	} else {
+		int start = dev_path_.indexOf(QLatin1String("/nvme"));
+		if (start == -1)
+			return;
+		int end = dev_path_.lastIndexOf('p');
+		if (end == -1)
+			return;
+		start++; /// skip '/'
+		drive_name = dev_path_.midRef(start, end - start);
+		partition_name = dev_path_.midRef(end);
+	}
+	
+	QString full_path = QLatin1String("/sys/block/") + drive_name
+		+ '/' + partition_name;
 	
 	QString size_path = full_path + QLatin1String("/size");
 	

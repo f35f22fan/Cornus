@@ -34,7 +34,7 @@ void* MountPartitionTh(void *p)
 	}
 	
 	QString object_name = QLatin1String("/org/freedesktop/UDisks2/block_devices/")
-		+ mps->partition->GetDevName();
+		+ mps->partition->GetPartitionName();
 	auto object_name_ba = object_name.toLocal8Bit();
 	
 	QDBusInterface iface(ServiceName, object_name_ba.data(),
@@ -95,7 +95,7 @@ void* UnmountPartitionTh(void *p)
 	}
 	
 	QString object_name = QLatin1String("/org/freedesktop/UDisks2/block_devices/")
-		+ mps->partition->GetDevName();
+		+ mps->partition->GetPartitionName();
 	auto object_name_ba = object_name.toLocal8Bit();
 	
 	QDBusInterface iface(ServiceName, object_name_ba.data(),

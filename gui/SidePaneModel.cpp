@@ -115,25 +115,28 @@ void* LoadItems(void *args)
 	auto list = s.splitRef('\n');
 	const QString skip_mount = QLatin1String("/boot/");
 	const QString skip_mount2 = QLatin1String("/home/");
+	const QString dev_nvme = QLatin1String("/dev/nvme");
+	const QString dev_sd = QLatin1String("/dev/sd");
 	InsertArgs method_args;
 	
 	for (auto &line: list)
 	{
-		if (line.startsWith("/dev/nvme") || line.startsWith("/dev/sd")) {
-		auto args = line.split(" ");
-		QStringRef mount_path = args[1];
-		
-		if (mount_path.startsWith(skip_mount) || mount_path == skip_mount2)
-			continue;
-		
-		auto *p = new gui::SidePaneItem();
-		p->dev_path(args[0].toString());
-		p->mount_path(mount_path.toString());
-		p->mounted(true);
-		p->fs(args[2].toString());
-		p->type(gui::SidePaneItemType::Partition);
-		p->Init();
-		method_args.vec.append(p);
+		if (line.startsWith(dev_nvme) || line.startsWith(dev_sd))
+		{
+			auto args = line.split(" ");
+			QStringRef mount_path = args[1];
+			
+			if (mount_path.startsWith(skip_mount) || mount_path == skip_mount2)
+				continue;
+			
+			auto *p = new gui::SidePaneItem();
+			p->dev_path(args[0].toString());
+			p->mount_path(mount_path.toString());
+			p->mounted(true);
+			p->fs(args[2].toString());
+			p->type(gui::SidePaneItemType::Partition);
+			p->Init();
+			method_args.vec.append(p);
 		}
 	}
 	

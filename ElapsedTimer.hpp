@@ -14,7 +14,9 @@ public:
 	
 	void Continue();
 	void Pause();
-	i64 elapsed_ms();
+	
+	i64 elapsed_mc();
+	i64 elapsed_ms() { return elapsed_mc() / 1000L; }
 	
 private:
 	NO_ASSIGN_COPY_MOVE(ElapsedTimer);

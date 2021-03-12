@@ -415,27 +415,6 @@ TableModel::columnCount(const QModelIndex &parent) const
 QVariant
 TableModel::data(const QModelIndex &index, int role) const
 {
-	/**
-	const Column col = static_cast<Column>(index.column());
-	
-	if (role == Qt::TextAlignmentRole) {}
-	
-	io::File *file = files_.vec[row];
-	
-	if (role == Qt::DisplayRole)
-	{
-		if (col == Column::FileName) {
-			//return ColumnFileNameData(file);
-		} else if (col == Column::Size) {
-		} else if (col == Column::Icon) {
-			
-		}
-	} else if (role == Qt::FontRole) {
-	} else if (role == Qt::BackgroundRole) {
-	} else if (role == Qt::ForegroundRole) {
-	} else if (role == Qt::DecorationRole) {
-	}
-	*/
 	return {};
 }
 

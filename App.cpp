@@ -17,6 +17,7 @@ extern "C" {
 #include "App.hpp"
 #include "AutoDelete.hh"
 #include "DesktopFile.hpp"
+#include "ElapsedTimer.hpp"
 #include "ExecInfo.hpp"
 #include "History.hpp"
 #include "io/disks.hh"
@@ -67,62 +68,6 @@ extern "C" {
 
 namespace cornus {
 
-void DbusFunc()
-{
-	static const char *ServiceName = "org.freedesktop.UDisks2";
-	auto bus = QDBusConnection::systemBus();
-	if (!bus.isConnected())
-	{
-		mtl_info("Cannot connect to the D-Bus system bus.\n"
-		"To start it, run:\n\teval `dbus-launch --auto-syntax`\n");
-		return;
-	}
-	
-	const char *object_name = "/org/freedesktop/UDisks2/Manager";
-	QDBusInterface manager(ServiceName, object_name,
-		"org.freedesktop.UDisks2.Manager", bus);
-	
-	QMap<QString, QVariant> options;
-	QDBusReply<QList<QDBusObjectPath>> reply = manager.call(QDBus::Block, "GetBlockDevices",
-		options);
-	
-	if (!reply.isValid()) {
-		mtl_info("Call failed: %s\n", qPrintable(reply.error().message()));
-		return;
-	}
-	
-	QList<QDBusObjectPath> list = reply.value();
-	const QString skip_fs = QLatin1String("squashfs");
-	
-	for (QDBusObjectPath &path: list)
-	{
-		QString object_name = path.path();
-		auto name_ba = object_name.toLocal8Bit();
-		
-		QDBusInterface block(ServiceName, name_ba.data(),
-			"org.freedesktop.UDisks2.Block", bus);
-			///"org.freedesktop.UDisks2.Filesystem", bus);
-		
-		if (!block.isValid())
-		{
-			mtl_trace();
-			continue;
-		}
-		
-		QString fs = block.property("IdType").toString();
-		if (fs.isEmpty() || fs == skip_fs)
-			continue;
-		
-		QByteArray device = block.property("Device").toByteArray();
-		u64 size = block.property("Size").toULongLong();
-		QString label = block.property("IdLabel").toString();
-		auto sz_ba = io::SizeToString(size).toLocal8Bit();
-		mtl_info("%s, fs: %s, size: %s, label: %s, device: %s",
-			name_ba.data(), qPrintable(fs), sz_ba.data(),
-			qPrintable(label), device.data());
-	}
-}
-
 void* AutoLoadServerIfNeeded(void *arg)
 {
 	pthread_detach(pthread_self());
@@ -139,24 +84,24 @@ void* AutoLoadServerIfNeeded(void *arg)
 	int fd = open(excl_ba.data(), O_EXCL | O_CREAT, 0x777);
 	
 	if (fd == -1) {
-		mtl_info("someone is already trying to start the io server");
+		mtl_info("Some app already trying to start cornus_io");
 		return nullptr;
 	}
 	
-	mtl_info("Starting io server..");
+///	mtl_info("Starting io server..");
 	QString server_dir_path = QCoreApplication::applicationDirPath();
 	QString server_full_path = server_dir_path + QLatin1String("/cornus_io");
 	
 	QStringList arguments;
 	QProcess::startDetached(server_full_path, arguments, server_dir_path);
-	mtl_info("done");
+///	mtl_info("done");
 	int sec = 0;
 	for (;sec < 7; sec++) {
 		if (io::socket::SendSync(ba))
 			break;
 		sleep(1);
 	}
-	mtl_info("Removing excl file after %d sec of waiting", sec);
+///	mtl_info("Removing excl file after %d sec of waiting", sec);
 	int status = remove(excl_ba.data());
 	if (status != 0)
 		mtl_status(errno);
@@ -210,7 +155,7 @@ void* GoToTh(void *p)
 		delete new_data;
 		return nullptr;
 	}
-
+///#define CORNUS_WAITED_FOR_WIDGETS
 	view_files.Lock();
 	while (!view_files.data.widgets_created())
 	{
@@ -298,7 +243,7 @@ App::App()
 	qRegisterMetaType<cornus::gui::FileEvent>();
 	qDBusRegisterMetaType<QMap<QString, QVariant>>();
 	
-	DbusFunc();
+///	DbusFunc();
 	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, gui::sidepane::LoadItems, this);
@@ -353,8 +298,7 @@ App::~App()
 	history_ = nullptr;
 }
 
-void
-App::ArchiveAskDestArchivePath(const QString &ext)
+void App::ArchiveAskDestArchivePath(const QString &ext)
 {
 	QUrl url = QFileDialog::getExistingDirectoryUrl(this,
 		tr("Archive destination folder"), QUrl::fromLocalFile(current_dir_));
@@ -399,8 +343,7 @@ void App::ArchiveTo(const QString &dir_path, const QString &ext)
 	process.startDetached();
 }
 
-void
-App::AskCreateNewFile(io::File *file, const QString &title)
+void App::AskCreateNewFile(io::File *file, const QString &title)
 {
 	AutoDelete ad(file);
 	const QString text = file->name();
@@ -498,8 +441,7 @@ App::AskCreateNewFile(io::File *file, const QString &title)
 	}
 }
 
-void
-App::ClipboardChanged(QClipboard::Mode mode)
+void App::ClipboardChanged(QClipboard::Mode mode)
 {
 	if (mode != QClipboard::Clipboard)
 		return;

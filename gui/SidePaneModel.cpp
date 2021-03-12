@@ -4,6 +4,7 @@
 #include "../AutoDelete.hh"
 #include "../ByteArray.hpp"
 #include "../defines.hxx"
+#include "../ElapsedTimer.hpp"
 #include "../io/File.hpp"
 #include "../MutexGuard.hpp"
 #include "../prefs.hh"
@@ -12,6 +13,7 @@
 #include "SidePaneItem.hpp"
 
 #include <sys/epoll.h>
+#include <QElapsedTimer>
 #include <QFont>
 #include <QScrollBar>
 #include <QHeaderView>
@@ -72,7 +74,8 @@ void LoadDrivePartition(const QString &dir_path, const QString &name,
 	vec.append(p);
 }
 
-void LoadDrivePartitions(QString dir_path, QVector<SidePaneItem*> &vec)
+void LoadDrivePartitions(QString dir_path, const QString &name,
+	QVector<SidePaneItem*> &vec)
 {
 	if (!dir_path.endsWith('/'))
 		dir_path.append('/');
@@ -82,10 +85,17 @@ void LoadDrivePartitions(QString dir_path, QVector<SidePaneItem*> &vec)
 	CHECK_TRUE_VOID((io::ListFileNames(dir_path, names) == io::Err::Ok));
 	const QString sd = QLatin1String("sd");
 	const QString nvme = QLatin1String("nvme");
-	for (const QString &name: names)
+	bool found = false;
+	for (const QString &filename: names)
 	{
-		if (name.startsWith(sd) || name.startsWith(nvme))
-			LoadDrivePartition(dir_path, name, vec);
+		if (filename.startsWith(sd) || filename.startsWith(nvme)) {
+			LoadDrivePartition(dir_path, filename, vec);
+			found = true;
+		}
+	}
+	
+	if (!found) {
+		LoadDrivePartition(dir_path, name, vec);
 	}
 	
 	std::sort(vec.begin(), vec.end(), SortSidePanes);
@@ -101,7 +111,7 @@ void LoadUnmountedPartitions(QVector<SidePaneItem*> &vec)
 	for (const QString &name: names)
 	{
 		if (name.startsWith(sd) || name.startsWith(nvme)) {
-			LoadDrivePartitions(dir + name, vec);
+			LoadDrivePartitions(dir + name, name, vec);
 		}
 	}
 }
@@ -109,6 +119,8 @@ void LoadUnmountedPartitions(QVector<SidePaneItem*> &vec)
 void* LoadItems(void *args)
 {
 	pthread_detach(pthread_self());
+	ElapsedTimer timer;
+	timer.Continue();
 	cornus::App *app = (cornus::App*) args;
 	ByteArray buf;
 	if (io::ReadFile(QLatin1String("/proc/mounts"), buf) != io::Err::Ok)
@@ -146,6 +158,8 @@ void* LoadItems(void *args)
 	
 	LoadUnmountedPartitions(method_args.vec);
 	
+	///const i64 mc = timer.elapsed_mc();
+	///mtl_info("Directly: %ldmc", mc);
 	LoadBookmarks(method_args.vec);
 	
 	SidePaneItems &items = app->side_pane_items();

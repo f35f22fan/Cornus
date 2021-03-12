@@ -119,8 +119,11 @@ SidePaneItem::ReadStats()
 		partition_name = dev_path_.midRef(start);
 	}
 	
-	QString full_path = QLatin1String("/sys/block/") + drive_name
-		+ '/' + partition_name;
+	const bool is_digit = dev_path_.at(dev_path_.size() - 1).isDigit();
+	QString full_path = QLatin1String("/sys/block/") + drive_name;
+	if (is_digit) {
+		full_path += '/' + partition_name;
+	}
 	
 	QString size_path = full_path + QLatin1String("/size");
 	
@@ -147,6 +150,10 @@ SidePaneItem::ReadStats()
 	if (ok) {
 		minor_ = n;
 	}
+	///mtl_info("%ld:%ld, %s", major_, minor_, qPrintable(dev_path_));
+	
+//	buf.to(0);
+//	QString rem_path = full_path + QLatin1String("/removable");
 }
 
 }

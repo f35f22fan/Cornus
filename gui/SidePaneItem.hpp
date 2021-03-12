@@ -17,6 +17,7 @@ const u8 SelectedBit = 1u << 0;
 ///const u8 MouseOverBit = 1u << 1;
 const u8 MountedBit = 1u << 2;
 const u8 EventInProgressBit = 1u << 3;
+const u8 RemovableBit = 1u << 4;
 }
 
 class SidePaneItem {
@@ -68,13 +69,13 @@ public:
 	const QString& mount_path() const { return mount_path_; }
 	void mount_path(const QString &s) { mount_path_ = s;}
 	
-//	bool mouse_over() const { return bits_ & sidepaneitem::MouseOverBit; }
-//	void mouse_over(const bool flag) {
-//		if (flag)
-//			bits_ |= sidepaneitem::MouseOverBit;
-//		else
-//			bits_ &= ~sidepaneitem::MouseOverBit;
-//	}
+	bool removable() const { return bits_ & sidepaneitem::RemovableBit; }
+	void removable(const bool flag) {
+		if (flag)
+			bits_ |= sidepaneitem::RemovableBit;
+		else
+			bits_ &= ~sidepaneitem::RemovableBit;
+	}
 	
 	bool selected() const { return bits_ & sidepaneitem::SelectedBit; }
 	void selected(const bool flag) {

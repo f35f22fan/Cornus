@@ -9,6 +9,10 @@ inline i64 GetDiffMs(const timespec &end, const timespec &start) {
 	return (end.tv_sec - start.tv_sec) * 1000L + (end.tv_nsec - start.tv_nsec) / 1000000L;
 }
 
+inline i64 GetDiffMc(const timespec &end, const timespec &start) {
+	return (end.tv_sec - start.tv_sec) * 1000000L + (end.tv_nsec - start.tv_nsec) / 1000L;
+}
+
 void ElapsedTimer::Continue()
 {
 	int status = clock_gettime(clock_type_, &start_);
@@ -16,7 +20,7 @@ void ElapsedTimer::Continue()
 		printf("%s", strerror(errno));
 }
 
-i64 ElapsedTimer::elapsed_ms()
+i64 ElapsedTimer::elapsed_mc()
 {
 	const bool paused = (start_.tv_sec == 0 && start_.tv_nsec == 0);
 	if (paused)
@@ -27,7 +31,7 @@ i64 ElapsedTimer::elapsed_ms()
 	if (status != 0)
 		printf("%s", strerror(errno));
 	
-	const i64 extra = GetDiffMs(now, start_);
+	const i64 extra = GetDiffMc(now, start_);
 	return worked_time_ + extra;
 }
 

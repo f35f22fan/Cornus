@@ -81,9 +81,10 @@ void LoadDrivePartitions(QString dir_path, QVector<SidePaneItem*> &vec)
 	QVector<QString> names;
 	CHECK_TRUE_VOID((io::ListFileNames(dir_path, names) == io::Err::Ok));
 	const QString sd_abc = QLatin1String("sd");
+	const QString nvme = QLatin1String("nvme");
 	
 	for (const QString &name: names) {
-		if (name.startsWith(sd_abc))
+		if (name.startsWith(sd_abc) || name.startsWith(nvme))
 			LoadDrivePartition(dir_path, name, vec);
 	}
 	

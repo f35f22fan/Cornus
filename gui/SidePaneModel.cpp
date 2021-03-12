@@ -80,11 +80,11 @@ void LoadDrivePartitions(QString dir_path, QVector<SidePaneItem*> &vec)
 ///	mtl_printq2("Dir path: ", dir_path);
 	QVector<QString> names;
 	CHECK_TRUE_VOID((io::ListFileNames(dir_path, names) == io::Err::Ok));
-	const QString sd_abc = QLatin1String("sd");
+	const QString sd = QLatin1String("sd");
 	const QString nvme = QLatin1String("nvme");
-	
-	for (const QString &name: names) {
-		if (name.startsWith(sd_abc) || name.startsWith(nvme))
+	for (const QString &name: names)
+	{
+		if (name.startsWith(sd) || name.startsWith(nvme))
 			LoadDrivePartition(dir_path, name, vec);
 	}
 	
@@ -96,8 +96,11 @@ void LoadUnmountedPartitions(QVector<SidePaneItem*> &vec)
 	QVector<QString> names;
 	const QString dir = QLatin1String("/sys/block/");
 	CHECK_TRUE_VOID((io::ListFileNames(dir, names) == io::Err::Ok));
-	for (const QString &name: names) {
-		if (name.startsWith("sd") || name.startsWith("nvme")) {
+	const QString sd = QLatin1String("sd");
+	const QString nvme = QLatin1String("nvme");
+	for (const QString &name: names)
+	{
+		if (name.startsWith(sd) || name.startsWith(nvme)) {
 			LoadDrivePartitions(dir + name, vec);
 		}
 	}

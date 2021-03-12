@@ -63,7 +63,65 @@ extern "C" {
 #include <QStandardPaths>
 #include <QUrl>
 
+#include <QtDBus/QtDBus>
+
 namespace cornus {
+
+void DbusFunc()
+{
+	static const char *ServiceName = "org.freedesktop.UDisks2";
+	auto bus = QDBusConnection::systemBus();
+	if (!bus.isConnected())
+	{
+		mtl_info("Cannot connect to the D-Bus system bus.\n"
+		"To start it, run:\n\teval `dbus-launch --auto-syntax`\n");
+		return;
+	}
+	
+	const char *object_name = "/org/freedesktop/UDisks2/Manager";
+	QDBusInterface manager(ServiceName, object_name,
+		"org.freedesktop.UDisks2.Manager", bus);
+	
+	QMap<QString, QVariant> options;
+	QDBusReply<QList<QDBusObjectPath>> reply = manager.call(QDBus::Block, "GetBlockDevices",
+		options);
+	
+	if (!reply.isValid()) {
+		mtl_info("Call failed: %s\n", qPrintable(reply.error().message()));
+		return;
+	}
+	
+	QList<QDBusObjectPath> list = reply.value();
+	const QString skip_fs = QLatin1String("squashfs");
+	
+	for (QDBusObjectPath &path: list)
+	{
+		QString object_name = path.path();
+		auto name_ba = object_name.toLocal8Bit();
+		
+		QDBusInterface block(ServiceName, name_ba.data(),
+			"org.freedesktop.UDisks2.Block", bus);
+			///"org.freedesktop.UDisks2.Filesystem", bus);
+		
+		if (!block.isValid())
+		{
+			mtl_trace();
+			continue;
+		}
+		
+		QString fs = block.property("IdType").toString();
+		if (fs.isEmpty() || fs == skip_fs)
+			continue;
+		
+		QByteArray device = block.property("Device").toByteArray();
+		u64 size = block.property("Size").toULongLong();
+		QString label = block.property("IdLabel").toString();
+		auto sz_ba = io::SizeToString(size).toLocal8Bit();
+		mtl_info("%s, fs: %s, size: %s, label: %s, device: %s",
+			name_ba.data(), qPrintable(fs), sz_ba.data(),
+			qPrintable(label), device.data());
+	}
+}
 
 void* AutoLoadServerIfNeeded(void *arg)
 {
@@ -239,6 +297,8 @@ App::App()
 	qRegisterMetaType<cornus::io::CountRecursiveInfo*>();
 	qRegisterMetaType<cornus::gui::FileEvent>();
 	qDBusRegisterMetaType<QMap<QString, QVariant>>();
+	
+	DbusFunc();
 	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, gui::sidepane::LoadItems, this);

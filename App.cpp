@@ -262,7 +262,12 @@ App::App()
 	io::InitEnvInfo(desktop_, search_icons_dirs_, xdg_data_dirs_, possible_categories_);
 	CreateGui();
 	RegisterShortcuts();
-	resize(800, 600);
+	if (prefs_->remember_window_size()) {
+		QSize sz = prefs_->window_size();
+		if (sz.width() < 0 || sz.height() < 0)
+			sz = QSize(800, 600);
+		resize(sz);
+	}
 	table_->setFocus();
 	
 	auto *clipboard = QGuiApplication::clipboard();

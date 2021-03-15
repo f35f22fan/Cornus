@@ -43,10 +43,6 @@ void Location::SetLocation(const QString &s)
 
 void Location::Setup() {
 	QCompleter *completer = new QCompleter(this);
-//	fs_model_ = new QFileSystemModel(completer);
-//	auto bits = QDir::Dirs | QDir::NoDot | QDir::NoDotDot | QDir::Hidden;
-//	fs_model_->setFilter(bits);
-//	completer->setModel(fs_model_);
 	model_ = new CompleterModel(this);
 	completer->setModel(model_);
 	setCompleter(completer);

@@ -87,6 +87,8 @@ void Prefs::Load()
 	editor_tab_size_ = buf.next_i8();
 	splitter_sizes_.append(buf.next_i32());
 	splitter_sizes_.append(buf.next_i32());
+	win_w_ = buf.next_i32();
+	win_h_ = buf.next_i32();
 }
 
 void Prefs::Save() const
@@ -136,6 +138,9 @@ void Prefs::Save() const
 	QList<int> sizes = app_->main_splitter()->sizes();
 	buf.add_i32(sizes[0]);
 	buf.add_i32(sizes[1]);
+	const auto sz = app_->size();
+	buf.add_i32(sz.width());
+	buf.add_i32(sz.height());
 	
 	if (io::WriteToFile(full_path, buf.data(), buf.size()) != io::Err::Ok) {
 		mtl_trace("Failed to save bookmarks");

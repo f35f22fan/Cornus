@@ -1692,7 +1692,12 @@ Table::StartDragOperation()
 	QDrag *drag = new QDrag(this);
 	drag->setMimeData(mimedata);
 	drag->setPixmap(pixmap);
-	drag->exec(Qt::CopyAction | Qt::MoveAction);
+	{
+		/** Warning: changing this to:
+		 drag->exec(Qt::CopyAction | Qt::MoveAction);
+		 will break dragging movie files onto the MPV player. */
+		drag->exec(Qt::CopyAction);
+	}
 }
 
 void

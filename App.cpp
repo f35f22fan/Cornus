@@ -274,8 +274,8 @@ App::App()
 
 App::~App()
 {
-	setVisible(false);
 	prefs_->Save();
+	ShutdownLastInotifyThread();
 	
 	QMapIterator<QString, QIcon*> i(icon_set_);
 	while (i.hasNext()) {
@@ -284,12 +284,14 @@ App::~App()
 		delete icon;
 	}
 	
-	MutexGuard guard(&side_pane_items_.mutex);
-	for (auto *item: side_pane_items_.vec)
-		delete item;
-	
-	side_pane_items_.vec.clear();
-	ShutdownLastInotifyThread();
+	{
+		MutexGuard guard = side_pane_items_.guard();
+		side_pane_items_.sidepane_model_destroyed = true;
+		for (auto *item: side_pane_items_.vec)
+			delete item;
+		
+		side_pane_items_.vec.clear();
+	}
 	
 	delete prefs_;
 	prefs_ = nullptr;
@@ -570,9 +572,9 @@ void App::CreateGui()
 			auto &items = side_pane_items();
 			MutexGuard guard(&items.mutex);
 			items.widgets_created = true;
-			int status = pthread_cond_signal(&items.cond);
+			int status = pthread_cond_broadcast(&items.cond);
 			if (status != 0)
-				mtl_warn("pthread_cond_signal: %s", strerror(status));
+				mtl_status(status);
 		}
 	}
 	

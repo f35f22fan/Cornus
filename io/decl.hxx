@@ -115,7 +115,7 @@ enum ListOptions: u8 {
 	HiddenFiles = 1u << 0,
 };
 
-typedef bool (*FilterFunc)(const QString &dir_path, const QString &name);
+typedef bool (*FilterFunc)(const QString &name);
 
 const f64 KiB = 1024;
 const f64 MiB = KiB * 1024;

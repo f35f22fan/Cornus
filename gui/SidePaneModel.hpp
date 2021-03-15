@@ -16,9 +16,15 @@
 
 namespace cornus::gui {
 namespace sidepane {
-	void* LoadItems(void *args);
-	QString ReadMountedPartitionFS(const QString &dev_path);
-}
+struct Item {
+	QString dev_path;
+	QString fs;
+	QString mount_point;
+};
+
+void* LoadItems(void *args);
+QString ReadMountedPartitionFS(const QString &dev_path);
+} // sidepane::
 
 struct UpdateSidePaneArgs {
 	QVector<int> indices;
@@ -45,6 +51,7 @@ public:
 	virtual ~SidePaneModel();
 	
 	cornus::App* app() const { return app_; }
+	io::Notify& notify() { return notify_; }
 	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
 	int columnCount(const QModelIndex &parent = QModelIndex()) const override
 	{ return 1; }
@@ -95,11 +102,15 @@ public:
 	
 public slots:
 	void InsertFromAnotherThread(cornus::gui::InsertArgs args);
+	void PartitionsChanged();
+	void PartitionAdded(const int index, SidePaneItem *p);
+	void PartitionRemoved(const int index);
 	
 private:
 	
 	cornus::App *app_ = nullptr;
 	cornus::gui::SidePane *table_ = nullptr;
+	io::Notify notify_ = {};
 };
 
 

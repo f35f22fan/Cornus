@@ -3,8 +3,23 @@
 #include "../io/File.hpp"
 #include "../io/io.hh"
 #include "../ByteArray.hpp"
+#include "ShallowItem.hpp"
 
 namespace cornus::gui {
+
+SidePaneItem*
+SidePaneItem::From(const ShallowItem &rhs)
+{
+	SidePaneItem *p = new SidePaneItem();
+	p->set_partition();
+	p->dev_path(rhs.dev_path());
+	p->mount_path(rhs.mount_path());
+	p->mounted(rhs.mounted());
+	p->fs(rhs.fs());
+	p->size(rhs.size());
+	
+	return p;
+}
 
 SidePaneItem*
 SidePaneItem::NewBookmark(io::File &file)
@@ -29,8 +44,6 @@ SidePaneItem::Clone()
 	p->fs_ = fs_;
 	p->type_ = type_;
 	p->bits_ = bits_;
-	p->minor_ = minor_;
-	p->major_ = major_;
 	
 	return p;
 }
@@ -93,67 +106,9 @@ SidePaneItem::GetPartitionName() const
 void
 SidePaneItem::Init()
 {
-	if (is_partition())
-		ReadStats();
-}
-
-void
-SidePaneItem::ReadStats()
-{
-///	mtl_printq2("dev path: ", dev_path_);
-	int index = dev_path_.indexOf(QLatin1String("/sd"));
-	QStringRef drive_name, partition_name;
-	if (index != -1)
-	{
-		drive_name = dev_path_.midRef(index + 1, 3);
-		partition_name = dev_path_.midRef(index + 1);
-	} else {
-		int start = dev_path_.indexOf(QLatin1String("/nvme"));
-		if (start == -1)
-			return;
-		int end = dev_path_.lastIndexOf('p');
-		if (end == -1)
-			return;
-		start++; /// skip '/'
-		drive_name = dev_path_.midRef(start, end - start);
-		partition_name = dev_path_.midRef(start);
+	if (is_partition()) {
+		io::ReadPartitionInfo(dev_path_, size_, size_str_);
 	}
-	
-	const bool is_digit = dev_path_.at(dev_path_.size() - 1).isDigit();
-	QString full_path = QLatin1String("/sys/block/") + drive_name;
-	if (is_digit) {
-		full_path += '/' + partition_name;
-	}
-	
-	QString size_path = full_path + QLatin1String("/size");
-	
-	ByteArray buf;
-	CHECK_TRUE_VOID((io::ReadFile(size_path, buf) == io::Err::Ok));
-	QString s = QString::fromLocal8Bit(buf.data(), buf.size());
-	bool ok;
-	i64 num = s.toLong(&ok);
-	if (ok) {
-		size_ = num * 512;
-		size_str_ = io::SizeToString(size_, true);
-	}
-	
-	QString dev_path = full_path + QLatin1String("/dev");
-	buf.to(0);
-	CHECK_TRUE_VOID((io::ReadFile(dev_path, buf) == io::Err::Ok));
-	s = buf.toString().trimmed();
-	auto list = s.splitRef(':');
-	i64 n = list[0].toLong(&ok);
-	if (ok) {
-		major_ = n;
-	}
-	n = list[1].toLong(&ok);
-	if (ok) {
-		minor_ = n;
-	}
-	///mtl_info("%ld:%ld, %s", major_, minor_, qPrintable(dev_path_));
-	
-//	buf.to(0);
-//	QString rem_path = full_path + QLatin1String("/removable");
 }
 
 }

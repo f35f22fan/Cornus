@@ -96,7 +96,7 @@ SidePane::ClearDndAnimation(const QPoint &drop_coord)
 }
 
 void
-SidePane::ClearEventInProgress(QString dev_path, QString error_msg)
+SidePane::ClearHasBeenClicked(QString dev_path, QString error_msg)
 {
 	//mtl_printq2("Clear event: ", dev_path);
 	int row = 0;
@@ -106,7 +106,7 @@ SidePane::ClearEventInProgress(QString dev_path, QString error_msg)
 		
 		for (SidePaneItem *next: items.vec) {
 			if (next->is_partition() && next->dev_path() == dev_path) {
-				next->event_in_progress(false);
+				next->has_been_clicked(false);
 				break;
 			}
 			row++;
@@ -235,7 +235,7 @@ SidePane::GetItemAtNTS(const QPoint &pos, bool clone, int *ret_index)
 
 int
 SidePane::GetSelectedBookmarkCount() {
-	gui::SidePaneItems &items = app_->side_pane_items();
+	SidePaneItems &items = app_->side_pane_items();
 	MutexGuard guard(&items.mutex);
 	int count = 0;
 	
@@ -288,8 +288,7 @@ void SidePane::HiliteFileUnderMouse()
 	}
 }
 
-gui::SidePaneItems&
-SidePane::items() const { return app_->side_pane_items(); }
+SidePaneItems &SidePane::items() const { return app_->side_pane_items(); }
 
 void
 SidePane::keyPressEvent(QKeyEvent *event)
@@ -374,14 +373,14 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 		auto *item = GetItemAtNTS(evt->pos(), false, &row);
 		if (item != nullptr) {
 			cloned_item = item->Clone();
-			item->event_in_progress(true);
+			item->has_been_clicked(true);
 		}
 	}
 	
 	if (cloned_item == nullptr)
 		return;
 	
-	if (cloned_item->is_partition() && !cloned_item->event_in_progress()) {
+	if (cloned_item->is_partition() && !cloned_item->has_been_clicked()) {
 		if (!cloned_item->mounted()) {
 			io::disks::MountPartitionData *mps = new io::disks::MountPartitionData();
 			mps->app = app_;
@@ -397,6 +396,7 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 	if (!cloned_item->is_partition() || cloned_item->mounted())
 		model_->app()->GoTo(Action::To, {cloned_item->mount_path(), Processed::No});
 	model_->UpdateIndices(indices);
+	delete cloned_item;
 }
 
 void
@@ -467,7 +467,7 @@ SidePane::ReceivedPartitionEvent(cornus::PartitionEvent *p)
 			if (next->dev_path() != p->dev_path)
 				continue;
 			
-			next->event_in_progress(false);
+			next->has_been_clicked(false);
 			if (mount_event) {
 				next->mounted(true);
 				next->mount_path(p->mount_path);
@@ -671,14 +671,6 @@ SidePane::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 		connect(action, &QAction::triggered, [=] {ProcessAction(actions::RenameBookmark);});
 		action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
 	} else {
-		{
-			QAction *action = menu_->addAction(tr("&Info"));
-			action->setIcon(QIcon::fromTheme(QLatin1String("dialog-information")));
-			connect(action, &QAction::triggered, [=] () {
-				ShowSelectedPartitionInfo(row);
-			});
-		}
-		
 		if (is_mounted) {
 			QAction *action = menu_->addAction(tr("&Unmount"));
 			action->setIcon(QIcon::fromTheme(QLatin1String("media-eject")));
@@ -689,32 +681,6 @@ SidePane::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 	}
 	
 	menu_->popup(global_pos);
-}
-
-void
-SidePane::ShowSelectedPartitionInfo(const int row)
-{
-	SidePaneItem *partition = nullptr;
-	auto &items = app_->side_pane_items();
-	{
-		MutexGuard guard(&items.mutex);
-		partition = items.vec[row]->Clone();
-	}
-	
-	if (!partition->is_partition())
-		return;
-	
-	if (partition->major() < 0 | partition->minor() < 0) {
-		mtl_printq(partition->dev_path());
-		mtl_info("major: %ld, minor: %ld", partition->major(), partition->minor());
-		return;
-	}
-	
-	QString s = partition->dev_path() + QString(":\n");
-	s += QString("major:minor ") + QString::number(partition->major());
-	s += QChar(':') + QString::number(partition->minor());
-	
-	app_->TellUser(s);
 }
 
 void

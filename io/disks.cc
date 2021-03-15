@@ -24,7 +24,7 @@ void* MountPartitionTh(void *p)
 	AutoDelete mps_ad(mps);
 	
 	if (!QDBusConnection::systemBus().isConnected()) {
-		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearEventInProgress",
+		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearHasBeenClicked",
 			Q_ARG(QString, mps->partition->dev_path()),
 			Q_ARG(QString, QString("DBus: Failed to connect to system bus")));
 		
@@ -41,7 +41,7 @@ void* MountPartitionTh(void *p)
 		"org.freedesktop.UDisks2.Filesystem", QDBusConnection::systemBus());
 	
 	if (!iface.isValid()) {
-		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearEventInProgress",
+		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearHasBeenClicked",
 			Q_ARG(QString, mps->partition->dev_path()),
 			Q_ARG(QString, QString("Invalid interface")));
 		return nullptr;
@@ -51,7 +51,7 @@ void* MountPartitionTh(void *p)
 	QDBusReply<QString> reply = iface.call(QDBus::Block, "Mount", args);
 	
 	if (!reply.isValid()) {
-		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearEventInProgress",
+		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearHasBeenClicked",
 			Q_ARG(QString, mps->partition->dev_path()),
 			Q_ARG(QString, reply.error().message()));
 		
@@ -59,14 +59,14 @@ void* MountPartitionTh(void *p)
 		return nullptr;
 	}
 	
-	PartitionEvent *pm = new PartitionEvent();
-	pm->type = PartitionEventType::Mount;
-	pm->mount_path = reply.value();
-	pm->dev_path = mps->partition->dev_path();
-	pm->fs = cornus::gui::sidepane::ReadMountedPartitionFS(pm->dev_path);
+//	PartitionEvent *pm = new PartitionEvent();
+//	pm->type = PartitionEventType::Mount;
+//	pm->mount_path = reply.value();
+//	pm->dev_path = mps->partition->dev_path();
+//	pm->fs = cornus::gui::sidepane::ReadMountedPartitionFS(pm->dev_path);
 	
-	QMetaObject::invokeMethod(mps->app->side_pane(), "ReceivedPartitionEvent",
-		Q_ARG(cornus::PartitionEvent*, pm));
+//	QMetaObject::invokeMethod(mps->app->side_pane(), "ReceivedPartitionEvent",
+//		Q_ARG(cornus::PartitionEvent*, pm));
 	
 	return nullptr;
 }
@@ -85,7 +85,7 @@ void* UnmountPartitionTh(void *p)
 	AutoDelete mps_ad(mps);
 	
 	if (!QDBusConnection::systemBus().isConnected()) {
-		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearEventInProgress",
+		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearHasBeenClicked",
 			Q_ARG(QString, mps->partition->dev_path()),
 			Q_ARG(QString, QString("DBus: Failed to connect to system bus")));
 		
@@ -102,7 +102,7 @@ void* UnmountPartitionTh(void *p)
 		"org.freedesktop.UDisks2.Filesystem", QDBusConnection::systemBus());
 	
 	if (!iface.isValid()) {
-		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearEventInProgress",
+		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearHasBeenClicked",
 			Q_ARG(QString, mps->partition->dev_path()),
 			Q_ARG(QString, QString("Invalid interface")));
 		return nullptr;
@@ -113,7 +113,7 @@ void* UnmountPartitionTh(void *p)
 	QDBusReply<void> reply = iface.call(QDBus::Block, "Unmount", args);
 	
 	if (!reply.isValid()) {
-		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearEventInProgress",
+		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearHasBeenClicked",
 			Q_ARG(QString, mps->partition->dev_path()),
 			Q_ARG(QString, reply.error().message()));
 /// Unexpected reply signature: got "<empty signature>", expected "s" (QString)
@@ -121,13 +121,13 @@ void* UnmountPartitionTh(void *p)
 		return nullptr;
 	}
 	
-	PartitionEvent *pm = new PartitionEvent();
-	pm->type = PartitionEventType::Unmount;
-	pm->mount_path.clear();
-	pm->dev_path = mps->partition->dev_path();
+//	PartitionEvent *pm = new PartitionEvent();
+//	pm->type = PartitionEventType::Unmount;
+//	pm->mount_path.clear();
+//	pm->dev_path = mps->partition->dev_path();
 	
-	QMetaObject::invokeMethod(mps->app->side_pane(), "ReceivedPartitionEvent",
-		Q_ARG(cornus::PartitionEvent*, pm));
+//	QMetaObject::invokeMethod(mps->app->side_pane(), "ReceivedPartitionEvent",
+//		Q_ARG(cornus::PartitionEvent*, pm));
 	
 	return nullptr;
 }

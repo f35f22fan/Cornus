@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../err.hpp"
+#include "../MutexGuard.hpp"
 
 #include <QIcon>
 #include <QMap>
@@ -13,6 +14,7 @@ class File;
 }
 
 namespace cornus::gui {
+class CompleterModel;
 class CountFolder;
 class Hiliter;
 class Location;
@@ -23,6 +25,7 @@ class OpenWithPane;
 class PrefsPane;
 class SearchLineEdit;
 class SearchPane;
+class ShallowItem;
 class SidePane;
 class SidePaneItem;
 class SidePaneModel;
@@ -73,24 +76,6 @@ enum class HiliteMode: i16 {
 	ShellScript,
 	DesktopFile,
 	Count
-};
-
-struct SidePaneItems {
-	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-	bool widgets_created = false;
-	QVector<SidePaneItem*> vec;
-	
-	inline int Lock() {
-		int status = pthread_mutex_lock(&mutex);
-		if (status != 0)
-			mtl_warn("pthreads_mutex_lock: %s", strerror(status));
-		return status;
-	}
-	
-	inline int Unlock() {
-		return pthread_mutex_unlock(&mutex);
-	}
 };
 
 enum class Column : i8 {

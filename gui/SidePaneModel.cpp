@@ -9,8 +9,10 @@
 #include "../MutexGuard.hpp"
 #include "../prefs.hh"
 #include "../Prefs.hpp"
+#include "ShallowItem.hpp"
 #include "SidePane.hpp"
 #include "SidePaneItem.hpp"
+#include "../SidePaneItems.hpp"
 
 #include <sys/epoll.h>
 #include <QElapsedTimer>
@@ -18,22 +20,104 @@
 #include <QScrollBar>
 #include <QHeaderView>
 #include <QTime>
+#include <sys/epoll.h>
 
 namespace cornus::gui {
 namespace sidepane {
 
-bool SortSidePanes(SidePaneItem *a, SidePaneItem *b) 
+static bool SortSidePanes(SidePaneItem *a, SidePaneItem *b) 
 {
 /** Note: this function MUST be implemented with strict weak ordering
   otherwise it randomly crashes (because of undefined behavior),
   more info here:
  https://stackoverflow.com/questions/979759/operator-and-strict-weak-ordering/981299#981299 */
 	
-	const int i = a->dev_path().compare(b->dev_path());
-	return (i > 0) ? false : true;
+	if (a->is_partition()) {
+		if (!b->is_partition())
+			return true;
+	} else if (b->is_partition())
+		return false;
+	
+	const int i = io::CompareStrings(a->dev_path(), b->dev_path());
+	return (i >= 0) ? false : true;
 }
 
-void LoadBookmarks(QVector<SidePaneItem*> &vec)
+int FindPlace(SidePaneItem *new_item, QVector<SidePaneItem*> &vec)
+{
+	for (int i = vec.size() - 1; i >= 0; i--) {
+		SidePaneItem *next = vec[i];
+		if (!SortSidePanes(new_item, next)) {
+			return i + 1;
+		}
+	}
+	
+	return 0;
+}
+
+static void ReadMountedPartitions(QVector<sidepane::Item> &v)
+{
+	ByteArray buf;
+	if (io::ReadFile(QLatin1String("/proc/mounts"), buf) != io::Err::Ok)
+		return;
+	
+	QString s = buf.toString();
+	auto list = s.splitRef('\n');
+	const QString dev_nvme = QLatin1String("/dev/nvme");
+	const QString dev_sd = QLatin1String("/dev/sd");
+	
+	for (auto &line: list)
+	{
+		if (line.startsWith(dev_nvme) || line.startsWith(dev_sd))
+		{
+			auto args = line.split(' ');
+			sidepane::Item item;
+			item.dev_path = args[0].toString();
+			item.mount_point = args[1].toString();
+			item.fs = args[2].toString();
+			v.append(item);
+		}
+	}
+}
+
+static void MarkMountedPartitions(QVector<SidePaneItem*> &vec, bool &repaint)
+{
+	QVector<sidepane::Item> mounted_vec;
+	ReadMountedPartitions(mounted_vec);
+	
+	for (SidePaneItem *item: vec)
+	{
+		if (!item->is_partition())
+			continue;
+		bool found = false;
+		for (int row = 0; row < mounted_vec.size(); row++)
+		{
+			sidepane::Item &mounted = mounted_vec[row];
+			if (mounted.dev_path == item->dev_path())
+			{
+				found = true;
+				if (!item->mounted()) {
+					item->mounted(true);
+					item->mount_path(mounted.mount_point);
+					item->fs(mounted.fs);
+					item->mount_changed(true);
+					repaint = true;
+///					mtl_info("Made mounted %s", qPrintable(item->dev_path()));
+				}
+				mounted_vec.remove(row);
+				break;
+			}
+		}
+		
+		if (!found && item->mounted()) {
+			item->mounted(false);
+			item->mount_changed(true);
+///			mtl_info("Made unmounted %s", qPrintable(item->dev_path()));
+			repaint = true;
+		}
+	}
+}
+
+static void LoadBookmarks(QVector<SidePaneItem*> &vec)
 {
 	const QString full_path = prefs::QueryAppConfigPath() + '/'
 		+ prefs::BookmarksFileName + QString::number(prefs::BookmarksFormatVersion);
@@ -55,116 +139,71 @@ void LoadBookmarks(QVector<SidePaneItem*> &vec)
 	}
 }
 
-void LoadDrivePartition(const QString &dir_path, const QString &name,
-	QVector<SidePaneItem*> &vec)
+void LoadDrivePartition(const QString &name, QVector<SidePaneItem*> &vec)
 {
-/// Check if this partition hasn't been loaded previously as a mounted one:
-	for (SidePaneItem *next: vec) {
-		if (next->dev_path().endsWith(name)) {
-			return;
-		}
-	}
-	
 	const QString dev_path = QLatin1String("/dev/") + name;
 	SidePaneItem *p = new SidePaneItem();
 	p->dev_path(dev_path);
-	p->type(SidePaneItemType::Partition);
+	p->set_partition();
 	p->mounted(false);
 	p->Init();
-	vec.append(p);
+	if (p->size() == 0) {
+		delete p;
+	} else {
+		vec.append(p);
+	}
 }
 
-void LoadDrivePartitions(QString dir_path, const QString &name,
-	QVector<SidePaneItem*> &vec)
+static void LoadDrivePartitions(QString drive_dir,
+	const QString &drive_name, QVector<SidePaneItem*> &vec)
 {
-	if (!dir_path.endsWith('/'))
-		dir_path.append('/');
+	if (!drive_dir.endsWith('/'))
+		drive_dir.append('/');
 	
-///	mtl_printq2("Dir path: ", dir_path);
 	QVector<QString> names;
-	CHECK_TRUE_VOID((io::ListFileNames(dir_path, names) == io::Err::Ok));
-	const QString sd = QLatin1String("sd");
-	const QString nvme = QLatin1String("nvme");
-	bool found = false;
-	for (const QString &filename: names)
-	{
-		if (filename.startsWith(sd) || filename.startsWith(nvme)) {
-			LoadDrivePartition(dir_path, filename, vec);
-			found = true;
-		}
+	
+	CHECK_TRUE_VOID((io::ListFileNames(drive_dir, names, io::sd_nvme) == io::Err::Ok));
+	
+	for (const QString &filename: names) {
+		LoadDrivePartition(filename, vec);
 	}
 	
-	if (!found) {
-		LoadDrivePartition(dir_path, name, vec);
-	}
+	if (names.isEmpty())
+		LoadDrivePartition(drive_name, vec);
 	
 	std::sort(vec.begin(), vec.end(), SortSidePanes);
 }
 
-void LoadUnmountedPartitions(QVector<SidePaneItem*> &vec)
+static void LoadAllPartitions(QVector<SidePaneItem*> &vec)
 {
-	QVector<QString> names;
+	QVector<QString> drive_names;
 	const QString dir = QLatin1String("/sys/block/");
-	CHECK_TRUE_VOID((io::ListFileNames(dir, names) == io::Err::Ok));
-	const QString sd = QLatin1String("sd");
-	const QString nvme = QLatin1String("nvme");
-	for (const QString &name: names)
-	{
-		if (name.startsWith(sd) || name.startsWith(nvme)) {
-			LoadDrivePartitions(dir + name, name, vec);
-		}
+	CHECK_TRUE_VOID((io::ListFileNames(dir, drive_names, io::sd_nvme) == io::Err::Ok));
+	for (const QString &drive_name: drive_names) {
+		LoadDrivePartitions(dir + drive_name, drive_name, vec);
 	}
 }
 
 void* LoadItems(void *args)
 {
 	pthread_detach(pthread_self());
+#ifdef CORNUS_PRINT_PARTITIONS_LOAD_TIME
 	ElapsedTimer timer;
 	timer.Continue();
+#endif
 	cornus::App *app = (cornus::App*) args;
-	ByteArray buf;
-	if (io::ReadFile(QLatin1String("/proc/mounts"), buf) != io::Err::Ok)
-		return nullptr;
-	
-/// mtl_info("Have read: %ld bytes", buf.size());
-	QString s = QString::fromLocal8Bit(buf.data(), buf.size());
-	auto list = s.splitRef('\n');
-	const QString skip_mount = QLatin1String("/boot/");
-	const QString skip_mount2 = QLatin1String("/home/");
-	const QString dev_nvme = QLatin1String("/dev/nvme");
-	const QString dev_sd = QLatin1String("/dev/sd");
 	InsertArgs method_args;
+	LoadAllPartitions(method_args.vec);
+#ifdef CORNUS_PRINT_PARTITIONS_LOAD_TIME
+	const i64 mc = timer.elapsed_mc();
+	mtl_info("Directly: %ldmc", mc);
+#endif
 	
-	for (auto &line: list)
-	{
-		if (line.startsWith(dev_nvme) || line.startsWith(dev_sd))
-		{
-			auto args = line.split(" ");
-			QStringRef mount_path = args[1];
-			
-			if (mount_path.startsWith(skip_mount) || mount_path == skip_mount2)
-				continue;
-			
-			auto *p = new gui::SidePaneItem();
-			p->dev_path(args[0].toString());
-			p->mount_path(mount_path.toString());
-			p->mounted(true);
-			p->fs(args[2].toString());
-			p->type(gui::SidePaneItemType::Partition);
-			p->Init();
-			method_args.vec.append(p);
-		}
-	}
-	
-	LoadUnmountedPartitions(method_args.vec);
-	
-	///const i64 mc = timer.elapsed_mc();
-	///mtl_info("Directly: %ldmc", mc);
 	LoadBookmarks(method_args.vec);
-	
 	SidePaneItems &items = app->side_pane_items();
 	items.Lock();
-	while (!items.widgets_created) {
+	while (!items.widgets_created)
+	{
 		int status = pthread_cond_wait(&items.cond, &items.mutex);
 		if (status != 0) {
 			mtl_warn("pthread_cond_wait: %s", strerror(status));
@@ -180,46 +219,127 @@ void* LoadItems(void *args)
 	return nullptr;
 }
 
-QString ReadMountedPartitionFS(const QString &dev_path)
+void ComparePartitions(SidePaneModel *model, SidePaneItems &items,
+	QVector<ShallowItem*> &shallow_items)
 {
-	ByteArray buf;
-	if (io::ReadFile(QLatin1String("/proc/mounts"), buf) != io::Err::Ok)
-		return QString();
-	
-/// mtl_info("Have read: %ld bytes", buf.size());
-	QString s = QString::fromLocal8Bit(buf.data(), buf.size());
-	auto list = s.splitRef('\n');
-	
-	for (auto &line: list)
+	QVector<SidePaneItem*> &vec = items.vec;
+	for (ShallowItem *shallow_item: shallow_items)
 	{
-		if (!line.startsWith(dev_path))
+		bool contains = false;
+		for (SidePaneItem *item: vec)
+		{
+			if (item->dev_path() == shallow_item->dev_path()) {
+				contains = true;
+				break;
+			}
+		}
+		if (!contains) {
+			SidePaneItem *new_item = SidePaneItem::From(*shallow_item);
+			int insert_at = FindPlace(new_item, vec);
+			const bool destroyed = items.sidepane_model_destroyed;
+			if (destroyed) {
+				return;
+			}
+			items.Unlock();
+			QMetaObject::invokeMethod(model, "PartitionAdded",
+				Qt::BlockingQueuedConnection,
+				Q_ARG(const int, insert_at), Q_ARG(SidePaneItem*, new_item));
+			items.Lock();
+		}
+	}
+
+	for (int i = vec.size() - 1; i >= 0; i--)
+	{
+		SidePaneItem *item = vec[i];
+		if (!item->is_partition())
 			continue;
+		bool contains = false;
+		for (ShallowItem *shallow_item: shallow_items) {
+			if (item->dev_path() == shallow_item->dev_path()) {
+				contains = true;
+				break;
+			}
+		}
+		if (!contains) {
+			if (items.sidepane_model_destroyed) {
+				return;
+			}
+			items.Unlock();
+			QMetaObject::invokeMethod(model, "PartitionRemoved",
+				Qt::BlockingQueuedConnection, Q_ARG(int, i));
+			items.Lock();
+		}
+	}
+}
+
+void* MonitorPartitions(void *void_args)
+{
+	pthread_detach(pthread_self());
+	SidePaneModel *model = (SidePaneModel*)void_args;
+	SidePaneItems &items = model->app()->side_pane_items();
+	
+	while (true)
+	{
+		bool repaint = false;
+#ifdef PRINT_LOAD_TIME
+		ElapsedTimer timer;
+		timer.Continue();
+#endif
+		QVector<ShallowItem*> shallow_items;
+		ShallowItem::LoadAllPartitions(shallow_items);
 		
-		auto args = line.split(" ");
-		return args[2].toString();
-//		auto *p = new gui::SidePaneItem();
-//		p->dev_path(args[0].toString());
-//		p->mount_path(args[1]);
-//		p->mounted(true);
-//		p->fs(args[2].toString());
-//		p->type(gui::SidePaneItemType::Partition);
-//		p->Init();
+		items.Lock();
+		while (!items.partitions_loaded) {
+			int status = pthread_cond_wait(&items.cond, &items.mutex);
+			if (status != 0) {
+				mtl_status(status);
+				break;
+			}
+		}
+		if (items.sidepane_model_destroyed) {
+			items.Unlock();
+			return nullptr;
+		}
+		ComparePartitions(model, items, shallow_items);
+		for (ShallowItem *next: shallow_items) {
+			delete next;
+		}
+		
+		if (items.sidepane_model_destroyed) {
+			items.Unlock();
+			return nullptr;
+		}
+		MarkMountedPartitions(items.vec, repaint);
+		items.Unlock();
+#ifdef PRINT_LOAD_TIME
+		mtl_info("Checked in %ldmc", timer.elapsed_mc());
+#endif
+		if (repaint) {
+			QMetaObject::invokeMethod(model, "PartitionsChanged");
+		}
+		
+		sleep(2);
 	}
 	
-	return QString();
+	return nullptr;
 }
 
 } // sidepane::
-
 SidePaneModel::SidePaneModel(cornus::App *app): app_(app)
 {
 	qRegisterMetaType<cornus::gui::UpdateSidePaneArgs>();
 	qRegisterMetaType<cornus::gui::InsertArgs>();
+	notify_.Init();
+	
+	pthread_t th;
+	int status = pthread_create(&th, NULL, sidepane::MonitorPartitions, this);
+	if (status != 0) {
+		mtl_status(status);
+	}
 }
 
 SidePaneModel::~SidePaneModel()
-{
-}
+{}
 
 QModelIndex
 SidePaneModel::index(int row, int column, const QModelIndex &parent) const
@@ -230,7 +350,7 @@ SidePaneModel::index(int row, int column, const QModelIndex &parent) const
 int
 SidePaneModel::rowCount(const QModelIndex &parent) const
 {
-	gui::SidePaneItems &items = app_->side_pane_items();
+	SidePaneItems &items = app_->side_pane_items();
 	MutexGuard guard(&items.mutex);
 	return items.vec.size();
 }
@@ -250,7 +370,7 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 	}
 	
 	const int row = index.row();
-	gui::SidePaneItems &items = app_->side_pane_items();
+	SidePaneItems &items = app_->side_pane_items();
 	gui::SidePaneItem *item = items.vec[row];
 	
 	if (role == Qt::DisplayRole)
@@ -342,6 +462,55 @@ SidePaneModel::headerData(int section_i, Qt::Orientation orientation, int role) 
 	return {};
 }
 
+void SidePaneModel::PartitionAdded(const int index, SidePaneItem *p)
+{
+	SidePaneItems &items = app_->side_pane_items();
+	beginInsertRows(QModelIndex(), index, index);
+	items.Lock();
+	items.vec.insert(index, p);
+	items.Unlock();
+	endInsertRows();
+}
+void SidePaneModel::PartitionRemoved(const int index)
+{
+	SidePaneItems &items = app_->side_pane_items();
+	beginRemoveRows(QModelIndex(), index, index);
+	items.Lock();
+	delete items.vec[index];
+	items.vec.remove(index);
+	items.Unlock();
+	endRemoveRows();
+}
+void SidePaneModel::PartitionsChanged()
+{
+	SidePaneItems &items = app_->side_pane_items();
+	QString mount_path;
+	QString unmount_path;
+	{
+		MutexGuard guard(&items.mutex);
+		for (SidePaneItem *item: items.vec) {
+			if (!item->is_partition())
+				continue;
+			if (item->has_been_clicked() && item->mount_changed()) {
+				if (item->mounted())
+					mount_path = item->mount_path();
+				else
+					unmount_path = item->mount_path();
+				break;
+			}
+		}
+	}
+
+	if (!mount_path.isEmpty()) {
+		app_->GoTo(Action::To, {mount_path, Processed::No});
+	} else if (!unmount_path.isEmpty()) {
+		if (app_->current_dir().startsWith(unmount_path)) {
+			app_->GoHome();
+		}
+	}
+	UpdateVisibleArea();
+}
+
 void
 SidePaneModel::InsertFromAnotherThread(cornus::gui::InsertArgs args)
 {
@@ -371,13 +540,21 @@ SidePaneModel::InsertFromAnotherThread(cornus::gui::InsertArgs args)
 	}
 	
 	InsertRows(0, args.vec);
+	SidePaneItems &items = app_->side_pane_items();
+	{
+		MutexGuard guard(&items.mutex);
+		items.partitions_loaded = true;
+		int status = pthread_cond_broadcast(&items.cond);
+		if (status != 0)
+			mtl_status(status);
+	}
 }
 
 bool
 SidePaneModel::InsertRows(const i32 at, const QVector<gui::SidePaneItem*> &items_to_add)
 {
 	{
-		gui::SidePaneItems &items = app_->side_pane_items();
+		SidePaneItems &items = app_->side_pane_items();
 		MutexGuard guard(&items.mutex);
 		if (at > items.vec.size()) {
 			mtl_trace();
@@ -389,7 +566,7 @@ SidePaneModel::InsertRows(const i32 at, const QVector<gui::SidePaneItem*> &items
 	beginInsertRows(QModelIndex(), first, last);
 
 	{
-		gui::SidePaneItems &items = app_->side_pane_items();
+		SidePaneItems &items = app_->side_pane_items();
 		MutexGuard guard(&items.mutex);
 		for (i32 i = 0; i < items_to_add.size(); i++)
 		{
@@ -462,7 +639,7 @@ SidePaneModel::removeRows(int row, int count, const QModelIndex &parent)
 	const int last = row + count - 1;
 	
 	beginRemoveRows(QModelIndex(), first, last);
-	gui::SidePaneItems &items = app_->side_pane_items();
+	SidePaneItems &items = app_->side_pane_items();
 	MutexGuard guard(&items.mutex);
 	auto &vec = items.vec;
 	

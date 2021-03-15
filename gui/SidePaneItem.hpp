@@ -12,19 +12,18 @@ enum class SidePaneItemType: u8 {
 	Bookmark
 };
 
-namespace sidepaneitem {
-const u8 SelectedBit = 1u << 0;
-///const u8 MouseOverBit = 1u << 1;
-const u8 MountedBit = 1u << 2;
-const u8 EventInProgressBit = 1u << 3;
-const u8 RemovableBit = 1u << 4;
-}
-
 class SidePaneItem {
+	const u8 SelectedBit = 1u << 0;
+	const u8 MountedBit = 1u << 2;
+	const u8 HasBeenClickedBit = 1u << 3;
+	const u8 RemovableBit = 1u << 4;
+	const u8 MountChangedBit = 1u << 5;
+	
 public:
 	SidePaneItem() {}
 	~SidePaneItem() {}
 	SidePaneItem* Clone();
+	static SidePaneItem* From(const ShallowItem &rhs);
 	void Init();
 	
 	static SidePaneItem* NewBookmark(io::File &file);
@@ -34,12 +33,10 @@ public:
 	
 	QString DisplayString();
 	
-	bool event_in_progress() const { return bits_ & sidepaneitem::EventInProgressBit; }
-	void event_in_progress(const bool flag) {
-		if (flag)
-			bits_ |= sidepaneitem::EventInProgressBit;
-		else
-			bits_ &= ~sidepaneitem::EventInProgressBit;
+	bool has_been_clicked() const { return bits_ & HasBeenClickedBit; }
+	void has_been_clicked(const bool flag) {
+		if (flag) bits_ |= HasBeenClickedBit;
+		else bits_ &= ~HasBeenClickedBit;
 	}
 	
 	bool is_bookmark() const { return type_ == SidePaneItemType::Bookmark; }
@@ -52,37 +49,31 @@ public:
 	const QString& fs() const { return fs_; }
 	void fs(const QString &s) { fs_ = s; }
 	
-	void major(const i64 n) { major_ = n; }
-	i64 major() const { return major_; }
-	
-	void minor(const i64 n) { minor_ = n; }
-	i64 minor() const { return minor_; }
-	
-	bool mounted() const { return bits_ & sidepaneitem::MountedBit; }
+	bool mounted() const { return bits_ & MountedBit; }
 	void mounted(const bool flag) {
-		if (flag)
-			bits_ |= sidepaneitem::MountedBit;
-		else
-			bits_ &= ~sidepaneitem::MountedBit;
+		if (flag) bits_ |= MountedBit;
+		else bits_ &= ~MountedBit;
+	}
+	
+	bool mount_changed() const { return bits_ & MountChangedBit; }
+	void mount_changed(const bool flag) {
+		if (flag) bits_ |= MountChangedBit;
+		else bits_ &= ~MountChangedBit;
 	}
 	
 	const QString& mount_path() const { return mount_path_; }
 	void mount_path(const QString &s) { mount_path_ = s;}
 	
-	bool removable() const { return bits_ & sidepaneitem::RemovableBit; }
+	bool removable() const { return bits_ & RemovableBit; }
 	void removable(const bool flag) {
-		if (flag)
-			bits_ |= sidepaneitem::RemovableBit;
-		else
-			bits_ &= ~sidepaneitem::RemovableBit;
+		if (flag) bits_ |= RemovableBit;
+		else bits_ &= ~RemovableBit;
 	}
 	
-	bool selected() const { return bits_ & sidepaneitem::SelectedBit; }
+	bool selected() const { return bits_ & SelectedBit; }
 	void selected(const bool flag) {
-		if (flag)
-			bits_ |= sidepaneitem::SelectedBit;
-		else
-			bits_ &= ~sidepaneitem::SelectedBit;
+		if (flag) bits_ |= SelectedBit;
+		else bits_ &= ~SelectedBit;
 	}
 	
 	i64 size() const { return size_; }
@@ -90,12 +81,10 @@ public:
 	
 	void type(SidePaneItemType t) { type_ = t; }
 	SidePaneItemType type() const { return type_; }
+	void set_partition() { type_ = gui::SidePaneItemType::Partition; }
+	void set_bookmark() { type_ = gui::SidePaneItemType::Bookmark; }
 private:
 	
-	void ReadStats();
-	
-	i64 major_ = -1;
-	i64 minor_ = -1;
 	QString dev_path_;
 	QString bookmark_name_;
 	QString mount_path_;

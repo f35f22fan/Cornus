@@ -14,9 +14,9 @@ public:
 	ByteArray();
 	virtual ~ByteArray();
 	
-	void alloc(const usize exact_size);
+	void alloc(const isize exact_size);
 	
-	void add(const char *n, const usize size);
+	void add(const char *n, const isize size);
 	void add_i8(const i8 n);
 	void add_u8(const u8 n);
 	void add_i16(const i16 n);
@@ -34,7 +34,7 @@ public:
 	
 	bool has_more() const { return at_ < size_; }
 	bool is_empty() const { return size_ == 0; }
-	void next(char *p, const usize sz);
+	void next(char *p, const isize sz);
 	i8 next_i8();
 	u8 next_u8();
 	i16 next_i16();
@@ -47,22 +47,23 @@ public:
 	double next_f64();
 	QString next_string();
 	
-	usize alloc_size() const { return size_; }
-	usize at() const { return at_; }
-	usize size() const { return size_; }
-	void size(usize n) { size_ = n; } // called from inside io::ReadFile(..);
-	void make_sure(const usize more_bytes, const bool exact_size = false);
-	inline void to(usize n) { at_ = n; }
+	isize alloc_size() const { return size_; }
+	isize at() const { return at_; }
+	isize size() const { return size_; }
+	isize heap_size() const { return heap_size_; }
+	void size(isize n) { size_ = n; } // called from inside io::ReadFile(..);
+	void make_sure(const isize more_bytes, const bool exact_size = false);
+	inline void to(isize n) { at_ = n; }
 	bool Receive(int fd, bool close_socket = true);
 	bool Send(int fd, bool close_socket = true) const;
 	void set_msg_id(const io::socket::MsgBits msg_id);
 	QString toString() const { return QString::fromLocal8Bit(data_, size_); }
+
 private:
-	
+	isize size_ = 0;
+	isize heap_size_ = 0;
+	isize at_ = 0;
 	char *data_ = nullptr;
-	usize size_ = 0;
-	usize heap_size_ = 0;
-	usize at_ = 0;
 };
 
 }

@@ -2,6 +2,7 @@
 
 #include "../App.hpp"
 #include "../io/io.hh"
+#include "CompleterModel.hpp"
 
 #include <QCompleter>
 #include <functional>
@@ -18,7 +19,6 @@ Location::~Location() {
 void Location::focusInEvent(QFocusEvent *evt)
 {
 	QLineEdit::focusInEvent(evt);
-	fs_model_->setRootPath(text());
 }
 
 void Location::HitEnter()
@@ -29,21 +29,26 @@ void Location::HitEnter()
 		return;
 	
 	io::FileType ft;
-	if (io::FileExists(str, &ft) && ft == io::FileType::Dir) {
+	if (io::FileExists(str, &ft) &&
+		(ft == io::FileType::Dir || ft == io::FileType::Symlink))
+	{
 		app_->GoTo(Action::To, {str, Processed::No});
 	}
 }
 
-void Location::SetLocation(const QString &s) {
+void Location::SetLocation(const QString &s)
+{
 	setText(s);
 }
 
 void Location::Setup() {
 	QCompleter *completer = new QCompleter(this);
-	fs_model_ = new QFileSystemModel(completer);
-	auto bits = QDir::Dirs | QDir::NoDot | QDir::NoDotDot | QDir::Hidden;
-	fs_model_->setFilter(bits);
-	completer->setModel(fs_model_);
+//	fs_model_ = new QFileSystemModel(completer);
+//	auto bits = QDir::Dirs | QDir::NoDot | QDir::NoDotDot | QDir::Hidden;
+//	fs_model_->setFilter(bits);
+//	completer->setModel(fs_model_);
+	model_ = new CompleterModel(this);
+	completer->setModel(model_);
 	setCompleter(completer);
 
 	completer->setCompletionMode(QCompleter::PopupCompletion);
@@ -53,6 +58,8 @@ void Location::Setup() {
 	completer->setCaseSensitivity(Qt::CaseInsensitive);
 	
 	connect(this, &QLineEdit::returnPressed, this, &Location::HitEnter);
+	connect(this, &QLineEdit::textChanged, model_,
+		&CompleterModel::SetRootPath);
 }
 
 }

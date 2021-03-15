@@ -13,7 +13,7 @@ ByteArray::~ByteArray()
 }
 
 void
-ByteArray::add(const char *n, const usize size)
+ByteArray::add(const char *n, const isize size)
 {
 	make_sure(size);
 	memcpy(data_ + at_, n, size);
@@ -83,7 +83,7 @@ ByteArray::add_string(const QString &s)
 }
 
 void
-ByteArray::alloc(const usize exact_size)
+ByteArray::alloc(const isize exact_size)
 {
 	if (data_ != nullptr)
 		mtl_trace();
@@ -100,9 +100,9 @@ ByteArray::Clear() {
 }
 
 void
-ByteArray::make_sure(const usize more_bytes, const bool exact_size)
+ByteArray::make_sure(const isize more_bytes, const bool exact_size)
 {
-	const usize new_size = at_ + more_bytes;
+	const isize new_size = at_ + more_bytes;
 	
 	if (heap_size_ >= new_size)
 		return;
@@ -120,7 +120,7 @@ ByteArray::make_sure(const usize more_bytes, const bool exact_size)
 }
 
 void
-ByteArray::next(char *p, const usize sz) {
+ByteArray::next(char *p, const isize sz) {
 	memcpy(p, data_ + at_, sz);
 	at_ += sz;
 }

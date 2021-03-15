@@ -15,9 +15,15 @@ class ExecInfo;
 class History;
 class MutexGuard;
 class Prefs;
+class SidePaneItems;
 
 const QString AppIconPath = QLatin1String(":/cornus.mas.png");
 const char *const SocketPath = "\0cornus_socket";
+
+enum class ListDirOption: i8 {
+	IncludeLinksToDirs,
+	DontIncludeLinksToDir
+};
 
 enum class Zoom: i8 {
 	In,

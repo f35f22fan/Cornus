@@ -6,6 +6,7 @@
 #include "io/decl.hxx"
 #include "io/io.hh"
 #include "gui/decl.hxx"
+#include "SidePaneItems.hpp"
 
 #include <QClipboard>
 #include <QHash>
@@ -64,7 +65,7 @@ public:
 	void SaveBookmarks();
 	bool ShowInputDialog(const gui::InputDialogParams &params, QString &ret_val);
 	gui::SidePane* side_pane() const { return side_pane_; }
-	gui::SidePaneItems& side_pane_items() const { return side_pane_items_; }
+	SidePaneItems& side_pane_items() const { return side_pane_items_; }
 	gui::SidePaneModel* side_pane_model() const { return side_pane_model_; }
 	void SwitchExecBitOfSelectedFiles();
 	gui::Table* table() const { return table_; }
@@ -131,7 +132,7 @@ private:
 	
 	gui::SidePane *side_pane_ = nullptr;
 	gui::SidePaneModel *side_pane_model_ = nullptr;
-	mutable cornus::gui::SidePaneItems side_pane_items_ = {};
+	mutable SidePaneItems side_pane_items_ = {};
 	QSplitter *main_splitter_ = nullptr;
 	
 	struct Notepad {

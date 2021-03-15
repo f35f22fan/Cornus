@@ -37,9 +37,9 @@ void
 ToolBar::Add(QMenu *menu, const QString &icon_name, const QString &text,
 	const QString &action_name)
 {
-	auto *a = new QAction(QIcon::fromTheme(icon_name), text);
+	QAction *a = menu->addAction(QIcon::fromTheme(icon_name), text);
 	connect(a, &QAction::triggered, [=] {ProcessAction(action_name);});
-	menu->addAction(a);
+	
 }
 
 void ToolBar::CreateGui()

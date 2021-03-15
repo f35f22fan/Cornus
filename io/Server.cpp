@@ -192,7 +192,7 @@ void* WatchDesktopFileDirs(void *void_args)
 		return 0;
 	}
 	
-	struct epoll_event pev;
+	struct epoll_event pev = {};
 	pev.events = EPOLLIN;
 	pev.data.fd = notify.fd;
 	

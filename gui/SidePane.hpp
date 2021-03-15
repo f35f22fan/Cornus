@@ -20,7 +20,7 @@ public:
 	SidePane(SidePaneModel *tm, App *app);
 	virtual ~SidePane();
 	
-	gui::SidePaneItems& items() const;
+	SidePaneItems& items() const;
 	SidePaneModel* model() const { return model_; }
 	QStyleOptionViewItem option() const { return viewOptions(); }
 	
@@ -35,7 +35,7 @@ public:
 	void SelectRowSimple(const int row, const bool skip_update = false);
 	virtual void UpdateColumnSizes() override {}
 public slots:
-	void ClearEventInProgress(QString dev_path, QString error_msg);
+	void ClearHasBeenClicked(QString dev_path, QString error_msg);
 	void DeselectAllItems(const int except_row, const bool row_flag, QVector<int> &indices);
 	bool ScrollToAndSelect(QString name);
 	void ReceivedPartitionEvent(cornus::PartitionEvent *p);
@@ -62,7 +62,6 @@ private:
 	void MountPartition(SidePaneItem *partition);
 	void RenameSelectedBookmark();
 	void ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos);
-	void ShowSelectedPartitionInfo(const int row);
 	void StartDrag(const QPoint &pos);
 	void UnmountPartition(int row);
 	void UpdateLineHeight();

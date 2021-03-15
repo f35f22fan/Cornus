@@ -1,6 +1,6 @@
 #pragma once
 
-#include <QFileSystemModel>
+///#include <QFileSystemModel>
 #include <QLineEdit>
 
 #include "../err.hpp"
@@ -26,7 +26,8 @@ private:
 	void Setup();
 	
 	cornus::App *app_ = nullptr;
-	QFileSystemModel *fs_model_ = nullptr;
+	///QFileSystemModel *fs_model_ = nullptr;
+	gui::CompleterModel *model_ = nullptr;
 };
 
 }

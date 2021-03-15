@@ -289,7 +289,7 @@ void* WatchDir(void *void_args)
 		return 0;
 	}
 	
-	struct epoll_event pev;
+	struct epoll_event pev = {};
 	pev.events = EPOLLIN;
 	pev.data.fd = notify.fd;
 	
@@ -658,6 +658,8 @@ TableModel::SwitchTo(io::FilesData *new_data)
 		new_data->vec.clear();
 	}
 	endInsertRows();
+	app_->table()->mouse_over_file_icon_index(-1);
+	app_->table()->mouse_over_file_name_index(-1);
 	
 	QVector<int> indices;
 	app_->table()->SyncWith(app_->clipboard(), indices);

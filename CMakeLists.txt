@@ -44,9 +44,11 @@ set(cornus_src_files main.cpp
     MutexGuard.cpp MutexGuard.hpp
     prefs.cc prefs.hh
     Prefs.cpp Prefs.hpp
-    
+    SidePaneItems.cpp SidePaneItems.hpp
+
     gui/actions.hxx
     gui/BasicTable.hpp
+    gui/CompleterModel.cpp gui/CompleterModel.hpp
     gui/CountFolder.cpp gui/CountFolder.hpp
     gui/decl.hxx
     gui/Hiliter.cpp gui/Hiliter.hpp
@@ -58,6 +60,7 @@ set(cornus_src_files main.cpp
     gui/PrefsPane.cpp gui/PrefsPane.hpp
     gui/SearchLineEdit.cpp gui/SearchLineEdit.hpp
     gui/SearchPane.cpp gui/SearchPane.hpp
+    gui/ShallowItem.cpp gui/ShallowItem.hpp
     gui/SidePane.cpp gui/SidePane.hpp
     gui/SidePaneItem.cpp gui/SidePaneItem.hpp
     gui/SidePaneModel.cpp gui/SidePaneModel.hpp

@@ -42,6 +42,143 @@ void Notify::Close()
 	}
 }
 
+QVector<const char*>
+Notify::MaskToString(const u32 mask)
+{
+	QVector<const char*> v;
+	if (mask & IN_ACCESS)
+		v.append("IN_ACCESS");
+	if (mask & IN_OPEN)
+		v.append("IN_OPEN");
+	if (mask & IN_CREATE)
+		v.append("IN_CREATE");
+	if (mask & IN_DELETE)
+		v.append("IN_DELETE");
+	if (mask & IN_DELETE_SELF)
+		v.append("IN_DELETE_SELF");
+	if (mask & IN_MOVE_SELF)
+		v.append("IN_MOVE_SELF");
+	if (mask & IN_MOVED_FROM)
+		v.append("IN_MOVED_FROM");
+	if (mask & IN_MOVED_TO)
+		v.append("IN_MOVED_TO");
+	if (mask & IN_Q_OVERFLOW)
+		v.append("IN_Q_OVERFLOW");
+	if (mask & IN_UNMOUNT)
+		v.append("IN_UNMOUNT");
+	if (mask & IN_CLOSE_NOWRITE)
+		v.append("IN_CLOSE_NOWRITE");
+	if (mask & IN_CLOSE_WRITE)
+		v.append("IN_CLOSE_WRITE");
+	if (mask & IN_IGNORED)
+		v.append("IN_IGNORED");
+	if (mask & IN_DONT_FOLLOW)
+		v.append("IN_DONT_FOLLOW");
+	if (mask & IN_MASK_ADD)
+		v.append("IN_MASK_ADD");
+	if (mask & IN_ONESHOT)
+		v.append("IN_ONESHOT");
+	if (mask & IN_ONLYDIR)
+		v.append("IN_ONLYDIR");
+	if (mask & IN_MASK_CREATE)
+		v.append("IN_MASK_CREATE");
+	if (mask & IN_ISDIR)
+		v.append("IN_ISDIR");
+	if (mask & IN_Q_OVERFLOW)
+		v.append("IN_Q_OVERFLOW");
+	
+	return v;
+}
+
+static int CompareDigits(QStringRef a, QStringRef b)
+{
+	int i = 0;
+	for (; i < a.size(); i++) {
+		if (a[i] != '0')
+			break;
+	}
+	if (i != 0)
+		a = a.mid(i);
+	
+	i = 0;
+	for (; i < b.size(); i++) {
+		if (b[i] != '0')
+			break;
+	}
+	
+	if (i != 0)
+		b = b.mid(i);
+	
+	if (a.size() != b.size())
+		return a.size() < b.size() ? -1 : 1;
+	
+	i = 0;
+	for (; i < a.size(); i++)
+	{
+		const int an = a[i].digitValue();
+		const int bn = b[i].digitValue();
+		if (an != bn)
+			return (an < bn) ? -1 : 1;
+	}
+	
+	return 0;
+}
+
+static QStringRef GetDigits(const QString &s, const int from)
+{
+	const int max = s.size();
+	int k = from;
+	for (; k < max; k++)
+	{
+		const QChar c = s[k];
+		if (!c.isDigit())
+			return s.midRef(from, k - from);
+	}
+	
+	return s.midRef(from);
+}
+
+int CompareStrings(const QString &a, const QString &b)
+{
+/** Lexically compares this @a with @b and returns
+ an integer less than, equal to, or greater than zero if @a
+ is less than, equal to, or greater than the other string. */
+	const int max = std::min(a.size(), b.size());
+	for (int i = 0; i < max; i++)
+	{
+		const QChar ac = a[i];
+		const QChar bc = b[i];
+		
+		if (ac.isDigit())
+		{
+			if (!bc.isDigit())
+				return ac < bc ? -1 : 1;
+			
+			QStringRef a_digits = GetDigits(a, i);
+			QStringRef b_digits = GetDigits(b, i);
+			
+			const int digit_result = CompareDigits(a_digits, b_digits);
+//			if (true) {
+//				auto ax = a_digits.toLocal8Bit();
+//				auto bx = b_digits.toLocal8Bit();
+//				mtl_info("\"%s\" vs \"%s\" = %d", ax.data(), bx.data(), digit_result);
+//			}
+			if (digit_result != 0)
+				return digit_result;
+			
+			i += a_digits.size();
+		}
+		
+		if (ac != bc)
+			return ac < bc ? -1 : 1;
+	}
+	
+	if (a.size() == b.size())
+		return 0;
+	
+	return a.size() < b.size() ? -1 : 1;
+}
+
 bool CopyFileFromTo(const QString &from_full_path, QString to_dir)
 {
 	if (!to_dir.endsWith('/'))
@@ -586,7 +723,52 @@ bool IsNearlyEqual(double x, double y)
 	// see Knuth section 4.2.2 pages 217-218
 }
 
-Err ListFileNames(const QString &full_dir_path, QVector<QString> &vec)
+void ListDirNames(QString dir_path, QVector<QString> &vec, const ListDirOption option)
+{
+	struct dirent *entry;
+	auto dir_path_ba = dir_path.toLocal8Bit();
+	DIR *dp = opendir(dir_path_ba.data());
+	
+	if (dp == NULL)
+		return;
+	
+	if (!dir_path.endsWith('/'))
+		dir_path.append('/');
+	
+	struct statx stx;
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_MODE;
+	
+	while ((entry = readdir(dp)))
+	{
+		const char *n = entry->d_name;
+		if (strcmp(n, ".") == 0 || strcmp(n, "..") == 0)
+			continue;
+		
+		QString name(n);
+		auto ba = (dir_path + name).toLocal8Bit();
+		
+		if (statx(0, ba.data(), flags, fields, &stx) != 0) {
+			mtl_warn("statx(): %s: \"%s\"", strerror(errno), ba.data());
+			continue;
+		}
+		
+		if (S_ISDIR(stx.stx_mode))
+			vec.append(name);
+		else if (S_ISLNK(stx.stx_mode) && option == ListDirOption::IncludeLinksToDirs)
+		{
+			LinkTarget target;
+			ReadLink(ba.data(), target, dir_path);
+			if (S_ISDIR(target.mode))
+				vec.append(name);
+		}
+	}
+	
+	closedir(dp);
+}
+
+Err ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
+	FilterFunc ff)
 {
 	struct dirent *entry;
 	auto dir_path_ba = full_dir_path.toLocal8Bit();
@@ -602,13 +784,13 @@ Err ListFileNames(const QString &full_dir_path, QVector<QString> &vec)
 	
 	while ((entry = readdir(dp)))
 	{
-		QString name(entry->d_name);
+		const char *n = entry->d_name;
+		if (strcmp(n, ".") == 0 || strcmp(n, "..") == 0)
+			continue;
 		
-		if (name.startsWith(QChar('.')))
-		{
-			if (name == QLatin1String(".") || name == QLatin1String(".."))
-				continue;
-		}
+		QString name(n);
+		if (ff && !ff(name))
+			continue;
 		
 		vec.append(name);
 	}
@@ -650,7 +832,7 @@ Err ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 		if (hide_hidden_files && name.startsWith('.'))
 			continue;
 		
-		if (ff != nullptr && !ff(data.processed_dir_path, name))
+		if (ff && !ff(name))
 			continue;
 		
 		auto *file = new io::File(ptr);
@@ -954,24 +1136,19 @@ io::Err ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	if (ret_mode != nullptr)
 		*ret_mode = st.st_mode;
 	
-	i64 MAX = (read_max == -1) ? st.st_size :
-		std::min(read_max, st.st_size);
-	
-	if (MAX <= 0) {
-		MAX = 1024 * 10;
-	}
-	
-	buffer.make_sure(MAX);
-	char *buf = buffer.data();
 	const int fd = open(path.data(), O_RDONLY);
 	
 	if (fd == -1)
 		return MapPosixError(errno);
 	
 	isize so_far = 0;
+	const isize chunk_size = (read_max == -1 || read_max > 4096) ? 4096 : read_max;
+	char *buf = new char[chunk_size];
+	AutoDeleteArr ad(buf);
 	
-	while (so_far < MAX) {
-		isize count = read(fd, buf + so_far, MAX - so_far);
+	while (true)
+	{
+		isize count = read(fd, buf, chunk_size);
 		if (count == -1) {
 			if (errno == EAGAIN)
 				continue;
@@ -987,13 +1164,58 @@ io::Err ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 		}
 		
 		so_far += count;
+		
+		if (read_max != -1 && so_far > read_max)
+			break;
+		
+		buffer.add(buf, count);
 	}
 	
 	close(fd);
-	buffer.size(so_far);
 	buffer.to(0);
-	
+	buffer.size(so_far); // needed for buffer.toString()
 	return Err::Ok;
+}
+
+void ReadPartitionInfo(const QString &dev_path, i64 &size, QString &size_str)
+{
+	int index = dev_path.indexOf(QLatin1String("/sd"));
+	QStringRef drive_name, partition_name;
+	if (index != -1)
+	{
+		drive_name = dev_path.midRef(index + 1, 3);
+		partition_name = dev_path.midRef(index + 1);
+	} else {
+		int start = dev_path.indexOf(QLatin1String("/nvme"));
+		if (start == -1)
+			return;
+		int end = dev_path.lastIndexOf('p');
+		if (end == -1)
+			return;
+		start++; /// skip '/'
+		drive_name = dev_path.midRef(start, end - start);
+		partition_name = dev_path.midRef(start);
+	}
+	
+	const bool is_digit = dev_path.at(dev_path.size() - 1).isDigit();
+	QString full_path = QLatin1String("/sys/block/") + drive_name;
+	if (is_digit) {
+		full_path += '/' + partition_name;
+	}
+	
+	QString size_path = full_path + QLatin1String("/size");
+	
+	ByteArray buf;
+	CHECK_TRUE_VOID((io::ReadFile(size_path, buf) == io::Err::Ok));
+	QString s = buf.toString();
+//	mtl_info("buf size: %ld, heap_size: %ld, str: %s",
+//		buf.size(), buf.heap_size(), qPrintable(s));
+	bool ok;
+	i64 num = s.toLong(&ok);
+	if (ok) {
+		size = num * 512;
+		size_str = io::SizeToString(size, true);
+	}
 }
 
 void ReadXAttrs(io::File &file, const QByteArray &full_path)
@@ -1007,7 +1229,7 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 	
 	if (buflen == -1)
 	{
-		mtl_warn("%s: %s", full_path.data(), strerror(errno));
+		//mtl_warn("%s: %s", full_path.data(), strerror(errno));
 		return;
 	}
 	
@@ -1123,6 +1345,13 @@ bool SameFiles(const QString &path1, const QString &path2, io::Err *ret_error)
 	return id1 == id2;
 }
 
+bool sd_nvme(const QString &name)
+{
+	static const QString sd = QLatin1String("sd");
+	static const QString nvme = QLatin1String("nvme");
+	return name.startsWith(sd) || name.startsWith(nvme);
+}
+
 QString
 SizeToString(const i64 sz, const bool short_version)
 {
@@ -1147,95 +1376,6 @@ SizeToString(const i64 sz, const bool short_version)
 	}
 	
 	return io::FloatToString(rounded, 1) + type;
-}
-
-int CompareDigits(QStringRef a, QStringRef b)
-{
-	int i = 0;
-	for (; i < a.size(); i++) {
-		if (a[i] != '0')
-			break;
-	}
-	if (i != 0)
-		a = a.mid(i);
-	
-	i = 0;
-	for (; i < b.size(); i++) {
-		if (b[i] != '0')
-			break;
-	}
-	
-	if (i != 0)
-		b = b.mid(i);
-	
-	if (a.size() != b.size())
-		return a.size() < b.size() ? -1 : 1;
-	
-	i = 0;
-	for (; i < a.size(); i++)
-	{
-		const int an = a[i].digitValue();
-		const int bn = b[i].digitValue();
-		if (an != bn)
-			return (an < bn) ? -1 : 1;
-	}
-	
-	return 0;
-}
-
-QStringRef GetDigits(const QString &s, const int from)
-{
-	const int max = s.size();
-	int k = from;
-	for (; k < max; k++)
-	{
-		const QChar c = s[k];
-		if (!c.isDigit())
-			return s.midRef(from, k - from);
-	}
-	
-	return s.midRef(from);
-}
-
-int CompareStrings(const QString &a, const QString &b)
-{
-/** Lexically compares this @a with @b and returns
- an integer less than, equal to, or greater than zero if @a
- is less than, equal to, or greater than the other string. */
-	const int max = std::min(a.size(), b.size());
-	for (int i = 0; i < max; i++)
-	{
-		const QChar ac = a[i];
-		const QChar bc = b[i];
-		
-		if (ac.isDigit())
-		{
-			if (!bc.isDigit())
-				return ac < bc ? -1 : 1;
-			
-			QStringRef a_digits = GetDigits(a, i);
-			QStringRef b_digits = GetDigits(b, i);
-			
-			const int digit_result = CompareDigits(a_digits, b_digits);
-//			if (true) {
-//				auto ax = a_digits.toLocal8Bit();
-//				auto bx = b_digits.toLocal8Bit();
-//				mtl_info("\"%s\" vs \"%s\" = %d", ax.data(), bx.data(), digit_result);
-//			}
-			if (digit_result != 0)
-				return digit_result;
-			
-			i += a_digits.size();
-		}
-		
-		if (ac != bc)
-			return ac < bc ? -1 : 1;
-	}
-	
-	if (a.size() == b.size())
-		return 0;
-	
-	return a.size() < b.size() ? -1 : 1;
 }
 
 bool SortFiles(io::File *a, io::File *b) 

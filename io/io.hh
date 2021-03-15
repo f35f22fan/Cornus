@@ -44,7 +44,7 @@ acts like a refcounter: when a given watch FD goes to zero it's OK
 to remove it, otherwise just decrease it by 1.*/
 	QMap<int, int> watches;
 	pthread_mutex_t watches_mutex = PTHREAD_MUTEX_INITIALIZER;
-	
+	QVector<const char*> MaskToString(const u32 mask);
 	void Close();
 	void Init();
 };
@@ -134,6 +134,8 @@ Q_DECLARE_METATYPE(cornus::io::CountRecursiveInfo*);
 
 namespace cornus::io {
 
+int CompareStrings(const QString &a, const QString &b);
+
 bool CopyFileFromTo(const QString &from_full_path, QString to_dir);
 
 struct CountFolderData {
@@ -201,10 +203,19 @@ GetFileNameOfFullPath(const QString &full_path);
 
 Bool HasExecBit(const QString &full_path);
 
+void InitEnvInfo(Category &desktop, QVector<QString> &search_icons_dirs,
+	QVector<QString> &xdg_data_dirs,
+	QHash<QString, Category> &possible_categories);
+
 inline bool IsNearlyEqual(double x, double y);
 
-io::Err
-ListFileNames(const QString &full_dir_path, QVector<QString> &vec);
+/// lists only dir names
+void ListDirNames(QString dir_path, QVector<QString> &vec,
+	const ListDirOption option = ListDirOption::IncludeLinksToDirs);
+
+io::Err /// lists files and folders
+ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
+	FilterFunc ff = nullptr);
 
 io::Err
 ListFiles(FilesData &data, Files *ptr, FilterFunc ff = nullptr);
@@ -245,14 +256,14 @@ ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_d
 bool
 ReadLinkSimple(const char *file_path, QString &result);
 
+void ReadPartitionInfo(const QString &dev_path, i64 &size, QString &size_str);
+
 bool ReloadMeta(io::File &file, struct statx &stx, QString *dir_path = nullptr);
 
 bool SameFiles(const QString &path1, const QString &path2,
 	io::Err *ret_error = nullptr);
 
-void InitEnvInfo(Category &desktop, QVector<QString> &search_icons_dirs,
-	QVector<QString> &xdg_data_dirs,
-	QHash<QString, Category> &possible_categories);
+bool sd_nvme(const QString &name);
 
 QString
 SizeToString(const i64 sz, const bool short_version = false);

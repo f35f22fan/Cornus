@@ -101,6 +101,7 @@ model_(tm)
 
 Table::~Table() {
 	delete model_;
+	delete delegate_;
 	
 	for (auto *next: open_with_.add_vec) {
 		delete next;

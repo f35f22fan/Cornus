@@ -92,8 +92,6 @@ model_(tm)
 	setSelectionBehavior(QAbstractItemView::SelectRows);
 	setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
 	
-	int sz = GetIconSize();
-	setIconSize(QSize(sz, sz));
 	SetCustomResizePolicy();
 	auto *vs = verticalScrollBar();
 	connect(vs, &QAbstractSlider::valueChanged, this, &Table::HiliteFileUnderMouse);
@@ -564,11 +562,6 @@ Table::GetFirstSelectedFileFullPath(QString *ext) {
 }
 
 int
-Table::GetIconSize() {
-	return verticalHeader()->defaultSectionSize() - 12;
-}
-
-int
 Table::GetRowHeight() const { return verticalHeader()->defaultSectionSize(); }
 
 void
@@ -947,6 +940,33 @@ Table::keyPressEvent(QKeyEvent *event)
 		}
 	} else if (key == Qt::Key_Escape) {
 		app_->HideTextEditor();
+	} else if (key == Qt::Key_PageUp) {
+		auto *vs = verticalScrollBar();
+		const int page = vs->pageStep() - GetRowHeight() * 2;
+		int new_val = vs->value() - page;
+		vs->setValue(new_val);
+		int r = new_val / GetRowHeight();
+		if (new_val % GetRowHeight() != 0)
+			r++;
+		int row = std::max(0, r);
+		SelectRowSimple(row, true);
+	} else if (key == Qt::Key_PageDown) {
+		auto *vs = verticalScrollBar();
+		const int page = vs->pageStep() - GetRowHeight();
+		int new_val = vs->value() + page;
+		vs->setValue(new_val);
+		int new_val2 = new_val + page;
+		const int rc = model_->rowCount();
+		int row = std::min(rc - 1, new_val2 / GetRowHeight());
+		SelectRowSimple(row, true);
+	} else if (key == Qt::Key_Home) {
+		auto *vs = verticalScrollBar();
+		vs->setValue(0);
+		SelectRowSimple(0, true);
+	} else if (key == Qt::Key_End) {
+		auto *vs = verticalScrollBar();
+		vs->setValue(vs->maximum());
+		SelectRowSimple(model_->rowCount() - 1, true);
 	}
 	
 	model_->UpdateIndices(indices);
@@ -1193,7 +1213,7 @@ Table::ScrollToRow(int row)
 	if (row < 0)
 		return;
 	
-	const int rh = verticalHeader()->defaultSectionSize();
+	const int rh = GetRowHeight();
 	const int header_h = horizontalHeader()->height();
 	int visible_rows = GetVisibleRowsCount();
 	const int diff = height() % rh;
@@ -1366,7 +1386,7 @@ Table::SelectRowSimple(const int row, const bool deselect_others)
 	io::Files &files = app_->view_files();
 	QVector<int> indices;
 	{
-		MutexGuard guard(&files.mutex);
+		MutexGuard guard = files.guard();
 		auto &vec = files.data.vec;
 		
 		if (deselect_others) {

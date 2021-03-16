@@ -610,13 +610,11 @@ void App::CreateGui()
 		}
 	}
 	
+	main_splitter_->setStretchFactor(0, 0);
+	main_splitter_->setStretchFactor(1, 1);
 	auto &sizes = prefs_->splitter_sizes();
-	if (sizes.size() > 0) {
+	if (sizes.size() > 0)
 		main_splitter_->setSizes(sizes);
-	} else {
-		main_splitter_->setStretchFactor(0, 0);
-		main_splitter_->setStretchFactor(1, 1);
-	}
 
 	prefs_->UpdateTableSizes();
 }
@@ -893,7 +891,7 @@ void App::GoToFinish(cornus::io::FilesData *new_data)
 		dir_name = new_data->processed_dir_path; // likely "/"
 	
 	using Clock = std::chrono::steady_clock;
-	
+	QString title;
 	if (prefs_->show_ms_files_loaded() &&
 		(new_data->start_time != std::chrono::time_point<Clock>::max()))
 	{
@@ -902,13 +900,14 @@ void App::GoToFinish(cornus::io::FilesData *new_data)
 			std::chrono::milliseconds::period>(now - new_data->start_time).count();
 		QString diff_str = io::FloatToString(elapsed, 2);
 		
-		QString title = dir_name
+		title = dir_name
 			+ QLatin1String(" (") + QString::number(count)
 			+ QChar('/') + diff_str + QLatin1String(" ms)");
-		setWindowTitle(title);
 	} else {
-		setWindowTitle(dir_name);
+		title = dir_name;
 	}
+	
+	setWindowTitle(title + QLatin1String(" - Cornus"));
 	
 	location_->SetLocation(new_data->processed_dir_path);
 	side_pane_->SelectProperPartition(new_data->processed_dir_path);

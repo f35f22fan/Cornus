@@ -39,7 +39,6 @@ public:
 	void GetSelectedFileNames(QVector<QString> &names,
 		const StringCase str_case = StringCase::AsIs);
 	QString GetFirstSelectedFileFullPath(QString *ext);
-	inline int GetIconSize();
 	int GetRowHeight() const;
 	int GetSelectedFilesCount(QVector<QString> *extensions = nullptr);
 	i32 GetVisibleRowsCount() const;

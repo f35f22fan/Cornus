@@ -98,13 +98,12 @@ public:
 		UpdateRange(row_start, row_end);
 	}
 	
-	void UpdateVisibleArea();
-	
 public slots:
 	void InsertFromAnotherThread(cornus::gui::InsertArgs args);
 	void PartitionsChanged();
 	void PartitionAdded(const int index, SidePaneItem *p);
 	void PartitionRemoved(const int index);
+	void UpdateVisibleArea();
 	
 private:
 	

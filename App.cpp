@@ -1024,6 +1024,18 @@ void App::HideTextEditor() {
 	notepad_.stack->setCurrentIndex(notepad_.window_index);
 }
 
+QColor App::hover_bg_color_gray(const QColor &c) const
+{
+	if (theme_type_ == ThemeType::Dark)
+		return QColor(90, 90, 90);
+	
+	QColor n = c.lighter(180);
+	const int avg = (n.red() + n.green() + n.blue()) / 3;
+	if (avg >= 240)
+		return c.lighter(140);
+	return n;
+}
+
 void App::IconByTruncName(io::File &file, const QString &truncated,
 	QIcon **ret_icon) {
 	QString real_name = GetIconName(truncated);
@@ -1512,8 +1524,8 @@ void App::RunExecutable(const QString &full_path,
 void App::SaveBookmarks()
 {
 	QVector<gui::SidePaneItem*> item_vec;
+	SidePaneItems &items = side_pane_items();
 	{
-		auto &items = side_pane_items();
 		MutexGuard guard(&items.mutex);
 		
 		for (gui::SidePaneItem *next: items.vec) {
@@ -1523,11 +1535,7 @@ void App::SaveBookmarks()
 		}
 	}
 	
-	QString parent_dir = prefs::QueryAppConfigPath();
-	parent_dir.append('/');
-	CHECK_TRUE_VOID(!parent_dir.isEmpty());
-	const QString full_path = parent_dir + prefs::BookmarksFileName +
-		QString::number(prefs::BookmarksFormatVersion);
+	const QString full_path = prefs::GetConfigFilePath();
 	const QByteArray path_ba = full_path.toLocal8Bit();
 	
 	if (!io::FileExists(full_path)) {
@@ -1553,7 +1561,11 @@ void App::SaveBookmarks()
 		buf.add_string(next->mount_path());
 		buf.add_string(next->bookmark_name());
 	}
-	
+	{
+		items.Lock();
+		items.bookmarks_changed_by_me = true;
+		items.Unlock();
+	}
 	if (io::WriteToFile(full_path, buf.data(), buf.size()) != io::Err::Ok) {
 		mtl_trace("Failed to save bookmarks");
 	}

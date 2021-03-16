@@ -17,6 +17,7 @@ public:
 	bool widgets_created = false;
 	bool partitions_loaded = false;
 	bool sidepane_model_destroyed = false;
+	bool bookmarks_changed_by_me = false;
 	QVector<gui::SidePaneItem*> vec;
 	
 	MutexGuard guard() { return MutexGuard(&mutex); }

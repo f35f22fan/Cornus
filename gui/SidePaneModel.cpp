@@ -24,6 +24,7 @@
 
 namespace cornus::gui {
 namespace sidepane {
+const size_t kInotifyEventBufLen = 8 * (sizeof(struct inotify_event) + 16);
 
 static bool SortSidePanes(SidePaneItem *a, SidePaneItem *b) 
 {
@@ -117,17 +118,16 @@ static void MarkMountedPartitions(QVector<SidePaneItem*> &vec, bool &repaint)
 	}
 }
 
-static void LoadBookmarks(QVector<SidePaneItem*> &vec)
+static bool LoadBookmarks(QVector<SidePaneItem*> &vec)
 {
-	const QString full_path = prefs::QueryAppConfigPath() + '/'
-		+ prefs::BookmarksFileName + QString::number(prefs::BookmarksFormatVersion);
+	const QString full_path = prefs::GetConfigFilePath();
 	
 	ByteArray buf;
 	if (io::ReadFile(full_path, buf) != io::Err::Ok)
-		return;
+		return false;
 	
 	u16 version = buf.next_u16();
-	CHECK_TRUE_VOID((version == prefs::BookmarksFormatVersion));
+	CHECK_TRUE((version == prefs::BookmarksFormatVersion));
 	
 	while (buf.has_more()) {
 		SidePaneItem *p = new SidePaneItem();
@@ -137,6 +137,8 @@ static void LoadBookmarks(QVector<SidePaneItem*> &vec)
 		p->Init();
 		vec.append(p);
 	}
+	
+	return true;
 }
 
 void LoadDrivePartition(const QString &name, QVector<SidePaneItem*> &vec)
@@ -199,7 +201,7 @@ void* LoadItems(void *args)
 	mtl_info("Directly: %ldmc", mc);
 #endif
 	
-	LoadBookmarks(method_args.vec);
+	CHECK_TRUE_NULL(LoadBookmarks(method_args.vec));
 	SidePaneItems &items = app->side_pane_items();
 	items.Lock();
 	while (!items.widgets_created)
@@ -272,14 +274,96 @@ void ComparePartitions(SidePaneModel *model, SidePaneItems &items,
 	}
 }
 
-void* MonitorPartitions(void *void_args)
+void ReadBookmarksFileEvent(int inotify_fd, char *buf,
+	gui::SidePaneModel *model)
+{
+	const ssize_t num_read = read(inotify_fd, buf, kInotifyEventBufLen);
+	Q_UNUSED(num_read);
+	SidePaneItems &items = model->app()->side_pane_items();
+	{
+		/// If this app did it then there's no need to update
+		auto guard = items.guard();
+		if (items.bookmarks_changed_by_me) {
+			items.bookmarks_changed_by_me = false;
+			return;
+		}
+	}
+	
+	QVector<SidePaneItem*> new_items;
+	CHECK_TRUE_VOID(LoadBookmarks(new_items));
+	
+	{
+		auto guard = items.guard();
+		if (items.sidepane_model_destroyed) {
+			for (auto *next: new_items) {
+				delete next;
+			}
+			return;
+		}
+		
+		for (int i = items.vec.size() - 1; i >= 0; i--) {
+			SidePaneItem *old_item = items.vec[i];
+			if (old_item->is_bookmark()) {
+				delete old_item;
+				items.vec.remove(i);
+			}
+		}
+		
+		for (SidePaneItem *new_item: new_items) {
+			items.vec.append(new_item);
+		}
+	}
+	
+	QMetaObject::invokeMethod(model, "UpdateVisibleArea");
+}
+
+void* MonitorBookmarksAndPartitions(void *void_args)
 {
 	pthread_detach(pthread_self());
+	
 	SidePaneModel *model = (SidePaneModel*)void_args;
 	SidePaneItems &items = model->app()->side_pane_items();
+	io::Notify &notify = model->notify();
+	
+	char *buf = new char[kInotifyEventBufLen];
+	AutoDeleteArr ad_arr(buf);
+	const auto EventTypes = IN_CLOSE_WRITE;
+	auto bookmarks_file_path = prefs::GetConfigFilePath().toLocal8Bit();
+	int wd = inotify_add_watch(notify.fd, bookmarks_file_path.data(), EventTypes);
+	
+	if (wd == -1) {
+		mtl_status(errno);
+		return nullptr;
+	}
+	
+	int epfd = epoll_create(1);
+	
+	if (epfd == -1) {
+		mtl_status(errno);
+		return 0;
+	}
+	
+	struct epoll_event pev = {};
+	pev.events = EPOLLIN;
+	pev.data.fd = notify.fd;
+	
+	if (epoll_ctl(epfd, EPOLL_CTL_ADD, notify.fd, &pev)) {
+		mtl_status(errno);
+		close(epfd);
+		return nullptr;
+	}
+	
+	struct epoll_event poll_event;
+	const int seconds = 2 * 1000;
 	
 	while (true)
 	{
+		int event_count = epoll_wait(epfd, &poll_event, 1, seconds);
+		
+		if (event_count > 0) {
+			ReadBookmarksFileEvent(poll_event.data.fd, buf, model);
+		}
+		
 		bool repaint = false;
 #ifdef PRINT_LOAD_TIME
 		ElapsedTimer timer;
@@ -288,37 +372,37 @@ void* MonitorPartitions(void *void_args)
 		QVector<ShallowItem*> shallow_items;
 		ShallowItem::LoadAllPartitions(shallow_items);
 		
-		items.Lock();
-		while (!items.partitions_loaded) {
-			int status = pthread_cond_wait(&items.cond, &items.mutex);
-			if (status != 0) {
-				mtl_status(status);
+		{
+			auto guard = items.guard();
+			while (!items.partitions_loaded) {
+				int status = pthread_cond_wait(&items.cond, &items.mutex);
+				if (status != 0) {
+					mtl_status(status);
+					break;
+				}
+			}
+			if (items.sidepane_model_destroyed)
+				break;
+			ComparePartitions(model, items, shallow_items);
+			for (ShallowItem *next: shallow_items) {
+				delete next;
+			}
+			
+			if (items.sidepane_model_destroyed) {
 				break;
 			}
+			MarkMountedPartitions(items.vec, repaint);
 		}
-		if (items.sidepane_model_destroyed) {
-			items.Unlock();
-			return nullptr;
-		}
-		ComparePartitions(model, items, shallow_items);
-		for (ShallowItem *next: shallow_items) {
-			delete next;
-		}
-		
-		if (items.sidepane_model_destroyed) {
-			items.Unlock();
-			return nullptr;
-		}
-		MarkMountedPartitions(items.vec, repaint);
-		items.Unlock();
 #ifdef PRINT_LOAD_TIME
 		mtl_info("Checked in %ldmc", timer.elapsed_mc());
 #endif
 		if (repaint) {
 			QMetaObject::invokeMethod(model, "PartitionsChanged");
 		}
-		
-		sleep(2);
+	}
+	
+	if (close(epfd)) {
+		mtl_status(errno);
 	}
 	
 	return nullptr;
@@ -332,10 +416,9 @@ SidePaneModel::SidePaneModel(cornus::App *app): app_(app)
 	notify_.Init();
 	
 	pthread_t th;
-	int status = pthread_create(&th, NULL, sidepane::MonitorPartitions, this);
-	if (status != 0) {
+	int status = pthread_create(&th, NULL, sidepane::MonitorBookmarksAndPartitions, this);
+	if (status != 0)
 		mtl_status(status);
-	}
 }
 
 SidePaneModel::~SidePaneModel()

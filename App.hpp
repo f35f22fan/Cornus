@@ -52,16 +52,7 @@ public:
 	void HideTextEditor();
 	QColor hover_bg_color() const { return (theme_type_ == ThemeType::Light)
 		? QColor(150, 255, 150) : QColor(0, 80, 0); }
-	QColor hover_bg_color_gray(const QColor &c) const {
-		if (theme_type_ == ThemeType::Dark)
-			return QColor(90, 90, 90);
-		
-		QColor n = c.lighter(180);
-		const int avg = (n.red() + n.green() + n.blue()) / 3;
-		if (avg >= 240)
-			return c.lighter(140);
-		return n;
-	}
+	QColor hover_bg_color_gray(const QColor &c) const;
 	void LaunchOrOpenDesktopFile(const QString &full_path, const bool has_exec_bit, const RunAction action) const;
 	void LoadIcon(io::File &file);
 	gui::Location* location() { return location_; }

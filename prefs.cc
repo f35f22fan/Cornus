@@ -6,6 +6,13 @@
 
 namespace cornus::prefs {
 
+QString GetConfigFilePath()
+{
+	return prefs::QueryAppConfigPath() + '/'
+		+ prefs::BookmarksFileName
+		+ QString::number(prefs::BookmarksFormatVersion);
+}
+
 QString QueryAppConfigPath()
 {
 	static QString dir_path = QString();

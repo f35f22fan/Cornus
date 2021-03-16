@@ -1118,12 +1118,15 @@ Table::mouseReleaseEvent(QMouseEvent *evt)
 		{
 			io::Files &files = app_->view_files();
 			io::File *cloned_file = nullptr;
+			int file_index = -1;
 			{
 				MutexGuard guard(&files.mutex);
-				cloned_file = GetFileAtNTS(evt->pos(), Clone::Yes);
+				cloned_file = GetFileAtNTS(evt->pos(), Clone::Yes, &file_index);
 			}
-			if (cloned_file)
+			if (cloned_file) {
 				app_->FileDoubleClicked(cloned_file, Column::Icon);
+				SelectRowSimple(file_index, true);
+			}
 		}
 	}
 }

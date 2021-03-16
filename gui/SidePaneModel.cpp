@@ -477,9 +477,9 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 			return app_->hover_bg_color_gray(c);
 		}
 		if (item->selected() && item->is_partition()) {
-//			QColor c = table_->option().palette.highlight().color();
-//			return c;
-			return QColor(190, 255, 190);
+			QColor c = table_->option().palette.highlight().color();
+			return c;
+///			return QColor(190, 255, 190);
 		}
 	} else if (role == Qt::ForegroundRole) {
 		if (item->is_partition() && !item->mounted()) {

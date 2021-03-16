@@ -14,18 +14,18 @@ void* MountPartitionTh(void *p)
 {
 	pthread_detach(pthread_self());
 	
-	MountPartitionData *mps = (MountPartitionData*)p;
+	MountPartitionData *params = (MountPartitionData*)p;
 //	struct MountPartitionData {
 //		gui::SidePaneItem *partition;
 //		App *app;
 //	};
 	
-	AutoDelete ad(mps->partition);
-	AutoDelete mps_ad(mps);
+	AutoDelete ad(params->partition);
+	AutoDelete mps_ad(params);
 	
 	if (!QDBusConnection::systemBus().isConnected()) {
-		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearHasBeenClicked",
-			Q_ARG(QString, mps->partition->dev_path()),
+		QMetaObject::invokeMethod(params->app->side_pane(), "ClearHasBeenClicked",
+			Q_ARG(QString, params->partition->dev_path()),
 			Q_ARG(QString, QString("DBus: Failed to connect to system bus")));
 		
 		fprintf(stderr, "Cannot connect to the D-Bus system bus.\n"
@@ -34,15 +34,15 @@ void* MountPartitionTh(void *p)
 	}
 	
 	QString object_name = QLatin1String("/org/freedesktop/UDisks2/block_devices/")
-		+ mps->partition->GetPartitionName();
+		+ params->partition->GetPartitionName();
 	auto object_name_ba = object_name.toLocal8Bit();
 	
 	QDBusInterface iface(ServiceName, object_name_ba.data(),
 		"org.freedesktop.UDisks2.Filesystem", QDBusConnection::systemBus());
 	
 	if (!iface.isValid()) {
-		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearHasBeenClicked",
-			Q_ARG(QString, mps->partition->dev_path()),
+		QMetaObject::invokeMethod(params->app->side_pane(), "ClearHasBeenClicked",
+			Q_ARG(QString, params->partition->dev_path()),
 			Q_ARG(QString, QString("Invalid interface")));
 		return nullptr;
 	}
@@ -51,8 +51,8 @@ void* MountPartitionTh(void *p)
 	QDBusReply<QString> reply = iface.call(QDBus::Block, "Mount", args);
 	
 	if (!reply.isValid()) {
-		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearHasBeenClicked",
-			Q_ARG(QString, mps->partition->dev_path()),
+		QMetaObject::invokeMethod(params->app->side_pane(), "ClearHasBeenClicked",
+			Q_ARG(QString, params->partition->dev_path()),
 			Q_ARG(QString, reply.error().message()));
 		
 		//fprintf(stderr, "Call failed: %s\n", qPrintable(reply.error().message()));

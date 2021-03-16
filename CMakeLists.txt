@@ -60,7 +60,6 @@ set(cornus_src_files main.cpp
     gui/PrefsPane.cpp gui/PrefsPane.hpp
     gui/SearchLineEdit.cpp gui/SearchLineEdit.hpp
     gui/SearchPane.cpp gui/SearchPane.hpp
-    gui/ShallowItem.cpp gui/ShallowItem.hpp
     gui/SidePane.cpp gui/SidePane.hpp
     gui/SidePaneItem.cpp gui/SidePaneItem.hpp
     gui/SidePaneModel.cpp gui/SidePaneModel.hpp

@@ -399,9 +399,7 @@ TableModel::index(int row, int column, const QModelIndex &parent) const
 int
 TableModel::rowCount(const QModelIndex &parent) const
 {
-	io::Files &files = app_->view_files();
-	MutexGuard guard(&files.mutex);
-	return files.data.vec.size();
+	return cached_row_count_;
 }
 
 int
@@ -423,8 +421,8 @@ QString
 TableModel::GetName() const
 {
 	if (app_->prefs().show_free_partition_space()) {
-		if (cached_free_space_.isEmpty())
-			cached_free_space_ = app_->GetPartitionFreeSpace();
+//		if (cached_free_space_.isEmpty())
+//			cached_free_space_ = app_->GetPartitionFreeSpace();
 		return cached_free_space_;
 	}
 	
@@ -493,6 +491,7 @@ TableModel::InotifyEvent(gui::FileEvent evt)
 		{
 			MutexGuard guard(&files.mutex);
 			files.data.vec.insert(index, evt.new_file);
+			cached_row_count_ = files.data.vec.size();
 		}
 		endInsertRows();
 		break;
@@ -506,6 +505,7 @@ TableModel::InotifyEvent(gui::FileEvent evt)
 			MutexGuard guard(&files.mutex);
 			delete files.data.vec[evt.index];
 			files.data.vec.remove(evt.index);
+			cached_row_count_ = files.data.vec.size();
 		}
 		endRemoveRows();
 		break;
@@ -550,6 +550,7 @@ TableModel::InotifyEvent(gui::FileEvent evt)
 		{
 			MutexGuard guard(&files.mutex);
 			files.data.vec.insert(to_index, new_file);
+			cached_row_count_ = files.data.vec.size();
 		}
 		endInsertRows();
 		break;
@@ -669,6 +670,7 @@ TableModel::SwitchTo(io::FilesData *new_data)
 		files.data.show_hidden_files(new_data->show_hidden_files());
 		files.data.vec = new_data->vec;
 		new_data->vec.clear();
+		cached_row_count_ = files.data.vec.size();
 	}
 	endInsertRows();
 	app_->table()->mouse_over_file_icon_index(-1);

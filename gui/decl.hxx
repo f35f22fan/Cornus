@@ -25,7 +25,6 @@ class OpenWithPane;
 class PrefsPane;
 class SearchLineEdit;
 class SearchPane;
-class ShallowItem;
 class SidePane;
 class SidePaneItem;
 class SidePaneModel;

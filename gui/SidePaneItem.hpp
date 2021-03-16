@@ -23,7 +23,6 @@ public:
 	SidePaneItem() {}
 	~SidePaneItem() {}
 	SidePaneItem* Clone();
-	static SidePaneItem* From(const ShallowItem &rhs);
 	void Init();
 	
 	static SidePaneItem* NewBookmark(io::File &file);

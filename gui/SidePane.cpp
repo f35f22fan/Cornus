@@ -373,7 +373,8 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 		auto *item = GetItemAtNTS(evt->pos(), false, &row);
 		if (item != nullptr) {
 			cloned_item = item->Clone();
-			item->has_been_clicked(true);
+			if (item->is_partition() && !item->mounted())
+				item->has_been_clicked(true);
 		}
 	}
 	

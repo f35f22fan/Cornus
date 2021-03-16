@@ -9,7 +9,6 @@
 #include "../MutexGuard.hpp"
 #include "../prefs.hh"
 #include "../Prefs.hpp"
-#include "ShallowItem.hpp"
 #include "SidePane.hpp"
 #include "SidePaneItem.hpp"
 #include "../SidePaneItems.hpp"
@@ -222,21 +221,26 @@ void* LoadItems(void *args)
 }
 
 void ComparePartitions(SidePaneModel *model, SidePaneItems &items,
-	QVector<ShallowItem*> &shallow_items)
+	QVector<SidePaneItem*> &shallow_items)
 {
 	QVector<SidePaneItem*> &vec = items.vec;
-	for (ShallowItem *shallow_item: shallow_items)
+	for (SidePaneItem *shallow_item: shallow_items)
 	{
 		bool contains = false;
 		for (SidePaneItem *item: vec)
 		{
 			if (item->dev_path() == shallow_item->dev_path()) {
 				contains = true;
+				if (shallow_item->mounted() != item->mounted()) {
+					item->has_been_clicked(false);
+					item->mounted(shallow_item->mounted());
+					item->mount_path(shallow_item->mount_path());
+				}
 				break;
 			}
 		}
 		if (!contains) {
-			SidePaneItem *new_item = SidePaneItem::From(*shallow_item);
+			SidePaneItem *new_item = shallow_item->Clone();
 			int insert_at = FindPlace(new_item, vec);
 			const bool destroyed = items.sidepane_model_destroyed;
 			if (destroyed) {
@@ -256,7 +260,7 @@ void ComparePartitions(SidePaneModel *model, SidePaneItems &items,
 		if (!item->is_partition())
 			continue;
 		bool contains = false;
-		for (ShallowItem *shallow_item: shallow_items) {
+		for (SidePaneItem *shallow_item: shallow_items) {
 			if (item->dev_path() == shallow_item->dev_path()) {
 				contains = true;
 				break;
@@ -358,20 +362,14 @@ void* MonitorBookmarksAndPartitions(void *void_args)
 	
 	while (true)
 	{
-		int event_count = epoll_wait(epfd, &poll_event, 1, seconds);
-		
-		if (event_count > 0) {
-			ReadBookmarksFileEvent(poll_event.data.fd, buf, model);
-		}
-		
 		bool repaint = false;
 #ifdef PRINT_LOAD_TIME
 		ElapsedTimer timer;
 		timer.Continue();
 #endif
-		QVector<ShallowItem*> shallow_items;
-		ShallowItem::LoadAllPartitions(shallow_items);
-		
+		QVector<SidePaneItem*> new_items;
+		LoadAllPartitions(new_items);
+		MarkMountedPartitions(new_items, repaint);
 		{
 			auto guard = items.guard();
 			while (!items.partitions_loaded) {
@@ -383,21 +381,26 @@ void* MonitorBookmarksAndPartitions(void *void_args)
 			}
 			if (items.sidepane_model_destroyed)
 				break;
-			ComparePartitions(model, items, shallow_items);
-			for (ShallowItem *next: shallow_items) {
+			ComparePartitions(model, items, new_items);
+			for (SidePaneItem *next: new_items) {
 				delete next;
 			}
 			
 			if (items.sidepane_model_destroyed) {
 				break;
 			}
-			MarkMountedPartitions(items.vec, repaint);
 		}
 #ifdef PRINT_LOAD_TIME
 		mtl_info("Checked in %ldmc", timer.elapsed_mc());
 #endif
 		if (repaint) {
 			QMetaObject::invokeMethod(model, "PartitionsChanged");
+		}
+		
+		int event_count = epoll_wait(epfd, &poll_event, 1, seconds);
+		
+		if (event_count > 0) {
+			ReadBookmarksFileEvent(poll_event.data.fd, buf, model);
 		}
 	}
 	
@@ -465,9 +468,18 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 			return f;
 		}
 	} else if (role == Qt::BackgroundRole) {
+		
+		if (item->has_been_clicked())
+			return QColor(255, 190, 190);
+		
 		if (row == table_->mouse_over_item_at()) {
 			QColor c = table_->option().palette.highlight().color();
 			return app_->hover_bg_color_gray(c);
+		}
+		if (item->selected() && item->is_partition()) {
+//			QColor c = table_->option().palette.highlight().color();
+//			return c;
+			return QColor(190, 255, 190);
 		}
 	} else if (role == Qt::ForegroundRole) {
 		if (item->is_partition() && !item->mounted()) {

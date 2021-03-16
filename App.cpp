@@ -840,9 +840,32 @@ QIcon* App::GetOrLoadIcon(const QString &icon_name) {
 QString
 App::GetPartitionFreeSpace()
 {
-	if (current_dir_.isEmpty())
+	if (current_dir_.isEmpty()){
 		return QString();
-	auto ba = current_dir_.toLocal8Bit();
+	}
+	
+	static QString last_dir = QString();
+	static QString cached_result = QString();
+	QString dir;
+	{
+		MutexGuard guard = side_pane_items_.guard();
+		for (gui::SidePaneItem *next: side_pane_items_.vec) {
+			if (!next->is_partition() || !next->mounted() || !next->selected())
+				continue;
+			dir = next->mount_path();
+			break;
+		}
+	}
+	
+	if (dir.isEmpty()) {
+		return QString();
+	}
+	
+	if (last_dir == dir)
+		return cached_result;
+	last_dir = dir;
+	
+	auto ba = dir.toLocal8Bit();
 	struct statvfs stv = {};
 	int status = statvfs(ba.data(), &stv);
 	if (status != 0)
@@ -861,6 +884,8 @@ App::GetPartitionFreeSpace()
 	s += '/';
 	s += io::SizeToString(total_space, true);
 	s += ')';
+	
+	cached_result = s;
 	
 	return s;
 }
@@ -907,6 +932,7 @@ void App::GoToFinish(cornus::io::FilesData *new_data)
 /// current_dir_ must be assigned to before model->SwitchTo
 /// otherwise won't properly show current partition's free space
 	current_dir_ = new_data->processed_dir_path;
+	side_pane_->SelectProperPartition(new_data->processed_dir_path);
 	table_model_->SwitchTo(new_data);
 	history_->Add(new_data->action, current_dir_);
 	
@@ -939,7 +965,6 @@ void App::GoToFinish(cornus::io::FilesData *new_data)
 	setWindowTitle(title_ + QLatin1String(" - Cornus"));
 	
 	location_->SetLocation(new_data->processed_dir_path);
-	side_pane_->SelectProperPartition(new_data->processed_dir_path);
 }
 
 void App::GoToInitialDir()

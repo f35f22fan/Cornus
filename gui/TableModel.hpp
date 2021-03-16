@@ -85,6 +85,7 @@ private:
 	QString scroll_to_and_select_;
 	mutable QString cached_free_space_;
 	int tried_to_scroll_to_count_ = 0;
+	int cached_row_count_ = 0;
 };
 
 

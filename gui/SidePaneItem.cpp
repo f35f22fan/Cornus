@@ -3,23 +3,8 @@
 #include "../io/File.hpp"
 #include "../io/io.hh"
 #include "../ByteArray.hpp"
-#include "ShallowItem.hpp"
 
 namespace cornus::gui {
-
-SidePaneItem*
-SidePaneItem::From(const ShallowItem &rhs)
-{
-	SidePaneItem *p = new SidePaneItem();
-	p->set_partition();
-	p->dev_path(rhs.dev_path());
-	p->mount_path(rhs.mount_path());
-	p->mounted(rhs.mounted());
-	p->fs(rhs.fs());
-	p->size(rhs.size());
-	
-	return p;
-}
 
 SidePaneItem*
 SidePaneItem::NewBookmark(io::File &file)
@@ -40,8 +25,8 @@ SidePaneItem::Clone()
 	p->dev_path_ = dev_path_;
 	p->bookmark_name_ = bookmark_name_;
 	p->mount_path_ = mount_path_;
-	p->size_ = size_;
 	p->fs_ = fs_;
+	p->size_ = size_;
 	p->type_ = type_;
 	p->bits_ = bits_;
 	

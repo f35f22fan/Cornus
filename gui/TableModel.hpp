@@ -71,11 +71,14 @@ public:
 	}
 	
 	void UpdateVisibleArea();
+	void UpdateHeaderNameColumn();
 	
 public slots:
 	void InotifyEvent(cornus::gui::FileEvent evt);
 	
 private:
+	
+	QString GetName() const;
 	
 	cornus::App *app_ = nullptr;
 	io::Notify notify_ = {};

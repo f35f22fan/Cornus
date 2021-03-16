@@ -6,6 +6,7 @@
 #include "../io/File.hpp"
 #include "Location.hpp"
 #include "../MutexGuard.hpp"
+#include "../Prefs.hpp"
 #include "Table.hpp"
 
 #include <sys/epoll.h>
@@ -418,6 +419,15 @@ TableModel::data(const QModelIndex &index, int role) const
 	return {};
 }
 
+QString
+TableModel::GetName() const
+{
+	if (app_->prefs().show_free_partition_space())
+		return app_->GetPartitionFreeSpace();
+	
+	return tr("Name");
+}
+
 QVariant
 TableModel::headerData(int section_i, Qt::Orientation orientation, int role) const
 {
@@ -429,10 +439,10 @@ TableModel::headerData(int section_i, Qt::Orientation orientation, int role) con
 			
 			switch (section) {
 			case Column::Icon: return {};
-			case Column::FileName: return QLatin1String("Name");
-			case Column::Size: return QLatin1String("Size");
-			case Column::TimeCreated: return QLatin1String("Created");
-			case Column::TimeModified: return QLatin1String("Modified");
+			case Column::FileName: return GetName();
+			case Column::Size: return tr("Size");
+			case Column::TimeCreated: return tr("Created");
+			case Column::TimeModified: return tr("Modified");
 			default: {
 				mtl_trace();
 				return {};
@@ -680,6 +690,7 @@ TableModel::SwitchTo(io::FilesData *new_data)
 	}
 	
 	UpdateIndices(indices);
+	UpdateHeaderNameColumn();
 }
 
 void
@@ -742,6 +753,12 @@ TableModel::UpdateVisibleArea()
 	int row_start = table->verticalScrollBar()->value() / table->GetRowHeight();
 	int count_per_page = table->GetVisibleRowsCount();
 	UpdateRowRange(row_start, row_start + count_per_page);
+}
+
+void TableModel::UpdateHeaderNameColumn()
+{
+	const int col = (int)Column::FileName;
+	headerDataChanged(Qt::Horizontal, col, col);
 }
 
 }

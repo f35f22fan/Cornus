@@ -43,6 +43,7 @@ public:
 	void ExtractTo(const QString &to_dir);
 	void FileDoubleClicked(io::File *file, const gui::Column col);
 	QIcon* GetIcon(const QString &str);
+	QString GetPartitionFreeSpace();
 	void GoBack();
 	void GoHome();
 	bool GoTo(const Action action, DirPath dir_path, const cornus::Reload r = Reload::No,
@@ -72,6 +73,7 @@ public:
 	gui::SidePaneModel* side_pane_model() const { return side_pane_model_; }
 	void SwitchExecBitOfSelectedFiles();
 	gui::Table* table() const { return table_; }
+	gui::TableModel* table_model() const { return table_model_; }
 	void TellUser(const QString &msg, const QString title = QString());
 	bool TestExecBuf(const char *buf, const isize size, ExecInfo &ret);
 	ThemeType theme_type() const { return theme_type_; }
@@ -153,6 +155,7 @@ private:
 	Category desktop_ = Category::None;
 	QHash<QString, Category> possible_categories_;
 	ThemeType theme_type_ = ThemeType::None;
+	QString title_;
 	
 	friend class cornus::gui::Table;
 };

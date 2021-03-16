@@ -8,6 +8,7 @@ extern "C" {
 #include <iostream>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -836,6 +837,34 @@ QIcon* App::GetOrLoadIcon(const QString &icon_name) {
 	return icon;
 }
 
+QString
+App::GetPartitionFreeSpace()
+{
+	if (current_dir_.isEmpty())
+		return QString();
+	auto ba = current_dir_.toLocal8Bit();
+	struct statvfs stv = {};
+	int status = statvfs(ba.data(), &stv);
+	if (status != 0)
+	{
+		mtl_info("%s, file: %s", strerror(errno), ba.data());
+		return QString();
+	}
+	
+	const i64 total_space = stv.f_frsize * stv.f_blocks;
+	const i64 free_space = stv.f_bfree * stv.f_bsize;
+	const int percent_free = double(free_space) / double(total_space) * 100;
+	
+	QString s = QString::number(percent_free) + QLatin1String("% ");
+	s += tr("free space (");
+	s += io::SizeToString(free_space, true);
+	s += '/';
+	s += io::SizeToString(total_space, true);
+	s += ')';
+	
+	return s;
+}
+
 void App::GoBack() {
 	QString s = history_->Back();
 	if (s.isEmpty())
@@ -891,7 +920,6 @@ void App::GoToFinish(cornus::io::FilesData *new_data)
 		dir_name = new_data->processed_dir_path; // likely "/"
 	
 	using Clock = std::chrono::steady_clock;
-	QString title;
 	if (prefs_->show_ms_files_loaded() &&
 		(new_data->start_time != std::chrono::time_point<Clock>::max()))
 	{
@@ -900,14 +928,13 @@ void App::GoToFinish(cornus::io::FilesData *new_data)
 			std::chrono::milliseconds::period>(now - new_data->start_time).count();
 		QString diff_str = io::FloatToString(elapsed, 2);
 		
-		title = dir_name
+		title_ = dir_name
 			+ QLatin1String(" (") + QString::number(count)
 			+ QChar('/') + diff_str + QLatin1String(" ms)");
 	} else {
-		title = dir_name;
+		title_ = dir_name;
 	}
-	
-	setWindowTitle(title + QLatin1String(" - Cornus"));
+	setWindowTitle(title_ + QLatin1String(" - Cornus"));
 	
 	location_->SetLocation(new_data->processed_dir_path);
 	side_pane_->SelectProperPartition(new_data->processed_dir_path);

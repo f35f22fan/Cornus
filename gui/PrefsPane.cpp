@@ -3,6 +3,7 @@
 #include "../App.hpp"
 #include "../MutexGuard.hpp"
 #include "../Prefs.hpp"
+#include "TableModel.hpp"
 
 #include <QCheckBox>
 #include <QBoxLayout>
@@ -84,6 +85,7 @@ void PrefsPane::SavePrefs()
 	Prefs &prefs = app_->prefs();
 	const bool show_hidden_files = prefs.show_hidden_files();
 	bool show_ms_files_loaded = prefs.show_ms_files_loaded();
+	bool show_free_space = prefs.show_free_partition_space();
 	
 	prefs.show_hidden_files(show_hidden_files_->checkState() == Qt::Checked);
 	prefs.show_ms_files_loaded(show_ms_files_loaded_->checkState() == Qt::Checked);
@@ -98,6 +100,9 @@ void PrefsPane::SavePrefs()
 	{
 		app_->Reload();
 	}
+	
+	if (show_free_space != prefs.show_free_partition_space())
+		app_->table_model()->UpdateHeaderNameColumn();
 }
 
 }

@@ -83,6 +83,7 @@ private:
 	cornus::App *app_ = nullptr;
 	io::Notify notify_ = {};
 	QString scroll_to_and_select_;
+	mutable QString cached_free_space_;
 	int tried_to_scroll_to_count_ = 0;
 };
 

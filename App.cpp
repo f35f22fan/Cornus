@@ -904,8 +904,10 @@ void App::GoToFinish(cornus::io::FilesData *new_data)
 	AutoDelete ad(new_data);
 	int count = new_data->vec.size();
 	table_->mouse_over_file_name_index(-1);
-	table_model_->SwitchTo(new_data);
+/// current_dir_ must be assigned to before model->SwitchTo
+/// otherwise won't properly show current partition's free space
 	current_dir_ = new_data->processed_dir_path;
+	table_model_->SwitchTo(new_data);
 	history_->Add(new_data->action, current_dir_);
 	
 	if (new_data->action == Action::Back) {

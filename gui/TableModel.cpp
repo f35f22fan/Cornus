@@ -422,8 +422,11 @@ TableModel::data(const QModelIndex &index, int role) const
 QString
 TableModel::GetName() const
 {
-	if (app_->prefs().show_free_partition_space())
-		return app_->GetPartitionFreeSpace();
+	if (app_->prefs().show_free_partition_space()) {
+		if (cached_free_space_.isEmpty())
+			cached_free_space_ = app_->GetPartitionFreeSpace();
+		return cached_free_space_;
+	}
 	
 	return tr("Name");
 }
@@ -757,6 +760,8 @@ TableModel::UpdateVisibleArea()
 
 void TableModel::UpdateHeaderNameColumn()
 {
+	if (app_->prefs().show_free_partition_space())
+		cached_free_space_ = app_->GetPartitionFreeSpace();
 	const int col = (int)Column::FileName;
 	headerDataChanged(Qt::Horizontal, col, col);
 }

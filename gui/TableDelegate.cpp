@@ -76,19 +76,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 		} else {
 			c = option.palette.highlight().color();
 			if (mouse_over && !file->selected()) {
-				const ThemeType t = app_->theme_type();
-				if (t == ThemeType::Dark) {
-					c = QColor(90, 90, 90);
-				} else if (t == ThemeType::Light) {
-					QColor n = c.lighter(180);
-					const int avg = (n.red() + n.green() + n.blue()) / 3;
-					if (avg >= 240)
-						c = c.lighter(140);
-					else
-						c = n;
-				} else {
-					mtl_trace();
-				}
+				c = app_->hover_bg_color_gray(c);
 			}
 		}
 		QPainterPath path;
@@ -161,14 +149,7 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	const bool mouse_over = table_->mouse_over_file_icon_index() == row;
 	
 	if (mouse_over)
-	{
-		const ThemeType t = app_->theme_type();
-		const QColor c = (t == ThemeType::Light)
-			? QColor(150, 255, 150) : QColor(0, 80, 0);
-		
-		QRectF sel_rect = option.rect;
-		painter->fillRect(sel_rect, c);
-	}
+		painter->fillRect(option.rect, app_->hover_bg_color());
 	
 	QString text;
 	if (file->is_regular()) {

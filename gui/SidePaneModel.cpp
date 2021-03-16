@@ -363,8 +363,6 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 		return {};
 	}
 	
-//	static QIcon hard_drive_icon = QIcon::fromTheme("drive-harddisk");
-	
 	if (role == Qt::TextAlignmentRole) {
 		return Qt::AlignLeft + Qt::AlignVCenter;
 	}
@@ -385,9 +383,8 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 		}
 	} else if (role == Qt::BackgroundRole) {
 		if (row == table_->mouse_over_item_at()) {
-			QStyleOptionViewItem option = table_->option();
-			QColor c = option.palette.highlight().color();
-			return c.lighter(150);
+			QColor c = table_->option().palette.highlight().color();
+			return app_->hover_bg_color_gray(c);
 		}
 	} else if (role == Qt::ForegroundRole) {
 		if (item->is_partition() && !item->mounted()) {

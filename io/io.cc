@@ -749,7 +749,7 @@ void ListDirNames(QString dir_path, QVector<QString> &vec, const ListDirOption o
 		auto ba = (dir_path + name).toLocal8Bit();
 		
 		if (statx(0, ba.data(), flags, fields, &stx) != 0) {
-			mtl_warn("statx(): %s: \"%s\"", strerror(errno), ba.data());
+			///mtl_warn("statx(): %s: \"%s\"", strerror(errno), ba.data());
 			continue;
 		}
 		

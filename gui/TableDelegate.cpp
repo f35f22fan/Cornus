@@ -51,7 +51,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	auto str_rect = fm.boundingRect(file->name());
 	
 	if (!file->is_dir_or_so() && file->has_exec_bit()) {
-		QPen pen(QColor(0, 100, 0));
+		QPen pen(app_->green_color());
 		painter->setPen(pen);
 	}
 	

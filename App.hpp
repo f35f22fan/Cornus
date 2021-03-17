@@ -48,6 +48,9 @@ public:
 	void GoHome();
 	bool GoTo(const Action action, DirPath dir_path, const cornus::Reload r = Reload::No,
 		QString scroll_to_and_select = QString());
+	QColor green_color() const { return (theme_type_ == ThemeType::Light) ?
+		QColor(0, 100, 0) : QColor(200, 255, 200);
+	}
 	void Reload();
 	void GoUp();
 	void HideTextEditor();

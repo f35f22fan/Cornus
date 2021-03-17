@@ -91,6 +91,7 @@ set(cornus_io_src_files main_io.cpp
     ElapsedTimer.cpp ElapsedTimer.hpp
     err.hpp
     MutexGuard.cpp MutexGuard.hpp
+    MyDaemon.cpp MyDaemon.hpp
     prefs.cc prefs.hh
 
     io/decl.hxx

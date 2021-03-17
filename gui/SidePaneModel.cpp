@@ -79,7 +79,7 @@ static void ReadMountedPartitions(QVector<sidepane::Item> &v)
 	}
 }
 
-static void MarkMountedPartitions(QVector<SidePaneItem*> &vec, bool &repaint)
+static void MarkMountedPartitions(QVector<SidePaneItem*> &vec)
 {
 	QVector<sidepane::Item> mounted_vec;
 	ReadMountedPartitions(mounted_vec);
@@ -100,7 +100,6 @@ static void MarkMountedPartitions(QVector<SidePaneItem*> &vec, bool &repaint)
 					item->mount_path(mounted.mount_point);
 					item->fs(mounted.fs);
 					item->mount_changed(true);
-					repaint = true;
 ///					mtl_info("Made mounted %s", qPrintable(item->dev_path()));
 				}
 				mounted_vec.remove(row);
@@ -112,7 +111,6 @@ static void MarkMountedPartitions(QVector<SidePaneItem*> &vec, bool &repaint)
 			item->mounted(false);
 			item->mount_changed(true);
 ///			mtl_info("Made unmounted %s", qPrintable(item->dev_path()));
-			repaint = true;
 		}
 	}
 }
@@ -148,7 +146,8 @@ void LoadDrivePartition(const QString &name, QVector<SidePaneItem*> &vec)
 	p->set_partition();
 	p->mounted(false);
 	p->Init();
-	if (p->size() == 0) {
+	const auto _32MiB = 32 * 1024 * 1024;
+	if (p->size() < _32MiB) {
 		delete p;
 	} else {
 		vec.append(p);
@@ -200,7 +199,7 @@ void* LoadItems(void *args)
 	mtl_info("Directly: %ldmc", mc);
 #endif
 	
-	CHECK_TRUE_NULL(LoadBookmarks(method_args.vec));
+	LoadBookmarks(method_args.vec);
 	SidePaneItems &items = app->side_pane_items();
 	items.Lock();
 	while (!items.widgets_created)
@@ -232,9 +231,15 @@ void ComparePartitions(SidePaneModel *model, SidePaneItems &items,
 			if (item->dev_path() == shallow_item->dev_path()) {
 				contains = true;
 				if (shallow_item->mounted() != item->mounted()) {
-					item->has_been_clicked(false);
+///					mtl_info("mount changed for %s", qPrintable(item->dev_path()));
+					item->mount_changed(true);
 					item->mounted(shallow_item->mounted());
-					item->mount_path(shallow_item->mount_path());
+					if (shallow_item->mounted())
+						item->mount_path(shallow_item->mount_path());
+					items.Unlock();
+					QMetaObject::invokeMethod(model, "PartitionsChanged",
+						Qt::BlockingQueuedConnection);
+					items.Lock();
 				}
 				break;
 			}
@@ -297,28 +302,22 @@ void ReadBookmarksFileEvent(int inotify_fd, char *buf,
 	CHECK_TRUE_VOID(LoadBookmarks(new_items));
 	
 	{
-		auto guard = items.guard();
+		items.Lock();
 		if (items.sidepane_model_destroyed) {
 			for (auto *next: new_items) {
 				delete next;
 			}
+			items.Unlock();
 			return;
 		}
 		
-		for (int i = items.vec.size() - 1; i >= 0; i--) {
-			SidePaneItem *old_item = items.vec[i];
-			if (old_item->is_bookmark()) {
-				delete old_item;
-				items.vec.remove(i);
-			}
-		}
-		
-		for (SidePaneItem *new_item: new_items) {
-			items.vec.append(new_item);
-		}
+		items.Unlock();
+		QMetaObject::invokeMethod(model, "SetBookmarks",
+		Qt::BlockingQueuedConnection,
+			Q_ARG(QVector<cornus::gui::SidePaneItem*>, new_items));
 	}
 	
-	QMetaObject::invokeMethod(model, "UpdateVisibleArea");
+	///QMetaObject::invokeMethod(model, "UpdateVisibleArea");
 }
 
 void* MonitorBookmarksAndPartitions(void *void_args)
@@ -334,42 +333,38 @@ void* MonitorBookmarksAndPartitions(void *void_args)
 	const auto EventTypes = IN_CLOSE_WRITE;
 	auto bookmarks_file_path = prefs::GetConfigFilePath().toLocal8Bit();
 	int wd = inotify_add_watch(notify.fd, bookmarks_file_path.data(), EventTypes);
-	
-	if (wd == -1) {
-		mtl_status(errno);
-		return nullptr;
-	}
-	
 	int epfd = epoll_create(1);
 	
-	if (epfd == -1) {
-		mtl_status(errno);
-		return 0;
-	}
-	
-	struct epoll_event pev = {};
-	pev.events = EPOLLIN;
-	pev.data.fd = notify.fd;
-	
-	if (epoll_ctl(epfd, EPOLL_CTL_ADD, notify.fd, &pev)) {
-		mtl_status(errno);
-		close(epfd);
-		return nullptr;
+	if (wd != -1) {
+		if (epfd == -1) {
+			mtl_status(errno);
+			return 0;
+		}
+		
+		struct epoll_event pev = {};
+		pev.events = EPOLLIN;
+		pev.data.fd = notify.fd;
+		
+		if (epoll_ctl(epfd, EPOLL_CTL_ADD, notify.fd, &pev)) {
+			mtl_status(errno);
+			close(epfd);
+			return nullptr;
+		}
 	}
 	
 	struct epoll_event poll_event;
-	const int seconds = 2 * 1000;
+	const int seconds = 2;
 	
 	while (true)
 	{
-		bool repaint = false;
 #ifdef PRINT_LOAD_TIME
 		ElapsedTimer timer;
 		timer.Continue();
 #endif
 		QVector<SidePaneItem*> new_items;
 		LoadAllPartitions(new_items);
-		MarkMountedPartitions(new_items, repaint);
+		bool repaint = false;
+		MarkMountedPartitions(new_items);
 		{
 			auto guard = items.guard();
 			while (!items.partitions_loaded) {
@@ -397,15 +392,21 @@ void* MonitorBookmarksAndPartitions(void *void_args)
 			QMetaObject::invokeMethod(model, "PartitionsChanged");
 		}
 		
-		int event_count = epoll_wait(epfd, &poll_event, 1, seconds);
-		
-		if (event_count > 0) {
-			ReadBookmarksFileEvent(poll_event.data.fd, buf, model);
+		if (wd != -1) {
+			int event_count = epoll_wait(epfd, &poll_event, 1, seconds * 1000);
+			
+			if (event_count > 0) {
+				ReadBookmarksFileEvent(poll_event.data.fd, buf, model);
+			}
+		} else {
+			sleep(seconds);
 		}
 	}
 	
-	if (close(epfd)) {
-		mtl_status(errno);
+	if (wd != -1) {
+		if (close(epfd)) {
+			mtl_status(errno);
+		}
 	}
 	
 	return nullptr;
@@ -433,14 +434,6 @@ SidePaneModel::index(int row, int column, const QModelIndex &parent) const
 	return createIndex(row, column);
 }
 
-int
-SidePaneModel::rowCount(const QModelIndex &parent) const
-{
-	SidePaneItems &items = app_->side_pane_items();
-	MutexGuard guard(&items.mutex);
-	return items.vec.size();
-}
-
 QVariant
 SidePaneModel::data(const QModelIndex &index, int role) const
 {
@@ -455,7 +448,12 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 	
 	const int row = index.row();
 	SidePaneItems &items = app_->side_pane_items();
-	gui::SidePaneItem *item = items.vec[row];
+	gui::SidePaneItem *item = nullptr;
+	{
+		auto guard = items.guard();
+		item = items.vec[row]->Clone();
+	}
+	AutoDelete ad(item);
 	
 	if (role == Qt::DisplayRole)
 	{
@@ -469,17 +467,15 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 		}
 	} else if (role == Qt::BackgroundRole) {
 		
-		if (item->has_been_clicked())
-			return QColor(255, 190, 190);
+//		if (item->has_been_clicked())
+//			return QColor(255, 190, 190);
 		
 		if (row == table_->mouse_over_item_at()) {
 			QColor c = table_->option().palette.highlight().color();
 			return app_->hover_bg_color_gray(c);
 		}
 		if (item->selected() && item->is_partition()) {
-			QColor c = table_->option().palette.highlight().color();
-			return c;
-///			return QColor(190, 255, 190);
+			return table_->option().palette.highlight().color();
 		}
 	} else if (role == Qt::ForegroundRole) {
 		if (item->is_partition() && !item->mounted()) {
@@ -524,19 +520,38 @@ void
 SidePaneModel::FinishDropOperation(QVector<io::File*> *files_vec, int row)
 {
 	auto &items = app_->side_pane_items();
-	beginInsertRows(QModelIndex(), 0, files_vec->size() - 1);
+	
+	int total = 0;
+	{
+		MutexGuard guard(&items.mutex);
+		
+		for (io::File *file: *files_vec) {
+			if (file->is_dir_or_so()) {
+				total++;
+			}
+		}
+		
+		if (total == 0)
+			return;
+	}
+	
+	beginInsertRows(QModelIndex(), 0, total - 1);
 	{
 		MutexGuard guard(&items.mutex);
 		int add = 0;
 		for (io::File *file: *files_vec) {
-			auto *p = SidePaneItem::NewBookmark(*file);
-			items.vec.insert(row + add, p);
-			delete file;
-			add++;
+			if (file->is_dir_or_so()) {
+				auto *p = SidePaneItem::NewBookmark(*file);
+				items.vec.insert(row + add, p);
+				delete file;
+				add++;
+			}
 		}
+		cached_row_count_ += add;
 	}
 	endInsertRows();
 	delete files_vec;
+///	UpdateVisibleArea();
 	app_->SaveBookmarks();
 }
 
@@ -561,6 +576,7 @@ void SidePaneModel::PartitionAdded(const int index, SidePaneItem *p)
 	items.Lock();
 	items.vec.insert(index, p);
 	items.Unlock();
+	cached_row_count_++;
 	endInsertRows();
 }
 void SidePaneModel::PartitionRemoved(const int index)
@@ -571,6 +587,7 @@ void SidePaneModel::PartitionRemoved(const int index)
 	delete items.vec[index];
 	items.vec.remove(index);
 	items.Unlock();
+	cached_row_count_--;
 	endRemoveRows();
 }
 void SidePaneModel::PartitionsChanged()
@@ -583,11 +600,14 @@ void SidePaneModel::PartitionsChanged()
 		for (SidePaneItem *item: items.vec) {
 			if (!item->is_partition())
 				continue;
-			if (item->has_been_clicked() && item->mount_changed()) {
-				if (item->mounted())
+			if (item->mount_changed() && item->has_been_clicked()) {
+				item->has_been_clicked(false);
+				if (item->mounted()) {
 					mount_path = item->mount_path();
-				else
+				} else {
+					item->selected(false);
 					unmount_path = item->mount_path();
+				}
 				break;
 			}
 		}
@@ -666,7 +686,7 @@ SidePaneModel::InsertRows(const i32 at, const QVector<gui::SidePaneItem*> &items
 			items.vec.insert(at + i, item);
 		}
 	}
-	
+	cached_row_count_ += items_to_add.size();
 	endInsertRows();
 	return true;
 }
@@ -741,9 +761,47 @@ SidePaneModel::removeRows(int row, int count, const QModelIndex &parent)
 		vec.erase(vec.begin() + index);
 		delete item;
 	}
-	
+	cached_row_count_ -= count;
 	endRemoveRows();
 	return true;
+}
+
+void
+SidePaneModel::SetBookmarks(QVector<SidePaneItem*> new_items)
+{
+	auto &items = app_->side_pane_items();
+	int old_bookmark_count = 0;
+	{
+		auto guard = items.guard();
+		for (SidePaneItem *next: items.vec) {
+			if (next->is_bookmark()) {
+				old_bookmark_count++;
+			}
+		}
+	}
+	beginRemoveRows(QModelIndex(), 0, old_bookmark_count - 1);
+	{
+		auto guard = items.guard();
+		for (int i = items.vec.size() - 1; i >= 0; i--) {
+			SidePaneItem *item = items.vec[i];
+			if (item->is_bookmark()) {
+				delete item;
+				items.vec.remove(i);
+			}
+		}
+		cached_row_count_ = items.vec.size();
+	}
+	endRemoveRows();
+	
+	beginInsertRows(QModelIndex(), 0, new_items.size() - 1);
+	{
+		auto guard = items.guard();
+		for (SidePaneItem *new_item: new_items) {
+			items.vec.append(new_item);
+		}
+		cached_row_count_ = items.vec.size();
+	}
+	endInsertRows();
 }
 
 void SidePaneModel::UpdateIndices(const QVector<int> indices)

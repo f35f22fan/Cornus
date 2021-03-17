@@ -26,6 +26,7 @@ public:
 	
 	void ApplyPrefs();
 	bool CheckIsOnFileName(io::File *file, const int file_row, const QPoint &pos) const;
+	void ClearMouseOver();
 	int IsOnFileName(const QPoint &pos);
 	TableModel* model() const { return model_; }
 	const QPoint& drop_coord() const { return drop_coord_; }

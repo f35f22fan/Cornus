@@ -234,6 +234,9 @@ SidePane::GetItemAtNTS(const QPoint &pos, bool clone, int *ret_index)
 }
 
 int
+SidePane::GetRowHeight() const { return verticalHeader()->defaultSectionSize(); }
+
+int
 SidePane::GetSelectedBookmarkCount() {
 	SidePaneItems &items = app_->side_pane_items();
 	MutexGuard guard(&items.mutex);
@@ -372,16 +375,16 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 		MutexGuard guard(&items.mutex);
 		auto *item = GetItemAtNTS(evt->pos(), false, &row);
 		if (item != nullptr) {
-			cloned_item = item->Clone();
 			if (item->is_partition() && !item->mounted())
 				item->has_been_clicked(true);
+			cloned_item = item->Clone();
 		}
 	}
 	
 	if (cloned_item == nullptr)
 		return;
 	
-	if (cloned_item->is_partition() && !cloned_item->has_been_clicked()) {
+	if (cloned_item->is_partition()) {/// && !cloned_item->has_been_clicked()) {
 		if (!cloned_item->mounted()) {
 			io::disks::MountPartitionData *mps = new io::disks::MountPartitionData();
 			mps->app = app_;
@@ -410,9 +413,43 @@ SidePane::mouseReleaseEvent(QMouseEvent *evt)
 }
 
 void
+SidePane::DrawBookmarksDropHere(QPainter &painter, const int at_index)
+{
+///	Qt::Alignment text_alignment_ = Qt::AlignLeft | Qt::AlignVCenter;
+	const int rh = GetRowHeight();
+	int y = rh * at_index;
+	painter.setPen(option().palette.highlight().color());
+	painter.drawText(2, y, tr("Drop"));
+	painter.drawText(2, y += rh, tr("Bookmarks"));
+	painter.drawText(2, y += rh, tr("Here"));
+}
+
+void
 SidePane::paintEvent(QPaintEvent *evt)
 {
 	QTableView::paintEvent(evt);
+	
+	QPainter painter(viewport());
+	{
+		SidePaneItems &items = app_->side_pane_items();
+		int count;
+		bool has_bookmarks = false;
+		{
+			MutexGuard guard(&items.mutex);
+			QVector<SidePaneItem*> &vec = items.vec;
+			count = vec.size();
+			for (int i = count - 1; i >= 0; i--) {
+				if (vec[i]->is_bookmark()) {
+					has_bookmarks = true;
+					break;
+				}
+			}
+		}
+		if (!has_bookmarks) {
+			DrawBookmarksDropHere(painter, count + 1);
+		}
+	}
+	
 	if (drop_coord_.y() == -1)
 		return;
 	
@@ -427,7 +464,6 @@ SidePane::paintEvent(QPaintEvent *evt)
 		y = verticalHeader()->sectionViewportPosition(row);
 	}
 	
-	QPainter painter(viewport());
 	QPen pen(QColor(0, 0, 255));
 	pen.setWidthF(2.0);
 	painter.setPen(pen);
@@ -441,55 +477,6 @@ SidePane::ProcessAction(const QString &action)
 		RenameSelectedBookmark();
 	} else if (action == actions::DeleteBookmark) {
 		model_->DeleteSelectedBookmarks();
-	}
-}
-
-void
-SidePane::ReceivedPartitionEvent(cornus::PartitionEvent *p)
-{
-	AutoDelete ad(p);
-/** struct PartitionEvent {
-	QString dev_path;
-	QString mount_path;
-	QString fs;
-	PartitionEventType type = PartitionEventType::None;
-}; */
-	const bool mount_event = p->type == PartitionEventType::Mount;
-	const bool unmount_event = p->type == PartitionEventType::Unmount;
-	int row = -1;
-	QString saved_mount_path;
-	SidePaneItems &items = app_->side_pane_items();
-	{
-		MutexGuard guard(&items.mutex);
-		
-		for (SidePaneItem *next: items.vec)
-		{
-			row++;
-			if (next->dev_path() != p->dev_path)
-				continue;
-			
-			next->has_been_clicked(false);
-			if (mount_event) {
-				next->mounted(true);
-				next->mount_path(p->mount_path);
-				next->fs(p->fs);
-				break;
-			} else if (unmount_event) {
-				next->mounted(false);
-				saved_mount_path = next->mount_path();
-				next->mount_path(QString());
-			}
-		}
-	}
-	
-	model_->UpdateSingleRow(row);
-	
-	if (mount_event) {
-		app_->GoTo(Action::To, {p->mount_path, Processed::No});
-	} else if (unmount_event) {
-		if (app_->current_dir().startsWith(saved_mount_path)) {
-			app_->GoHome();
-		}
 	}
 }
 
@@ -726,7 +713,9 @@ SidePane::UnmountPartition(int row)
 	auto &items = app_->side_pane_items();
 	{
 		MutexGuard guard(&items.mutex);
-		partition = items.vec[row]->Clone();
+		SidePaneItem *item = items.vec[row];
+		item->has_been_clicked(true);
+		partition = item->Clone();
 	}
 	
 	if (!partition->is_partition())

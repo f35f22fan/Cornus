@@ -127,9 +127,11 @@ void Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 		
 		int status = mkdir(dir_ba.data(), mode);
 		if (status != 0) {
-			mtl_status(errno);
-			data_.ChangeState(TaskState::Error);
-			return;
+			if (errno != EEXIST) {
+				mtl_status(errno);
+				data_.ChangeState(TaskState::Error);
+				return;
+			}
 		}
 		auto state = data_.GetState(nullptr, &time_worked);
 		Q_UNUSED(state);

@@ -3,7 +3,9 @@
 #include "decl.hxx"
 #include "gui/decl.hxx"
 #include "MutexGuard.hpp"
+#include "gui/SidePaneItem.hpp"
 
+#include <QMetaType> /// Q_DECLARE_METATYPE()
 #include <QVector>
 #include <pthread.h>
 
@@ -34,3 +36,5 @@ public:
 	}
 };
 } // namespace
+
+Q_DECLARE_METATYPE(QVector<cornus::gui::SidePaneItem *>);

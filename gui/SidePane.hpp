@@ -38,7 +38,6 @@ public slots:
 	void ClearHasBeenClicked(QString dev_path, QString error_msg);
 	void DeselectAllItems(const int except_row, const bool row_flag, QVector<int> &indices);
 	bool ScrollToAndSelect(QString name);
-	void ReceivedPartitionEvent(cornus::PartitionEvent *p);
 	
 protected:
 	virtual void dragEnterEvent(QDragEnterEvent *event) override;
@@ -57,6 +56,8 @@ private:
 	NO_ASSIGN_COPY_MOVE(SidePane);
 	
 	void ClearDndAnimation(const QPoint &drop_coord);
+	void DrawBookmarksDropHere(QPainter &painter, const int at_index);
+	int GetRowHeight() const;
 	SidePaneItem* GetSelectedBookmark(int *index = nullptr);
 	void HiliteFileUnderMouse();
 	void MountPartition(SidePaneItem *partition);

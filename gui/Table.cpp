@@ -178,20 +178,20 @@ Table::ActionPaste()
 	QString to_dir = app_->current_dir();
 	ba->add_string(to_dir);
 	ba->add_i32(clipboard.file_paths.size());
-	QString first_one;
+	QString scroll_to_first_one;
 	for (const auto &next: clipboard.file_paths) {
-		if (first_one.isEmpty()) {
+		if (scroll_to_first_one.isEmpty()) {
 			QString filename = io::GetFileNameOfFullPath(next).toString();
-			first_one = to_dir;
-			if (!first_one.endsWith('/'))
-				first_one.append('/');
-			first_one.append(filename);
+			scroll_to_first_one = to_dir;
+			if (!scroll_to_first_one.endsWith('/'))
+				scroll_to_first_one.append('/');
+			scroll_to_first_one.append(filename);
 		}
 		ba->add_string(next);
 	}
 	
 	io::socket::SendAsync(ba);
-	model_->set_scroll_to_and_select(first_one);
+	model_->set_scroll_to_and_select(scroll_to_first_one);
 	
 	if (clipboard.action == ClipboardAction::Cut) {
 		/// Not using qclipboard->clear() because it doesn't work:
@@ -287,6 +287,13 @@ Table::ClearDndAnimation(const QPoint &drop_coord)
 		int end = row + 1;
 		model_->UpdateRowRange(start, end);
 	}
+}
+
+void
+Table::ClearMouseOver()
+{
+	mouse_over_file_name_ = -1;
+	mouse_over_file_icon_ = -1;
 }
 
 bool
@@ -995,8 +1002,7 @@ Table::leaveEvent(QEvent *evt)
 {
 	const i32 row = (mouse_over_file_name_ == -1)
 		? mouse_over_file_icon_ : mouse_over_file_name_;
-	mouse_over_file_name_ = -1;
-	mouse_over_file_icon_ = -1;
+	ClearMouseOver();
 	model_->UpdateSingleRow(row);
 }
 
@@ -1124,8 +1130,8 @@ Table::mouseReleaseEvent(QMouseEvent *evt)
 				cloned_file = GetFileAtNTS(evt->pos(), Clone::Yes, &file_index);
 			}
 			if (cloned_file) {
-				app_->FileDoubleClicked(cloned_file, Column::Icon);
 				SelectRowSimple(file_index, true);
+				app_->FileDoubleClicked(cloned_file, Column::Icon);
 			}
 		}
 	}
@@ -1173,8 +1179,9 @@ Table::ProcessAction(const QString &action)
 bool
 Table::ScrollToAndSelect(QString full_path)
 {
-	if (full_path.isEmpty())
+	if (full_path.isEmpty()) {
 		return false;
+	}
 	
 	QStringRef path_ref;
 	/// first remove trailing '/' or search will fail:
@@ -1200,13 +1207,13 @@ Table::ScrollToAndSelect(QString full_path)
 		}
 	}
 	
-	if (row == -1)
+	if (row == -1) {
 		return false;
+	}
 	
 	ScrollToRow(row);
-	SelectRowSimple(row);
+	SelectRowSimple(row, true);
 	shift_select_.base_row = row;
-	
 	return true;
 }
 

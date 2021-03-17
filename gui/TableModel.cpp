@@ -605,6 +605,7 @@ TableModel::InsertRows(const i32 at, const QVector<cornus::io::File*> &files_to_
 			auto *song = files_to_add[i];
 			files.data.vec.insert(at + i, song);
 		}
+		cached_row_count_ = files.data.vec.size();
 	}
 	endInsertRows();
 	
@@ -633,6 +634,7 @@ TableModel::removeRows(int row, int count, const QModelIndex &parent)
 			vec.erase(vec.begin() + index);
 			delete item;
 		}
+		cached_row_count_ = vec.size();
 	}
 	
 	endRemoveRows();
@@ -656,6 +658,8 @@ TableModel::SwitchTo(io::FilesData *new_data)
 		for (auto *file: files.data.vec)
 			delete file;
 		files.data.vec.clear();
+		app_->table()->ClearMouseOver();
+		cached_row_count_ = 0;
 	}
 	endRemoveRows();
 	
@@ -673,8 +677,6 @@ TableModel::SwitchTo(io::FilesData *new_data)
 		cached_row_count_ = files.data.vec.size();
 	}
 	endInsertRows();
-	app_->table()->mouse_over_file_icon_index(-1);
-	app_->table()->mouse_over_file_name_index(-1);
 	
 	QVector<int> indices;
 	app_->table()->SyncWith(app_->clipboard(), indices);

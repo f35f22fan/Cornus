@@ -1,6 +1,8 @@
 #include <cstdlib>
 
 #include <QApplication>
+#include <QDir>
+#include <QTextStream>
 #include <QWidget>
 
 #include <sys/socket.h>
@@ -9,6 +11,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <signal.h>
 
 #include "AutoDelete.hh"
 #include "ByteArray.hpp"
@@ -20,8 +23,11 @@
 #include "io/socket.hh"
 #include "io/Task.hpp"
 #include "gui/TasksWin.hpp"
+#include "MyDaemon.hpp"
 
 Q_DECLARE_METATYPE(cornus::io::Task*);
+
+///#define CORNUS_DEBUG_SERVER_SHUTDOWN
 
 namespace cornus {
 const auto ConnectionType = Qt::BlockingQueuedConnection;
@@ -173,18 +179,53 @@ void* ListenTh(void *args)
 #ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
 	mtl_info("Server socket closed");
 #endif
+	
+//	QFile file(QDir::home().filePath("cornus_io.log"));
+//	if(file.open(QIODevice::WriteOnly | QIODevice::Text))
+//	{
+//		// We're going to streaming text to the file
+//		QTextStream stream(&file);
+//		stream << "cornus_io shut down tidily." << '\n';
+//		file.close();
+//	}
+	
 	return nullptr;
 }
+}
+
+static int setup_unix_signal_handlers()
+{
+	struct sigaction hup, term;
+	
+	hup.sa_handler = cornus::MyDaemon::hupSignalHandler;
+	sigemptyset(&hup.sa_mask);
+	hup.sa_flags = 0;
+	hup.sa_flags |= SA_RESTART;
+	
+	if (sigaction(SIGINT, &hup, 0))
+		return 1;
+	
+	term.sa_handler = cornus::MyDaemon::termSignalHandler;
+	sigemptyset(&term.sa_mask);
+	term.sa_flags = 0;
+	term.sa_flags |= SA_RESTART;
+	
+	if (sigaction(SIGTERM, &term, 0))
+		return 2;
+	
+	return 0;
 }
 
 int main(int argc, char *argv[])
 {
 	pid_t pid = getpid();
-	printf("cornus_io PID: %ld\n", i64(pid));
-	
+	printf("%s PID: %ld\n", argv[0], i64(pid));
 	QApplication qapp(argc, argv);
 	qRegisterMetaType<cornus::io::Task*>();
 	qRegisterMetaType<cornus::ByteArray*>();
+	
+	setup_unix_signal_handlers();
+	new cornus::MyDaemon();
 	
 	/// The TasksWin hides/deletes itself
 	/// Currently it deletes itself, change later to just hide itself.

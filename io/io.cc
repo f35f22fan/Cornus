@@ -1334,7 +1334,6 @@ bool SameFiles(const QString &path1, const QString &path2, io::Err *ret_error)
 	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
 		if (ret_error != nullptr)
 			*ret_error = MapPosixError(errno);
-		mtl_trace();
 		return false;
 	}
 	

@@ -52,7 +52,8 @@ public:
 	
 	cornus::App* app() const { return app_; }
 	io::Notify& notify() { return notify_; }
-	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+	int rowCount(const QModelIndex &parent = QModelIndex()) const override {
+		return cached_row_count_; }
 	int columnCount(const QModelIndex &parent = QModelIndex()) const override
 	{ return 1; }
 	
@@ -103,6 +104,7 @@ public slots:
 	void PartitionsChanged();
 	void PartitionAdded(const int index, SidePaneItem *p);
 	void PartitionRemoved(const int index);
+	void SetBookmarks(QVector<cornus::gui::SidePaneItem*> vec);
 	void UpdateVisibleArea();
 	
 private:
@@ -110,6 +112,7 @@ private:
 	cornus::App *app_ = nullptr;
 	cornus::gui::SidePane *table_ = nullptr;
 	io::Notify notify_ = {};
+	int cached_row_count_ = 0;
 };
 
 

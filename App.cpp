@@ -242,9 +242,8 @@ App::App()
 	qRegisterMetaType<cornus::PartitionEvent*>();
 	qRegisterMetaType<cornus::io::CountRecursiveInfo*>();
 	qRegisterMetaType<cornus::gui::FileEvent>();
+	qRegisterMetaType<QVector<cornus::gui::SidePaneItem*>>();
 	qDBusRegisterMetaType<QMap<QString, QVariant>>();
-	
-///	DbusFunc();
 	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, gui::sidepane::LoadItems, this);
@@ -878,12 +877,12 @@ App::GetPartitionFreeSpace()
 	const i64 free_space = stv.f_bfree * stv.f_bsize;
 	const int percent_free = double(free_space) / double(total_space) * 100;
 	
-	QString s = QString::number(percent_free) + QLatin1String("% ");
-	s += tr("free space (");
+	QString s = tr("Free space: ");
 	s += io::SizeToString(free_space, true);
-	s += '/';
+	s += QLatin1String(" (");
+	s += QString::number(percent_free);
+	s += tr("%), total: ");
 	s += io::SizeToString(total_space, true);
-	s += ')';
 	
 	cached_result = s;
 	

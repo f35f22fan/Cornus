@@ -14,6 +14,7 @@ class ElapsedTimer;
 class ExecInfo;
 class History;
 class MutexGuard;
+class MyDaemon;
 class Prefs;
 class SidePaneItems;
 

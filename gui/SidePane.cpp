@@ -34,6 +34,8 @@
 #include <QScrollBar>
 #include <QUrl>
 
+#include <QProcess>
+
 namespace cornus::gui {
 
 const QString BookmarkMime = QLatin1String("app/cornus_bookmark");
@@ -318,14 +320,21 @@ SidePane::leaveEvent(QEvent *evt)
 void
 SidePane::MountPartition(SidePaneItem *partition)
 {
-	auto *arg = new io::disks::MountPartitionData();
-	arg->app = app_;
-	arg->partition = partition;
-	pthread_t th;
-	int status = pthread_create(&th, NULL,
-		cornus::io::disks::MountPartitionTh, arg);
-	if (status != 0)
-		mtl_status(status);
+	QStringList args;
+	args << QLatin1String("mount");
+	args << QLatin1String("-b");
+	args << partition->dev_path();
+	QProcess::startDetached(QLatin1String("udisksctl"), args, app_->current_dir());
+	
+//	auto *arg = new io::disks::MountPartitionData();
+//	arg->app = app_;
+//	arg->partition = partition;
+//	pthread_t th;
+//	int status = pthread_create(&th, NULL,
+//		cornus::io::disks::MountPartitionTh, arg);
+//	if (status != 0)
+//		mtl_status(status);
+	
 }
 
 void
@@ -721,14 +730,21 @@ SidePane::UnmountPartition(int row)
 	if (!partition->is_partition())
 		return;
 	
-	auto *arg = new io::disks::MountPartitionData();
-	arg->app = app_;
-	arg->partition = partition;
-	pthread_t th;
-	int status = pthread_create(&th, NULL,
-		cornus::io::disks::UnmountPartitionTh, arg);
-	if (status != 0)
-		mtl_status(status);
+	QStringList args;
+	args << QLatin1String("unmount");
+	args << QLatin1String("-b");
+	args << partition->dev_path();
+	QProcess::startDetached(QLatin1String("udisksctl"), args, app_->current_dir());
+	
+	
+//	auto *arg = new io::disks::MountPartitionData();
+//	arg->app = app_;
+//	arg->partition = partition;
+//	pthread_t th;
+//	int status = pthread_create(&th, NULL,
+//		cornus::io::disks::UnmountPartitionTh, arg);
+//	if (status != 0)
+//		mtl_status(status);
 }
 
 void

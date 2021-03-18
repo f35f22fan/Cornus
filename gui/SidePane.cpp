@@ -324,7 +324,7 @@ SidePane::MountPartition(SidePaneItem *partition)
 	args << QLatin1String("mount");
 	args << QLatin1String("-b");
 	args << partition->dev_path();
-	QProcess::startDetached(QLatin1String("udisksctl"), args, app_->current_dir());
+	QProcess::startDetached(QLatin1String("udisksctl"), args, QDir::homePath());
 	
 //	auto *arg = new io::disks::MountPartitionData();
 //	arg->app = app_;
@@ -734,7 +734,7 @@ SidePane::UnmountPartition(int row)
 	args << QLatin1String("unmount");
 	args << QLatin1String("-b");
 	args << partition->dev_path();
-	QProcess::startDetached(QLatin1String("udisksctl"), args, app_->current_dir());
+	QProcess::startDetached(QLatin1String("udisksctl"), args, QDir::homePath());
 	
 	
 //	auto *arg = new io::disks::MountPartitionData();

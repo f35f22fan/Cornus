@@ -168,10 +168,12 @@ Table::ActionPaste()
 	const Clipboard &clipboard = app_->clipboard();
 	
 	io::socket::MsgBits io_op = io::socket::MsgBits::None;
-	if (clipboard.action == ClipboardAction::Copy)
+	if (clipboard.action == ClipboardAction::Copy) {
 		io_op = io::socket::MsgBits::Copy;
-	else
+		io_op |= io::socket::MsgBits::DontTryAtomicMove;
+	} else {
 		io_op = io::socket::MsgBits::Move;
+	}
 	
 	auto *ba = new ByteArray();
 	ba->set_msg_id(io_op);
@@ -419,9 +421,7 @@ Table::dragMoveEvent(QDragMoveEvent *event)
 void
 Table::dropEvent(QDropEvent *evt)
 {
-mtl_info("Drop function start");
 	if (evt->mimeData()->hasUrls()) {
-mtl_info("Drop proceed");
 		QVector<io::File*> *files_vec = new QVector<io::File*>();
 		
 		for (const QUrl &url: evt->mimeData()->urls())
@@ -449,9 +449,6 @@ mtl_info("Drop proceed");
 			return;
 		}
 		
-//		mtl_info("JJJJJJJJJJJJJJJJJJJJ %ld vs %ld",
-//			i64(evt->proposedAction()),
-//			i64(evt->possibleActions()));
 		FinishDropOperation(files_vec, to_dir, evt->proposedAction(),
 			evt->possibleActions());
 	}

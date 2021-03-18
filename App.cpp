@@ -878,10 +878,10 @@ App::GetPartitionFreeSpace()
 	const int percent_free = double(free_space) / double(total_space) * 100;
 	
 	QString s = tr("Free space: ");
-	s += io::SizeToString(free_space, true);
-	s += QLatin1String(" (");
 	s += QString::number(percent_free);
-	s += tr("%), total: ");
+	s += tr("%, ");
+	s += io::SizeToString(free_space, true);
+	s += tr(" out of ");
 	s += io::SizeToString(total_space, true);
 	
 	cached_result = s;

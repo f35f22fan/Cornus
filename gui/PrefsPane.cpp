@@ -33,8 +33,7 @@ void PrefsPane::ApplyToWidgets(const Prefs &prefs)
 	remember_window_size_->setCheckState(prefs.remember_window_size() ? Qt::Checked : Qt::Unchecked);
 }
 
-void
-PrefsPane::ButtonClicked(QAbstractButton *btn)
+void PrefsPane::ButtonClicked(QAbstractButton *btn)
 {
 	if (btn == button_box_->button(QDialogButtonBox::RestoreDefaults)) {
 		ApplyToWidgets(app_->prefs().Defaults());
@@ -51,7 +50,7 @@ void PrefsPane::CreateGui()
 	QBoxLayout *vert_layout = new QBoxLayout(QBoxLayout::TopToBottom);
 	setLayout(vert_layout);
 	
-	show_hidden_files_ = new QCheckBox(tr("Show hidden files"));
+	show_hidden_files_ = new QCheckBox(tr("Show hidden files (Ctrl+H)"));
 	vert_layout->addWidget(show_hidden_files_);
 	
 	show_ms_files_loaded_ = new QCheckBox(tr("Show folder listing speed (ms)"));
@@ -64,6 +63,7 @@ void PrefsPane::CreateGui()
 	vert_layout->addWidget(show_link_targets_);
 	
 	mark_extended_attrs_disabled_ = new QCheckBox(tr("Don't mark files with extended file attributes"));
+	mark_extended_attrs_disabled_->setToolTip(tr("Shows a gray dot next to the file name in the icon column"));
 	vert_layout->addWidget(mark_extended_attrs_disabled_);
 	
 	remember_window_size_ = new QCheckBox(tr("Remember window size"));

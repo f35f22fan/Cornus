@@ -1,6 +1,8 @@
 #pragma once
 
+#include <QMenu>
 #include <QToolBar>
+#include <QToolButton>
 
 #include "../err.hpp"
 #include "decl.hxx"
@@ -26,8 +28,10 @@ private:
 	QVector<QAction*> actions_;
 	cornus::App *app_ = nullptr;
 	gui::Location *location_ = nullptr;
-	QAction *action_fwd_ = nullptr, *action_back_ = nullptr,
-		*action_up_ = nullptr;
+	QAction *action_fwd_ = nullptr, *action_up_ = nullptr, *action_back_ = nullptr;
+	///QToolButton *back_btn_ = nullptr;
+	
+	QMenu *history_menu_ = nullptr, *prefs_menu_ = nullptr;
 };
 
 }

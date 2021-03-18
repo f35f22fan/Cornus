@@ -39,8 +39,8 @@ void History::Add(const Action action, const QString &s)
 	mtl_info("added: %s to index: %d", ba.data(), index_);
 #endif
 	
-	if (index_ > 50)
-		vec_.remove(0, 20);
+	if (index_ > 10)
+		vec_.remove(0, 10);
 	
 	app_->toolbar()->UpdateIcons(this);
 }

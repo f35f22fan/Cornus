@@ -23,6 +23,9 @@ ToolBar::~ToolBar() {
 	for (auto *next: actions_) {
 		delete next;
 	}
+	
+	delete prefs_menu_;
+	delete history_menu_;
 }
 
 QAction*
@@ -46,6 +49,14 @@ ToolBar::Add(QMenu *menu, const QString &icon_name, const QString &text,
 
 void ToolBar::CreateGui()
 {
+//	back_btn_ = new QToolButton();
+//	back_btn_->setIcon(QIcon::fromTheme(QLatin1String("go-previous")));
+//	connect(back_btn_, &QToolButton::clicked, [=] {ProcessAction(actions::GoBack);});
+//	back_btn_->setPopupMode(QToolButton::MenuButtonPopup);
+//	back_btn_->setArrowType(Qt::NoArrow);
+//	back_btn_->setAutoRaise(false);
+//	addWidget(back_btn_);
+	
 	action_back_ = Add(QLatin1String("go-previous"), actions::GoBack);
 	action_fwd_ = Add(QLatin1String("go-next"), actions::GoForward);
 	action_up_ = Add(QLatin1String("go-up"), actions::GoUp);
@@ -58,12 +69,12 @@ void ToolBar::CreateGui()
 	addWidget(prefs_menu_btn);
 	prefs_menu_btn->setIcon(QIcon::fromTheme(QLatin1String("preferences-other")));
 	prefs_menu_btn->setPopupMode(QToolButton::InstantPopup);
-	QMenu *prefs_menu = new QMenu(prefs_menu_btn);
-	prefs_menu_btn->setMenu(prefs_menu);
+	prefs_menu_ = new QMenu(prefs_menu_btn);
+	prefs_menu_btn->setMenu(prefs_menu_);
 	
-	Add(prefs_menu, QLatin1String("preferences-other"), tr("Preferences.."),
+	Add(prefs_menu_, QLatin1String("preferences-other"), tr("Preferences.."),
 		actions::Preferences);
-	Add(prefs_menu, QLatin1String("help-about"), tr("About"), actions::AboutThisApp);
+	Add(prefs_menu_, QLatin1String("help-about"), tr("About"), actions::AboutThisApp);
 	
 }
 
@@ -97,7 +108,7 @@ void ToolBar::ShowAboutThisAppDialog()
 	vert_layout->addWidget(te);
 	QString str = "<center><b>Cornus Mas</b><br/>A fast file browser"
 	" for Linux written in C++17 & Qt5<hr/>"
-	"Author: f35f22fan@gmail.com<br/>"
+	"Author: f35f22fan@gmail.com (Ursache Vladimir)<br/>"
 	"GitHub: https://github.com/f35f22fan/Cornus<br/><br/><br/>"
 	"<img src=\"";
 	str += AppIconPath;

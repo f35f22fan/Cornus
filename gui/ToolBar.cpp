@@ -2,6 +2,7 @@
 
 #include "../App.hpp"
 #include "actions.hxx"
+#include "../History.hpp"
 #include "Location.hpp"
 #include "PrefsPane.hpp"
 
@@ -33,19 +34,21 @@ ToolBar::Add(const QString &icon_name, const QString &action_name)
 	return p;
 }
 
-void
+QAction*
 ToolBar::Add(QMenu *menu, const QString &icon_name, const QString &text,
 	const QString &action_name)
 {
 	QAction *a = menu->addAction(QIcon::fromTheme(icon_name), text);
 	connect(a, &QAction::triggered, [=] {ProcessAction(action_name);});
+	return a;
 	
 }
 
 void ToolBar::CreateGui()
 {
-	Add(QLatin1String("go-previous"), actions::GoBack);
-	Add(QLatin1String("go-up"), actions::GoUp);
+	action_back_ = Add(QLatin1String("go-previous"), actions::GoBack);
+	action_fwd_ = Add(QLatin1String("go-next"), actions::GoForward);
+	action_up_ = Add(QLatin1String("go-up"), actions::GoUp);
 	Add(QLatin1String("go-home"), actions::GoHome);
 	
 	location_ = new Location(app_);
@@ -72,6 +75,8 @@ void ToolBar::ProcessAction(const QString &action)
 		app_->GoHome();
 	} else if (action == actions::GoBack) {
 		app_->GoBack();
+	} else if (action == actions::GoForward) {
+		app_->GoForward();
 	} else if (action == actions::AboutThisApp) {
 		ShowAboutThisAppDialog();
 	} else if (action == actions::Preferences) {
@@ -117,4 +122,13 @@ void ToolBar::ShowAboutThisAppDialog()
 //		return;
 }
 
+void ToolBar::UpdateIcons(History *p)
+{
+	int index, size;
+	p->index_size(index, size);
+	
+	action_back_->setEnabled(index > 0);
+	action_fwd_->setEnabled(index < (size - 1));
+	action_up_->setEnabled(app_->current_dir() != QLatin1String("/"));
+}
 }

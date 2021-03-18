@@ -8,6 +8,7 @@ static const QString DeleteBookmark = QLatin1String("DeleteBookmark");
 static const QString DeleteFiles = QLatin1String("DeleteFiles");
 static const QString GoHome = QLatin1String("Go Home");
 static const QString GoBack = QLatin1String("Go Back");
+static const QString GoForward = QLatin1String("Go Forward");
 static const QString GoUp = QLatin1String("Go Up");
 static const QString OpenTerminal = QLatin1String("OpenTerminal");
 static const QString Preferences = QLatin1String("Preferences");

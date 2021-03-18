@@ -14,10 +14,11 @@ public:
 	virtual ~ToolBar();
 	
 	gui::Location* location() const { return location_; }
+	void UpdateIcons(History *p);
 	
 private:
-	void Add(QMenu *menu, const QString &icon_name, const QString &text, const QString &action_name);
-	QAction *Add(const QString &icon_name, const QString &action_name);
+	QAction* Add(QMenu *menu, const QString &icon_name, const QString &text, const QString &action_name);
+	QAction* Add(const QString &icon_name, const QString &action_name);
 	void CreateGui();
 	void ProcessAction(const QString &action);
 	void ShowAboutThisAppDialog();
@@ -25,6 +26,8 @@ private:
 	QVector<QAction*> actions_;
 	cornus::App *app_ = nullptr;
 	gui::Location *location_ = nullptr;
+	QAction *action_fwd_ = nullptr, *action_back_ = nullptr,
+		*action_up_ = nullptr;
 };
 
 }

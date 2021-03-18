@@ -45,6 +45,7 @@ public:
 	QIcon* GetIcon(const QString &str);
 	QString GetPartitionFreeSpace();
 	void GoBack();
+	void GoForward();
 	void GoHome();
 	bool GoTo(const Action action, DirPath dir_path, const cornus::Reload r = Reload::No,
 		QString scroll_to_and_select = QString());
@@ -80,6 +81,7 @@ public:
 	void TellUser(const QString &msg, const QString title = QString());
 	void TestExecBuf(const char *buf, const isize size, ExecInfo &ret);
 	ThemeType theme_type() const { return theme_type_; }
+	gui::ToolBar *toolbar() const { return toolbar_; }
 	io::Files& view_files() { return view_files_; }
 	bool ViewIsAt(const QString &dir_path) const;
 	

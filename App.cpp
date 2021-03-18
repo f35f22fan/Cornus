@@ -897,6 +897,14 @@ void App::GoBack() {
 	GoTo(Action::Back, {s, Processed::Yes});
 }
 
+void App::GoForward() {
+	QString s = history_->Forward();
+	if (s.isEmpty())
+		return;
+	
+	GoTo(Action::Forward, {s, Processed::Yes});
+}
+
 void App::GoHome() { GoTo(Action::To, {QDir::homePath(), Processed::No}); }
 
 bool App::GoTo(const Action action, DirPath dp, const cornus::Reload r, QString scroll_to_and_select)

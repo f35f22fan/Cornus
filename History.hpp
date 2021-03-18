@@ -19,8 +19,12 @@ public:
 	
 	void Add(const Action action, const QString &s);
 	QString Back();
+	QString Forward();
 	void GetSelectedFiles(QVector<QString> &list);
 	void Record();
+	void index_size(int &index, int &size) {
+		index = index_, size = vec_.size();
+	}
 	QVector<QString>& recorded() { return recorded_; }
 	
 private:

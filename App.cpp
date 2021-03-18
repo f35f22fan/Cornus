@@ -1354,9 +1354,8 @@ App::QueryExecInfo(const QString &full_path, const QString &ext)
 		}
 	}
 	
-	if(real_size > 0) {
+	if(real_size > 0)
 		TestExecBuf(buf, real_size, ret);
-	}
 	
 	return ret;
 }
@@ -1768,13 +1767,14 @@ void App::TellUser(const QString &msg, const QString title) {
 	QMessageBox::warning(this, title, msg);
 }
 
-bool App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
+void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 {
-	// returns true if no more querying is needed
+	if (size < 4)
+		return;
 	
 	if (buf[0] == 0x7F && buf[1] == 'E' && buf[2] == 'L' && buf[3] == 'F') {
 		ret.type |= ExecType::Elf;
-		return true;
+		return;
 	}
 	
 	QString s = QString::fromLocal8Bit(buf, size);
@@ -1783,8 +1783,7 @@ bool App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 		
 		int new_line = s.indexOf('\n');
 		if (new_line == -1) {
-			mtl_trace();
-			return true;
+			return;
 		}
 		
 		const int start = 2;
@@ -1795,10 +1794,8 @@ bool App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 			if (!starter.isEmpty())
 				ret.starter = starter.trimmed().toString();
 		}
-		return true;
+		return;
 	}
-	
-	return false;
 }
 
 bool App::ViewIsAt(const QString &dir_path) const

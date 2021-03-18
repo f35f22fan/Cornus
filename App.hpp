@@ -78,7 +78,7 @@ public:
 	gui::Table* table() const { return table_; }
 	gui::TableModel* table_model() const { return table_model_; }
 	void TellUser(const QString &msg, const QString title = QString());
-	bool TestExecBuf(const char *buf, const isize size, ExecInfo &ret);
+	void TestExecBuf(const char *buf, const isize size, ExecInfo &ret);
 	ThemeType theme_type() const { return theme_type_; }
 	io::Files& view_files() { return view_files_; }
 	bool ViewIsAt(const QString &dir_path) const;

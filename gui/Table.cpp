@@ -800,22 +800,17 @@ Table::HandleMouseSelectionNoModif(const QPoint &pos, QVector<int> &indices,
 	
 	io::File *file = nullptr;
 	int row = IsOnFileNameStringNTS(pos, &file);
-	bool on_file = row != -1;
+	const bool on_file_name = row != -1;
 	shift_select_.base_row = row;
 	
-	if (on_file) {
+	if (on_file_name) {
 		if (mouse_pressed) {
-			SelectAllFilesNTS(false, indices);
+			if (file == nullptr || !file->selected())
+				SelectAllFilesNTS(false, indices);
 			if (file != nullptr && !file->selected()) {
 				file->selected(true);
 				indices.append(row);
 			}
-		} else { // mouse release
-//			SelectAllFilesNTS(false, indices);
-//			if (file != nullptr) {
-//				file->selected(true);
-//				indices.append(row);
-//			}
 		}
 	} else {
 		SelectAllFilesNTS(false, indices);

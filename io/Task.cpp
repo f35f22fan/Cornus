@@ -398,24 +398,38 @@ void Task::StartIO()
 	if (!to_dir_path_.isEmpty() && !to_dir_path_.endsWith('/'))
 		to_dir_path_.append('/');
 	
-///#define DEBUG_EXEC_PATH
-	using io::socket::MsgType;
-	
-	if (ops_ & (MsgType)io::socket::MsgBits::AtomicMove) {
-		if (TryAtomicMove()) {
-mtl_info("Atomic move succeeded");
-			data().ChangeState(io::TaskState::Finished);
-			return;
-		}
-mtl_info("Atomic move failed");
+	if (file_paths_.isEmpty()) {
+		data().ChangeState(io::TaskState::Finished);
+		return;
 	}
 	
-	if (ops_ & (MsgType)io::socket::MsgBits::Copy) {
+	const QString &first = file_paths_[0];
+	auto name = io::GetFileNameOfFullPath(first);
+	QString parent = first.mid(0, first.size() - name.size());
+	if (name.isEmpty() || io::SameFiles(parent, to_dir_path_)) {
+		data().ChangeState(io::TaskState::Finished);
+		return;
+	}
+	
+///#define DEBUG_EXEC_PATH
+	using io::socket::MsgType;
+	using io::socket::MsgBits;
+	
+	if (ops_ & (MsgType)MsgBits::Copy) {
 #ifdef DEBUG_EXEC_PATH
 mtl_info("Copy");
 #endif
+		if (!(ops_ & (MsgType)MsgBits::DontTryAtomicMove)) {
+			if (TryAtomicMove()) {
+#ifdef DEBUG_EXEC_PATH
+				mtl_info("Atomic move succeeded");
+#endif
+				data().ChangeState(io::TaskState::Finished);
+				return;
+			}
+		}
 		CopyFiles();
-	} else if (ops_ & (MsgType)io::socket::MsgBits::Move) {
+	} else if (ops_ & (MsgType)MsgBits::Move) {
 #ifdef DEBUG_EXEC_PATH
 		mtl_info("Move, trying to do atomic move..");
 #endif

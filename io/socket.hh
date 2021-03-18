@@ -26,7 +26,7 @@ enum class MsgBits: MsgType {
 	CutToClipboard,
 	
 	Copy = 1u << 29, // copies files
-	AtomicMove = 1u << 30, // moves with rename()
+	DontTryAtomicMove = 1u << 30, // moves with rename()
 	Move = 1u << 31, // moves by copying to new dir and deleting old ones
 };
 
@@ -59,7 +59,7 @@ inline MsgBits MsgFlagsFor(const Qt::DropAction action)
 		bits |= MsgBits::Copy;
 	}
 	if (action & Qt::MoveAction) {
-		bits |= MsgBits::Move | MsgBits::AtomicMove;
+		bits |= MsgBits::Move;/// | MsgBits::AtomicMove;
 	}
 	if (action & Qt::LinkAction) {
 		mtl_trace();
@@ -75,7 +75,7 @@ inline MsgBits MsgFlagsForMany(const Qt::DropActions action)
 		bits |= MsgBits::Copy;
 	}
 	if (action & Qt::MoveAction) {
-		bits |= MsgBits::Move | MsgBits::AtomicMove;
+		bits |= MsgBits::Move;/// | MsgBits::AtomicMove;
 	}
 	if (action & Qt::LinkAction) {
 		mtl_trace();

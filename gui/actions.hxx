@@ -20,4 +20,5 @@ static const QString IOContinue = QLatin1String("IOContinue");
 static const QString IOCancel = QLatin1String("IOCancel");
 static const QString ExtractTo = QLatin1String("ExtractTo");
 static const QString ExtractHere = QLatin1String("ExtractHere");
+static const QString ShortcutsMap = QLatin1String("ShortcutsMap");
 }

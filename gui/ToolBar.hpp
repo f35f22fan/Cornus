@@ -24,6 +24,7 @@ private:
 	void CreateGui();
 	void ProcessAction(const QString &action);
 	void ShowAboutThisAppDialog();
+	void ShowShortcutsMap();
 	
 	QVector<QAction*> actions_;
 	cornus::App *app_ = nullptr;

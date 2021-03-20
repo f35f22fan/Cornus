@@ -74,6 +74,8 @@ void ToolBar::CreateGui()
 	
 	Add(prefs_menu_, QLatin1String("preferences-other"), tr("Preferences.."),
 		actions::Preferences);
+	Add(prefs_menu_, QLatin1String("format-justify-left"),
+		tr("Shortcuts Map"), actions::ShortcutsMap);
 	Add(prefs_menu_, QLatin1String("help-about"), tr("About"), actions::AboutThisApp);
 	
 }
@@ -92,6 +94,8 @@ void ToolBar::ProcessAction(const QString &action)
 		ShowAboutThisAppDialog();
 	} else if (action == actions::Preferences) {
 		gui::PrefsPane pp(app_);
+	} else if (action == actions::ShortcutsMap) {
+		ShowShortcutsMap();
 	}
 }
 
@@ -131,6 +135,26 @@ void ToolBar::ShowAboutThisAppDialog()
 //	bool ok = dialog.exec();
 //	if (!ok)
 //		return;
+}
+
+void ToolBar::ShowShortcutsMap()
+{
+	QString s;
+	
+	s += QLatin1String("Alt+Up => ") + tr("Move one directory up\n");
+	s += QLatin1String("Ctrl+H => ") + tr("Toggle show hidden files\n");
+	s += QLatin1String("Ctrl+Q => ") + tr("Quit app\n");
+	s += QLatin1String("Shift+Delete => ") + tr("Delete selected files\n");
+	s += QLatin1String("F2 => ") + tr("Rename selected file\n");
+	s += QLatin1String("Ctrl+I => ") + tr("Focus table\n");
+	s += QLatin1String("Ctrl+L => ") + tr("Focus address bar\n");
+	s += QLatin1String("Ctrl+A => ") + tr("Select all files\n");
+	s += QLatin1String("Ctrl+E => ") + tr("Toggle exec bit of selected file(s)\n");
+	s += QLatin1String("D => ") + tr("Display contents of selected file\n");
+	s += QLatin1String("Ctrl+F => ") + tr("Search for file by name, then hit Enter\n"
+	"    to search forward or Ctrl+Enter for backwards\n");
+	
+	app_->TellUser(s, tr("App Shortcuts"));
 }
 
 void ToolBar::UpdateIcons(History *p)

@@ -877,11 +877,11 @@ App::GetPartitionFreeSpace()
 	const i64 free_space = stv.f_bfree * stv.f_bsize;
 	const int percent_free = double(free_space) / double(total_space) * 100;
 	
-	QString s = tr("Free space: ");
+	QString s = tr("Free ");
 	s += QString::number(percent_free);
-	s += tr("%, ");
+	s += tr("% ");
 	s += io::SizeToString(free_space, true);
-	s += tr(" out of ");
+	s += '/';
 	s += io::SizeToString(total_space, true);
 	
 	cached_result = s;
@@ -1595,7 +1595,7 @@ void App::SaveBookmarks()
 		}
 	}
 	
-	const QString full_path = prefs::GetConfigFilePath();
+	const QString full_path = prefs::GetBookmarksFilePath();
 	const QByteArray path_ba = full_path.toLocal8Bit();
 	
 	if (!io::FileExists(full_path)) {

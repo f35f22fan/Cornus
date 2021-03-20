@@ -117,10 +117,13 @@ static void MarkMountedPartitions(QVector<SidePaneItem*> &vec)
 
 static bool LoadBookmarks(QVector<SidePaneItem*> &vec)
 {
-	const QString full_path = prefs::GetConfigFilePath();
+	const QString full_path = prefs::GetBookmarksFilePath();
 	
 	ByteArray buf;
 	if (io::ReadFile(full_path, buf) != io::Err::Ok)
+		return false;
+	
+	if (!buf.has_more())
 		return false;
 	
 	u16 version = buf.next_u16();
@@ -287,7 +290,23 @@ void ReadBookmarksFileEvent(int inotify_fd, char *buf,
 	gui::SidePaneModel *model)
 {
 	const ssize_t num_read = read(inotify_fd, buf, kInotifyEventBufLen);
-	Q_UNUSED(num_read);
+	///Q_UNUSED(num_read);
+	
+	i64 add = 0;
+	QString bookmarks_file_name = prefs::GetBookmarksFileName();
+	bool is_bookmarks_file = false;
+	
+	for (char *p = buf; p < buf + num_read; p += add) {
+		struct inotify_event *ev = (struct inotify_event*) p;
+		add = sizeof(struct inotify_event) + ev->len;
+		if (!is_bookmarks_file) {
+			is_bookmarks_file = (bookmarks_file_name == ev->name);
+		}
+	}
+	
+	if (!is_bookmarks_file)
+		return;
+	
 	SidePaneItems &items = model->app()->side_pane_items();
 	{
 		/// If this app did it then there's no need to update
@@ -331,7 +350,7 @@ void* MonitorBookmarksAndPartitions(void *void_args)
 	char *buf = new char[kInotifyEventBufLen];
 	AutoDeleteArr ad_arr(buf);
 	const auto EventTypes = IN_CLOSE_WRITE;
-	auto bookmarks_file_path = prefs::GetConfigFilePath().toLocal8Bit();
+	auto bookmarks_file_path = prefs::QueryAppConfigPath().toLocal8Bit();
 	int wd = inotify_add_watch(notify.fd, bookmarks_file_path.data(), EventTypes);
 	int epfd = epoll_create(1);
 	

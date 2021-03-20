@@ -6,11 +6,15 @@
 
 namespace cornus::prefs {
 
-QString GetConfigFilePath()
-{
-	return prefs::QueryAppConfigPath() + '/'
-		+ prefs::BookmarksFileName
+QString GetBookmarksFileName() {
+	static const QString s = prefs::BookmarksFileName
 		+ QString::number(prefs::BookmarksFormatVersion);
+	return s;
+}
+
+QString GetBookmarksFilePath()
+{
+	return prefs::QueryAppConfigPath() + '/' + GetBookmarksFileName();
 }
 
 QString QueryAppConfigPath()
@@ -25,10 +29,11 @@ QString QueryAppConfigPath()
 	if (!config_path.endsWith('/'))
 		config_path.append('/');
 	
-	if (io::EnsureDir(config_path, prefs::AppConfigName))
-		return config_path + prefs::AppConfigName;
+	if (!io::EnsureDir(config_path, prefs::AppConfigName))
+		return QString();
 	
-	return QString();
+	dir_path = config_path + prefs::AppConfigName;
+	return dir_path;
 }
 
 QString QueryMimeConfigDirPath()
@@ -43,9 +48,11 @@ QString QueryMimeConfigDirPath()
 	if (!config_path.endsWith('/'))
 		config_path.append('/');
 	
-	if (io::EnsureDir(config_path, prefs::MimeConfigDir))
-		return config_path + prefs::MimeConfigDir;
+	if (io::EnsureDir(config_path, prefs::MimeConfigDir)) {
+		return QString();
+	}
 	
-	return QString();
+	dir_path = config_path + prefs::MimeConfigDir;;
+	return dir_path;
 }
 }

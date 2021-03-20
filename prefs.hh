@@ -11,7 +11,8 @@ const QString PrefsFileName = QLatin1String("prefs_");
 const u16 BookmarksFormatVersion = 1;
 const u16 PrefsFormatVersion = 3;
 
-QString GetConfigFilePath();
+QString GetBookmarksFileName();
+QString GetBookmarksFilePath();
 QString QueryAppConfigPath();
 QString QueryMimeConfigDirPath();
 }

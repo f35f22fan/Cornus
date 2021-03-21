@@ -48,7 +48,7 @@ QString QueryMimeConfigDirPath()
 	if (!config_path.endsWith('/'))
 		config_path.append('/');
 	
-	if (io::EnsureDir(config_path, prefs::MimeConfigDir)) {
+	if (!io::EnsureDir(config_path, prefs::MimeConfigDir)) {
 		return QString();
 	}
 	

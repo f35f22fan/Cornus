@@ -146,7 +146,7 @@ void ToolBar::ShowShortcutsMap()
 	s += QLatin1String("Ctrl+Q => ") + tr("Quit app\n");
 	s += QLatin1String("Shift+Delete => ") + tr("Delete selected files\n");
 	s += QLatin1String("F2 => ") + tr("Rename selected file\n");
-	s += QLatin1String("Ctrl+I => ") + tr("Focus table\n");
+	s += QLatin1String("Ctrl+I => ") + tr("Focus files table view\n");
 	s += QLatin1String("Ctrl+L => ") + tr("Focus address bar\n");
 	s += QLatin1String("Ctrl+A => ") + tr("Select all files\n");
 	s += QLatin1String("Ctrl+E => ") + tr("Toggle exec bit of selected file(s)\n");

@@ -344,7 +344,7 @@ void OpenOrderPane::Save()
 	
 	QString filename = mime_.replace('/', '-');
 	QString full_path = save_dir + filename;
-	
+	///mtl_info("%s", qPrintable(full_path));
 	CHECK_TRUE_VOID((io::WriteToFile(full_path, ba.data(), ba.size()) == io::Err::Ok));
 }
 

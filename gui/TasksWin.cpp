@@ -3,6 +3,9 @@
 #include "../MutexGuard.hpp"
 #include "TaskGui.hpp"
 
+#include <QGuiApplication>
+#include <QScreen>
+
 namespace cornus::gui {
 
 TasksWin::TasksWin()
@@ -10,6 +13,15 @@ TasksWin::TasksWin()
 	CreateGui();
 	setWindowIcon(QIcon(cornus::AppIconPath));
 	setWindowTitle("I/O operations");
+	QList<QScreen*> screens = QGuiApplication::screens();
+	if (!screens.isEmpty()) {
+		screen_sz_ = screens[0]->availableSize();
+	} else {
+		screen_sz_ = QSize(1920, 1080);
+	}
+	
+	win_w_ = std::max(800, screen_sz_.width() / 2);
+///	mtl_info("win_w: %d, screen_w: %d", win_w_, screen_sz_.width());
 }
 
 TasksWin::~TasksWin() {
@@ -43,10 +55,12 @@ QSize TasksWin::sizeHint() const {
 		return QSize(0, 0);
 	auto *item = layout_->itemAt(0);
 	QSize sz = item->sizeHint();
-	return QSize(sz.width(), sz.height() * count);
+	return QSize(win_w_, sz.height() * count);
 }
 
-QSize TasksWin::maximumSize() const { return sizeHint(); }
+QSize TasksWin::maximumSize() const {
+	return QSize(win_w_, sizeHint().height());
+}
 
 
 void TasksWin::TaskDone(TaskGui *tg, const io::TaskState state)

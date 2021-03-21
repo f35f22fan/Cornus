@@ -32,6 +32,8 @@ private:
 	
 	QBoxLayout *layout_ = nullptr;
 	QWidget *main_widget_ = nullptr;
+	QSize screen_sz_ = {};
+	int win_w_ = -1;
 };
 
 }

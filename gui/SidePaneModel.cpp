@@ -290,8 +290,6 @@ void ReadBookmarksFileEvent(int inotify_fd, char *buf,
 	gui::SidePaneModel *model)
 {
 	const ssize_t num_read = read(inotify_fd, buf, kInotifyEventBufLen);
-	///Q_UNUSED(num_read);
-	
 	i64 add = 0;
 	QString bookmarks_file_name = prefs::GetBookmarksFileName();
 	bool is_bookmarks_file = false;

@@ -167,8 +167,9 @@ bool CountSizeRecursiveTh(const QString &path, struct statx &stx,
 
 void Delete(io::File *file);
 
-bool
-EnsureDir(const QString &dir_path, const QString &subdir);
+bool DirExists(const QString &full_path);
+
+bool EnsureDir(QString dir_path, const QString &subdir);
 
 bool ExpandLinksInDirPath(QString &unprocessed_dir_path, QString &processed_dir_path);
 

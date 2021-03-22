@@ -52,7 +52,7 @@ QString QueryMimeConfigDirPath()
 		return QString();
 	}
 	
-	dir_path = config_path + prefs::MimeConfigDir;;
+	dir_path = config_path + prefs::MimeConfigDir;
 	return dir_path;
 }
 }

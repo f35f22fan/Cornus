@@ -153,7 +153,6 @@ bool TextEdit::Save()
 		return false;
 	
 	auto ba = toPlainText().toLocal8Bit();
-
 	return io::WriteToFile(full_path_, ba.data(), ba.size()) == io::Err::Ok;
 }
 

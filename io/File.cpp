@@ -65,8 +65,7 @@ File::DeleteFromDisk() {
 	return status == 0;
 }
 
-bool
-File::has_exec_bit() const {
+bool File::has_exec_bit() const {
 	if (has_link_target()) {
 		return link_target_->mode & io::ExecBits;
 	}

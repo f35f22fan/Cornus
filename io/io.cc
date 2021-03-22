@@ -355,28 +355,35 @@ void Delete(io::File *file) {
 	file->DeleteFromDisk();
 }
 
-bool EnsureDir(const QString &dir_path, const QString &subdir)
+bool DirExists(const QString &full_path)
 {
-	auto d = dir_path;
+	auto ba = full_path.toLocal8Bit();
+	struct statx stx;
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_MODE;
 	
-	if (!d.endsWith('/'))
-		d.append('/');
+	if (statx(0, ba.data(), flags, fields, &stx) != 0)
+		return false;
 	
-	d.append(subdir);
+	return (S_ISDIR(stx.stx_mode));
+}
+
+bool EnsureDir(QString dir_path, const QString &subdir)
+{
+	if (!dir_path.endsWith('/'))
+		dir_path.append('/');
 	
-	auto ba = d.toLocal8Bit();
+	dir_path.append(subdir);
+	auto ba = dir_path.toLocal8Bit();
 	FileType ft;
 	
 	if (FileExistsCstr(ba.data(), &ft))
 	{
-		if (ft != FileType::Dir)
-		{
-			if (remove(ba.data()) == 0)
-				return mkdir(ba.data(), DirPermissions) == 0;
-			return false;
-		}
+		if (ft == FileType::Dir)
+			return true;
 		
-		return true;
+		if (remove(ba.data()) != 0)
+			return false;
 	}
 	
 	return mkdir(ba.data(), DirPermissions) == 0;
@@ -431,7 +438,7 @@ bool FileExistsCstr(const char *path, FileType *file_type)
 {
 	struct statx stx;
 	const auto flags = AT_SYMLINK_NOFOLLOW;
-	const auto fields = STATX_MODE;
+	const auto fields = (file_type == nullptr) ? 0 : STATX_MODE;
 	
 	if (statx(0, path, flags, fields, &stx) != 0)
 		return false;

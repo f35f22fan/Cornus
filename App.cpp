@@ -282,7 +282,7 @@ App::~App()
 	prefs_->Save();
 	ShutdownLastInotifyThread();
 	
-	QMapIterator<QString, QIcon*> i(icon_set_);
+	QHashIterator<QString, QIcon*> i(icon_set_);
 	while (i.hasNext()) {
 		i.next();
 		QIcon *icon = i.value();
@@ -364,9 +364,8 @@ void App::AskCreateNewFile(io::File *file, const QString &title)
 	{ // icon + mime row
 		QBoxLayout *row = new QBoxLayout(QBoxLayout::LeftToRight);
 		
-		LoadIcon(*file);
 		QLabel *icon_label = new QLabel();
-		const QIcon *icon = file->cache().icon;
+		const QIcon *icon = GetFileIcon(file);
 		if (icon != nullptr) {
 			QPixmap pixmap = icon->pixmap(QSize(64, 64));
 			icon_label->setPixmap(pixmap);
@@ -478,7 +477,7 @@ QMenu* App::CreateNewMenu()
 	
 	{
 		QAction *action = menu->addAction(tr("Folder"));
-		auto *icon = GetIcon(QLatin1String("special_folder"));
+		auto *icon = GetFolderIcon();
 		if (icon != nullptr)
 			action->setIcon(*icon);
 		connect(action, &QAction::triggered, [=] {
@@ -804,36 +803,66 @@ void App::FileDoubleClicked(io::File *file, const gui::Column col)
 	}
 }
 
-QIcon* App::GetIcon(const QString &str) {
-	QString s = GetIconName(str);
+QIcon* App::GetDefaultIcon()
+{
+	if (icon_cache_.unknown == nullptr) {
+		QString full_path = GetIconThatStartsWith(QLatin1String("text"));
+		CHECK_TRUE_NULL((!full_path.isEmpty()));
+		icon_cache_.unknown = GetIconOrLoadExisting(full_path);
+	}
+	return icon_cache_.unknown;
+}
+
+QIcon* App::GetFileIcon(io::File *file)
+{
+	if (file->cache().icon != nullptr)
+		return file->cache().icon;
 	
-	if (s.isEmpty())
+	QIcon *icon = LoadIcon(*file);
+	file->cache().icon = icon;
+	return icon;
+}
+
+QIcon* App::GetFolderIcon()
+{
+	if (icon_cache_.folder != nullptr)
+		return icon_cache_.folder;
+	icon_cache_.folder = GetIcon(QLatin1String("special_folder"));
+	return icon_cache_.folder;
+}
+
+QIcon* App::GetIcon(const QString &str) {
+	QString full_path = GetIconThatStartsWith(str);
+	return GetIconOrLoadExisting(full_path);
+}
+
+QIcon* App::GetIconOrLoadExisting(const QString &icon_path)
+{
+	if (icon_path.isEmpty())
 		return nullptr;
 	
-	return GetOrLoadIcon(s);
-}
-
-QString App::GetIconName(const QString &trunc) {
-	for (const auto &name: available_icon_names_) {
-		if (name.startsWith(trunc)) {
-			return name;
-		}
-	}
-	
-	return QString();
-}
-
-QIcon* App::GetOrLoadIcon(const QString &icon_name) {
-	QIcon *found = icon_set_.value(icon_name, nullptr);
+	QIcon *found = icon_set_.value(icon_path, nullptr);
 	
 	if (found != nullptr)
 		return found;
 	
-	const QString full_path = icons_dir_ + '/' + icon_name;
+	const QString full_path = icon_path;///icons_dir_ + '/' + icon_name;
 	auto *icon = new QIcon(full_path);
-	icon_set_.insert(icon_name, icon);
-	
+	icon_set_.insert(icon_path, icon);
+	///	mtl_info("icon_name: %s", qPrintable(icon_name));
 	return icon;
+}
+
+QString App::GetIconThatStartsWith(const QString &s)
+{
+	QHashIterator<QString, QString> it(icon_names_);
+	while (it.hasNext()) {
+		it.next();
+		if (it.key().startsWith(s))
+			return it.value();
+	}
+	
+	return QString();
 }
 
 QString
@@ -1097,27 +1126,6 @@ QColor App::hover_bg_color_gray(const QColor &c) const
 	return n;
 }
 
-void App::IconByTruncName(io::File &file, const QString &truncated,
-	QIcon **ret_icon) {
-	QString real_name = GetIconName(truncated);
-	CHECK_TRUE_VOID((!real_name.isEmpty()));
-	auto *icon = GetOrLoadIcon(real_name);
-	file.cache().icon = icon;
-	
-	if (ret_icon != nullptr)
-		*ret_icon = icon;
-}
-
-void App::IconByFileName(io::File &file, const QString &filename,
-	QIcon **ret_icon)
-{
-	auto *icon = GetOrLoadIcon(filename);
-	file.cache().icon = icon;
-	
-	if (ret_icon != nullptr)
-		*ret_icon = icon;
-}
-
 void App::LaunchOrOpenDesktopFile(const QString &full_path,
 	const bool has_exec_bit, const RunAction action) const
 {
@@ -1139,14 +1147,16 @@ void App::LaunchOrOpenDesktopFile(const QString &full_path,
 	delete df;
 }
 
-void App::LoadIcon(io::File &file)
+QIcon* App::LoadIcon(io::File &file)
 {
 	if (file.is_dir_or_so()) {
-		if (icon_cache_.folder == nullptr)
-			IconByTruncName(file, FolderIconName, &icon_cache_.folder);
-		else
-			file.cache().icon = icon_cache_.folder;
-		return;
+		if (icon_cache_.folder == nullptr) {
+			QString full_path = GetIconThatStartsWith(QLatin1String("special_folder"));
+			CHECK_TRUE_NULL((!full_path.isEmpty()));
+			icon_cache_.folder = GetIconOrLoadExisting(full_path);
+		}
+		
+		return icon_cache_.folder;
 	}
 	
 	const auto &fn = file.name_lower();
@@ -1156,31 +1166,51 @@ void App::LoadIcon(io::File &file)
 		
 		if (fn.indexOf(QLatin1String(".so.")) != -1)
 		{
-			if (icon_cache_.lib == nullptr)
-				IconByTruncName(file, QLatin1String("special_sharedlib"), &icon_cache_.lib);
-			else
-				file.cache().icon = icon_cache_.lib;
-			return;
+			if (icon_cache_.lib == nullptr) {
+				QString full_path = GetIconThatStartsWith(QLatin1String("special_sharedlib"));
+				CHECK_TRUE_NULL((!full_path.isEmpty()));
+				icon_cache_.lib = GetIconOrLoadExisting(full_path);
+			}
+			return icon_cache_.lib;
 		}
 		
-		SetDefaultIcon(file);
-		return;
+		return GetDefaultIcon();
 	}
 	
 	QString filename = icon_names_.value(ext.toString());
 	
 	if (!filename.isEmpty()) {
-		IconByFileName(file, filename);
-		return;
+		return GetIconOrLoadExisting(filename);
 	}
 	
 	if (ext.startsWith(QLatin1String("blend"))) {
-		QString trunc = QLatin1String("special_blender");
-		IconByTruncName(file, trunc);
-		return;
+		QString full_path = GetIconThatStartsWith(QLatin1String("special_blender"));
+		CHECK_TRUE_NULL((!full_path.isEmpty()));
+		return GetIconOrLoadExisting(full_path);
 	}
 	
-	SetDefaultIcon(file);
+	return GetDefaultIcon();
+}
+
+void App::LoadIconsFrom(QString dir_path)
+{
+///	mtl_info("Loading icons from: %s", qPrintable(dir_path));
+	QVector<QString> available_names;
+	if (io::ListFileNames(dir_path, available_names) != io::Err::Ok) {
+		mtl_trace();
+	}
+	
+	if (!dir_path.endsWith('/'))
+		dir_path.append('/');
+	
+	for (const auto &name: available_names)
+	{
+		const QString full_path = dir_path + name;
+		int index = name.lastIndexOf('.');
+		QString ext = (index == -1) ? name : name.mid(0, index);
+		if (!icon_names_.contains(ext))
+			icon_names_.insert(ext, full_path);
+	}
 }
 
 void App::OpenTerminal() {
@@ -1418,14 +1448,6 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
-		shortcut = new QShortcut(QKeySequence(Qt::Key_F2), this);
-		shortcut->setContext(Qt::ApplicationShortcut);
-		
-		connect(shortcut, &QShortcut::activated, [=] {
-			RenameSelectedFile();
-		});
-	}
-	{
 		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_I), this);
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
@@ -1486,9 +1508,8 @@ void App::RenameSelectedFile()
 	{ // icon + mime row
 		QBoxLayout *row = new QBoxLayout(QBoxLayout::LeftToRight);
 		
-		LoadIcon(*file);
 		QLabel *icon_label = new QLabel();
-		const QIcon *icon = file->cache().icon;
+		const QIcon *icon = GetFileIcon(file);
 		if (icon != nullptr) {
 			QPixmap pixmap = icon->pixmap(QSize(48, 48));
 			icon_label->setPixmap(pixmap);
@@ -1631,44 +1652,30 @@ void App::SaveBookmarks()
 	}
 }
 
-void App::SetDefaultIcon(io::File &file) {
-	if (icon_cache_.unknown == nullptr) {
-		IconByTruncName(file, QLatin1String("text"), &icon_cache_.unknown);
-	} else {
-		file.cache().icon = icon_cache_.unknown;
-	}
-}
-
 void App::SetupIconNames()
 {
-	QDir dir(QCoreApplication::applicationDirPath());
 	const QString folder_name = QLatin1String("file_icons");
-	bool found = true;
 	
-	if (!dir.exists(folder_name)) {
-		if (!dir.cdUp()) {
-			mtl_trace();
-			return;
+	QString icons_from_config = prefs::QueryAppConfigPath();
+	if (!icons_from_config.endsWith('/'))
+		icons_from_config.append('/');
+	icons_from_config.append(folder_name);
+	
+	if (io::DirExists(icons_from_config)) {
+		LoadIconsFrom(icons_from_config);
+	} else {
+		QDir app_dir(QCoreApplication::applicationDirPath());
+		if (app_dir.exists(folder_name)) {
+			LoadIconsFrom(app_dir.filePath(folder_name));
+		} else if (app_dir.cdUp()) {
+			if (app_dir.exists(folder_name))
+				LoadIconsFrom(app_dir.filePath(folder_name));
 		}
-	
-		if (!dir.exists(folder_name))
-			found = false;
-	}
-
-	icons_dir_ = found ? dir.absoluteFilePath(folder_name) :
-		QLatin1String("/usr/share/cornus/") + folder_name;
-	
-	if (io::ListFileNames(icons_dir_, available_icon_names_) != io::Err::Ok) {
-		mtl_trace();
 	}
 	
-	for (const auto &name: available_icon_names_) {
-		int index = name.lastIndexOf('.');
-		if (index == -1)
-			icon_names_.insert(name, name);
-		else
-			icon_names_.insert(name.mid(0, index), name);
-	}
+	const QString shared_dir = QLatin1String("/usr/share/cornus/") + folder_name;
+	if (io::DirExists(shared_dir))
+		LoadIconsFrom(shared_dir);
 }
 
 bool App::ShowInputDialog(const gui::InputDialogParams &params,
@@ -1685,8 +1692,6 @@ bool App::ShowInputDialog(const gui::InputDialogParams &params,
 		
 		if (params.icon != nullptr) {
 			QLabel *icon_label = new QLabel();
-			///LoadIcon(*file);
-			///const QIcon *icon = file->cache().icon;
 			QPixmap pixmap = params.icon->pixmap(QSize(48, 48));
 			icon_label->setPixmap(pixmap);
 			row->addWidget(icon_label);

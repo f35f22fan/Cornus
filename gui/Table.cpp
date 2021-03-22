@@ -892,6 +892,7 @@ void
 Table::keyPressEvent(QKeyEvent *event)
 {
 	const int key = event->key();
+	mouse_down_ = false;
 	auto *app = model_->app();
 	const auto modifiers = event->modifiers();
 	const bool any_modifiers = (modifiers != Qt::NoModifier);
@@ -908,7 +909,9 @@ Table::keyPressEvent(QKeyEvent *event)
 		}
 	}
 	
-	if (key == Qt::Key_Return) {
+	if (key == Qt::Key_F2) {
+		app_->RenameSelectedFile();
+	} else if (key == Qt::Key_Return) {
 		if (!any_modifiers) {
 			io::File *cloned_file = nullptr;
 			int row = GetFirstSelectedFile(&cloned_file);

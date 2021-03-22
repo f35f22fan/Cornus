@@ -177,18 +177,9 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	painter->setPen(pen);
 	painter->drawText(text_rect, text_alignment_, text);
 	
-	QIcon *icon = nullptr;
-	if (file->cache().icon != nullptr)
-		icon = file->cache().icon;
-	
-	if (icon == nullptr) {
-		auto *app = table_->model()->app();
-		app->LoadIcon(*file);
-		icon = file->cache().icon;
-		
-		if (icon == nullptr)
-			return;
-	}
+	QIcon *icon = app_->GetFileIcon(file);
+	if (icon == nullptr)
+		return;
 	
 	const bool transparent = file->action_cut() || file->action_copy() ||
 		file->action_paste();

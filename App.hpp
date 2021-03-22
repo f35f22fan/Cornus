@@ -20,8 +20,6 @@
 
 namespace cornus {
 
-const QString FolderIconName = QLatin1String("special_folder");
-
 struct DirPath {
 	QString path;
 	Processed processed = Processed::No;
@@ -43,6 +41,7 @@ public:
 	void ExtractTo(const QString &to_dir);
 	void FileDoubleClicked(io::File *file, const gui::Column col);
 	QIcon* GetIcon(const QString &str);
+	QIcon* GetFileIcon(io::File *file);
 	QString GetPartitionFreeSpace();
 	void GoBack();
 	void GoForward();
@@ -59,7 +58,6 @@ public:
 		? QColor(150, 255, 150) : QColor(0, 80, 0); }
 	QColor hover_bg_color_gray(const QColor &c) const;
 	void LaunchOrOpenDesktopFile(const QString &full_path, const bool has_exec_bit, const RunAction action) const;
-	void LoadIcon(io::File &file);
 	gui::Location* location() { return location_; }
 	QSplitter* main_splitter() const { return main_splitter_; }
 	void OpenTerminal();
@@ -101,17 +99,18 @@ private:
 	void DetectThemeType();
 	void DisplayMime(io::File *file);
 	void DisplaySymlinkInfo(io::File &file);
-	QString GetIconName(const QString &trunc);
-	QIcon* GetOrLoadIcon(const QString &icon_name);
+	QIcon* GetDefaultIcon();
+	QIcon* GetFolderIcon();
+	QIcon* GetIconOrLoadExisting(const QString &icon_path);
+	QString GetIconThatStartsWith(const QString &trunc);
 	void GoToInitialDir();
 	void GoToAndSelect(const QString full_path);
-	void IconByTruncName(io::File &file, const QString &truncated, QIcon **icon = nullptr);
-	void IconByFileName(io::File &file, const QString &filename, QIcon **ret_icon = nullptr);
+	QIcon *LoadIcon(io::File &file);
+	void LoadIconsFrom(QString dir_path);
 	void OpenWithDefaultApp(const QString &full_path) const;
 	void ProcessAndWriteTo(const QString ext,
 		const QString &from_full_path, QString to_dir);
 	void RegisterShortcuts();
-	void SetDefaultIcon(io::File &file);
 	void SetupIconNames();
 	void ShutdownLastInotifyThread();
 	
@@ -128,12 +127,9 @@ private:
 		QIcon *folder = nullptr;
 		QIcon *lib = nullptr;
 		QIcon *unknown = nullptr;
-	};
-	
-	IconCache icon_cache_ = {};
-	QVector<QString> available_icon_names_;
-	QMap<QString, QIcon*> icon_set_;
-	QMap<QString, QString> icon_names_;
+	} icon_cache_ = {};
+	QHash<QString, QIcon*> icon_set_;
+	QHash<QString, QString> icon_names_;
 	QString current_dir_;
 	
 	gui::ToolBar *toolbar_ = nullptr;

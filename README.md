@@ -43,3 +43,4 @@ Building on Ubuntu:
 * A grey dot near the icon of the file means the file has extended attributes.
 *  You can easily set your own icons for files of different types by dropping an icon into the "file_icons" folder with the proper extension as its name, browse the folder "file_icons" to see what I mean, probably located at "/usr/share/cornus/file_icons".
 * "cornus_io" is the I/O daemon that is started automatically, keep it in the same folder as "cornus".
+* File icons are loaded from "$HOME/.config/CornusMas/file_icons", then from "/usr/share/cornus/file_icons", the icons from the former folder are used if both folders contain files with equal names.

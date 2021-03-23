@@ -21,6 +21,11 @@ class SidePaneItems;
 const QString AppIconPath = QLatin1String(":/cornus.mas.png");
 const char *const SocketPath = "\0cornus_socket";
 
+enum class VDirection: i8 {
+	Up,
+	Down
+};
+
 enum class ListDirOption: i8 {
 	IncludeLinksToDirs,
 	DontIncludeLinksToDir

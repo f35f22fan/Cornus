@@ -19,7 +19,6 @@ const QVector<QString> Extensions_C_CPP = {
 	QLatin1String("hxx")
 };
 
-
 TextEdit::TextEdit(App *app): app_(app)
 {
 	setEnabled(true);

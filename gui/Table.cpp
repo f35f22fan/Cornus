@@ -638,16 +638,16 @@ Table::GetVisibleRowsCount() const
 }
 
 void
-Table::HandleKeySelect(const bool up)
+Table::HandleKeySelect(const VDirection vdir)
 {
 	int row = shift_select_.base_row;
 	if (row == -1)
 		row = GetFirstSelectedFile(nullptr);
 	
-	if (row == 0 && up)
+	if (row == 0 && vdir == VDirection::Up)
 		return;
 	
-	if (!up && row == model_->rowCount() - 1)
+	if (vdir == VDirection::Down && row == model_->rowCount() - 1)
 		return;
 	
 	int scroll_to_row = -1;
@@ -659,7 +659,7 @@ Table::HandleKeySelect(const bool up)
 		SelectAllFilesNTS(false, indices);
 		const int count = files.data.vec.size();
 		if (row == -1) {
-			int select_index = up ? 0 : count - 1;
+			int select_index = (vdir == VDirection::Up) ? 0 : count - 1;
 			if (select_index >= 0) {
 				indices.append(select_index);
 				auto *file = files.data.vec[select_index];
@@ -667,7 +667,7 @@ Table::HandleKeySelect(const bool up)
 				scroll_to_row = select_index;
 			}
 		} else {
-			int new_select = row + (up ? -1 : 1);
+			int new_select = row + ((vdir == VDirection::Up) ? -1 : 1);
 			
 			if (new_select >= 0 && new_select < count) {
 				auto *file = files.data.vec[row];
@@ -688,7 +688,7 @@ Table::HandleKeySelect(const bool up)
 }
 
 void
-Table::HandleKeyShiftSelect(const bool up)
+Table::HandleKeyShiftSelect(const VDirection vdir)
 {
 	int row = GetFirstSelectedFile(nullptr);
 	if (row == -1)
@@ -707,7 +707,7 @@ Table::HandleKeyShiftSelect(const bool up)
 		files.data.vec[row]->selected(true);
 		indices.append(row);
 	} else {
-		if (up) {
+		if (vdir == VDirection::Up) {
 			if (shift_select_.head_row == 0)
 				return;
 			shift_select_.head_row--;
@@ -922,14 +922,14 @@ Table::keyPressEvent(QKeyEvent *event)
 		}
 	} else if (key == Qt::Key_Down) {
 		if (shift)
-			HandleKeyShiftSelect(false);
+			HandleKeyShiftSelect(VDirection::Down);
 		else
-			HandleKeySelect(false);
+			HandleKeySelect(VDirection::Down);
 	} else if (key == Qt::Key_Up) {
 		if (shift)
-			HandleKeyShiftSelect(true);
+			HandleKeyShiftSelect(VDirection::Up);
 		else
-			HandleKeySelect(true);
+			HandleKeySelect(VDirection::Up);
 	} else if (key == Qt::Key_D) {
 		if (any_modifiers)
 			return;

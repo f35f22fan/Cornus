@@ -45,9 +45,7 @@ public:
 	i32 GetVisibleRowsCount() const;
 	bool mouse_down() const { return mouse_down_; }
 	i32 mouse_over_file_icon_index() const { return mouse_over_file_icon_; }
-	void mouse_over_file_icon_index(const i32 n) { mouse_over_file_icon_ = n; }
 	i32 mouse_over_file_name_index() const { return mouse_over_file_name_; }
-	void mouse_over_file_name_index(const i32 n) { mouse_over_file_name_ = n; }
 	const OpenWith& open_with() const { return open_with_; }
 	void ProcessAction(const QString &action);
 	void ScrollToRow(int row);
@@ -95,8 +93,8 @@ private:
 	
 	void FinishDropOperation(QVector<io::File *> *files_vec, io::File *to_dir,
 		Qt::DropAction drop_action, Qt::DropActions possible_actions);
-	void HandleKeySelect(const bool up);
-	void HandleKeyShiftSelect(const bool up);
+	void HandleKeySelect(const VDirection vdir);
+	void HandleKeyShiftSelect(const VDirection vdir);
 	void HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indices);
 	void HandleMouseSelectionCtrl(const QPoint &pos, QVector<int> &indices);
 	void HandleMouseSelectionShift(const QPoint &pos, QVector<int> &indices);

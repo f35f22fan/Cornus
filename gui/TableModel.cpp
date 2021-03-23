@@ -420,13 +420,12 @@ TableModel::data(const QModelIndex &index, int role) const
 QString
 TableModel::GetName() const
 {
-	if (app_->prefs().show_free_partition_space()) {
-//		if (cached_free_space_.isEmpty())
-//			cached_free_space_ = app_->GetPartitionFreeSpace();
-		return cached_free_space_;
-	}
+	static const QString name = tr("Name");
 	
-	return tr("Name");
+	if (app_->prefs().show_free_partition_space())
+		return cached_free_space_.isEmpty() ? name : cached_free_space_;
+	
+	return name;
 }
 
 QVariant

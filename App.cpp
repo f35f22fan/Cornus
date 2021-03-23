@@ -281,14 +281,13 @@ App::~App()
 {
 	prefs_->Save();
 	ShutdownLastInotifyThread();
-	
 	QHashIterator<QString, QIcon*> i(icon_set_);
 	while (i.hasNext()) {
 		i.next();
 		QIcon *icon = i.value();
 		delete icon;
 	}
-	
+
 	{
 		MutexGuard guard = side_pane_items_.guard();
 		side_pane_items_.sidepane_model_destroyed = true;
@@ -297,10 +296,14 @@ App::~App()
 		
 		side_pane_items_.vec.clear();
 	}
-	
-	delete prefs_;
+
+	{
+		/// table_ must be deleted before prefs_ because table_model_ calls 
+		/// into prefs().show_free_partition_space() in TableModel::GetName()
+		delete table_;
+		delete prefs_;
+	}
 	prefs_ = nullptr;
-	
 	delete history_;
 	history_ = nullptr;
 }
@@ -560,8 +563,6 @@ void App::CreateGui()
 	
 	notepad_.stack = new QStackedWidget();
 	setCentralWidget(notepad_.stack);
-	notepad_.editor = new gui::TextEdit(this);
-	notepad_.editor_index = notepad_.stack->addWidget(notepad_.editor);
 	
 	main_splitter_ = new QSplitter(Qt::Horizontal);
 	notepad_.window_index = notepad_.stack->addWidget(main_splitter_);
@@ -636,17 +637,23 @@ void App::DetectThemeType()
 
 void App::DisplayFileContents(const int row, io::File *cloned_file)
 {
-	if (cloned_file == nullptr)
+	if (cloned_file == nullptr) {
 		cloned_file = table_->GetFileAt(row);
-	if (cloned_file == nullptr)
-		return;
+		if (cloned_file == nullptr)
+			return;
+	}
+	
+	if (notepad_.editor == nullptr) {
+		notepad_.editor = new gui::TextEdit(this);
+		notepad_.editor_index = notepad_.stack->addWidget(notepad_.editor);
+	}
 	
 	notepad_.saved_window_title = windowTitle();
 	if (notepad_.editor->Display(cloned_file)) {
 		setWindowTitle(tr("Press Esc to exit or Ctrl+S to save and exit"));
 		toolbar_->setVisible(false);
 		notepad_.stack->setCurrentIndex(notepad_.editor_index);
-		table_->mouse_over_file_name_index(-1);
+		table_->ClearMouseOver();
 	}
 }
 
@@ -865,8 +872,7 @@ QString App::GetIconThatStartsWith(const QString &s)
 	return QString();
 }
 
-QString
-App::GetPartitionFreeSpace()
+QString App::GetPartitionFreeSpace()
 {
 	if (current_dir_.isEmpty()){
 		return QString();
@@ -964,7 +970,7 @@ void App::GoToFinish(cornus::io::FilesData *new_data)
 	
 	AutoDelete ad(new_data);
 	int count = new_data->vec.size();
-	table_->mouse_over_file_name_index(-1);
+	table_->ClearMouseOver();
 /// current_dir_ must be assigned to before model->SwitchTo
 /// otherwise won't properly show current partition's free space
 	current_dir_ = new_data->processed_dir_path;
@@ -1205,11 +1211,11 @@ void App::LoadIconsFrom(QString dir_path)
 	
 	for (const auto &name: available_names)
 	{
-		const QString full_path = dir_path + name;
 		int index = name.lastIndexOf('.');
-		QString ext = (index == -1) ? name : name.mid(0, index);
-		if (!icon_names_.contains(ext))
-			icon_names_.insert(ext, full_path);
+		auto ext = (index == -1) ? name : name.mid(0, index);
+		if (!icon_names_.contains(ext)) {
+			icon_names_.insert(ext, dir_path + name);
+		}
 	}
 }
 

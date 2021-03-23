@@ -152,19 +152,18 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 		painter->fillRect(option.rect, app_->hover_bg_color());
 	
 	QString text;
-	if (file->is_regular()) {
-	} else if (file->is_symlink()) {
+	if (file->is_symlink()) {
 		if (file->link_target() != nullptr && file->link_target()->is_relative)
 			text = QLatin1String("l");
 		else
 			text = QLatin1String("L");
 	} else if (file->is_bloc_device()) {
 		text = QLatin1String("B");
-	} if (file->is_char_device()) {
+	} else if (file->is_char_device()) {
 		text = QLatin1String("C");
-	} if (file->is_socket()) {
+	} else if (file->is_socket()) {
 		text = QLatin1String("S");
-	} if (file->is_pipe()) {
+	} else if (file->is_pipe()) {
 		text = QLatin1String("P");
 	}
 	

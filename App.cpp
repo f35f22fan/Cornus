@@ -287,7 +287,6 @@ App::~App()
 		QIcon *icon = i.value();
 		delete icon;
 	}
-
 	{
 		MutexGuard guard = side_pane_items_.guard();
 		side_pane_items_.sidepane_model_destroyed = true;
@@ -296,14 +295,13 @@ App::~App()
 		
 		side_pane_items_.vec.clear();
 	}
-
 	{
 		/// table_ must be deleted before prefs_ because table_model_ calls 
 		/// into prefs().show_free_partition_space() in TableModel::GetName()
 		delete table_;
 		delete prefs_;
+		prefs_ = nullptr;
 	}
-	prefs_ = nullptr;
 	delete history_;
 	history_ = nullptr;
 }

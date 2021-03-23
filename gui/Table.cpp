@@ -294,6 +294,7 @@ Table::ClearDndAnimation(const QPoint &drop_coord)
 void
 Table::ClearMouseOver()
 {
+	mouse_pos_ = {-1, -1};
 	mouse_over_file_name_ = -1;
 	mouse_over_file_icon_ = -1;
 }
@@ -651,7 +652,6 @@ Table::HandleKeySelect(const VDirection vdir)
 		return;
 	
 	int scroll_to_row = -1;
-	
 	QVector<int> indices;
 	{
 		io::Files &files = app_->view_files();
@@ -819,6 +819,7 @@ Table::HandleMouseSelectionNoModif(const QPoint &pos, QVector<int> &indices,
 
 void Table::HiliteFileUnderMouse()
 {
+	QVector<int> indices;
 	i32 name_row = -1, icon_row = -1;
 	{
 		io::Files &files = app_->view_files();
@@ -828,21 +829,22 @@ void Table::HiliteFileUnderMouse()
 			icon_row = IsOnFileIconNTS(mouse_pos_, nullptr);
 	}
 	
-	bool repaint = false;
-	const i32 old_row = (icon_row != -1) ? mouse_over_file_icon_ : mouse_over_file_name_;
 	if (icon_row != mouse_over_file_icon_) {
-		repaint = true;
+		if (icon_row != -1)
+			indices.append(icon_row);
+		if (mouse_over_file_icon_ != -1)
+			indices.append(mouse_over_file_icon_);
 		mouse_over_file_icon_ = icon_row;
 	} else if (name_row != mouse_over_file_name_) {
-		repaint = true;
+		if (name_row != -1)
+			indices.append(name_row);
+		if (mouse_over_file_name_ != -1)
+			indices.append(mouse_over_file_name_);
 		mouse_over_file_name_ = name_row;
 	}
 	
-	if (repaint) {
-		const i32 new_row = (icon_row != -1) ? mouse_over_file_icon_ : mouse_over_file_name_;
-		QVector<int> rows = {old_row, new_row};
-		model_->UpdateIndices(rows);
-	}
+	if (!indices.isEmpty())
+		model_->UpdateIndices(indices);
 }
 
 i32

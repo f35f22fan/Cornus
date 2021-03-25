@@ -14,6 +14,7 @@
 #include "../SidePaneItems.hpp"
 
 #include <sys/epoll.h>
+#include <QApplication>
 #include <QElapsedTimer>
 #include <QFont>
 #include <QScrollBar>
@@ -534,41 +535,62 @@ SidePaneModel::DeleteSelectedBookmarks()
 }
 
 void
-SidePaneModel::FinishDropOperation(QVector<io::File*> *files_vec, int row)
+SidePaneModel::FinishDropOperation(QVector<io::File*> *files_vec, const int row)
 {
 	auto &items = app_->side_pane_items();
+	AutoDeleteVecP advp(files_vec);
 	
-	int total = 0;
-	{
-		MutexGuard guard(&items.mutex);
-		
-		for (io::File *file: *files_vec) {
-			if (file->is_dir_or_so()) {
-				total++;
-			}
+	bool file_io = QApplication::keyboardModifiers() & Qt::ShiftModifier;
+	for (io::File *file: *files_vec) {
+		if (!file->is_dir_or_so()) {
+			file_io = true;
+			break;
 		}
-		
-		if (total == 0)
-			return;
 	}
 	
-	beginInsertRows(QModelIndex(), 0, total - 1);
+	if (file_io) {
+		QString to_dir;
+		{
+			MutexGuard guard = items.guard();
+			if (row >= items.vec.size() - 1) {
+				return;
+			}
+			gui::SidePaneItem *item = items.vec[row];
+			to_dir = item->mount_path();
+		}
+		
+		io::socket::MsgBits io_operation = io::socket::MsgBits::Copy;
+		auto *ba = new ByteArray();
+		ba->set_msg_id(io_operation);
+		ba->add_string(to_dir);
+		ba->add_i32(files_vec->size());
+		
+		for (io::File *next: *files_vec) {
+			ba->add_string(next->build_full_path());
+		}
+		
+		io::socket::SendAsync(ba);
+		return;
+	}
+	
+	beginInsertRows(QModelIndex(), 0, files_vec->size() - 1);
 	{
-		MutexGuard guard(&items.mutex);
-		int add = 0;
-		for (io::File *file: *files_vec) {
+		MutexGuard guard = items.guard();
+		int added = 0;
+		for (int i = files_vec->size() - 1; i >= 0; i--) {
+			io::File *file = (*files_vec)[i];
 			if (file->is_dir_or_so()) {
 				auto *p = SidePaneItem::NewBookmark(*file);
-				items.vec.insert(row + add, p);
+				items.vec.insert(row + added, p);
+				files_vec->remove(i);
 				delete file;
-				add++;
+				added++;
 			}
 		}
-		cached_row_count_ += add;
+		cached_row_count_ += added;
 	}
 	endInsertRows();
-	delete files_vec;
-///	UpdateVisibleArea();
+	
 	app_->SaveBookmarks();
 }
 

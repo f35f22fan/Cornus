@@ -62,8 +62,7 @@ public:
 	
 	void DeleteSelectedBookmarks();
 	
-	void
-	FinishDropOperation(QVector<io::File*> *files_vec, int row);
+	void FinishDropOperation(QVector<io::File*> *files_vec, const int row);
 	
 	QVariant
 	headerData(int section, Qt::Orientation orientation, int role) const override;

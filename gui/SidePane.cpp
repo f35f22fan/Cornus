@@ -191,9 +191,9 @@ SidePane::dropEvent(QDropEvent *evt)
 		int row;
 		{
 			SidePaneItems &items = app->side_pane_items();
-			MutexGuard guard(&items.mutex);
+			MutexGuard guard = items.guard();
 			
-			const int rh = verticalHeader()->defaultSectionSize();
+			const int rh = GetRowHeight();
 			row = rowAt(drop_coord_.y() + rh / 2);
 			if (row == -1)
 				row = items.vec.size();

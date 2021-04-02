@@ -13,6 +13,7 @@ class DesktopFile;
 class ElapsedTimer;
 class ExecInfo;
 class History;
+class Media;
 class MutexGuard;
 class MyDaemon;
 class Prefs;

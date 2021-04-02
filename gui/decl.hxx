@@ -14,10 +14,12 @@ class File;
 }
 
 namespace cornus::gui {
+class AttrsDialog;
 class CompleterModel;
 class CountFolder;
 class Hiliter;
 class Location;
+class MediaDialog;
 class OpenOrderModel;
 class OpenOrderPane;
 class OpenOrderTable;

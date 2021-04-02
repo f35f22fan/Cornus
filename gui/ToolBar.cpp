@@ -4,6 +4,7 @@
 #include "actions.hxx"
 #include "../History.hpp"
 #include "Location.hpp"
+#include "MediaDialog.hpp"
 #include "PrefsPane.hpp"
 
 #include <QBoxLayout>
@@ -14,6 +15,8 @@
 #include <QToolButton>
 
 namespace cornus::gui {
+
+const QString NewMediaEntryAction = QLatin1String("NewMediaEntry");
 
 ToolBar::ToolBar(cornus::App *app): app_(app) {
 	CreateGui();
@@ -29,7 +32,7 @@ ToolBar::~ToolBar() {
 }
 
 QAction*
-ToolBar::Add(const QString &icon_name, const QString &action_name)
+ToolBar::Add(const QString &action_name, const QString &icon_name)
 {
 	auto *p = addAction(QIcon::fromTheme(icon_name), QString());
 	connect(p, &QAction::triggered, [=] {ProcessAction(action_name);});
@@ -38,10 +41,14 @@ ToolBar::Add(const QString &icon_name, const QString &action_name)
 }
 
 QAction*
-ToolBar::Add(QMenu *menu, const QString &icon_name, const QString &text,
-	const QString &action_name)
+ToolBar::Add(QMenu *menu, const QString &text,
+	const QString &action_name, const QString &icon_name)
 {
-	QAction *a = menu->addAction(QIcon::fromTheme(icon_name), text);
+	QAction *a = nullptr;
+	if (icon_name.isEmpty())
+		a = menu->addAction(text);
+	else
+		a = menu->addAction(QIcon::fromTheme(icon_name), text);
 	connect(a, &QAction::triggered, [=] {ProcessAction(action_name);});
 	return a;
 	
@@ -57,10 +64,10 @@ void ToolBar::CreateGui()
 //	back_btn_->setAutoRaise(false);
 //	addWidget(back_btn_);
 	
-	action_back_ = Add(QLatin1String("go-previous"), actions::GoBack);
-	action_fwd_ = Add(QLatin1String("go-next"), actions::GoForward);
-	action_up_ = Add(QLatin1String("go-up"), actions::GoUp);
-	Add(QLatin1String("go-home"), actions::GoHome);
+	action_back_ = Add(actions::GoBack, QLatin1String("go-previous"));
+	action_fwd_ = Add(actions::GoForward, QLatin1String("go-next"));
+	action_up_ = Add(actions::GoUp, QLatin1String("go-up"));
+	Add(actions::GoHome, QLatin1String("go-home"));
 	
 	location_ = new Location(app_);
 	addWidget(location_);
@@ -72,12 +79,21 @@ void ToolBar::CreateGui()
 	prefs_menu_ = new QMenu(prefs_menu_btn);
 	prefs_menu_btn->setMenu(prefs_menu_);
 	
-	Add(prefs_menu_, QLatin1String("preferences-other"), tr("Preferences.."),
-		actions::Preferences);
-	Add(prefs_menu_, QLatin1String("format-justify-left"),
-		tr("Shortcuts Map"), actions::ShortcutsMap);
-	Add(prefs_menu_, QLatin1String("help-about"), tr("About"), actions::AboutThisApp);
+	Add(prefs_menu_, tr("Preferences.."), actions::Preferences,
+		QLatin1String("preferences-other"));
+	Add(prefs_menu_, tr("Shortcuts Map"), actions::ShortcutsMap,
+		QLatin1String("format-justify-left"));
+	Add(prefs_menu_, tr("Media Database"), NewMediaEntryAction,
+		QLatin1String("contact-new"));
+	Add(prefs_menu_, tr("About"), actions::AboutThisApp,
+		QLatin1String("help-about"));
 	
+//	Add(media_menu, tr("Actor"), actions::MediaNewActor);
+//	Add(media_menu, tr("Director"), actions::MediaNewDirector);
+//	Add(media_menu, tr("Writer"), actions::MediaNewWriter);
+//	Add(media_menu, tr("Genre"), actions::MediaNewGenre);
+//	Add(media_menu, tr("Sub-genre"), actions::MediaNewSubgenre);
+//	Add(media_menu, tr("Country"), actions::MediaNewCountry);
 }
 
 void ToolBar::ProcessAction(const QString &action)
@@ -96,6 +112,8 @@ void ToolBar::ProcessAction(const QString &action)
 		gui::PrefsPane pp(app_);
 	} else if (action == actions::ShortcutsMap) {
 		ShowShortcutsMap();
+	} else if (action == NewMediaEntryAction) {
+		gui::MediaDialog d(app_);
 	}
 }
 

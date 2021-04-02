@@ -60,6 +60,7 @@ public:
 	void LaunchOrOpenDesktopFile(const QString &full_path, const bool has_exec_bit, const RunAction action) const;
 	gui::Location* location() { return location_; }
 	QSplitter* main_splitter() const { return main_splitter_; }
+	Media* media() const { return media_; }
 	void OpenTerminal();
 	const QHash<QString, Category>& possible_categories() const { return possible_categories_; }
 	Prefs& prefs() { return *prefs_; }
@@ -85,6 +86,7 @@ public:
 	
 public slots:
 	void GoToFinish(cornus::io::FilesData *new_data);
+	void MediaFileChanged();
 	
 protected:
 	bool event(QEvent *event) override;
@@ -113,6 +115,7 @@ private:
 	void RegisterShortcuts();
 	void SetupIconNames();
 	void ShutdownLastInotifyThread();
+	void UdisksFunc();
 	
 	gui::Table *table_ = nullptr; // owned by QMainWindow
 	gui::TableModel *table_model_ = nullptr; // owned by table_
@@ -156,6 +159,7 @@ private:
 	QHash<QString, Category> possible_categories_;
 	ThemeType theme_type_ = ThemeType::None;
 	QString title_;
+	Media *media_ = nullptr;
 	
 	friend class cornus::gui::Table;
 };

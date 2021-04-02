@@ -21,4 +21,10 @@ static const QString IOCancel = QLatin1String("IOCancel");
 static const QString ExtractTo = QLatin1String("ExtractTo");
 static const QString ExtractHere = QLatin1String("ExtractHere");
 static const QString ShortcutsMap = QLatin1String("ShortcutsMap");
+static const QString MediaNewActor = QLatin1String("MediaNewActor");
+static const QString MediaNewDirector = QLatin1String("MediaNewDirector");
+static const QString MediaNewWriter = QLatin1String("MediaNewWriter");
+static const QString MediaNewGenre = QLatin1String("MediaNewGenre");
+static const QString MediaNewSubgenre = QLatin1String("MediaNewSubgenre");
+static const QString MediaNewCountry = QLatin1String("MediaNewCountry");
 }

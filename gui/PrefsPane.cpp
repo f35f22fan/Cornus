@@ -21,7 +21,16 @@ PrefsPane::PrefsPane(App *app): QDialog(app), app_(app)
 	setVisible(true);
 }
 
-PrefsPane::~PrefsPane() {}
+PrefsPane::~PrefsPane()
+{
+	delete button_box_;
+	delete mark_extended_attrs_disabled_;
+	delete show_hidden_files_;
+	delete show_ms_files_loaded_;
+	delete show_free_partition_space_;
+	delete show_link_targets_;
+	delete remember_window_size_;
+}
 
 void PrefsPane::ApplyToWidgets(const Prefs &prefs)
 {

@@ -348,12 +348,10 @@ void* WatchDir(void *void_args)
 	
 	{
 		MutexGuard guard(&files.mutex);
-		if (files.data.thread_must_exit()) {
-			files.data.thread_exited(true);
-			int status = pthread_cond_signal(&files.cond);
-			if (status != 0)
-				mtl_status(status);
-		}
+		files.data.thread_exited(true);
+		int status = pthread_cond_signal(&files.cond);
+		if (status != 0)
+			mtl_status(status);
 	}
 	
 	return nullptr;
@@ -364,11 +362,9 @@ TableModel::TableModel(cornus::App *app): app_(app)
 	notify_.Init();
 }
 
-TableModel::~TableModel()
-{}
+TableModel::~TableModel() {}
 
-void
-TableModel::DeleteSelectedFiles()
+void TableModel::DeleteSelectedFiles()
 {
 	QVector<io::File*> delete_files;
 	{
@@ -396,14 +392,12 @@ TableModel::index(int row, int column, const QModelIndex &parent) const
 	return createIndex(row, column);
 }
 
-int
-TableModel::rowCount(const QModelIndex &parent) const
+int TableModel::rowCount(const QModelIndex &parent) const
 {
 	return cached_row_count_;
 }
 
-int
-TableModel::columnCount(const QModelIndex &parent) const
+int TableModel::columnCount(const QModelIndex &parent) const
 {
 	if (parent.isValid())
 		return 0;
@@ -411,14 +405,12 @@ TableModel::columnCount(const QModelIndex &parent) const
 	return int(Column::Count);
 }
 
-QVariant
-TableModel::data(const QModelIndex &index, int role) const
+QVariant TableModel::data(const QModelIndex &index, int role) const
 {
 	return {};
 }
 
-QString
-TableModel::GetName() const
+QString TableModel::GetName() const
 {
 	static const QString name = tr("Name");
 	
@@ -428,8 +420,7 @@ TableModel::GetName() const
 	return name;
 }
 
-QVariant
-TableModel::headerData(int section_i, Qt::Orientation orientation, int role) const
+QVariant TableModel::headerData(int section_i, Qt::Orientation orientation, int role) const
 {
 	if (role == Qt::DisplayRole)
 	{
@@ -454,8 +445,7 @@ TableModel::headerData(int section_i, Qt::Orientation orientation, int role) con
 	return {};
 }
 
-void
-TableModel::InotifyEvent(gui::FileEvent evt)
+void TableModel::InotifyEvent(gui::FileEvent evt)
 {
 	auto &files = app_->view_files();
 	
@@ -582,8 +572,7 @@ found the new file, selected and scrolled to it). */
 	}
 }
 
-bool
-TableModel::InsertRows(const i32 at, const QVector<cornus::io::File*> &files_to_add)
+bool TableModel::InsertRows(const i32 at, const QVector<cornus::io::File*> &files_to_add)
 {
 	io::Files &files = app_->view_files();
 	{
@@ -611,8 +600,7 @@ TableModel::InsertRows(const i32 at, const QVector<cornus::io::File*> &files_to_
 	return true;
 }
 
-bool
-TableModel::removeRows(int row, int count, const QModelIndex &parent)
+bool TableModel::removeRows(int row, int count, const QModelIndex &parent)
 {
 	if (count <= 0)
 		return false;
@@ -640,8 +628,7 @@ TableModel::removeRows(int row, int count, const QModelIndex &parent)
 	return true;
 }
 
-void
-TableModel::SwitchTo(io::FilesData *new_data)
+void TableModel::SwitchTo(io::FilesData *new_data)
 {
 	io::Files &files = app_->view_files();
 	int prev_count, new_count;
@@ -658,7 +645,7 @@ TableModel::SwitchTo(io::FilesData *new_data)
 			delete file;
 		files.data.vec.clear();
 		app_->table()->ClearMouseOver();
-		cached_row_count_ = 0;
+		cached_row_count_ = files.data.vec.size();
 	}
 	endRemoveRows();
 	
@@ -699,8 +686,7 @@ TableModel::SwitchTo(io::FilesData *new_data)
 	UpdateHeaderNameColumn();
 }
 
-void
-TableModel::UpdateIndices(const QVector<int> &indices)
+void TableModel::UpdateIndices(const QVector<int> &indices)
 {
 	if (indices.isEmpty())
 		return;
@@ -734,8 +720,7 @@ TableModel::UpdateIndices(const QVector<int> &indices)
 	}
 }
 
-void
-TableModel::UpdateRange(int row1, Column c1, int row2, Column c2)
+void TableModel::UpdateRange(int row1, Column c1, int row2, Column c2)
 {
 	int first, last;
 	
@@ -752,8 +737,7 @@ TableModel::UpdateRange(int row1, Column c1, int row2, Column c2)
 	emit dataChanged(top_left, bottom_right, {Qt::DisplayRole});
 }
 
-void
-TableModel::UpdateVisibleArea()
+void TableModel::UpdateVisibleArea()
 {
 	gui::Table *table = app_->table();
 	int row_start = table->verticalScrollBar()->value() / table->GetRowHeight();

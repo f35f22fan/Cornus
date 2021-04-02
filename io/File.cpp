@@ -13,8 +13,7 @@ File::~File() {
 	}
 }
 
-QString
-File::build_full_path() const
+QString File::build_full_path() const
 {
 	if (files_ != nullptr)
 		return files_->data.processed_dir_path + name_.orig;
@@ -26,8 +25,7 @@ File::build_full_path() const
 	return s + name_.orig;
 }
 
-File*
-File::Clone() const
+File* File::Clone() const
 {
 	File *file = new File(dir_path());
 	file->name_ = name_;
@@ -47,14 +45,12 @@ File::Clone() const
 	return file;
 }
 
-void
-File::ClearCache() {
+void File::ClearCache() {
 	cache_.icon = nullptr;
 	cache_.mime.clear();
 }
 
-bool
-File::DeleteFromDisk() {
+bool File::DeleteFromDisk() {
 	auto ba = build_full_path().toLocal8Bit();
 	int status = remove(ba.data());
 	
@@ -79,8 +75,7 @@ void File::name(const QString &s)
 	ReadExtension();
 }
 
-File*
-File::NewTextFile(const QString &dir_path, const QString &name)
+File* File::NewTextFile(const QString &dir_path, const QString &name)
 {
 	auto *file = new File(dir_path);
 	file->name(name);
@@ -89,8 +84,7 @@ File::NewTextFile(const QString &dir_path, const QString &name)
 	return file;
 }
 
-File*
-File::NewFolder(const QString &dir_path, const QString &name)
+File* File::NewFolder(const QString &dir_path, const QString &name)
 {
 	auto *file = new File(dir_path);
 	file->name(name);
@@ -121,8 +115,7 @@ void File::ReadLinkTarget()
 	link_target_ = target;
 }
 
-QString
-File::SizeToString() const
+QString File::SizeToString() const
 {
 	if (is_dir_or_so())
 		return QString();

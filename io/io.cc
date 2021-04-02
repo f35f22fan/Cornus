@@ -1241,10 +1241,10 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 	}
 	
 	/// Allocate the buffer.
-	char *buf = (char*)malloc(buflen);
+	char *buf = new char[buflen];
 	CHECK_PTR_VOID(buf);
 	
-	AutoFree af(buf);
+	AutoDeleteArr ad(buf);
 	/// Copy the list of attribute keys to the buffer.
 	buflen = llistxattr(full_path.data(), buf, buflen);
 	CHECK_TRUE_VOID((buflen != -1));
@@ -1253,7 +1253,7 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 		attribute keys. Use the remaining buffer length to determine
 		the end of the list. */
 	char *key = buf;
-	QHash<QString, QString> &ext_attrs = file.ext_attrs();
+	QHash<QString, ByteArray> &ext_attrs = file.ext_attrs();
 	ext_attrs.clear();
 	
 	while (buflen > 0)
@@ -1263,26 +1263,21 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 		if (vallen <= 0)
 			break;
 		
-		/// One extra byte is needed to append 0x00.
-		char *val = (char*) malloc(vallen + 1);
-		if (val == NULL)
-		{
-			mtl_status(errno);
-			break;
-		}
-		AutoFree af_val(val);
-		
-		/// Copy value to buffer.
-		vallen = lgetxattr(full_path.constData(), key, val, vallen);
+		ByteArray ba;
+		ba.alloc(vallen);
+		vallen = lgetxattr(full_path.constData(), key, ba.data(), ba.size());
 		if (vallen == -1)
 		{
 			mtl_status(errno);
 			break;
 		}
 		
-		val[vallen] = 0;
-		ext_attrs.insert(key, val);
-		///mtl_info("Ext attr: \"%s\": \"%s\"", key, val);
+		ext_attrs.insert(key, ba);
+		{
+			auto name = file.name().toLocal8Bit();
+			mtl_info("Ext attr: \"%s\": \"%s\" (%s)", key,
+				qPrintable(ba.toString()), name.data());
+		}
 		
 		/// Forward to next attribute key.
 		const isize keylen = strlen(key) + 1;
@@ -1358,8 +1353,21 @@ bool sd_nvme(const QString &name)
 	return name.startsWith(sd) || name.startsWith(nvme);
 }
 
-QString
-SizeToString(const i64 sz, const bool short_version)
+bool SetXAttr(const QString &full_path, const QString &xattr_name,
+	const ByteArray &ba)
+{
+	auto file_path_ba = full_path.toLocal8Bit();
+	auto xattr_name_ba = xattr_name.toLocal8Bit();
+	int status = lsetxattr(file_path_ba.data(), xattr_name_ba.data(),
+		ba.data(), ba.size(), 0);
+	
+	if (status != 0)
+		mtl_warn("lsetxattr on %s: %s", xattr_name_ba.data(), strerror(errno));
+	
+	return status == 0;
+}
+
+QString SizeToString(const i64 sz, const bool short_version)
 {
 	float rounded;
 	QString type;

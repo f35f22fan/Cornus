@@ -12,7 +12,7 @@ TasksWin::TasksWin()
 {
 	CreateGui();
 	setWindowIcon(QIcon(cornus::AppIconPath));
-	setWindowTitle("I/O operations");
+	setWindowTitle("I/O");
 	QList<QScreen*> screens = QGuiApplication::screens();
 	if (!screens.isEmpty()) {
 		screen_sz_ = screens[0]->availableSize();

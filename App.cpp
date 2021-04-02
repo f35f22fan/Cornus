@@ -35,6 +35,7 @@ extern "C" {
 #include "gui/TableModel.hpp"
 #include "gui/TextEdit.hpp"
 #include "gui/ToolBar.hpp"
+#include "Media.hpp"
 #include "prefs.hh"
 #include "Prefs.hpp"
 #include "str.hxx"
@@ -66,6 +67,8 @@ extern "C" {
 #include <QUrl>
 
 #include <QtDBus/QtDBus>
+
+#include <udisks/udisks.h>
 
 namespace cornus {
 
@@ -244,6 +247,7 @@ App::App()
 	qRegisterMetaType<cornus::gui::FileEvent>();
 	qRegisterMetaType<QVector<cornus::gui::SidePaneItem*>>();
 	qDBusRegisterMetaType<QMap<QString, QVariant>>();
+	media_ = new Media();
 	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, gui::sidepane::LoadItems, this);
@@ -275,6 +279,8 @@ App::App()
 	
 	ClipboardChanged(QClipboard::Clipboard);
 	DetectThemeType();
+	
+	//UdisksFunc();
 }
 
 App::~App()
@@ -304,6 +310,8 @@ App::~App()
 	}
 	delete history_;
 	history_ = nullptr;
+	delete media_;
+	media_ = nullptr;
 }
 
 void App::ArchiveAskDestArchivePath(const QString &ext)
@@ -1217,6 +1225,11 @@ void App::LoadIconsFrom(QString dir_path)
 	}
 }
 
+void App::MediaFileChanged()
+{
+	mtl_info("Media file changed");
+}
+
 void App::OpenTerminal() {
 	const QString konsole_path = QLatin1String("/usr/bin/konsole");
 	const QString gnome_terminal_path = QLatin1String("/usr/bin/gnome-terminal");
@@ -1813,6 +1826,29 @@ void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 		}
 		return;
 	}
+}
+
+void AsyncFunc(GObject *source_object,
+	GAsyncResult *res, gpointer user_data)
+{
+	char *msg = (char*) user_data;
+	mtl_info("In Async func: %s", msg);
+	
+	UDisksClient *client = udisks_client_new_finish(res, NULL);
+	if (client == NULL) {
+		mtl_info("Client is null");
+		return;
+	}
+	mtl_info("Client is not null");
+	g_object_unref(client);
+}
+
+void App::UdisksFunc()
+{
+	GCancellable *cancellable = g_cancellable_new ();
+	GAsyncReadyCallback callback = AsyncFunc;
+	gpointer user_data = (void*) "Hello world";
+	udisks_client_new (cancellable, callback, user_data);
 }
 
 bool App::ViewIsAt(const QString &dir_path) const

@@ -12,9 +12,11 @@ namespace cornus {
 class ByteArray {
 public:
 	ByteArray();
+	ByteArray(const ByteArray &rhs);
+	ByteArray& operator = (const ByteArray &rhs);
 	virtual ~ByteArray();
 	
-	void alloc(const isize exact_size);
+	void alloc(const isize n);
 	
 	void add(const char *n, const isize size);
 	void add_i8(const i8 n);
@@ -60,6 +62,8 @@ public:
 	QString toString() const { return QString::fromLocal8Bit(data_, size_); }
 
 private:
+///	NO_ASSIGN_COPY_MOVE(ByteArray);
+	
 	isize size_ = 0;
 	isize heap_size_ = 0;
 	isize at_ = 0;

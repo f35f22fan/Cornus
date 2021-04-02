@@ -123,7 +123,7 @@ const f64 GiB = MiB * 1024;
 const f64 TiB = GiB * 1024;
 
 static const mode_t DirPermissions = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH;
-static const mode_t FilePermissions = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH;
+static const mode_t FilePermissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
 
 struct FileID {
 	u64 inode_number;

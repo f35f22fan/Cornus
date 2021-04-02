@@ -247,15 +247,12 @@ QString PasteRelativeLinks(const QVector<QString> &full_paths, QString target_di
 void
 ProcessMime(QString &mime);
 
-io::Err
-ReadFile(const QString &full_path, cornus::ByteArray &buffer,
+Err ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	const i64 read_max = -1, mode_t *ret_mode = nullptr);
 
-bool
-ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_dir);
+bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_dir);
 
-bool
-ReadLinkSimple(const char *file_path, QString &result);
+bool ReadLinkSimple(const char *file_path, QString &result);
 
 void ReadPartitionInfo(const QString &dev_path, i64 &size, QString &size_str);
 
@@ -266,17 +263,17 @@ bool SameFiles(const QString &path1, const QString &path2,
 
 bool sd_nvme(const QString &name);
 
-QString
-SizeToString(const i64 sz, const bool short_version = false);
+QString SizeToString(const i64 sz, const bool short_version = false);
 
-bool
-SortFiles(File *a, File *b);
+bool SetXAttr(const QString &full_path, const QString &xattr_name,
+	const ByteArray &ba);
+
+bool SortFiles(File *a, File *b);
 
 isize TryReadFile(const QString &full_path, char *buf,
 	const i64 how_much, ExecInfo *info = nullptr);
 
-io::Err
-WriteToFile(const QString &full_path, const char *data, const i64 size,
+Err WriteToFile(const QString &full_path, const char *data, const i64 size,
 	mode_t *custom_mode = nullptr);
 
 } // cornus::io::::

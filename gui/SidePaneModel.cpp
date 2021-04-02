@@ -6,12 +6,14 @@
 #include "../defines.hxx"
 #include "../ElapsedTimer.hpp"
 #include "../io/File.hpp"
+#include "../Media.hpp"
 #include "../MutexGuard.hpp"
 #include "../prefs.hh"
 #include "../Prefs.hpp"
 #include "SidePane.hpp"
 #include "SidePaneItem.hpp"
 #include "../SidePaneItems.hpp"
+#include "../str.hxx"
 
 #include <sys/epoll.h>
 #include <QApplication>
@@ -287,20 +289,40 @@ void ComparePartitions(SidePaneModel *model, SidePaneItems &items,
 	}
 }
 
-void ReadBookmarksFileEvent(int inotify_fd, char *buf,
+void ReadConfigFilesEvent(int inotify_fd, char *buf,
 	gui::SidePaneModel *model)
 {
 	const ssize_t num_read = read(inotify_fd, buf, kInotifyEventBufLen);
 	i64 add = 0;
-	QString bookmarks_file_name = prefs::GetBookmarksFileName();
+	static const QString bookmarks_file_name = prefs::GetBookmarksFileName();
 	bool is_bookmarks_file = false;
+	bool do_reload_media = false;
 	
 	for (char *p = buf; p < buf + num_read; p += add) {
 		struct inotify_event *ev = (struct inotify_event*) p;
 		add = sizeof(struct inotify_event) + ev->len;
-		if (!is_bookmarks_file) {
-			is_bookmarks_file = (bookmarks_file_name == ev->name);
+		const QString fn = ev->name;
+		if (fn == bookmarks_file_name) {
+			if (!is_bookmarks_file) {
+				is_bookmarks_file = true;
+			}
+		} else if (fn == cornus::str::MediaFile) {
+			do_reload_media = true;
 		}
+	}
+	
+	if (do_reload_media) {
+		App *app = model->app();
+		Media *media = app->media();
+		{
+			auto g = media->guard();
+			if (media->changed_by_myself_) {
+				media->changed_by_myself_ = false;
+				return;
+			}
+		}
+		cornus::media::Reload(app);
+		QMetaObject::invokeMethod(app, "MediaFileChanged");
 	}
 	
 	if (!is_bookmarks_file)
@@ -334,8 +356,6 @@ void ReadBookmarksFileEvent(int inotify_fd, char *buf,
 		Qt::BlockingQueuedConnection,
 			Q_ARG(QVector<cornus::gui::SidePaneItem*>, new_items));
 	}
-	
-	///QMetaObject::invokeMethod(model, "UpdateVisibleArea");
 }
 
 void* MonitorBookmarksAndPartitions(void *void_args)
@@ -348,7 +368,7 @@ void* MonitorBookmarksAndPartitions(void *void_args)
 	
 	char *buf = new char[kInotifyEventBufLen];
 	AutoDeleteArr ad_arr(buf);
-	const auto EventTypes = IN_CLOSE_WRITE;
+	const auto EventTypes = IN_CLOSE_WRITE | IN_MOVED_TO;
 	auto bookmarks_file_path = prefs::QueryAppConfigPath().toLocal8Bit();
 	int wd = inotify_add_watch(notify.fd, bookmarks_file_path.data(), EventTypes);
 	int epfd = epoll_create(1);
@@ -414,7 +434,7 @@ void* MonitorBookmarksAndPartitions(void *void_args)
 			int event_count = epoll_wait(epfd, &poll_event, 1, seconds * 1000);
 			
 			if (event_count > 0) {
-				ReadBookmarksFileEvent(poll_event.data.fd, buf, model);
+				ReadConfigFilesEvent(poll_event.data.fd, buf, model);
 			}
 		} else {
 			sleep(seconds);

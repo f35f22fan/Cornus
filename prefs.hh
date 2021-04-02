@@ -13,6 +13,7 @@ const u16 PrefsFormatVersion = 3;
 
 QString GetBookmarksFileName();
 QString GetBookmarksFilePath();
+QString GetMediaFilePath();
 QString QueryAppConfigPath();
 QString QueryMimeConfigDirPath();
 }

@@ -2,6 +2,7 @@
 
 #include "../gui/decl.hxx"
 #include "../err.hpp"
+#include "../media.hxx"
 #include "io.hh"
 
 #include <QIcon>
@@ -36,8 +37,10 @@ public:
 	bool has_link_target() const { return is_symlink() && link_target_ != nullptr; }
 	bool can_have_xattr() const { return is_regular() ||
 		is_symlink() || is_dir(); }
-	QHash<QString, QString>& ext_attrs() { return ext_attrs_; }
-	bool  has_ext_attrs() const { return ext_attrs_.size() > 0; }
+	QHash<QString, ByteArray>& ext_attrs() { return ext_attrs_; }
+	bool has_ext_attrs() const { return ext_attrs_.size() > 0; }
+	bool has_media_attrs() const { return ext_attrs_.contains(media::XAttrName);}
+	ByteArray media_attrs() const { return ext_attrs_.value(media::XAttrName); }
 	void ReadLinkTarget();
 	
 	bool is_dir() const { return type_ == FileType::Dir; }
@@ -158,7 +161,7 @@ private:
 	io::Files *files_ = nullptr;
 	QString dp_;
 	i64 size_ = -1;
-	QHash<QString, QString> ext_attrs_;
+	QHash<QString, ByteArray> ext_attrs_;
 	FileID id_ = {};
 	struct statx_timestamp time_created_ = {};
 	struct statx_timestamp time_modified_ = {};

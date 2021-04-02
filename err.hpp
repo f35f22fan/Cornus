@@ -49,12 +49,12 @@
 	mtl_info("%s\"%s\"", msg, __FILE____LINE__.data());\
 }
 
-#define NO_ASSIGN_COPY_MOVE(TypeName)	\
-	TypeName(const TypeName&) = delete;		\
-	void operator=(const TypeName&) = delete; \
+#define NO_ASSIGN_COPY_MOVE(TypeName)\
+	TypeName(const TypeName&) = delete;\
+	void operator=(const TypeName&) = delete;\
 	TypeName(TypeName&&) = delete;
 
-#define NO_MOVE(TypeName)	\
+#define NO_MOVE(TypeName) \
 	TypeName(TypeName&&) = delete;
 
 #define RET_IF_EQUAL(x, y) {\

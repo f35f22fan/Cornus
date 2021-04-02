@@ -41,18 +41,21 @@ set(cornus_src_files main.cpp
     err.hpp
     ExecInfo.cpp ExecInfo.hpp
     History.cpp History.hpp
+    Media.hpp Media.cpp media.hxx
     MutexGuard.cpp MutexGuard.hpp
     prefs.cc prefs.hh
     Prefs.cpp Prefs.hpp
     SidePaneItems.cpp SidePaneItems.hpp
 
     gui/actions.hxx
+    gui/AttrsDialog.cpp gui/AttrsDialog.hpp
     gui/BasicTable.hpp
     gui/CompleterModel.cpp gui/CompleterModel.hpp
     gui/CountFolder.cpp gui/CountFolder.hpp
     gui/decl.hxx
     gui/Hiliter.cpp gui/Hiliter.hpp
     gui/Location.cpp gui/Location.hpp
+    gui/MediaDialog.cpp gui/MediaDialog.hpp
     gui/OpenOrderPane.cpp gui/OpenOrderPane.hpp
     gui/OpenOrderModel.cpp gui/OpenOrderModel.hpp
     gui/OpenOrderTable.cpp gui/OpenOrderTable.hpp

@@ -1,4 +1,5 @@
 #include "prefs.hh"
+#include "str.hxx"
 
 #include <QStandardPaths>
 
@@ -15,6 +16,13 @@ QString GetBookmarksFileName() {
 QString GetBookmarksFilePath()
 {
 	return prefs::QueryAppConfigPath() + '/' + GetBookmarksFileName();
+}
+
+QString GetMediaFilePath() {
+	QString dir = QueryAppConfigPath();
+	if (!dir.endsWith('/'))
+		dir.append('/');
+	return dir + str::MediaFile;
 }
 
 QString QueryAppConfigPath()

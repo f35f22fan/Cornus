@@ -2,6 +2,7 @@
 
 #include "actions.hxx"
 #include "../App.hpp"
+#include "AttrsDialog.hpp"
 #include "../AutoDelete.hh"
 #include "CountFolder.hpp"
 #include "../DesktopFile.hpp"
@@ -971,6 +972,11 @@ Table::keyPressEvent(QKeyEvent *event)
 		auto *vs = verticalScrollBar();
 		vs->setValue(vs->maximum());
 		SelectRowSimple(model_->rowCount() - 1, true);
+	} else if (key == Qt::Key_M && !any_modifiers) {
+		io::File *cloned_file = nullptr;
+		GetFirstSelectedFile(&cloned_file);
+		if (cloned_file != nullptr)
+			AttrsDialog attrs_d(app_, cloned_file);
 	}
 	
 	model_->UpdateIndices(indices);

@@ -64,7 +64,7 @@ void Media::AddNTS(const QVector<QString> &names, const media::Field field)
 void Media::ApplyTo(QComboBox *cb, ByteArray &ba, const media::Field f)
 {
 	auto g = guard();
-	const i32 count = ba.next_i32();
+	const i32 count = ba.next_u16();
 	if (f == media::Field::Actors || f == media::Field::Directors
 		|| f == media::Field::Writers)
 	{
@@ -380,7 +380,7 @@ void Media::WriteTo(ByteArray &ba, QComboBox *cb, const media::Field f)
 	if (count == 0)
 		return;
 	ba.add_u8((u8)f);
-	ba.add_i32(count);
+	ba.add_u16(count);
 	
 	if (f == media::Field::Actors || f == media::Field::Directors
 		|| f == media::Field::Writers)

@@ -36,6 +36,7 @@ class TableModel;
 class TaskGui;
 class TasksWin;
 class TextEdit;
+class TextField;
 class ToolBar;
 
 const int FileNameRelax = 2;

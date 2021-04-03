@@ -5,6 +5,7 @@
 #include "../Media.hpp"
 #include "../io/io.hh"
 #include "../io/File.hpp"
+#include "TextField.hpp"
 
 #include <QBoxLayout>
 #include <QLabel>
@@ -16,10 +17,7 @@ category_(f), attrs_dialog_(ad)
 {}
 
 AvailPane::~AvailPane()
-{
-	for (QWidget *next: widgets_)
-		delete next;
-}
+{}
 
 void AvailPane::Init()
 {
@@ -38,16 +36,13 @@ void AvailPane::Init()
 	}
 	}
 	QLabel *l = new QLabel(label);
-	widgets_.append(l);
 	layout->addWidget(l);
 	cb_ = new QComboBox();
 	cb_->setFixedWidth(attrs_dialog_->fixed_width());
 	layout->addWidget(cb_);
-	widgets_.append(cb_);
 	
 	QPushButton *btn = new QPushButton(tr("Add →"));
 	connect(btn, &QPushButton::clicked, [=] { asp_->AddItemFromAvp(); });
-	widgets_.append(btn);
 	layout->addWidget(btn);
 	
 	Media *media = attrs_dialog_->app()->media();
@@ -62,10 +57,7 @@ attrs_dialog_(ad)
 {}
 
 AssignedPane::~AssignedPane()
-{
-	for (QWidget *next: widgets_)
-		delete next;
-}
+{}
 
 void AssignedPane::AddItemFromAvp()
 {
@@ -80,7 +72,6 @@ void AssignedPane::AddItemFromAvp()
 		cb_->setCurrentIndex(cb_->findData(data));
 	} else {
 		cb_->setCurrentIndex(data_index);
-		mtl_info("data: %ld already exists", i64(data.toLongLong()));
 	}
 }
 
@@ -91,7 +82,6 @@ void AssignedPane::Init()
 	cb_ = new QComboBox();
 	cb_->setFixedWidth(attrs_dialog_->fixed_width());
 	layout->addWidget(cb_);
-	widgets_.append(cb_);
 	
 	QPushButton *rem_btn = new QPushButton();
 	connect(rem_btn, &QPushButton::clicked, [=] {
@@ -102,7 +92,6 @@ void AssignedPane::Init()
 	rem_btn->setToolTip(tr("Remove item from list"));
 	rem_btn->setIcon(QIcon::fromTheme(QLatin1String("list-remove")));
 	layout->addWidget(rem_btn);
-	widgets_.append(rem_btn);
 }
 
 void AssignedPane::WriteTo(ByteArray &ba)
@@ -127,8 +116,6 @@ AttrsDialog::~AttrsDialog()
 {
 	SaveAssignedAttrs();
 	delete file_;
-	for (QWidget *next: widgets_)
-		delete next;
 }
 
 void AttrsDialog::CreateRow(QFormLayout *fl, AvailPane **avp, AssignedPane **asp,
@@ -141,8 +128,6 @@ void AttrsDialog::CreateRow(QFormLayout *fl, AvailPane **avp, AssignedPane **asp
 	(*avp)->asp(*asp);
 	(*asp)->Init();
 	(*avp)->Init();
-	widgets_.append(*avp);
-	widgets_.append(*asp);
 }
 
 void AttrsDialog::Init()
@@ -151,7 +136,8 @@ void AttrsDialog::Init()
 	if (!media->loaded_)
 		cornus::media::Reload(app_);
 	
-	fixed_width_ = fontMetrics().boundingRect('a').width() * 30;
+	const int a_size = fontMetrics().boundingRect('a').width();
+	fixed_width_ = a_size * 30;
 	
 	QFormLayout *fl = new QFormLayout();
 	setLayout(fl);
@@ -160,21 +146,17 @@ void AttrsDialog::Init()
 		QBoxLayout *horiz = new QBoxLayout(QBoxLayout::LeftToRight);
 		w->setLayout(horiz);
 		QLabel *label = new QLabel(tr("File:"));
-		widgets_.append(label);
 		horiz->addWidget(label);
 		
-		QLineEdit *text_field = new QLineEdit();
-		widgets_.append(text_field);
+		TextField *text_field = new TextField();
 		text_field->setReadOnly(true);
 		text_field->setText(file_->build_full_path());
 		horiz->addWidget(text_field);
 		
 		fl->addRow(w);
-		widgets_.append(w);
 	}
 	{
 		QLabel *assigned = new QLabel(tr("Assigned to the file ↓"));
-		widgets_.append(assigned);
 		fl->addRow(tr("↓ Available items |"), assigned);
 	}
 	CreateRow(fl, &actors_avp_, &actors_asp_, media::Field::Actors);
@@ -184,6 +166,25 @@ void AttrsDialog::Init()
 	CreateRow(fl, &subgenres_avp_, &subgenres_asp_, media::Field::Subgenres);
 	CreateRow(fl, &countries_avp_, &countries_asp_, media::Field::Countries);
 	
+	{
+		QWidget *pane = new QWidget();
+		
+		QBoxLayout *layout = new QBoxLayout(QBoxLayout::LeftToRight);
+		pane->setLayout(layout);
+		
+		year_started_le_ = new TextField();
+		year_started_le_->setFixedWidth(a_size * 8);
+		year_ended_le_ = new TextField();
+		year_ended_le_->setFixedWidth(a_size * 8);
+		
+		layout->addWidget(year_started_le_);
+		QLabel *label = new QLabel(QLatin1String(" - "));
+		layout->addWidget(label);
+		layout->addWidget(year_ended_le_);
+		layout->addStretch(2);
+		
+		fl->addRow(tr("Year: "), pane);
+	}
 	SyncWidgetsToFile();
 }
 
@@ -201,8 +202,30 @@ void AttrsDialog::SaveAssignedAttrs()
 	subgenres_asp_->WriteTo(ba);
 	countries_asp_->WriteTo(ba);
 	
-	file_->ext_attrs().insert(media::XAttrName, ba);
-	io::SetXAttr(file_->build_full_path(), media::XAttrName, ba);
+	bool ok;
+	QString s = year_started_le_->text().trimmed();
+	i16 year = s.toInt(&ok);
+	if (ok) {
+		ba.add_u8((u8)media::Field::YearStarted);
+		ba.add_i16(year);
+	}
+	s = year_ended_le_->text().trimmed();
+	year = s.toInt(&ok);
+	if (ok) {
+		ba.add_u8((u8)media::Field::YearEnded);
+		ba.add_i16(year);
+	}
+	
+	auto &h = file_->ext_attrs();
+	if (ba.size() > sizeof magic_num) {
+		h.insert(media::XAttrName, ba);
+		io::SetXAttr(file_->build_full_path(), media::XAttrName, ba);
+	} else {
+		if (h.contains(media::XAttrName)) {
+			io::RemoveXAttr(file_->build_full_path(), media::XAttrName);
+			h.remove(media::XAttrName);
+		}
+	}
 }
 
 void AttrsDialog::SyncWidgetsToFile()
@@ -230,6 +253,14 @@ void AttrsDialog::SyncWidgetsToFile()
 		case media::Field::Genres: cb = genres_asp_->cb(); break;
 		case media::Field::Subgenres: cb = subgenres_asp_->cb(); break;
 		case media::Field::Countries: cb = countries_asp_->cb(); break;
+		case media::Field::YearStarted: {
+			year_started_le_->setText(QString::number(ba.next_i16()));
+			break;
+		}
+		case media::Field::YearEnded: {
+			year_ended_le_->setText(QString::number(ba.next_i16()));
+			break;
+		}
 		default: {
 			mtl_trace();
 		}

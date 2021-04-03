@@ -70,6 +70,7 @@ set(cornus_src_files main.cpp
     gui/TableDelegate.cpp gui/TableDelegate.hpp
     gui/TableModel.cpp gui/TableModel.hpp
     gui/TextEdit.cpp gui/TextEdit.hpp
+    gui/TextField.cpp gui/TextField.hpp
     gui/ToolBar.cpp gui/ToolBar.hpp
     
     io/decl.hxx

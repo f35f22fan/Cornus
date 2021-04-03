@@ -258,6 +258,8 @@ void ReadPartitionInfo(const QString &dev_path, i64 &size, QString &size_str);
 
 bool ReloadMeta(io::File &file, struct statx &stx, QString *dir_path = nullptr);
 
+bool RemoveXAttr(const QString &full_path, const QString &xattr_name);
+
 bool SameFiles(const QString &path1, const QString &path2,
 	io::Err *ret_error = nullptr);
 

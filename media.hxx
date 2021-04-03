@@ -19,8 +19,8 @@ enum class Field: u8 {
 	Genres,
 	Subgenres,
 	Countries,
-	Year, // e.g. 2011
-	Year2, // e.g. 2011-2015
+	YearStarted, // e.g. 2011
+	YearEnded, // e.g. 2011-2015
 };
 
 }

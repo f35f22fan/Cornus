@@ -30,7 +30,6 @@ private:
 	
 	media::Field category_ = media::Field::None;
 	QComboBox *cb_ = nullptr;
-	QVector<QWidget*> widgets_;
 	AssignedPane *asp_ = nullptr;
 	AttrsDialog *attrs_dialog_ = nullptr;
 };
@@ -50,7 +49,6 @@ private:
 	NO_ASSIGN_COPY_MOVE(AssignedPane);
 	
 	QComboBox *cb_ = nullptr;
-	QVector<QWidget*> widgets_;
 	AttrsDialog *attrs_dialog_ = nullptr;
 	AvailPane *avp_ = nullptr;
 };
@@ -84,7 +82,7 @@ private:
 		*writers_asp_ = nullptr, *genres_asp_ = nullptr,
 		*subgenres_asp_ = nullptr, *countries_asp_ = nullptr;
 	
-	QVector<QWidget*> widgets_;
+	TextField *year_started_le_ = nullptr, *year_ended_le_ = nullptr;
 	int fixed_width_ = -1;
 };
 }

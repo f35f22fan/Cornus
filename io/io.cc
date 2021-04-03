@@ -1229,6 +1229,9 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 {
 	if (!file.can_have_xattr())
 		return;
+
+	QHash<QString, ByteArray> &ext_attrs = file.ext_attrs();
+	ext_attrs.clear();
 	
 	isize buflen = llistxattr(full_path.data(), NULL, 0);
 	if (buflen == 0)
@@ -1253,8 +1256,6 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 		attribute keys. Use the remaining buffer length to determine
 		the end of the list. */
 	char *key = buf;
-	QHash<QString, ByteArray> &ext_attrs = file.ext_attrs();
-	ext_attrs.clear();
 	
 	while (buflen > 0)
 	{
@@ -1274,9 +1275,9 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 		
 		ext_attrs.insert(key, ba);
 		{
-			auto name = file.name().toLocal8Bit();
-			mtl_info("Ext attr: \"%s\": \"%s\" (%s)", key,
-				qPrintable(ba.toString()), name.data());
+//			auto name = file.name().toLocal8Bit();
+//			mtl_info("Ext attr: \"%s\": \"%s\" (%s)", key,
+//				qPrintable(ba.toString()), name.data());
 		}
 		
 		/// Forward to next attribute key.
@@ -1314,6 +1315,18 @@ bool ReloadMeta(io::File &file, struct statx &stx, QString *dir_path)
 	}
 	
 	return true;
+}
+
+bool RemoveXAttr(const QString &full_path, const QString &xattr_name)
+{
+	auto file_path_ba = full_path.toLocal8Bit();
+	auto xattr_name_ba = xattr_name.toLocal8Bit();
+	int status = lremovexattr(file_path_ba.data(), xattr_name_ba.data());
+	
+	if (status != 0)
+		mtl_warn("lremovexattr on %s: %s", xattr_name_ba.data(), strerror(errno));
+	
+	return status == 0;
 }
 
 bool SameFiles(const QString &path1, const QString &path2, io::Err *ret_error)

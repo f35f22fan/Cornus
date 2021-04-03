@@ -77,7 +77,6 @@ void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
 			mtl_status(errno);
 		return;
 	}
-	
 	const auto ConnectionType = Qt::BlockingQueuedConnection;
 	
 	ssize_t add = 0;

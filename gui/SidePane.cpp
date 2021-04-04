@@ -393,6 +393,8 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 	if (cloned_item == nullptr)
 		return;
 	
+	AutoDelete ad(cloned_item);
+	
 	if (cloned_item->is_partition()) {/// && !cloned_item->has_been_clicked()) {
 		if (!cloned_item->mounted()) {
 			io::disks::MountPartitionData *mps = new io::disks::MountPartitionData();
@@ -406,19 +408,34 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 		}
 	}
 	
-	if (!cloned_item->is_partition() || cloned_item->mounted())
-		model_->app()->GoTo(Action::To, {cloned_item->mount_path(), Processed::No});
 	model_->UpdateIndices(indices);
-	delete cloned_item;
 }
 
 void
 SidePane::mouseReleaseEvent(QMouseEvent *evt)
 {
 	QTableView::mouseReleaseEvent(evt);
+	
+	SidePaneItem *cloned_item = nullptr;
+	{
+		SidePaneItems &items = app_->side_pane_items();
+		MutexGuard guard(&items.mutex);
+		auto *item = GetItemAtNTS(evt->pos(), false, nullptr);
+		if (item != nullptr) {
+			if (item->is_partition() && !item->mounted())
+				item->has_been_clicked(true);
+			cloned_item = item->Clone();
+		}
+	}
+	
+	AutoDelete ad(cloned_item);
+	
+	if (cloned_item != nullptr && (!cloned_item->is_partition() || cloned_item->mounted())) {
+		model_->app()->GoTo(Action::To, {cloned_item->mount_path(), Processed::No});
+	}
+	
 	drag_start_pos_ = {-1, -1};
 	mouse_down_ = false;
-///	model_->UpdateIndices(indices);
 }
 
 void

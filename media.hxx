@@ -53,6 +53,7 @@ enum class VideoCodec: u8 {
 	H263,
 	H264,
 	H265,
+	H266,
 	DivX,
 	Xvid,
 	Other,

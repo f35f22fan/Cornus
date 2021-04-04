@@ -559,14 +559,19 @@ SidePaneModel::FinishDropOperation(QVector<io::File*> *files_vec, const int row)
 {
 	auto &items = app_->side_pane_items();
 	AutoDeleteVecP advp(files_vec);
-	
-	bool file_io = QApplication::keyboardModifiers() & Qt::ShiftModifier;
+	int actual_count = 0;
 	for (io::File *file: *files_vec) {
-		if (!file->is_dir_or_so()) {
-			file_io = true;
-			break;
+		if (file->is_dir_or_so()) {
+			actual_count++;
 		}
 	}
+	
+	if (actual_count == 0)
+		return;
+	
+	/**
+	bool file_io = QApplication::keyboardModifiers() & Qt::ShiftModifier;
+	
 	
 	if (file_io) {
 		QString to_dir;
@@ -592,8 +597,8 @@ SidePaneModel::FinishDropOperation(QVector<io::File*> *files_vec, const int row)
 		io::socket::SendAsync(ba);
 		return;
 	}
-	
-	beginInsertRows(QModelIndex(), 0, files_vec->size() - 1);
+	*/
+	beginInsertRows(QModelIndex(), 0, actual_count - 1);
 	{
 		MutexGuard guard = items.guard();
 		int added = 0;

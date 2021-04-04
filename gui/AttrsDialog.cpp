@@ -186,18 +186,13 @@ void AttrsDialog::Init()
 		year_started_le_->setFixedWidth(fixed_w);
 		year_ended_le_ = new TextField();
 		year_ended_le_->setFixedWidth(fixed_w);
-		bit_depth_le_ = new TextField();
-		bit_depth_le_->setFixedWidth(fixed_w);
-		bit_depth_le_->setPlaceholderText("depth");
-		bit_depth_le_->setToolTip("Video codec bit depth, usually 8, 10 or 12 bits");
 		
 		layout->addWidget(year_started_le_);
 		layout->addWidget(new QLabel(QLatin1String(" - ")));
 		layout->addWidget(year_ended_le_);
-		layout->addWidget(bit_depth_le_);
 		layout->addStretch(2);
 		
-		fl->addRow(tr("Year start-end, bit depth: "), pane);
+		fl->addRow(tr("Year start-end: "), pane);
 	}
 	
 	{
@@ -205,19 +200,27 @@ void AttrsDialog::Init()
 		
 		QBoxLayout *layout = new QBoxLayout(QBoxLayout::LeftToRight);
 		pane->setLayout(layout);
+		QString tooltip = tr("Video resolution, e.g. 1920x1080");
 		
 		const int fixed_w = a_size * 8;
 		resolution_w_le_ = new TextField();
+		resolution_w_le_->setToolTip(tooltip);
 		resolution_w_le_->setFixedWidth(fixed_w);
 		resolution_h_le_ = new TextField();
+		resolution_h_le_->setToolTip(tooltip);
 		resolution_h_le_->setFixedWidth(fixed_w);
+		bit_depth_le_ = new TextField();
+		bit_depth_le_->setFixedWidth(fixed_w);
+		bit_depth_le_->setPlaceholderText("depth");
+		bit_depth_le_->setToolTip("Video codec bit depth, usually 8, 10 or 12 bits");
 		
 		layout->addWidget(resolution_w_le_);
 		layout->addWidget(new QLabel(QLatin1String("x")));
 		layout->addWidget(resolution_h_le_);
+		layout->addWidget(bit_depth_le_);
 		layout->addStretch(2);
 		
-		fl->addRow(tr("Video resolution (e.g.1920x1080):"), pane);
+		fl->addRow(tr("Video resolution, bit depth:"), pane);
 	}
 	
 	SyncWidgetsToFile();

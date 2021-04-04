@@ -21,7 +21,9 @@ AvailPane::~AvailPane()
 
 void AvailPane::Init()
 {
+	setContentsMargins(0, 0, 0, 0);
 	QBoxLayout *layout = new QBoxLayout(QBoxLayout::LeftToRight);
+	///layout->setSpacing(0);
 	setLayout(layout);
 	QString label;
 	switch (category_) {
@@ -31,6 +33,8 @@ void AvailPane::Init()
 	case media::Field::Genres: { label = tr("Genres:"); break; }
 	case media::Field::Subgenres: { label = tr("Subgenres:"); break; }
 	case media::Field::Countries: { label = tr("Countries:"); break; }
+	case media::Field::Rip: { label = tr("Rip:"); break; }
+	case media::Field::VideoCodec: { label = tr("Video Codec"); break; }
 	default: {
 		mtl_trace();
 	}
@@ -77,7 +81,9 @@ void AssignedPane::AddItemFromAvp()
 
 void AssignedPane::Init()
 {
+	setContentsMargins(0, 0, 0, 0);
 	QBoxLayout *layout = new QBoxLayout(QBoxLayout::LeftToRight);
+	///layout->setSpacing(0);
 	setLayout(layout);
 	cb_ = new QComboBox();
 	cb_->setFixedWidth(attrs_dialog_->fixed_width());
@@ -140,6 +146,8 @@ void AttrsDialog::Init()
 	fixed_width_ = a_size * 30;
 	
 	QFormLayout *fl = new QFormLayout();
+	fl->setContentsMargins(0, 0, 0, 0);
+	fl->setSpacing(0);
 	setLayout(fl);
 	{
 		QWidget *w = new QWidget();
@@ -165,6 +173,32 @@ void AttrsDialog::Init()
 	CreateRow(fl, &genres_avp_, &genres_asp_, media::Field::Genres);
 	CreateRow(fl, &subgenres_avp_, &subgenres_asp_, media::Field::Subgenres);
 	CreateRow(fl, &countries_avp_, &countries_asp_, media::Field::Countries);
+	CreateRow(fl, &rip_avp_, &rip_asp_, media::Field::Rip);
+	CreateRow(fl, &video_codec_avp_, &video_codec_asp_, media::Field::VideoCodec);
+	{
+		QWidget *pane = new QWidget();
+		
+		QBoxLayout *layout = new QBoxLayout(QBoxLayout::LeftToRight);
+		pane->setLayout(layout);
+		
+		const int fixed_w = a_size * 8;
+		year_started_le_ = new TextField();
+		year_started_le_->setFixedWidth(fixed_w);
+		year_ended_le_ = new TextField();
+		year_ended_le_->setFixedWidth(fixed_w);
+		bit_depth_le_ = new TextField();
+		bit_depth_le_->setFixedWidth(fixed_w);
+		bit_depth_le_->setPlaceholderText("depth");
+		bit_depth_le_->setToolTip("Video codec bit depth, usually 8, 10 or 12 bits");
+		
+		layout->addWidget(year_started_le_);
+		layout->addWidget(new QLabel(QLatin1String(" - ")));
+		layout->addWidget(year_ended_le_);
+		layout->addWidget(bit_depth_le_);
+		layout->addStretch(2);
+		
+		fl->addRow(tr("Year start-end, bit depth: "), pane);
+	}
 	
 	{
 		QWidget *pane = new QWidget();
@@ -172,19 +206,20 @@ void AttrsDialog::Init()
 		QBoxLayout *layout = new QBoxLayout(QBoxLayout::LeftToRight);
 		pane->setLayout(layout);
 		
-		year_started_le_ = new TextField();
-		year_started_le_->setFixedWidth(a_size * 8);
-		year_ended_le_ = new TextField();
-		year_ended_le_->setFixedWidth(a_size * 8);
+		const int fixed_w = a_size * 8;
+		resolution_w_le_ = new TextField();
+		resolution_w_le_->setFixedWidth(fixed_w);
+		resolution_h_le_ = new TextField();
+		resolution_h_le_->setFixedWidth(fixed_w);
 		
-		layout->addWidget(year_started_le_);
-		QLabel *label = new QLabel(QLatin1String(" - "));
-		layout->addWidget(label);
-		layout->addWidget(year_ended_le_);
+		layout->addWidget(resolution_w_le_);
+		layout->addWidget(new QLabel(QLatin1String("x")));
+		layout->addWidget(resolution_h_le_);
 		layout->addStretch(2);
 		
-		fl->addRow(tr("Year: "), pane);
+		fl->addRow(tr("Video resolution (e.g.1920x1080):"), pane);
 	}
+	
 	SyncWidgetsToFile();
 }
 
@@ -201,6 +236,8 @@ void AttrsDialog::SaveAssignedAttrs()
 	genres_asp_->WriteTo(ba);
 	subgenres_asp_->WriteTo(ba);
 	countries_asp_->WriteTo(ba);
+	rip_asp_->WriteTo(ba);
+	video_codec_asp_->WriteTo(ba);
 	
 	bool ok;
 	QString s = year_started_le_->text().trimmed();
@@ -209,11 +246,35 @@ void AttrsDialog::SaveAssignedAttrs()
 		ba.add_u8((u8)media::Field::YearStarted);
 		ba.add_i16(year);
 	}
+	
 	s = year_ended_le_->text().trimmed();
 	year = s.toInt(&ok);
 	if (ok) {
 		ba.add_u8((u8)media::Field::YearEnded);
 		ba.add_i16(year);
+	}
+	
+	s = bit_depth_le_->text().trimmed();
+	int bit_depth = s.toInt(&ok);
+	if (ok) {
+		ba.add_u8((u8)media::Field::VideoCodecBitDepth);
+		ba.add_i16(bit_depth);
+	}
+	
+	{
+		s = resolution_w_le_->text().trimmed();
+		int w = s.toInt(&ok);
+		
+		if (ok) {
+			s = resolution_h_le_->text().trimmed();
+			int h = s.toInt(&ok);
+			if (ok) {
+				ba.add_u8((u8)media::Field::VideoResolution);
+				ba.add_i32(w);
+				ba.add_i32(h);
+			}
+		}
+		
 	}
 	
 	auto &h = file_->ext_attrs();
@@ -253,6 +314,8 @@ void AttrsDialog::SyncWidgetsToFile()
 		case media::Field::Genres: cb = genres_asp_->cb(); break;
 		case media::Field::Subgenres: cb = subgenres_asp_->cb(); break;
 		case media::Field::Countries: cb = countries_asp_->cb(); break;
+		case media::Field::Rip: cb = rip_asp_->cb(); break;
+		case media::Field::VideoCodec: cb = video_codec_asp_->cb(); break;
 		case media::Field::YearStarted: {
 			year_started_le_->setText(QString::number(ba.next_i16()));
 			break;
@@ -261,7 +324,16 @@ void AttrsDialog::SyncWidgetsToFile()
 			year_ended_le_->setText(QString::number(ba.next_i16()));
 			break;
 		}
-		default: {
+		case media::Field::VideoCodecBitDepth: {
+			bit_depth_le_->setText(QString::number(ba.next_i16()));
+			break;
+		}
+		case media::Field::VideoResolution: {
+			resolution_w_le_->setText(QString::number(ba.next_i32()));
+			resolution_h_le_->setText(QString::number(ba.next_i32()));
+			break;
+		}
+		default:{
 			mtl_trace();
 		}
 		}

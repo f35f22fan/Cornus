@@ -76,13 +76,17 @@ private:
 	
 	AvailPane *actors_avp_ = nullptr, *directors_avp_ = nullptr,
 		*writers_avp_ = nullptr, *genres_avp_ = nullptr,
-		*subgenres_avp_ = nullptr, *countries_avp_ = nullptr;
+		*subgenres_avp_ = nullptr, *countries_avp_ = nullptr,
+		*rip_avp_ = nullptr, *video_codec_avp_ = nullptr;
 	
 	AssignedPane *actors_asp_ = nullptr, *directors_asp_ = nullptr,
 		*writers_asp_ = nullptr, *genres_asp_ = nullptr,
-		*subgenres_asp_ = nullptr, *countries_asp_ = nullptr;
+		*subgenres_asp_ = nullptr, *countries_asp_ = nullptr,
+		*rip_asp_ = nullptr, *video_codec_asp_ = nullptr;
 	
-	TextField *year_started_le_ = nullptr, *year_ended_le_ = nullptr;
+	TextField *year_started_le_ = nullptr, *year_ended_le_ = nullptr,
+	*bit_depth_le_ = nullptr, *resolution_w_le_ = nullptr,
+	*resolution_h_le_ = nullptr;
 	int fixed_width_ = -1;
 };
 }

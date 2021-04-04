@@ -22,6 +22,7 @@ void Reload(App *app);
  Hence only a QMap can have the (implied) ID not change.
  Note: QMap items may never be removed, only their names changed.
 */
+using HashU8 = QMap<u8, QString>;
 using HashU16 = QMap<u16, QVector<QString>>;
 using HashU32 = QMap<u32, QVector<QString>>;
 
@@ -68,6 +69,9 @@ public:
 	HashU32 actors_;
 	HashU32 directors_;
 	HashU32 writers_;
+	
+	HashU8 rips_;
+	HashU8 video_codecs_;
 	
 	bool loaded_ = false;
 	bool changed_by_myself_ = false;

@@ -82,6 +82,20 @@ void Media::ApplyTo(QComboBox *cb, ByteArray &ba, const media::Field f)
 			if (vec.size() > 0)
 				cb->addItem(vec[0], id);
 		}
+	} else if (f == media::Field::Rip) {
+		for (int i = 0; i < count; i++) {
+			const u8 id = ba.next_u8();
+			QString s = rips_.value(id);
+			if (!s.isEmpty())
+				cb->addItem(s, id);
+		}
+	} else if (f == media::Field::VideoCodec) {
+		for (int i = 0; i < count; i++) {
+			const u8 id = ba.next_u8();
+			QString s = video_codecs_.value(id);
+			if (!s.isEmpty())
+				cb->addItem(s, id);
+		}
 	} else {
 		mtl_trace();
 	}
@@ -135,6 +149,18 @@ void Media::FillInNTS(QComboBox *cb, const media::Field category)
 		auto it = countries_.constBegin();
 		while (it != countries_.constEnd()) {
 			cb->addItem(it.value()[0], it.key());
+			it++;
+		}
+	} else if (category == media::Field::Rip) {
+		auto it = rips_.constBegin();
+		while (it != rips_.constEnd()) {
+			cb->addItem(it.value(), (u8)it.key());
+			it++;
+		}
+	} else if (category == media::Field::VideoCodec) {
+		auto it = video_codecs_.constBegin();
+		while (it != video_codecs_.constEnd()) {
+			cb->addItem(it.value(), (u8)it.key());
 			it++;
 		}
 	} else {
@@ -242,6 +268,53 @@ void Media::NewMagicNumber()
 void Media::ReloadDatabaseNTS(ByteArray &ba)
 {
 	Clear();
+	
+	if (!loaded_) {
+		using media::Rip;
+		rips_.insert((u8)Rip::CAMRip, "CAMRip");
+		rips_.insert((u8)Rip::TS, "TS");
+		rips_.insert((u8)Rip::TC, "TC");
+		rips_.insert((u8)Rip::SuperTS, "SuperTS");
+		rips_.insert((u8)Rip::WP, "WP");
+		rips_.insert((u8)Rip::SCR, "SCR");
+		rips_.insert((u8)Rip::DVDScr, "DVDScr");
+		rips_.insert((u8)Rip::VHSRip, "VHSRip");
+		rips_.insert((u8)Rip::TVRip, "TVRip");
+		rips_.insert((u8)Rip::SATRip, "SATRip");
+		rips_.insert((u8)Rip::IPTVRip, "IPTVRip");
+		rips_.insert((u8)Rip::DVB, "DVB");
+		rips_.insert((u8)Rip::HDTV, "HDTV");
+		rips_.insert((u8)Rip::HDTVRip, "HDTVRip");
+		rips_.insert((u8)Rip::WEBRip, "WEBRip");
+		rips_.insert((u8)Rip::WEB_DL, "WEB_DL");
+		rips_.insert((u8)Rip::WEB_DLRip, "WEB_DLRip");
+		rips_.insert((u8)Rip::DVD5, "DVD5");
+		rips_.insert((u8)Rip::DVD9, "DVD9");
+		rips_.insert((u8)Rip::DVDRip, "DVDRip");
+		rips_.insert((u8)Rip::HDRip, "HDRip");
+		rips_.insert((u8)Rip::BDRip, "BDRip");
+		rips_.insert((u8)Rip::Hybrid, "Hybrid");
+		rips_.insert((u8)Rip::HDDVDRip, "HDDVDRip");
+		rips_.insert((u8)Rip::UHD_BDRip, "UHD_BDRip");
+		rips_.insert((u8)Rip::BDRemux, "BDRemux");
+		rips_.insert((u8)Rip::HDDVDRemux, "HDDVDRemux");
+		rips_.insert((u8)Rip::Blu_Ray, "Blu_Ray");
+		rips_.insert((u8)Rip::HDDVD, "HDDVD");
+		rips_.insert((u8)Rip::UHD_Blu_Ray, "UHD_Blu_Ray");
+		rips_.insert((u8)Rip::UHD_BDRemux, "UHD_BDRemux");
+		
+		using media::VideoCodec;
+		video_codecs_.insert((u8)VideoCodec::AV1, "AV1");
+		video_codecs_.insert((u8)VideoCodec::VP8, "VP8");
+		video_codecs_.insert((u8)VideoCodec::VP9, "VP9");
+		video_codecs_.insert((u8)VideoCodec::H263, "H263");
+		video_codecs_.insert((u8)VideoCodec::H264, "H264");
+		video_codecs_.insert((u8)VideoCodec::H265, "H265");
+		video_codecs_.insert((u8)VideoCodec::DivX, "DivX");
+		video_codecs_.insert((u8)VideoCodec::Xvid, "Xvid");
+		video_codecs_.insert((u8)VideoCodec::Other, "Other");
+	}
+	
 	loaded_ = true;
 	if (ba.size() >= sizeof(magic_number_)) {
 		magic_number_ = ba.next_i32();
@@ -389,7 +462,6 @@ void Media::WriteTo(ByteArray &ba, QComboBox *cb, const media::Field f)
 			QVariant v = cb->itemData(i);
 			u32 n = v.toLongLong();
 			ba.add_u32(n);
-///			mtl_info("added: %u", n);
 		}
 	} else if (f == media::Field::Genres || f == media::Field::Subgenres
 		|| f == media::Field::Countries) {
@@ -397,7 +469,18 @@ void Media::WriteTo(ByteArray &ba, QComboBox *cb, const media::Field f)
 			QVariant v = cb->itemData(i);
 			u16 n = v.toInt();
 			ba.add_u16(n);
-///			mtl_info("added: %u", n);
+		}
+	} else if (f == media::Field::Rip) {
+		for (int i = 0; i < count; i++) {
+			QVariant v = cb->itemData(i);
+			u8 n = v.toInt();
+			ba.add_u8(n);
+		}
+	} else if (f == media::Field::VideoCodec) {
+		for (int i = 0; i < count; i++) {
+			QVariant v = cb->itemData(i);
+			u8 n = v.toInt();
+			ba.add_u8(n);
 		}
 	} else {
 		mtl_trace();

@@ -1,7 +1,6 @@
 #include "AttrsDialog.hpp"
 
 #include "../App.hpp"
-#include "../ByteArray.hpp"
 #include "../Media.hpp"
 #include "../io/io.hh"
 #include "../io/File.hpp"
@@ -109,8 +108,6 @@ void AssignedPane::WriteTo(ByteArray &ba)
 AttrsDialog::AttrsDialog(App *app, io::File *file):
 QDialog(app), app_(app), file_(file)
 {
-	Q_UNUSED(year_);
-	Q_UNUSED(year_end_);
 	Init();
 	setModal(true);
 	setWindowTitle(tr("File Metadata"));
@@ -180,19 +177,35 @@ void AttrsDialog::Init()
 		
 		QBoxLayout *layout = new QBoxLayout(QBoxLayout::LeftToRight);
 		pane->setLayout(layout);
+		QString tooltip = tr("Video resolution, e.g. 1920x1080");
 		
 		const int fixed_w = a_size * 8;
-		year_started_le_ = new TextField();
-		year_started_le_->setFixedWidth(fixed_w);
-		year_ended_le_ = new TextField();
-		year_ended_le_->setFixedWidth(fixed_w);
+		const int small_w = a_size * 6;
+		resolution_w_tf_ = new TextField();
+		resolution_w_tf_->setToolTip(tooltip);
+		resolution_w_tf_->setPlaceholderText(tr("width"));
+		resolution_w_tf_->setFixedWidth(fixed_w);
+		resolution_h_tf_ = new TextField();
+		resolution_h_tf_->setToolTip(tooltip);
+		resolution_h_tf_->setPlaceholderText(tr("height"));
+		resolution_h_tf_->setFixedWidth(fixed_w);
+		bit_depth_tf_ = new TextField();
+		bit_depth_tf_->setPlaceholderText(tr("bits"));
+		bit_depth_tf_->setFixedWidth(small_w);
+		bit_depth_tf_->setToolTip(tr("Video bit depth, usually 8, 10 or 12 bits"));
+		fps_tf_ = new TextField();
+		fps_tf_->setFixedWidth(small_w);
+		fps_tf_->setToolTip(tr("FPS - frames per second"));
+		fps_tf_->setPlaceholderText("FPS");
 		
-		layout->addWidget(year_started_le_);
-		layout->addWidget(new QLabel(QLatin1String(" - ")));
-		layout->addWidget(year_ended_le_);
+		layout->addWidget(resolution_w_tf_);
+		layout->addWidget(new QLabel(QLatin1String("x")));
+		layout->addWidget(resolution_h_tf_);
+		layout->addWidget(bit_depth_tf_);
+		layout->addWidget(fps_tf_);
 		layout->addStretch(2);
 		
-		fl->addRow(tr("Year start-end: "), pane);
+		fl->addRow(tr("Video resolution, bit depth, FPS:"), pane);
 	}
 	
 	{
@@ -200,27 +213,19 @@ void AttrsDialog::Init()
 		
 		QBoxLayout *layout = new QBoxLayout(QBoxLayout::LeftToRight);
 		pane->setLayout(layout);
-		QString tooltip = tr("Video resolution, e.g. 1920x1080");
 		
 		const int fixed_w = a_size * 8;
-		resolution_w_le_ = new TextField();
-		resolution_w_le_->setToolTip(tooltip);
-		resolution_w_le_->setFixedWidth(fixed_w);
-		resolution_h_le_ = new TextField();
-		resolution_h_le_->setToolTip(tooltip);
-		resolution_h_le_->setFixedWidth(fixed_w);
-		bit_depth_le_ = new TextField();
-		bit_depth_le_->setFixedWidth(fixed_w);
-		bit_depth_le_->setPlaceholderText("depth");
-		bit_depth_le_->setToolTip("Video codec bit depth, usually 8, 10 or 12 bits");
+		year_started_tf_ = new TextField();
+		year_started_tf_->setFixedWidth(fixed_w);
+		year_ended_tf_ = new TextField();
+		year_ended_tf_->setFixedWidth(fixed_w);
 		
-		layout->addWidget(resolution_w_le_);
-		layout->addWidget(new QLabel(QLatin1String("x")));
-		layout->addWidget(resolution_h_le_);
-		layout->addWidget(bit_depth_le_);
+		layout->addWidget(year_started_tf_);
+		layout->addWidget(new QLabel(QLatin1String(" - ")));
+		layout->addWidget(year_ended_tf_);
 		layout->addStretch(2);
 		
-		fl->addRow(tr("Video resolution, bit depth:"), pane);
+		fl->addRow(tr("Released in (years):"), pane);
 	}
 	
 	SyncWidgetsToFile();
@@ -243,33 +248,46 @@ void AttrsDialog::SaveAssignedAttrs()
 	video_codec_asp_->WriteTo(ba);
 	
 	bool ok;
-	QString s = year_started_le_->text().trimmed();
-	i16 year = s.toInt(&ok);
-	if (ok) {
-		ba.add_u8((u8)media::Field::YearStarted);
-		ba.add_i16(year);
+	{
+		QString s = year_started_tf_->text().trimmed();
+		i16 n = s.toInt(&ok);
+		if (ok) {
+			ba.add_u8((u8)media::Field::YearStarted);
+			ba.add_i16(n);
+		}
 	}
-	
-	s = year_ended_le_->text().trimmed();
-	year = s.toInt(&ok);
-	if (ok) {
-		ba.add_u8((u8)media::Field::YearEnded);
-		ba.add_i16(year);
+	{
+		QString s = year_ended_tf_->text().trimmed();
+		int n = s.toInt(&ok);
+		if (ok) {
+			ba.add_u8((u8)media::Field::YearEnded);
+			ba.add_i16(n);
+		}
 	}
-	
-	s = bit_depth_le_->text().trimmed();
-	int bit_depth = s.toInt(&ok);
-	if (ok) {
-		ba.add_u8((u8)media::Field::VideoCodecBitDepth);
-		ba.add_i16(bit_depth);
+	{
+		QString s = bit_depth_tf_->text().trimmed();
+		int n = s.toInt(&ok);
+		if (ok) {
+			ba.add_u8((u8)media::Field::VideoCodecBitDepth);
+			ba.add_i16(n);
+		}
 	}
 	
 	{
-		s = resolution_w_le_->text().trimmed();
+		QString s = fps_tf_->text().trimmed();
+		int n = s.toInt(&ok);
+		if (ok) {
+			ba.add_u8((u8)media::Field::FPS);
+			ba.add_i16(n);
+		}
+	}
+	
+	{
+		QString s = resolution_w_tf_->text().trimmed();
 		int w = s.toInt(&ok);
 		
 		if (ok) {
-			s = resolution_h_le_->text().trimmed();
+			s = resolution_h_tf_->text().trimmed();
 			int h = s.toInt(&ok);
 			if (ok) {
 				ba.add_u8((u8)media::Field::VideoResolution);
@@ -277,8 +295,14 @@ void AttrsDialog::SaveAssignedAttrs()
 				ba.add_i32(h);
 			}
 		}
-		
 	}
+	
+	if (ba == was_) {
+///		mtl_info("Nothing changed, returning.");
+		return;
+	}
+	
+///	mtl_info("%ld vs %ld", was_.size(), ba.size());
 	
 	auto &h = file_->ext_attrs();
 	if (ba.size() > sizeof magic_num) {
@@ -296,7 +320,8 @@ void AttrsDialog::SyncWidgetsToFile()
 {
 	if (!file_->has_media_attrs())
 		return;
-	ByteArray ba = file_->media_attrs();
+	was_ = file_->media_attrs();
+	ByteArray &ba = was_;
 	CHECK_TRUE_VOID((ba.size() >= 4));
 	const i32 magic = ba.next_i32();
 	Media *media = app_->media();
@@ -320,20 +345,24 @@ void AttrsDialog::SyncWidgetsToFile()
 		case media::Field::Rip: cb = rip_asp_->cb(); break;
 		case media::Field::VideoCodec: cb = video_codec_asp_->cb(); break;
 		case media::Field::YearStarted: {
-			year_started_le_->setText(QString::number(ba.next_i16()));
+			year_started_tf_->setText(QString::number(ba.next_i16()));
 			break;
 		}
 		case media::Field::YearEnded: {
-			year_ended_le_->setText(QString::number(ba.next_i16()));
+			year_ended_tf_->setText(QString::number(ba.next_i16()));
 			break;
 		}
 		case media::Field::VideoCodecBitDepth: {
-			bit_depth_le_->setText(QString::number(ba.next_i16()));
+			bit_depth_tf_->setText(QString::number(ba.next_i16()));
 			break;
 		}
 		case media::Field::VideoResolution: {
-			resolution_w_le_->setText(QString::number(ba.next_i32()));
-			resolution_h_le_->setText(QString::number(ba.next_i32()));
+			resolution_w_tf_->setText(QString::number(ba.next_i32()));
+			resolution_h_tf_->setText(QString::number(ba.next_i32()));
+			break;
+		}
+		case media::Field::FPS: {
+			fps_tf_->setText(QString::number(ba.next_i16()));
 			break;
 		}
 		default:{

@@ -14,6 +14,7 @@ public:
 	ByteArray();
 	ByteArray(const ByteArray &rhs);
 	ByteArray& operator = (const ByteArray &rhs);
+	bool operator == (const ByteArray &rhs);
 	virtual ~ByteArray();
 	
 	void alloc(const isize n);

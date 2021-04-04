@@ -73,6 +73,7 @@ enum class Field: u8 {
 	Rip,
 	VideoCodec,
 	VideoResolution,
+	FPS,
 };
 
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../ByteArray.hpp"
 #include "decl.hxx"
 #include "../decl.hxx"
 #include "../media.hxx"
@@ -72,7 +73,6 @@ private:
 	
 	App *app_ = nullptr;
 	io::File *file_ = nullptr;
-	i16 year_ = -1, year_end_ = -1;
 	
 	AvailPane *actors_avp_ = nullptr, *directors_avp_ = nullptr,
 		*writers_avp_ = nullptr, *genres_avp_ = nullptr,
@@ -84,9 +84,11 @@ private:
 		*subgenres_asp_ = nullptr, *countries_asp_ = nullptr,
 		*rip_asp_ = nullptr, *video_codec_asp_ = nullptr;
 	
-	TextField *year_started_le_ = nullptr, *year_ended_le_ = nullptr,
-	*bit_depth_le_ = nullptr, *resolution_w_le_ = nullptr,
-	*resolution_h_le_ = nullptr;
+	TextField *year_started_tf_ = nullptr, *year_ended_tf_ = nullptr,
+	*bit_depth_tf_ = nullptr, *resolution_w_tf_ = nullptr,
+	*resolution_h_tf_ = nullptr, *fps_tf_ = nullptr;
 	int fixed_width_ = -1;
+	
+	ByteArray was_;
 };
 }

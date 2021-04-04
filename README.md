@@ -44,3 +44,9 @@ Building on Ubuntu:
 *  You can easily set your own icons for files of different types by dropping an icon into the "file_icons" folder with the proper extension as its name, browse the folder "file_icons" to see what I mean, probably located at "/usr/share/cornus/file_icons".
 * "cornus_io" is the I/O daemon that is started automatically, keep it in the same folder as "cornus".
 * File icons are loaded from "$HOME/.config/CornusMas/file_icons", then from "/usr/share/cornus/file_icons", the icons from the former folder are used if both folders contain files with equal names.
+* Supports marking movie files rip quality, codec, resolution, actors, etc.
+For this first go to the settings menu -> "Media Database" and fill in with the actors etc you might ever care about. Then you can apply any of these to any movie by clicking on the movie file and pressing "m", the end result:
+![](resources/movie_file_attributes.webp)
+
+The settings are saved using extended file attributes and takes up extemely little space
+At some point will support search for movie files inside a folder by any given category (actor, director, genre, etc).

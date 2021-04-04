@@ -25,6 +25,14 @@ ByteArray& ByteArray::operator = (const ByteArray &rhs)
 	return *this;
 }
 
+bool ByteArray::operator == (const ByteArray &rhs)
+{
+	if (size_ != rhs.size_)
+		return false;
+	
+	return (memcmp(data_, rhs.data(), size_) == 0);
+}
+
 void ByteArray::Clear() {
 	delete[] data_;
 	data_ = nullptr;
@@ -37,7 +45,6 @@ void ByteArray::add(const char *n, const isize size)
 	memcpy(data_ + at_, n, size);
 	at_ += size;
 	size_ += size;
-///	mtl_info("END============== %ld, size: %ld", size, size_);
 }
 
 void ByteArray::add_i8(const i8 n) {

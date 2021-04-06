@@ -6,6 +6,7 @@
 
 #include "../App.hpp"
 #include "../Media.hpp"
+#include "TextField.hpp"
 
 namespace cornus::gui {
 
@@ -78,7 +79,7 @@ void MediaDialog::Init()
 {
 	Media *media = app_->media();
 	
-	if (!media->loaded_) {
+	if (!media->loaded()) {
 		cornus::media::Reload(app_);
 	}
 	QFormLayout *layout = new QFormLayout();
@@ -107,11 +108,11 @@ void MediaDialog::Init()
 	
 	category_items_cb_->setMinimumWidth(fixed_width);
 	
-	orig_lang_le_ = new QLineEdit();
+	orig_lang_le_ = new TextField();
 	orig_lang_le_->setFixedWidth(fixed_width);
 	layout->addRow(tr("In original language:"), orig_lang_le_);
 
-	native_lang_le_ = new QLineEdit();
+	native_lang_le_ = new TextField();
 	native_lang_le_->setFixedWidth(fixed_width);
 	layout->addRow(tr("In my language:"), native_lang_le_);
 	
@@ -154,7 +155,7 @@ void MediaDialog::Save()
 		SetCurrentByData(category_items_cb_, ID, &names);
 	}
 	media->Save();
-	media->Print();
+///	media->Print();
 }
 
 void MediaDialog::SetCurrentByData(QComboBox *cb, const i64 ID,

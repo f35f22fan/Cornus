@@ -1444,6 +1444,17 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
 		connect(shortcut, &QShortcut::activated, [=] {
+			search_pane_->SetSearchByFileName();
+			search_pane_->setVisible(true);
+			search_pane_->RequestFocus();
+		});
+	}
+	{
+		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_M), this);
+		shortcut->setContext(Qt::ApplicationShortcut);
+		
+		connect(shortcut, &QShortcut::activated, [=] {
+			search_pane_->SetSearchByMediaXattr();
 			search_pane_->setVisible(true);
 			search_pane_->RequestFocus();
 		});

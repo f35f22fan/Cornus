@@ -2,16 +2,60 @@
 
 #include "err.hpp"
 
-namespace cornus::media {
+#include <QMap>
 
+namespace cornus {
+
+/** It must be a QMap (not QHash) because
+ "When iterating over a QMap, the items are always sorted by key. With QHash,
+ the items are arbitrarily ordered."
+ Thus when inserting a new item with its ID as the current QMap size it works.
+ Hence only a QMap can have the (implied) ID not change.
+ Note: QMap items may never be removed, only their names changed.
+*/
+using HashI16S = QMap<i16, QString>;
+using HashI16V = QMap<i16, QVector<QString>>;
+using HashI32V = QMap<i32, QVector<QString>>;
+
+namespace media {
 static const QString XAttrName = QStringLiteral("user.CornusMas.m");
+
+struct Data {
+	HashI32V actors;
+	HashI32V directors;
+	HashI32V writers;
+	
+	HashI16V genres;
+	HashI16V subgenres;
+	HashI16V countries;
+	
+	HashI16S rips;
+	HashI16S video_codecs;
+	i32 magic_number = -1;
+};
+
+struct ShortData {
+	QVector<i32> actors;
+	QVector<i32> directors;
+	QVector<i32> writers;
+	
+	QVector<i16> genres;
+	QVector<i16> subgenres;
+	QVector<i16> countries;
+	
+	QVector<i16> rips;
+	QVector<i16> video_codecs;
+	i16 year = -1;
+	i16 year_end = -1;
+	i32 magic_number = -1;
+};
 
 enum class Action: i8 {
 	Insert,
 	Append
 };
 
-enum class Rip: u8 {
+enum class Rip: i16 {
 	None = 0,
 	CAMRip,
 	TS,
@@ -46,7 +90,7 @@ enum class Rip: u8 {
 	UHD_BDRemux,
 };
 
-enum class VideoCodec: u8 {
+enum class VideoCodec: i16 {
 	AV1,
 	VP8,
 	VP9,
@@ -76,4 +120,4 @@ enum class Field: u8 {
 	FPS,
 };
 
-}
+}} // cornus::media::

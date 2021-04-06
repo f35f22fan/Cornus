@@ -6,11 +6,15 @@ namespace cornus::io {
 
 File::File(Files *files): files_(files) {}
 File::File(const QString &dir_path): dp_(dir_path) {}
-File::~File() {
+File::~File()
+{
 	if (link_target_ != nullptr) {
 		delete link_target_;
 		link_target_ = nullptr;
 	}
+	
+	if (cache_.short_data != nullptr)
+		delete cache_.short_data;
 }
 
 QString File::build_full_path() const
@@ -25,6 +29,16 @@ QString File::build_full_path() const
 	return s + name_.orig;
 }
 
+void File::ClearXAttrs()
+{
+	ext_attrs_.clear();
+	
+	if (cache_.short_data != nullptr) {
+		delete cache_.short_data;
+		cache_.short_data = nullptr;
+	}
+}
+
 File* File::Clone() const
 {
 	File *file = new File(dir_path());
@@ -34,7 +48,7 @@ File* File::Clone() const
 	file->ext_attrs_ = ext_attrs_;
 	file->type_ = type_;
 	file->id_ = id_;
-	file->cache_ = cache_;
+	///file->cache_ = cache_;
 	file->bits_ = bits_;
 	file->time_created_ = time_created_;
 	file->time_modified_ = time_modified_;
@@ -45,9 +59,15 @@ File* File::Clone() const
 	return file;
 }
 
-void File::ClearCache() {
+void File::ClearCache()
+{
 	cache_.icon = nullptr;
 	cache_.mime.clear();
+	
+	if (cache_.short_data != nullptr) {
+		delete cache_.short_data;
+		cache_.short_data = nullptr;
+	}
 }
 
 bool File::DeleteFromDisk() {
@@ -66,6 +86,23 @@ bool File::has_exec_bit() const {
 		return link_target_->mode & io::ExecBits;
 	}
 	return mode_ & io::ExecBits;
+}
+
+media::ShortData*
+File::media_attrs_decoded()
+{
+	if (cache_.short_data != nullptr)
+		return cache_.short_data;
+	
+	if (!has_media_attrs())
+		return nullptr;
+	
+	ByteArray ba = media_attrs();
+	cache_.short_data = io::DecodeShort(ba);
+	if (cache_.short_data == nullptr)
+		ext_attrs_.remove(media::XAttrName);
+	
+	return cache_.short_data;
 }
 
 void File::name(const QString &s)

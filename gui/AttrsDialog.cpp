@@ -136,7 +136,7 @@ void AttrsDialog::CreateRow(QFormLayout *fl, AvailPane **avp, AssignedPane **asp
 void AttrsDialog::Init()
 {
 	Media *media = app_->media();
-	if (!media->loaded_)
+	if (!media->loaded())
 		cornus::media::Reload(app_);
 	
 	const int a_size = fontMetrics().boundingRect('a').width();
@@ -376,5 +376,3 @@ void AttrsDialog::SyncWidgetsToFile()
 }
 
 }
-
-

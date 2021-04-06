@@ -22,9 +22,7 @@ Building on Ubuntu:
 * Ctrl+E => Toggle exec bit of selected file(s)
 * D => Display contents of selected file
 * Ctrl+F => Search for file by name (then hit Enter to search forward or Ctrl+Enter for backwards)
-
----
-##### BTC: bc1qzs8ux6m0t4jj98furra8pvx2ll80qchr5v4ru6
+* Ctrl+M => Search by (movie) file's metadata (see bottom of page)
 
 ---
 ### Screenshot with dark theme:
@@ -46,7 +44,10 @@ Building on Ubuntu:
 * File icons are loaded from "$HOME/.config/CornusMas/file_icons", then from "/usr/share/cornus/file_icons", the icons from the former folder are used if both folders contain files with equal names.
 * Supports marking movie files rip quality, codec, resolution, actors, etc.
 For this first go to the settings menu -> "Media Database" and fill in with the actors etc you might ever care about. Then you can apply any of these to any movie by clicking on the movie file and pressing "m", the end result:
+### Movie Dialog Screenshot:
+
 ![](resources/movie_file_attributes.webp)
 
-The settings are saved using extended file attributes and takes up extemely little space
+Media search: Ctrl + M
+The settings are saved using extended file attributes and take up extemely little space.
 At some point will support search for movie files inside a folder by any given category (actor, director, genre, etc).

@@ -6,6 +6,7 @@
 #include "../decl.hxx"
 #include "../err.hpp"
 #include "../gui/decl.hxx"
+#include "../media.hxx"
 #include "../MutexGuard.hpp"
 
 #include <chrono>
@@ -133,6 +134,8 @@ Q_DECLARE_METATYPE(cornus::io::FilesData*);
 Q_DECLARE_METATYPE(cornus::io::CountRecursiveInfo*);
 
 namespace cornus::io {
+
+media::ShortData* DecodeShort(ByteArray &ba);
 
 int CompareStrings(const QString &a, const QString &b);
 

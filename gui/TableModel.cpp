@@ -78,7 +78,6 @@ void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
 		return;
 	}
 	const auto ConnectionType = Qt::BlockingQueuedConnection;
-	
 	ssize_t add = 0;
 	struct statx stx;
 	

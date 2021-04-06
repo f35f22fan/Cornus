@@ -23,6 +23,69 @@
 
 namespace cornus::io {
 
+media::ShortData* DecodeShort(ByteArray &ba)
+{
+	ba.to(0);
+	if (ba.size() < sizeof(i32))
+		return nullptr;
+	
+	media::ShortData *p = new media::ShortData();
+	p->magic_number = ba.next_i32();
+	
+	while (ba.has_more())
+	{
+		media::Field f = (media::Field) ba.next_u8();
+		QVector<i32> *v32 = nullptr;
+		
+		if (f == media::Field::Actors)
+			v32 = &p->actors;
+		else if (f == media::Field::Directors)
+			v32 = &p->directors;
+		else if (f == media::Field::Writers)
+			v32 = &p->writers;
+		
+		if (v32 != nullptr) {
+			const u16 count = ba.next_u16();
+			for (int i = 0; i < count; i++) {
+				v32->append(ba.next_i32());
+			}
+			continue;
+		}
+		
+		QVector<i16> *v16 = nullptr;
+		
+		if (f == media::Field::Genres)
+			v16 = &p->genres;
+		else if (f == media::Field::Subgenres)
+			v16 = &p->subgenres;
+		else if (f == media::Field::Countries)
+			v16 = &p->countries;
+		else if (f == media::Field::Rip)
+			v16 = &p->rips;
+		else if (f == media::Field::VideoCodec)
+			v16 = &p->video_codecs;
+		
+		if (v16 != nullptr)
+		{
+			const u16 count = ba.next_u16();
+			for (int i = 0; i < count; i++) {
+				v16->append(ba.next_i16());
+			}
+			continue;
+		}
+		
+		if (f == media::Field::YearStarted) {
+			p->year = ba.next_i16();
+		} else if (f == media::Field::YearEnded) {
+			p->year_end = ba.next_i16();
+		} else {
+			mtl_trace();
+		}
+	}
+	
+	return p;
+}
+
 void Notify::Init()
 {
 	if (fd == -1)
@@ -1230,8 +1293,8 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 	if (!file.can_have_xattr())
 		return;
 
+	file.ClearXAttrs();
 	QHash<QString, ByteArray> &ext_attrs = file.ext_attrs();
-	ext_attrs.clear();
 	
 	isize buflen = llistxattr(full_path.data(), NULL, 0);
 	if (buflen == 0)

@@ -15,6 +15,7 @@ struct FileCache {
 	QString mime;
 	QStringRef ext = QStringRef();
 	QIcon *icon = nullptr;
+	media::ShortData *short_data = nullptr;
 };
 
 class File {
@@ -41,6 +42,8 @@ public:
 	bool has_ext_attrs() const { return ext_attrs_.size() > 0; }
 	bool has_media_attrs() const { return ext_attrs_.contains(media::XAttrName);}
 	ByteArray media_attrs() const { return ext_attrs_.value(media::XAttrName); }
+	media::ShortData* media_attrs_decoded();
+	void ClearXAttrs();
 	void ReadLinkTarget();
 	
 	bool is_dir() const { return type_ == FileType::Dir; }
@@ -153,10 +156,9 @@ private:
 	struct Name {
 		QString orig;
 		QString lower;
-	};
+	} name_ = {};
 	
 	LinkTarget *link_target_ = nullptr;
-	Name name_;
 	FileCache cache_ = {};
 	io::Files *files_ = nullptr;
 	QString dp_;

@@ -393,8 +393,6 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 	if (cloned_item == nullptr)
 		return;
 	
-	AutoDelete ad(cloned_item);
-	
 	if (cloned_item->is_partition()) {/// && !cloned_item->has_been_clicked()) {
 		if (!cloned_item->mounted()) {
 			io::disks::MountPartitionData *mps = new io::disks::MountPartitionData();
@@ -408,6 +406,7 @@ SidePane::mousePressEvent(QMouseEvent *evt)
 		}
 	}
 	
+	delete cloned_item;
 	model_->UpdateIndices(indices);
 }
 

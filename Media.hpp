@@ -13,27 +13,25 @@ namespace cornus {
 
 namespace media {
 void Reload(App *app);
+media::ShortData* DecodeShort(Media *media, ByteArray &ba);
 }
-
-/** It must be a QMap (not QHash) because
- "When iterating over a QMap, the items are always sorted by key. With QHash,
- the items are arbitrarily ordered."
- Thus when inserting a new item with its ID as the current QMap size it works.
- Hence only a QMap can have the (implied) ID not change.
- Note: QMap items may never be removed, only their names changed.
-*/
-using HashU8 = QMap<u8, QString>;
-using HashU16 = QMap<u16, QVector<QString>>;
-using HashU32 = QMap<u32, QVector<QString>>;
 
 class Media {
 public:
+	enum class Fill: i8 {
+		AddNoneOption,
+		Default
+	};
+
 	void ApplyTo(QComboBox *cb, ByteArray &ba, const media::Field f);
 	void AddNTS(const QVector<QString> &names, const media::Field field);
 	void Clear();
-	void FillInNTS(QComboBox *cb, const media::Field category);
+	media::Data& data() { return data_; }
+	void FillInNTS(QComboBox *cb, const media::Field category,
+		const Fill option = Fill::Default);
 	
 	QVector<QString> GetNTS(const media::Field f, const i64 ID);
+	bool loaded() const { return !data_.rips.isEmpty(); }
 	i64 SetNTS(const media::Field f, const i64 ID,
 		const QVector<QString> &names, const media::Action action = media::Action::Insert);
 	MutexGuard guard() { return MutexGuard(&mutex); }
@@ -56,31 +54,19 @@ public:
 	}
 	
 	i32 GetMagicNumber();
-	i32 magic_number_NTS() const { return magic_number_; }
+	i32 magic_number_NTS() const { return data_.magic_number; }
 	void Print();
-	void ReloadDatabaseNTS(ByteArray &ba);
+	void ReloadDatabaseNTS(ByteArray &ba, media::Data &data);
 	void Save();
 	void WriteTo(ByteArray &ba, QComboBox *cb, const media::Field f);
 	
-	HashU16 genres_;
-	HashU16 subgenres_;
-	HashU16 countries_;
-	
-	HashU32 actors_;
-	HashU32 directors_;
-	HashU32 writers_;
-	
-	HashU8 rips_;
-	HashU8 video_codecs_;
-	
-	bool loaded_ = false;
+	media::Data data_ = {};
 	bool changed_by_myself_ = false;
 	
 private:
 	void NewMagicNumber();
 	void WriteAny(ByteArray &ba, const QVector<QString> &names);
 	
-	i32 magic_number_ = -1;
 	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 };
 

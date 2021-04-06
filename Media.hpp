@@ -16,7 +16,8 @@ void Reload(App *app);
 media::ShortData* DecodeShort(Media *media, ByteArray &ba);
 }
 
-class Media {
+class Media: public QObject {
+	Q_OBJECT
 public:
 	enum class Fill: i8 {
 		AddNoneOption,
@@ -33,7 +34,9 @@ public:
 	QVector<QString> GetNTS(const media::Field f, const i64 ID);
 	bool loaded() const { return !data_.rips.isEmpty(); }
 	i64 SetNTS(const media::Field f, const i64 ID,
-		const QVector<QString> &names, const media::Action action = media::Action::Insert);
+		const QVector<QString> &names, i64 *existing_id = nullptr,
+		const media::Action action = media::Action::Insert,
+		const media::Check check = media::Check::Exists);
 	MutexGuard guard() { return MutexGuard(&mutex); }
 	
 	bool Lock() {
@@ -62,6 +65,9 @@ public:
 	
 	media::Data data_ = {};
 	bool changed_by_myself_ = false;
+	
+signals:
+	void Changed();
 	
 private:
 	void NewMagicNumber();

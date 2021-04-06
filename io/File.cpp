@@ -48,7 +48,8 @@ File* File::Clone() const
 	file->ext_attrs_ = ext_attrs_;
 	file->type_ = type_;
 	file->id_ = id_;
-	///file->cache_ = cache_;
+	file->cache_ = cache_;
+	file->cache_.short_data = nullptr;
 	file->bits_ = bits_;
 	file->time_created_ = time_created_;
 	file->time_modified_ = time_modified_;

@@ -21,7 +21,6 @@ MediaDialog::MediaDialog(App *app): QDialog(app), app_(app)
 
 MediaDialog::~MediaDialog()
 {
-	app_->media()->Save();
 	delete categories_cb_;
 	delete category_items_cb_;
 	delete native_lang_le_;
@@ -44,15 +43,21 @@ void MediaDialog::AddNewItem()
 	
 	media::Field f = GetCurrentCategory();
 	i64 new_id = -1;
-	
+	i64 existing_id = -1;
 	{
 		auto g = media->guard();
-		new_id = media->SetNTS(f, -1, names, media::Action::Append);
-		media->changed_by_myself_ = true;
+		new_id = media->SetNTS(f, -1, names, &existing_id, media::Action::Append);
+		if (new_id != -1) {
+			media->changed_by_myself_ = true;
+		}
 	}
 	
-	media->Save();
-	UpdateCurrentCategoryItems(new_id);
+	if (new_id != -1) {
+		media->Save();
+		UpdateCurrentCategoryItems(new_id);
+	} else {
+		UpdateCurrentCategoryItems(existing_id);
+	}
 }
 
 void MediaDialog::ButtonClicked(QAbstractButton *btn)

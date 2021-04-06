@@ -1227,7 +1227,7 @@ void App::LoadIconsFrom(QString dir_path)
 
 void App::MediaFileChanged()
 {
-	mtl_info("Media file changed");
+	emit media_->Changed();
 }
 
 void App::OpenTerminal() {

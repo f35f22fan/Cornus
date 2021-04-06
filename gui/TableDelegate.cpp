@@ -167,12 +167,15 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 		text = QLatin1String("P");
 	}
 	
-	if (!app_->prefs().mark_extended_attrs_disabled() && file->has_ext_attrs()) {
-		text.append("\u2022");
-	}
-	
 	QBrush brush = option.palette.brush(QPalette::QPalette::PlaceholderText);
 	QPen pen(brush.color());
+	
+	if (!app_->prefs().mark_extended_attrs_disabled() && file->has_ext_attrs()) {
+		text.append("\u2022");
+		if (file->has_media_attrs())
+			pen.setColor(QColor(50, 50, 255));
+	}
+	
 	painter->setPen(pen);
 	painter->drawText(text_rect, text_alignment_, text);
 	

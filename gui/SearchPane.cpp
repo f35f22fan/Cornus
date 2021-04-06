@@ -12,6 +12,7 @@
 
 #include <QBoxLayout>
 #include <QFormLayout>
+#include <QLabel>
 
 namespace cornus::gui {
 
@@ -189,6 +190,8 @@ QWidget* SearchPane::CreateByMediaXattrPane()
 	Media *media = app_->media();
 	if (!media->loaded())
 		cornus::media::Reload(app_);
+	connect(media, &cornus::Media::Changed, [=] { MediaFileWasUpdated(); });
+	
 	{
 		auto g = media->guard();
 		media_items_.actors_cb = CreateCB(media, Field::Actors, fixed_w);
@@ -210,16 +213,27 @@ QWidget* SearchPane::CreateByMediaXattrPane()
 		QBoxLayout *layout = new QBoxLayout(QBoxLayout::LeftToRight);
 		layout->setContentsMargins(0, 0, 0, 0);
 		search_pane->setLayout(layout);
-		media_items_.search_prev = new QPushButton(tr("Previous"));
+		media_items_.search_prev = new QPushButton();
+		media_items_.search_prev->setIcon(QIcon::fromTheme(QLatin1String("go-previous")));
+		media_items_.search_prev->setToolTip(tr("Search backwards"));
 		connect(media_items_.search_prev, &QPushButton::clicked, [=] {
 			ScrollToNext(Direction::Prev);
 		});
-		media_items_.search_next = new QPushButton(tr("Next"));
+		media_items_.search_next = new QPushButton(tr("Search"));
+		media_items_.search_next->setIcon(QIcon::fromTheme(QLatin1String("go-next")));
+		media_items_.search_next->setToolTip(tr("Search forward"));
 		connect(media_items_.search_next, &QPushButton::clicked, [=] {
 			ScrollToNext(Direction::Next);
 		});
 		layout->addWidget(media_items_.search_prev);
 		layout->addWidget(media_items_.search_next);
+		
+		QPushButton *close_btn = new QPushButton();
+		close_btn->setIcon(QIcon::fromTheme(QLatin1String("window-close")));
+		connect(close_btn, &QPushButton::clicked, [=] {
+			ActionHide();
+		});
+		layout->addWidget(close_btn);
 		layout->addStretch(2);
 	}
 	
@@ -345,17 +359,6 @@ void SearchPane::FillInSearchItem(MediaSearch &d)
 	bool ok;
 	i16 year = s.toInt(&ok);
 	d.year = ok ? year : -1;
-	
-//	if (true) {
-//		mtl_info("actor: %d", d.actor);
-//		mtl_info("director: %d", d.director);
-//		mtl_info("writer: %d", d.writer);
-//		mtl_info("genre: %d", d.genre);
-//		mtl_info("subgenre: %d", d.subgenre);
-//		mtl_info("year: %d", d.year);
-//		mtl_info("country: %d", d.country);
-//		mtl_info("video_codec: %d", d.video_codec);
-//	}
 }
 
 bool SearchPane::Matches(io::File *file, const QString *search_str)
@@ -376,6 +379,31 @@ bool SearchPane::Matches(io::File *file, const QString *search_str)
 	}
 	
 	return false;
+}
+
+void ReloadCombo(QComboBox *p, Media *media, const media::Field f)
+{
+	QVariant v = p->currentData();
+	p->clear();
+	media->FillInNTS(p, f, Media::Fill::AddNoneOption);
+	int index = p->findData(v);
+	if (index != -1)
+		p->setCurrentIndex(index);
+}
+
+void SearchPane::MediaFileWasUpdated()
+{
+	Media *media = app_->media();
+	{
+		auto g = media->guard();
+		ReloadCombo(media_items_.actors_cb, media, media::Field::Actors);
+		ReloadCombo(media_items_.directors_cb, media, media::Field::Directors);
+		ReloadCombo(media_items_.writers_cb, media, media::Field::Writers);
+		ReloadCombo(media_items_.genres_cb, media, media::Field::Genres);
+		ReloadCombo(media_items_.subgenres_cb, media, media::Field::Subgenres);
+		ReloadCombo(media_items_.countries_cb, media, media::Field::Countries);
+		ReloadCombo(media_items_.video_codec_cb, media, media::Field::VideoCodec);
+	}
 }
 
 void SearchPane::RequestFocus()
@@ -401,6 +429,10 @@ void SearchPane::ScrollToNext(const Direction dir)
 	if (search_by_ == SearchBy::MediaXAttrs) {
 		MediaSearch now;
 		FillInSearchItem(now);
+		if (now.isEmpty()) {
+			app_->TellUser(tr("No search parameters specified"));
+			return;
+		}
 		if (!Same(now, media_search_)) {
 			DoSearch(nullptr);
 			searched = true;

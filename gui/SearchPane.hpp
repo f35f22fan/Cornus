@@ -22,6 +22,12 @@ struct MediaSearch {
 	i16 year = -1;
 	i16 country = -1;
 	i16 video_codec = -1;
+	bool isEmpty() const
+	{
+		return actor == -1 && director == -1 && writer == -1 &&
+		genre == -1 && subgenre == -1 && year == -1 && country == -1 &&
+		video_codec == -1;
+	}
 };
 
 bool Same(const MediaSearch &a, const MediaSearch &b);
@@ -40,6 +46,7 @@ public:
 	void SetSearchByFileName() { SetMode(SearchBy::FileName); }
 	void SetSearchByMediaXattr() { SetMode(SearchBy::MediaXAttrs); }
 	void TextChanged(const QString &s);
+	void MediaFileWasUpdated();
 	
 protected:
 	virtual bool eventFilter(QObject  *obj, QEvent * event) override;

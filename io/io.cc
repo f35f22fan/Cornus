@@ -79,7 +79,7 @@ media::ShortData* DecodeShort(ByteArray &ba)
 		} else if (f == media::Field::YearEnded) {
 			p->year_end = ba.next_i16();
 		} else {
-			mtl_trace();
+			/// other fields not needed by media::ShortData
 		}
 	}
 	

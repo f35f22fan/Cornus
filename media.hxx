@@ -50,6 +50,11 @@ struct ShortData {
 	i32 magic_number = -1;
 };
 
+enum class Check: i8 {
+	Exists,
+	None,
+};
+
 enum class Action: i8 {
 	Insert,
 	Append

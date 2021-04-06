@@ -237,52 +237,6 @@ Media::GetNTS(const media::Field f, const i64 ID)
 	}
 }
 
-i64 Media::SetNTS(const media::Field f, const i64 ID,
-	const QVector<QString> &names, const media::Action action)
-{
-	const bool append = (action == media::Action::Append);
-	if (!append && (ID == -1))
-	{
-		mtl_trace();
-		return -1;
-	}
-	
-	i64 id = -1;
-	
-	switch (f) {
-	case media::Field::Actors: {
-		id = data_.actors.size();
-		data_.actors.insert(append ? i32(id) : i32(ID), names); break;
-	}
-	case media::Field::Directors: {
-		id = data_.directors.size();
-		data_.directors.insert(append ? i32(id) : i32(ID), names); break;
-	}
-	case media::Field::Writers: {
-		id = data_.writers.size();
-		data_.writers.insert(append ? i32(id) : i32(ID), names); break;
-	}
-	case media::Field::Genres: {
-		id = data_.genres.size();
-		data_.genres.insert(append ? i16(id) : i16(ID), names); break;
-	}
-	case media::Field::Subgenres: {
-		id = data_.subgenres.size();
-		data_.subgenres.insert(append ? i16(id) : i16(ID), names); break;
-	}
-	case media::Field::Countries: {
-		id = data_.countries.size();
-		data_.countries.insert(append ? i16(id) : i16(ID), names); break;
-	}
-	default: {
-		mtl_trace();
-		return -1;
-	}
-	}
-	
-	return append ? id : ID;
-}
-
 void Media::NewMagicNumber()
 {
 	while (data_.magic_number == -1) {
@@ -460,6 +414,111 @@ void Media::Save()
 	
 	QString full_path = prefs::GetMediaFilePath();
 	io::WriteToFile(full_path, ba.data(), ba.size());
+}
+
+i64 Media::SetNTS(const media::Field f, const i64 ID,
+	const QVector<QString> &names, i64 *existing_id, const media::Action action,
+	const media::Check check)
+{
+	const bool append = (action == media::Action::Append);
+	if (!append && (ID == -1))
+	{
+		mtl_trace();
+		return -1;
+	}
+	
+	i64 id = -1;
+	
+	switch (f) {
+	case media::Field::Actors: {
+		if (check == media::Check::Exists) {
+			auto it = data_.actors.constBegin();
+			while (it != data_.actors.constEnd()) {
+				if (it.value() == names) {
+					if (existing_id != nullptr)
+						*existing_id = it.key();
+					return -1;
+				}
+				it++;
+			}
+		}
+		id = data_.actors.size();
+		data_.actors.insert(append ? i32(id) : i32(ID), names); break;
+	}
+	case media::Field::Directors: {
+		if (check == media::Check::Exists) {
+			auto it = data_.directors.constBegin();
+			while (it != data_.directors.constEnd()) {
+				if (it.value() == names) {
+					if (existing_id != nullptr)
+						*existing_id = it.key();
+					return -1;
+				}
+				it++;
+			}
+		}
+		id = data_.directors.size();
+		data_.directors.insert(append ? i32(id) : i32(ID), names); break;
+	}
+	case media::Field::Writers: {
+		auto it = data_.writers.constBegin();
+		while (it != data_.writers.constEnd()) {
+			if (it.value() == names) {
+				if (existing_id != nullptr)
+					*existing_id = it.key();
+				return -1;
+			}
+			it++;
+		}
+		id = data_.writers.size();
+		data_.writers.insert(append ? i32(id) : i32(ID), names); break;
+	}
+	case media::Field::Genres: {
+		auto it = data_.genres.constBegin();
+		while (it != data_.genres.constEnd()) {
+			if (it.value() == names) {
+				if (existing_id != nullptr)
+					*existing_id = it.key();
+				return -1;
+			}
+			it++;
+		}
+		id = data_.genres.size();
+		data_.genres.insert(append ? i16(id) : i16(ID), names); break;
+	}
+	case media::Field::Subgenres: {
+		auto it = data_.subgenres.constBegin();
+		while (it != data_.subgenres.constEnd()) {
+			if (it.value() == names) {
+				if (existing_id != nullptr)
+					*existing_id = it.key();
+				return -1;
+			}
+			it++;
+		}
+		id = data_.subgenres.size();
+		data_.subgenres.insert(append ? i16(id) : i16(ID), names); break;
+	}
+	case media::Field::Countries: {
+		auto it = data_.countries.constBegin();
+		while (it != data_.countries.constEnd()) {
+			if (it.value() == names) {
+				if (existing_id != nullptr)
+					*existing_id = it.key();
+				return -1;
+			}
+			it++;
+		}
+		id = data_.countries.size();
+		data_.countries.insert(append ? i16(id) : i16(ID), names); break;
+	}
+	default: {
+		mtl_trace();
+		return -1;
+	}
+	}
+	
+	return append ? id : ID;
 }
 
 void Media::WriteAny(ByteArray &ba, const QVector<QString> &names)

@@ -314,14 +314,17 @@ void ReadConfigFilesEvent(int inotify_fd, char *buf,
 	if (do_reload_media) {
 		App *app = model->app();
 		Media *media = app->media();
+		bool reload = true;
 		{
 			auto g = media->guard();
 			if (media->changed_by_myself_) {
+				reload = false;
 				media->changed_by_myself_ = false;
-				return;
 			}
 		}
-		cornus::media::Reload(app);
+		if (reload) {
+			cornus::media::Reload(app);
+		}
 		QMetaObject::invokeMethod(app, "MediaFileChanged");
 	}
 	

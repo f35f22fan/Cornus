@@ -66,7 +66,7 @@ public:
 	media::Data data_ = {};
 	bool changed_by_myself_ = false;
 	
-signals:
+Q_SIGNALS:
 	void Changed();
 	
 private:

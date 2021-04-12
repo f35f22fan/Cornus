@@ -180,7 +180,6 @@ Table::ActionPaste()
 	ba->set_msg_id(io_op);
 	QString to_dir = app_->current_dir();
 	ba->add_string(to_dir);
-	ba->add_i32(clipboard.file_paths.size());
 	QString scroll_to_first_one;
 	for (const auto &next: clipboard.file_paths) {
 		if (scroll_to_first_one.isEmpty()) {
@@ -470,7 +469,6 @@ Table::FinishDropOperation(QVector<io::File*> *files_vec,
 	auto *ba = new ByteArray();
 	ba->set_msg_id(io_operation);
 	ba->add_string(to_dir->build_full_path());
-	ba->add_i32(files_vec->size());
 	
 	for (io::File *next: *files_vec) {
 		ba->add_string(next->build_full_path());

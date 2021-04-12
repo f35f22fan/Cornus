@@ -364,24 +364,19 @@ TableModel::~TableModel() {}
 
 void TableModel::DeleteSelectedFiles()
 {
-	QVector<io::File*> delete_files;
+	ByteArray *ba = new ByteArray();
+	ba->set_msg_id(io::socket::MsgBits::DeleteFiles);
 	{
 		io::Files &files = app_->view_files();
 		MutexGuard guard(&files.mutex);
 		
 		for (io::File *next: files.data.vec) {
-			if (next->selected()) {
-				io::File *cloned = next->Clone();
-				cloned->files_ = nullptr;
-				cloned->dir_path(files.data.processed_dir_path);
-				delete_files.append(cloned);
-			}
+			if (next->selected())
+				ba->add_string(next->build_full_path());
 		}
 	}
-	for (io::File *file: delete_files) {
-		io::Delete(file);
-		delete file;
-	}
+	
+	io::socket::SendAsync(ba);
 }
 
 QModelIndex
@@ -732,7 +727,7 @@ void TableModel::UpdateRange(int row1, Column c1, int row2, Column c2)
 	
 	const QModelIndex top_left = createIndex(first, int(c1));
 	const QModelIndex bottom_right = createIndex(last, int(c2));
-	emit dataChanged(top_left, bottom_right, {Qt::DisplayRole});
+	Q_EMIT dataChanged(top_left, bottom_right, {Qt::DisplayRole});
 }
 
 void TableModel::UpdateVisibleArea()

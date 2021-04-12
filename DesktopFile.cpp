@@ -292,9 +292,13 @@ void Group::WriteTo(ByteArray &ba)
 DesktopFile::DesktopFile() {}
 
 DesktopFile::~DesktopFile() {
-	foreach (auto *next, groups_) {
-		delete next;
+	
+	auto it = groups_.constBegin();
+	while (it != groups_.constEnd()) {
+		delete it.value();
+		it++;
 	}
+	
 	groups_.clear();
 }
 
@@ -466,8 +470,7 @@ bool DesktopFile::Init(const QString &full_path,
 	name_ = ref.mid(0, index).toString();
 	
 	ByteArray ba;
-	if (io::ReadFile(full_path, ba) != io::Err::Ok)
-		return false;
+	CHECK_TRUE(io::ReadFile(full_path, ba));
 	
 	QString text = QString::fromLocal8Bit(ba.data(), ba.size());
 	QVector<QStringRef> list = text.splitRef('\n', Qt::SkipEmptyParts);
@@ -542,8 +545,10 @@ bool DesktopFile::Reload()
 	name_.clear();
 	id_cached_.clear();
 	
-	foreach (auto *next, groups_) {
-		delete next;
+	auto it = groups_.constBegin();
+	while (it != groups_.constEnd()) {
+		delete it.value();
+		it++;
 	}
 	groups_.clear();
 	

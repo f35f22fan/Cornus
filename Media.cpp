@@ -14,12 +14,7 @@ namespace media {
 void Reload(App *app)
 {
 	ByteArray ba;
-	
-	if (io::ReadFile(prefs::GetMediaFilePath(), ba) != io::Err::Ok) {
-		mtl_trace();
-		return;
-	}
-	
+	CHECK_TRUE_VOID(io::ReadFile(prefs::GetMediaFilePath(), ba));
 	Media *media = app->media();
 	{
 		auto guard = media->guard();
@@ -361,8 +356,11 @@ void Media::Save()
 		{
 			ba.add_u8((u8)media::Field::Actors);
 			ba.add_i32(data_.actors.size());
-			foreach (auto &v, data_.actors) {
-				WriteAny(ba, v);
+			auto it = data_.actors.constBegin();
+			while (it != data_.actors.constEnd())
+			{
+				WriteAny(ba, it.value());
+				it++;
 			}
 		}
 		
@@ -370,8 +368,11 @@ void Media::Save()
 		{
 			ba.add_u8((u8)media::Field::Directors);
 			ba.add_i32(data_.directors.size());
-			foreach (auto &v, data_.directors) {
-				WriteAny(ba, v);
+			auto it = data_.directors.constBegin();
+			while (it != data_.directors.constEnd())
+			{
+				WriteAny(ba, it.value());
+				it++;
 			}
 		}
 		
@@ -379,8 +380,11 @@ void Media::Save()
 		{
 			ba.add_u8((u8)media::Field::Writers);
 			ba.add_i32(data_.writers.size());
-			foreach (auto &v, data_.writers) {
-				WriteAny(ba, v);
+			auto it = data_.writers.constBegin();
+			while (it != data_.writers.constEnd())
+			{
+				WriteAny(ba, it.value());
+				it++;
 			}
 		}
 		
@@ -388,8 +392,11 @@ void Media::Save()
 		{
 			ba.add_u8((u8)media::Field::Genres);
 			ba.add_i32(data_.genres.size());
-			foreach (auto &v, data_.genres) {
-				WriteAny(ba, v);
+			auto it = data_.genres.constBegin();
+			while (it != data_.genres.constEnd())
+			{
+				WriteAny(ba, it.value());
+				it++;
 			}
 		}
 		
@@ -397,8 +404,11 @@ void Media::Save()
 		{
 			ba.add_u8((u8)media::Field::Subgenres);
 			ba.add_i32(data_.subgenres.size());
-			foreach (auto &v, data_.subgenres) {
-				WriteAny(ba, v);
+			auto it = data_.subgenres.constBegin();
+			while (it != data_.subgenres.constEnd())
+			{
+				WriteAny(ba, it.value());
+				it++;
 			}
 		}
 		
@@ -406,8 +416,11 @@ void Media::Save()
 		{
 			ba.add_u8((u8)media::Field::Countries);
 			ba.add_i32(data_.countries.size());
-			foreach (auto &v, data_.countries) {
-				WriteAny(ba, v);
+			auto it = data_.countries.constBegin();
+			while (it != data_.countries.constEnd())
+			{
+				WriteAny(ba, it.value());
+				it++;
 			}
 		}
 	}

@@ -2,6 +2,7 @@ extern "C" {
 /// This has to be the first include otherwise
 /// gdbusintrospection.h causes an error.
 	#include <dconf.h>
+///	#include <udisks/udisks.h>
 }
 #include <chrono>
 #include <fcntl.h>
@@ -29,6 +30,7 @@ extern "C" {
 #include "gui/Location.hpp"
 #include "gui/SearchPane.hpp"
 #include "gui/SidePane.hpp"
+#include "gui/sidepane.hh"
 #include "gui/SidePaneItem.hpp"
 #include "gui/SidePaneModel.hpp"
 #include "gui/Table.hpp"
@@ -66,9 +68,9 @@ extern "C" {
 #include <QStandardPaths>
 #include <QUrl>
 
-#include <QtDBus/QtDBus>
+#include <glib.h>
 
-#include <udisks/udisks.h>
+#include <QtDBus/QtDBus>
 
 namespace cornus {
 
@@ -280,7 +282,7 @@ App::App()
 	ClipboardChanged(QClipboard::Clipboard);
 	DetectThemeType();
 	
-	//UdisksFunc();
+	UdisksFunc();
 }
 
 App::~App()
@@ -312,6 +314,7 @@ App::~App()
 	history_ = nullptr;
 	delete media_;
 	media_ = nullptr;
+	g_object_unref(monitor_);
 }
 
 void App::ArchiveAskDestArchivePath(const QString &ext)
@@ -918,12 +921,12 @@ QString App::GetPartitionFreeSpace()
 	const i64 free_space = stv.f_bfree * stv.f_bsize;
 	const int percent_free = double(free_space) / double(total_space) * 100;
 	
-	QString s = tr("Free ");
-	s += QString::number(percent_free);
-	s += tr("% ");
+	QString s = QString::number(percent_free);
+	s += tr("% free (");
 	s += io::SizeToString(free_space, true);
-	s += '/';
+	s += tr(" of ");
 	s += io::SizeToString(total_space, true);
+	s += ')';
 	
 	cached_result = s;
 	
@@ -1227,7 +1230,7 @@ void App::LoadIconsFrom(QString dir_path)
 
 void App::MediaFileChanged()
 {
-	emit media_->Changed();
+	Q_EMIT media_->Changed();
 }
 
 void App::OpenTerminal() {
@@ -1275,11 +1278,9 @@ void App::ProcessAndWriteTo(const QString ext,
 	
 	ByteArray buf;
 	mode_t mode;
-	if (io::ReadFile(from_full_path, buf, -1, &mode) != io::Err::Ok)
-		return;
+	CHECK_TRUE_VOID(io::ReadFile(from_full_path, buf, -1, &mode));
 	
 	QString contents = QString::fromLocal8Bit(buf.data(), buf.size());
-	
 	int ln_index = contents.indexOf('\n');
 	if (ln_index == -1)
 		return;
@@ -1839,27 +1840,58 @@ void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 	}
 }
 
-void AsyncFunc(GObject *source_object,
+/** void GetClientAsync(GObject *source_object,
 	GAsyncResult *res, gpointer user_data)
 {
-	char *msg = (char*) user_data;
-	mtl_info("In Async func: %s", msg);
-	
+	App *app = (App*) user_data;
 	UDisksClient *client = udisks_client_new_finish(res, NULL);
-	if (client == NULL) {
-		mtl_info("Client is null");
-		return;
-	}
-	mtl_info("Client is not null");
+	CHECK_PTR_VOID(client);
+	app->udisks_client(client);
+	
+	/// Do not free, the UDisksManager instance is owned by client:
+	UDisksManager *disks_manager_ = udisks_client_get_manager(client);
+	Q_UNUSED(disks_manager_);
+	Q_UNUSED(app);
+	\
+///  g_variant_new: expected GVariant of type 'a{sv}' but
+/// received value has type 'b'
+	GVariant *v = g_variant_new_boolean(1);
+	udisks_manager_call_get_block_devices(disks_manager_, v,
+		g_cancellable_new(), GetBlockDevicesAsync, (gpointer)app);
+	
+	
+	
+//	GList *list = udisks_client_get_partitions(client, nullptr);
+//	if (list == nullptr) {
+//		mtl_info("Nullptr");
+//	} else {
+//		mtl_info("here");
+//		GList *orig = list;
+//		while (!list) {
+//			mtl_info("Next partition");
+//			UDisksPartition *p = (UDisksPartition*)list->data;
+//			Q_UNUSED(p);
+//			GList *prev = list;
+//			list = list->next;
+//			g_object_unref(prev);
+//		}
+//		g_list_free(orig);
+//	}
+	
+	
 	g_object_unref(client);
-}
+} **/
 
 void App::UdisksFunc()
 {
-	GCancellable *cancellable = g_cancellable_new ();
-	GAsyncReadyCallback callback = AsyncFunc;
-	gpointer user_data = (void*) "Hello world";
-	udisks_client_new (cancellable, callback, user_data);
+	monitor_ = g_volume_monitor_get();
+	
+	g_signal_connect(monitor_, "mount-added",
+		G_CALLBACK(gui::sidepane::VolumeMounted), (gpointer)this);
+	g_signal_connect(monitor_, "mount-changed",
+		G_CALLBACK(gui::sidepane::MountChanged), (gpointer)this);
+	g_signal_connect(monitor_, "mount-removed",
+		G_CALLBACK(gui::sidepane::VolumeUnmounted), (gpointer)this);
 }
 
 bool App::ViewIsAt(const QString &dir_path) const

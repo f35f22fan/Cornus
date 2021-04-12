@@ -1,5 +1,10 @@
 #pragma once
 
+//extern "C" {
+//#include <udisks/udisks.h>
+//#include <glib.h>
+//}
+
 #include "decl.hxx"
 #include "../decl.hxx"
 #include "../err.hpp"
@@ -23,7 +28,6 @@ struct Item {
 };
 
 void* LoadItems(void *args);
-QString ReadMountedPartitionFS(const QString &dev_path);
 } // sidepane::
 
 struct UpdateSidePaneArgs {
@@ -98,7 +102,7 @@ public:
 		UpdateRange(row_start, row_end);
 	}
 	
-public slots:
+public Q_SLOTS:
 	void InsertFromAnotherThread(cornus::gui::InsertArgs args);
 	void PartitionsChanged();
 	void PartitionAdded(const int index, SidePaneItem *p);

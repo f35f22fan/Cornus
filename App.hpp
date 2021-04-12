@@ -84,7 +84,7 @@ public:
 	io::Files& view_files() { return view_files_; }
 	bool ViewIsAt(const QString &dir_path) const;
 	
-public slots:
+public Q_SLOTS:
 	void GoToFinish(cornus::io::FilesData *new_data);
 	void MediaFileChanged();
 	
@@ -116,6 +116,8 @@ private:
 	void SetupIconNames();
 	void ShutdownLastInotifyThread();
 	void UdisksFunc();
+	
+	GVolumeMonitor *monitor_ = nullptr;
 	
 	gui::Table *table_ = nullptr; // owned by QMainWindow
 	gui::TableModel *table_model_ = nullptr; // owned by table_

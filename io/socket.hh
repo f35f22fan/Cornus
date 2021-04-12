@@ -24,6 +24,7 @@ enum class MsgBits: MsgType {
 	SendAllDesktopFiles,
 	CopyToClipboard,
 	CutToClipboard,
+	DeleteFiles,
 	
 	Copy = 1u << 29, // copies files
 	DontTryAtomicMove = 1u << 30, // moves with rename()

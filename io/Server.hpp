@@ -37,7 +37,7 @@ public:
 	const QHash<QString, Category>& possible_categories() const { return possible_categories_; }
 	gui::TasksWin* tasks_win() const { return tasks_win_; }
 	
-public slots:
+public Q_SLOTS:
 	void CutURLsToClipboard(ByteArray *ba);
 	void CopyURLsToClipboard(ByteArray *ba);
 	void LoadDesktopFiles();

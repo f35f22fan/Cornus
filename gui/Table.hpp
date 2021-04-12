@@ -56,7 +56,8 @@ public:
 	void ShowVisibleColumnOptions(QPoint pos);
 	void SyncWith(const cornus::Clipboard &cl, QVector<int> &indices);
 	virtual void UpdateColumnSizes() override { SetCustomResizePolicy(); }
-public slots:
+
+public Q_SLOTS:
 	bool ScrollToAndSelect(QString full_path);
 	
 protected:

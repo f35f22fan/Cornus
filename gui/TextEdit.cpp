@@ -52,14 +52,10 @@ bool TextEdit::Display(io::File *cloned_file)
 		return false;
 	}
 	
-	ByteArray buf;
 	const i64 MAX = 1024 * 1024; // 1 MiB
 	full_path_ = cloned_file->build_full_path();
-	
-	if (io::ReadFile(full_path_, buf, MAX) != io::Err::Ok) {
-		mtl_warn("Read %ld bytes", buf.size());
-		return false;
-	}
+	ByteArray buf;
+	CHECK_TRUE(io::ReadFile(full_path_, buf, MAX));
 	
 	hilite_mode_ = GetHiliteMode(buf, cloned_file);
 	hiliter_->SwitchTo(hilite_mode_);

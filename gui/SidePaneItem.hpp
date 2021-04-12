@@ -3,6 +3,8 @@
 #include "../io/decl.hxx"
 #include "../err.hpp"
 
+#include <udisks/udisks.h>
+
 #include<QString>
 
 namespace cornus::gui {
@@ -26,6 +28,8 @@ public:
 	void Init();
 	
 	static SidePaneItem* NewBookmark(io::File &file);
+	static SidePaneItem* NewPartition(GVolume *vol);
+	static SidePaneItem* NewPartitionFromDevPath(const QString &dev_path);
 	
 	const QString& bookmark_name() const { return bookmark_name_; }
 	void bookmark_name(const QString &s) { bookmark_name_ = s; }

@@ -14,7 +14,7 @@ public:
 	static void hupSignalHandler(int unused);
 	static void termSignalHandler(int unused);
 	
-public slots:
+public Q_SLOTS:
 	// Qt signal handlers.
 	void handleSigHup();
 	void handleSigTerm();

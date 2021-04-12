@@ -199,7 +199,7 @@ QString ByteArray::next_string()
 	return s;
 }
 
-bool ByteArray::Receive(int fd, bool close_socket)
+bool ByteArray::Receive(int fd,  const CloseSocket close_socket)
 {
 	isize total_bytes;
 	if (read(fd, (char*)&total_bytes, sizeof(total_bytes)) != sizeof(total_bytes))
@@ -225,7 +225,7 @@ bool ByteArray::Receive(int fd, bool close_socket)
 	
 	at_ = 0;
 	
-	if (close_socket) {
+	if (close_socket == CloseSocket::Yes) {
 		int status = ::close(fd);
 		if (status != 0)
 			mtl_status(errno);

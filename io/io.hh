@@ -250,7 +250,7 @@ QString PasteRelativeLinks(const QVector<QString> &full_paths, QString target_di
 void
 ProcessMime(QString &mime);
 
-Err ReadFile(const QString &full_path, cornus::ByteArray &buffer,
+bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	const i64 read_max = -1, mode_t *ret_mode = nullptr);
 
 bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_dir);

@@ -120,7 +120,7 @@ OpenOrderModel::UpdateRowRange(int row1, int row2)
 	}
 	const QModelIndex top_left = createIndex(first, 0);
 	const QModelIndex bottom_right = createIndex(last, 0);
-	emit dataChanged(top_left, bottom_right, {Qt::DisplayRole});
+	Q_EMIT dataChanged(top_left, bottom_right, {Qt::DisplayRole});
 }
 
 void

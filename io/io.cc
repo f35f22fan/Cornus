@@ -1192,24 +1192,27 @@ bool ReadLinkSimple(const char *file_path, QString &result)
 	return true;
 }
 
-io::Err ReadFile(const QString &full_path, cornus::ByteArray &buffer,
+bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	const i64 read_max, mode_t *ret_mode)
 {
-	// This function follows links, it makes no sense not to
-	// because I already show the link target in the table view.
-	struct stat st;
+	/// This function must follow links.
+	struct statx stx;
 	auto path = full_path.toLocal8Bit();
+	const auto flags = 0;///AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_MODE | STATX_SIZE;
 	
-	if (stat(path.data(), &st) != 0)
-		return MapPosixError(errno);
+	if (statx(0, path.data(), flags, fields, &stx) != 0) {
+		mtl_warn("statx(): %s: \"%s\"", strerror(errno), path.data());
+		return false;///MapPosixError(errno);
+	}
 	
 	if (ret_mode != nullptr)
-		*ret_mode = st.st_mode;
+		*ret_mode = stx.stx_mode;
 	
 	const int fd = open(path.data(), O_RDONLY);
 	
 	if (fd == -1)
-		return MapPosixError(errno);
+		return false;///MapPosixError(errno);
 	
 	isize so_far = 0;
 	const isize chunk_size = (read_max == -1 || read_max > 4096) ? 4096 : read_max;
@@ -1223,13 +1226,11 @@ io::Err ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 			if (errno == EAGAIN)
 				continue;
 			buffer.size(so_far);
-			io::Err e = MapPosixError(errno);
 			mtl_warn("ReadFile: %s", strerror(errno));
 			close(fd);
-			return e;
+			return false;
 		} else if (count == 0) {
-			// zero indicates the end of file, happens with
-			// virtual kernel generated files.
+			/// Zero indicates the end of file, happens with sysfs files.
 			break;
 		}
 		
@@ -1243,8 +1244,9 @@ io::Err ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	
 	close(fd);
 	buffer.to(0);
-	buffer.size(so_far); // needed for buffer.toString()
-	return Err::Ok;
+	buffer.size(so_far); /// needed for buffer.toString()
+	
+	return true;
 }
 
 void ReadPartitionInfo(const QString &dev_path, i64 &size, QString &size_str)
@@ -1276,7 +1278,7 @@ void ReadPartitionInfo(const QString &dev_path, i64 &size, QString &size_str)
 	QString size_path = full_path + QLatin1String("/size");
 	
 	ByteArray buf;
-	CHECK_TRUE_VOID((io::ReadFile(size_path, buf) == io::Err::Ok));
+	CHECK_TRUE_VOID(io::ReadFile(size_path, buf));
 	QString s = buf.toString();
 //	mtl_info("buf size: %ld, heap_size: %ld, str: %s",
 //		buf.size(), buf.heap_size(), qPrintable(s));

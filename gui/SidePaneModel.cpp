@@ -10,6 +10,7 @@
 #include "../MutexGuard.hpp"
 #include "../prefs.hh"
 #include "../Prefs.hpp"
+#include "sidepane.hh"
 #include "SidePane.hpp"
 #include "SidePaneItem.hpp"
 #include "../SidePaneItems.hpp"
@@ -28,103 +29,11 @@ namespace cornus::gui {
 namespace sidepane {
 const size_t kInotifyEventBufLen = 8 * (sizeof(struct inotify_event) + 16);
 
-static bool SortSidePanes(SidePaneItem *a, SidePaneItem *b) 
-{
-/** Note: this function MUST be implemented with strict weak ordering
-  otherwise it randomly crashes (because of undefined behavior),
-  more info here:
- https://stackoverflow.com/questions/979759/operator-and-strict-weak-ordering/981299#981299 */
-	
-	if (a->is_partition()) {
-		if (!b->is_partition())
-			return true;
-	} else if (b->is_partition())
-		return false;
-	
-	const int i = io::CompareStrings(a->dev_path(), b->dev_path());
-	return (i >= 0) ? false : true;
-}
-
-int FindPlace(SidePaneItem *new_item, QVector<SidePaneItem*> &vec)
-{
-	for (int i = vec.size() - 1; i >= 0; i--) {
-		SidePaneItem *next = vec[i];
-		if (!SortSidePanes(new_item, next)) {
-			return i + 1;
-		}
-	}
-	
-	return 0;
-}
-
-static void ReadMountedPartitions(QVector<sidepane::Item> &v)
-{
-	ByteArray buf;
-	if (io::ReadFile(QLatin1String("/proc/mounts"), buf) != io::Err::Ok)
-		return;
-	
-	QString s = buf.toString();
-	auto list = s.splitRef('\n');
-	const QString dev_nvme = QLatin1String("/dev/nvme");
-	const QString dev_sd = QLatin1String("/dev/sd");
-	
-	for (auto &line: list)
-	{
-		if (line.startsWith(dev_nvme) || line.startsWith(dev_sd))
-		{
-			auto args = line.split(' ');
-			sidepane::Item item;
-			item.dev_path = args[0].toString();
-			item.mount_point = args[1].toString();
-			item.fs = args[2].toString();
-			v.append(item);
-		}
-	}
-}
-
-static void MarkMountedPartitions(QVector<SidePaneItem*> &vec)
-{
-	QVector<sidepane::Item> mounted_vec;
-	ReadMountedPartitions(mounted_vec);
-	
-	for (SidePaneItem *item: vec)
-	{
-		if (!item->is_partition())
-			continue;
-		bool found = false;
-		for (int row = 0; row < mounted_vec.size(); row++)
-		{
-			sidepane::Item &mounted = mounted_vec[row];
-			if (mounted.dev_path == item->dev_path())
-			{
-				found = true;
-				if (!item->mounted()) {
-					item->mounted(true);
-					item->mount_path(mounted.mount_point);
-					item->fs(mounted.fs);
-					item->mount_changed(true);
-///					mtl_info("Made mounted %s", qPrintable(item->dev_path()));
-				}
-				mounted_vec.remove(row);
-				break;
-			}
-		}
-		
-		if (!found && item->mounted()) {
-			item->mounted(false);
-			item->mount_changed(true);
-///			mtl_info("Made unmounted %s", qPrintable(item->dev_path()));
-		}
-	}
-}
-
 static bool LoadBookmarks(QVector<SidePaneItem*> &vec)
 {
 	const QString full_path = prefs::GetBookmarksFilePath();
-	
 	ByteArray buf;
-	if (io::ReadFile(full_path, buf) != io::Err::Ok)
-		return false;
+	CHECK_TRUE(io::ReadFile(full_path, buf));
 	
 	if (!buf.has_more())
 		return false;
@@ -144,52 +53,6 @@ static bool LoadBookmarks(QVector<SidePaneItem*> &vec)
 	return true;
 }
 
-void LoadDrivePartition(const QString &name, QVector<SidePaneItem*> &vec)
-{
-	const QString dev_path = QLatin1String("/dev/") + name;
-	SidePaneItem *p = new SidePaneItem();
-	p->dev_path(dev_path);
-	p->set_partition();
-	p->mounted(false);
-	p->Init();
-	const auto _32MiB = 32 * 1024 * 1024;
-	if (p->size() < _32MiB) {
-		delete p;
-	} else {
-		vec.append(p);
-	}
-}
-
-static void LoadDrivePartitions(QString drive_dir,
-	const QString &drive_name, QVector<SidePaneItem*> &vec)
-{
-	if (!drive_dir.endsWith('/'))
-		drive_dir.append('/');
-	
-	QVector<QString> names;
-	
-	CHECK_TRUE_VOID((io::ListFileNames(drive_dir, names, io::sd_nvme) == io::Err::Ok));
-	
-	for (const QString &filename: names) {
-		LoadDrivePartition(filename, vec);
-	}
-	
-	if (names.isEmpty())
-		LoadDrivePartition(drive_name, vec);
-	
-	std::sort(vec.begin(), vec.end(), SortSidePanes);
-}
-
-static void LoadAllPartitions(QVector<SidePaneItem*> &vec)
-{
-	QVector<QString> drive_names;
-	const QString dir = QLatin1String("/sys/block/");
-	CHECK_TRUE_VOID((io::ListFileNames(dir, drive_names, io::sd_nvme) == io::Err::Ok));
-	for (const QString &drive_name: drive_names) {
-		LoadDrivePartitions(dir + drive_name, drive_name, vec);
-	}
-}
-
 void* LoadItems(void *args)
 {
 	pthread_detach(pthread_self());
@@ -199,7 +62,7 @@ void* LoadItems(void *args)
 #endif
 	cornus::App *app = (cornus::App*) args;
 	InsertArgs method_args;
-	LoadAllPartitions(method_args.vec);
+	LoadAllVolumes(method_args.vec);
 #ifdef CORNUS_PRINT_PARTITIONS_LOAD_TIME
 	const i64 mc = timer.elapsed_mc();
 	mtl_info("Directly: %ldmc", mc);
@@ -254,10 +117,10 @@ void ComparePartitions(SidePaneModel *model, SidePaneItems &items,
 			SidePaneItem *new_item = shallow_item->Clone();
 			int insert_at = FindPlace(new_item, vec);
 			const bool destroyed = items.sidepane_model_destroyed;
+			items.Unlock();
 			if (destroyed) {
 				return;
 			}
-			items.Unlock();
 			QMetaObject::invokeMethod(model, "PartitionAdded",
 				Qt::BlockingQueuedConnection,
 				Q_ARG(const int, insert_at), Q_ARG(SidePaneItem*, new_item));
@@ -366,7 +229,7 @@ void* MonitorBookmarksAndPartitions(void *void_args)
 	pthread_detach(pthread_self());
 	
 	SidePaneModel *model = (SidePaneModel*)void_args;
-	SidePaneItems &items = model->app()->side_pane_items();
+	///SidePaneItems &items = model->app()->side_pane_items();
 	io::Notify &notify = model->notify();
 	
 	char *buf = new char[kInotifyEventBufLen];
@@ -394,7 +257,7 @@ void* MonitorBookmarksAndPartitions(void *void_args)
 	}
 	
 	struct epoll_event poll_event;
-	const int seconds = 2;
+	const int seconds = 1;
 	
 	while (true)
 	{
@@ -402,6 +265,7 @@ void* MonitorBookmarksAndPartitions(void *void_args)
 		ElapsedTimer timer;
 		timer.Continue();
 #endif
+		/**
 		QVector<SidePaneItem*> new_items;
 		LoadAllPartitions(new_items);
 		bool repaint = false;
@@ -431,7 +295,7 @@ void* MonitorBookmarksAndPartitions(void *void_args)
 #endif
 		if (repaint) {
 			QMetaObject::invokeMethod(model, "PartitionsChanged");
-		}
+		} **/
 		
 		if (wd != -1) {
 			int event_count = epoll_wait(epfd, &poll_event, 1, seconds * 1000);
@@ -469,14 +333,11 @@ SidePaneModel::SidePaneModel(cornus::App *app): app_(app)
 SidePaneModel::~SidePaneModel()
 {}
 
-QModelIndex
-SidePaneModel::index(int row, int column, const QModelIndex &parent) const
+QModelIndex SidePaneModel::index(int row, int column, const QModelIndex &parent) const
 {
 	return createIndex(row, column);
 }
-
-QVariant
-SidePaneModel::data(const QModelIndex &index, int role) const
+QVariant SidePaneModel::data(const QModelIndex &index, int role) const
 {
 	if (index.column() != 0) {
 		mtl_trace();
@@ -529,9 +390,7 @@ SidePaneModel::data(const QModelIndex &index, int role) const
 	}
 	return {};
 }
-
-void
-SidePaneModel::DeleteSelectedBookmarks()
+void SidePaneModel::DeleteSelectedBookmarks()
 {
 	int count = table_->GetSelectedBookmarkCount();
 	
@@ -556,9 +415,7 @@ SidePaneModel::DeleteSelectedBookmarks()
 	UpdateVisibleArea();
 	app_->SaveBookmarks();
 }
-
-void
-SidePaneModel::FinishDropOperation(QVector<io::File*> *files_vec, const int row)
+void SidePaneModel::FinishDropOperation(QVector<io::File*> *files_vec, const int row)
 {
 	auto &items = app_->side_pane_items();
 	AutoDeleteVecP advp(files_vec);
@@ -621,9 +478,7 @@ SidePaneModel::FinishDropOperation(QVector<io::File*> *files_vec, const int row)
 	
 	app_->SaveBookmarks();
 }
-
-QVariant
-SidePaneModel::headerData(int section_i, Qt::Orientation orientation, int role) const
+QVariant SidePaneModel::headerData(int section_i, Qt::Orientation orientation, int role) const
 {
 	if (role == Qt::DisplayRole)
 	{
@@ -690,8 +545,7 @@ void SidePaneModel::PartitionsChanged()
 	UpdateVisibleArea();
 }
 
-void
-SidePaneModel::InsertFromAnotherThread(cornus::gui::InsertArgs args)
+void SidePaneModel::InsertFromAnotherThread(cornus::gui::InsertArgs args)
 {
 	static bool set_size = true;
 	
@@ -728,9 +582,7 @@ SidePaneModel::InsertFromAnotherThread(cornus::gui::InsertArgs args)
 			mtl_status(status);
 	}
 }
-
-bool
-SidePaneModel::InsertRows(const i32 at, const QVector<gui::SidePaneItem*> &items_to_add)
+bool SidePaneModel::InsertRows(const i32 at, const QVector<gui::SidePaneItem*> &items_to_add)
 {
 	{
 		SidePaneItems &items = app_->side_pane_items();
@@ -757,9 +609,7 @@ SidePaneModel::InsertRows(const i32 at, const QVector<gui::SidePaneItem*> &items
 	endInsertRows();
 	return true;
 }
-
-void
-SidePaneModel::MoveBookmarks(QStringList str_list, const QPoint &pos)
+void SidePaneModel::MoveBookmarks(QStringList str_list, const QPoint &pos)
 {
 	if (str_list.isEmpty())
 		return;
@@ -806,9 +656,7 @@ SidePaneModel::MoveBookmarks(QStringList str_list, const QPoint &pos)
 	UpdateVisibleArea();
 	app_->SaveBookmarks();
 }
-
-bool
-SidePaneModel::removeRows(int row, int count, const QModelIndex &parent)
+bool SidePaneModel::removeRows(int row, int count, const QModelIndex &parent)
 {
 	if (count <= 0)
 		return false;
@@ -832,9 +680,7 @@ SidePaneModel::removeRows(int row, int count, const QModelIndex &parent)
 	endRemoveRows();
 	return true;
 }
-
-void
-SidePaneModel::SetBookmarks(QVector<SidePaneItem*> new_items)
+void SidePaneModel::SetBookmarks(QVector<SidePaneItem*> new_items)
 {
 	auto &items = app_->side_pane_items();
 	int old_bookmark_count = 0;
@@ -870,7 +716,6 @@ SidePaneModel::SetBookmarks(QVector<SidePaneItem*> new_items)
 	}
 	endInsertRows();
 }
-
 void SidePaneModel::UpdateIndices(const QVector<int> indices)
 {
 	int min = -1, max = -1;
@@ -897,9 +742,7 @@ void SidePaneModel::UpdateIndices(const QVector<int> indices)
 		UpdateRowRange(min, max);
 	}
 }
-
-void
-SidePaneModel::UpdateRange(int row1, int row2)
+void SidePaneModel::UpdateRange(int row1, int row2)
 {
 	int first, last;
 	
@@ -912,11 +755,9 @@ SidePaneModel::UpdateRange(int row1, int row2)
 	}
 	const QModelIndex top_left = createIndex(first, 0);
 	const QModelIndex bottom_right = createIndex(last, 0);
-	emit dataChanged(top_left, bottom_right, {Qt::DisplayRole});
+	Q_EMIT dataChanged(top_left, bottom_right, {Qt::DisplayRole});
 }
-
-void
-SidePaneModel::UpdateVisibleArea() {
+void SidePaneModel::UpdateVisibleArea() {
 	QScrollBar *vs = table_->verticalScrollBar();
 	int row_start = table_->rowAt(vs->value());
 	int row_count = table_->rowAt(table_->height());

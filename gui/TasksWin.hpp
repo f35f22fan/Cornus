@@ -22,7 +22,7 @@ public:
 	
 	void TaskDone(TaskGui *tg, const io::TaskState state);
 	
-public slots:
+public Q_SLOTS:
 	void add(cornus::io::Task *task);
 	
 private:

@@ -381,11 +381,12 @@ Task* Task::From(cornus::ByteArray &ba)
 {
 	auto *task = new Task();
 	task->ops_ = ba.next_u32();
-	task->ops_ &= (7u << 29);
-	task->to_dir_path_ = ba.next_string();
-	const i32 count = ba.next_i32();
 	
-	for (int i = 0; i < count; i++) {
+	if (task->ops_ != (socket::MsgType)io::socket::MsgBits::DeleteFiles) {
+		task->to_dir_path_ = ba.next_string();
+	}
+	
+	while(ba.has_more()) {
 		task->file_paths_.append(ba.next_string());
 	}
 	
@@ -415,7 +416,9 @@ void Task::StartIO()
 	using io::socket::MsgType;
 	using io::socket::MsgBits;
 	
-	if (ops_ & (MsgType)MsgBits::Copy) {
+	if (ops_ & (MsgType)MsgBits::DeleteFiles) {
+		DeleteFiles();
+	} else if (ops_ & (MsgType)MsgBits::Copy) {
 #ifdef DEBUG_EXEC_PATH
 mtl_info("Copy");
 #endif

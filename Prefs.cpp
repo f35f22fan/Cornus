@@ -66,10 +66,8 @@ void Prefs::Load()
 {
 	const QString full_path = prefs::QueryAppConfigPath() + '/'
 		+ prefs::PrefsFileName + QString::number(prefs::PrefsFormatVersion);
-	
 	ByteArray buf;
-	if (io::ReadFile(full_path, buf) != io::Err::Ok)
-		return;
+	CHECK_TRUE_VOID(io::ReadFile(full_path, buf));
 	
 	u16 version = buf.next_u16();
 	CHECK_TRUE_VOID((version == prefs::PrefsFormatVersion));

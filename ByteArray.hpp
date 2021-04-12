@@ -9,6 +9,11 @@
 
 namespace cornus {
 
+enum class CloseSocket: i8 {
+	Yes,
+	No,
+};
+
 class ByteArray {
 public:
 	ByteArray();
@@ -57,7 +62,7 @@ public:
 	void size(isize n) { size_ = n; } // called from inside io::ReadFile(..);
 	void make_sure(const isize more_bytes, const bool exact_size = false);
 	inline void to(isize n) { at_ = n; }
-	bool Receive(int fd, bool close_socket = true);
+	bool Receive(int fd, const CloseSocket cs = CloseSocket::Yes);
 	bool Send(int fd, bool close_socket = true) const;
 	void set_msg_id(const io::socket::MsgBits msg_id);
 	QString toString() const { return QString::fromLocal8Bit(data_, size_); }

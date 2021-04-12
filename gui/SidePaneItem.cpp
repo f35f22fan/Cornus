@@ -6,6 +6,9 @@
 
 namespace cornus::gui {
 
+static const QString dev_sd = QLatin1String("/dev/sd");
+static const QString dev_nvm = QLatin1String("/dev/nvm");
+
 SidePaneItem*
 SidePaneItem::NewBookmark(io::File &file)
 {
@@ -15,6 +18,44 @@ SidePaneItem::NewBookmark(io::File &file)
 		: file.dir_path());
 	p->bookmark_name(file.name());
 	p->Init();
+	return p;
+}
+
+SidePaneItem*
+SidePaneItem::NewPartition(GVolume *vol)
+{
+	QString dev_path = g_volume_get_identifier(vol, G_VOLUME_IDENTIFIER_KIND_UNIX_DEVICE);
+	mtl_printq2("dev_path: ", dev_path);
+	if (!dev_path.startsWith(dev_sd) && !dev_path.startsWith(dev_nvm)) {
+		return nullptr;
+	}
+	
+	auto *p = new SidePaneItem();
+	p->dev_path(dev_path);
+	p->set_partition();
+	
+	GMount *mount = g_volume_get_mount(vol);
+	p->mounted(mount != nullptr);
+	if (mount != nullptr) {
+		GFile *file = g_mount_get_root(mount);
+		CHECK_PTR_NULL(file);
+		const QString mount_path = g_file_get_path(file);
+		g_object_unref(file);
+		p->mount_path(mount_path);
+		g_object_unref(mount);
+	}
+	p->Init();
+	return p;
+}
+
+SidePaneItem*
+SidePaneItem::NewPartitionFromDevPath(const QString &dev_path)
+{
+	auto *p = new SidePaneItem();
+	p->dev_path(dev_path);
+	p->set_partition();
+	p->Init();
+	
 	return p;
 }
 

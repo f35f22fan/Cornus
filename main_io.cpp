@@ -47,11 +47,7 @@ void* ProcessRequest(void *ptr)
 	delete args;
 	args = nullptr;
 	
-	if (!ba.Receive(fd, false)) {
-		mtl_warn("receive failed");
-		return nullptr;
-	}
-	
+	CHECK_TRUE_NULL(ba.Receive(fd, CloseSocket::No));
 	const auto msg = ba.next_u32() & ~(7u << 29);
 	using io::socket::MsgType;
 	
@@ -64,14 +60,12 @@ void* ProcessRequest(void *ptr)
 		close(fd);
 		QMetaObject::invokeMethod(server, "CopyURLsToClipboard",
 			ConnectionType, Q_ARG(ByteArray*, &ba));
-		
 		return nullptr;
 	}
 	case (MsgType)io::socket::MsgBits::CutToClipboard: {
 		close(fd);
 		QMetaObject::invokeMethod(server, "CutURLsToClipboard",
 			ConnectionType, Q_ARG(ByteArray*, &ba));
-		
 		return nullptr;
 	}
 	case (MsgType)io::socket::MsgBits::SendOpenWithList: {
@@ -119,13 +113,12 @@ void* ProcessRequest(void *ptr)
 	close(fd);
 	ba.to(0);
 	auto *task = cornus::io::Task::From(ba);
-	
-	if (task != nullptr) {
+	if (task != nullptr)
+	{
 		QMetaObject::invokeMethod(tasks_win, "add",
-			Q_ARG(cornus::io::Task*, task));
+			ConnectionType, Q_ARG(cornus::io::Task*, task));
+		task->StartIO();
 	}
-	
-	task->StartIO();
 	
 	return nullptr;
 }
@@ -179,15 +172,6 @@ void* ListenTh(void *args)
 #ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
 	mtl_info("Server socket closed");
 #endif
-	
-//	QFile file(QDir::home().filePath("cornus_io.log"));
-//	if(file.open(QIODevice::WriteOnly | QIODevice::Text))
-//	{
-//		// We're going to streaming text to the file
-//		QTextStream stream(&file);
-//		stream << "cornus_io shut down tidily." << '\n';
-//		file.close();
-//	}
 	
 	return nullptr;
 }

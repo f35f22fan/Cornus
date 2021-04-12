@@ -8,6 +8,7 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+ADD_DEFINITIONS(-DQT_NO_KEYWORDS)
 
 if (DEFINED ENV{PREFER_CLANG})
 SET (CMAKE_C_COMPILER "/usr/bin/clang-11")
@@ -63,6 +64,7 @@ set(cornus_src_files main.cpp
     gui/PrefsPane.cpp gui/PrefsPane.hpp
     gui/SearchLineEdit.cpp gui/SearchLineEdit.hpp
     gui/SearchPane.cpp gui/SearchPane.hpp
+    gui/sidepane.cc gui/sidepane.hh
     gui/SidePane.cpp gui/SidePane.hpp
     gui/SidePaneItem.cpp gui/SidePaneItem.hpp
     gui/SidePaneModel.cpp gui/SidePaneModel.hpp

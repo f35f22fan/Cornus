@@ -284,10 +284,7 @@ void Server::GetOrderPrefFor(QString mime, QVector<DesktopFile*> &add_vec,
 	
 	QString full_path = save_dir + filename;
 	ByteArray buf;
-	
-	if (ReadFile(full_path, buf) != io::Err::Ok) {
-		return;
-	}
+	CHECK_TRUE_VOID(ReadFile(full_path, buf));
 	
 	while (buf.has_more())
 	{
@@ -411,9 +408,12 @@ void Server::SendAllDesktopFiles(const int fd)
 	ByteArray ba;
 	{
 		auto guard = desktop_files_.guard();
-		foreach (DesktopFile *p, desktop_files_.hash)
+		auto it = desktop_files_.hash.constBegin();
+		while (it != desktop_files_.hash.constEnd())
 		{
+			DesktopFile *p = it.value();
 			p->WriteTo(ba);
+			it++;
 		}
 	}
 	
@@ -459,8 +459,11 @@ void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 	} else {
 		auto guard = desktop_files_.guard();
 		QMap<Priority, DesktopFile*> priorities;
-		foreach (DesktopFile *p, desktop_files_.hash)
+		auto it = desktop_files_.hash.constBegin();
+		while (it != desktop_files_.hash.constEnd())
 		{
+			DesktopFile *p = it.value();
+			it++;
 			Priority pr = p->Supports(mime, mime_info, desktop_);
 			if (pr == Priority::Ignore)
 				continue;
@@ -497,8 +500,11 @@ void Server::SendOpenWithList(QString mime, const int fd)
 	
 	{
 		auto guard = desktop_files_.guard();
-		foreach (DesktopFile *p, desktop_files_.hash)
+		auto it = desktop_files_.hash.constBegin();
+		while (it != desktop_files_.hash.constEnd())
 		{
+			DesktopFile *p = it.value();
+			it++;
 			Priority pr = p->Supports(mime, mime_info, desktop_);
 			
 			if (pr == Priority::Ignore)
@@ -515,7 +521,8 @@ void Server::SendOpenWithList(QString mime, const int fd)
 	
 	std::sort(priorities.begin(), priorities.end(), SortByPriority);
 	
-	foreach (DesktopFile *next, priorities) {
+	for (DesktopFile *next: priorities)
+	{
 		send_vec.append(next);
 	}
 	

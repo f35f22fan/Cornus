@@ -34,7 +34,8 @@ public:
 	void SelectProperPartition(const QString &full_path);
 	void SelectRowSimple(const int row, const bool skip_update = false);
 	virtual void UpdateColumnSizes() override {}
-public slots:
+
+public Q_SLOTS:
 	void ClearHasBeenClicked(QString dev_path, QString error_msg);
 	void DeselectAllItems(const int except_row, const bool row_flag, QVector<int> &indices);
 	bool ScrollToAndSelect(QString name);

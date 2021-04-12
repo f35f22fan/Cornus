@@ -10,8 +10,6 @@
 
 namespace cornus::gui {
 
-
-
 class CountFolder : public QDialog {
 	Q_OBJECT
 public:
@@ -20,7 +18,7 @@ public:
 	
 	void CheckState();
 	
-public slots:
+public Q_SLOTS:
 	void UpdateInfo(cornus::io::CountRecursiveInfo *info, const QString &err_msg);
 	
 private:
@@ -43,6 +41,4 @@ private:
 	io::CountFolderData *data_ = nullptr;
 	bool thread_has_quit_ = false;
 };
-
-
 }

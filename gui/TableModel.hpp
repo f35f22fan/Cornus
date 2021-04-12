@@ -73,7 +73,7 @@ public:
 	void UpdateVisibleArea();
 	void UpdateHeaderNameColumn();
 	
-public slots:
+public Q_SLOTS:
 	void InotifyEvent(cornus::gui::FileEvent evt);
 	
 private:

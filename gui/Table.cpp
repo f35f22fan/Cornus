@@ -15,6 +15,7 @@
 #include "../Prefs.hpp"
 #include "../str.hxx"
 #include "TableDelegate.hpp"
+#include "TableHeader.hpp"
 #include "TableModel.hpp"
 
 #include <map>
@@ -55,8 +56,10 @@ Table::Table(TableModel *tm, App *app) : app_(app),
 model_(tm)
 {
 	setModel(model_);
+	header_ = new TableHeader(this);
+	setHorizontalHeader(header_);
 /// enables receiving ordinary mouse events (when mouse is not down)
-	setMouseTracking(true); 
+	setMouseTracking(true);
 	delegate_ = new TableDelegate(this, app_);
 	setAlternatingRowColors(false);
 	auto d = static_cast<QAbstractItemDelegate*>(delegate_);
@@ -74,9 +77,7 @@ model_(tm)
 		connect(hz, &QHeaderView::customContextMenuRequested,
 			this, &Table::ShowVisibleColumnOptions);
 	}
-	
 	UpdateLineHeight();
-	
 	connect(verticalHeader(), &QHeaderView::sectionClicked, [=](int index) {
 		model_->app()->DisplayFileContents(index);
 	});
@@ -92,7 +93,6 @@ model_(tm)
 	setSelectionMode(QAbstractItemView::NoSelection);//ExtendedSelection);
 	setSelectionBehavior(QAbstractItemView::SelectRows);
 	setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-	
 	SetCustomResizePolicy();
 	auto *vs = verticalScrollBar();
 	connect(vs, &QAbstractSlider::valueChanged, this, &Table::HiliteFileUnderMouse);
@@ -124,8 +124,7 @@ void SendURLsClipboard(const QStringList &list, io::socket::MsgBits msg_id) {
 	io::socket::SendAsync(ba);
 }
 
-void
-Table::AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path)
+void Table::AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path)
 {
 	QVector<QAction*> actions = CreateOpenWithList(full_path);
 	auto *open_with_menu = new QMenu(tr("Open &With"));
@@ -144,8 +143,7 @@ Table::AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path)
 	main_menu->addMenu(open_with_menu);
 }
 
-void
-Table::ActionCopy(QVector<int> &indices)
+void Table::ActionCopy(QVector<int> &indices)
 {
 	QStringList list;
 	if(!CreateMimeWithSelectedFiles(ClipboardAction::Copy, indices, list))
@@ -154,8 +152,7 @@ Table::ActionCopy(QVector<int> &indices)
 	SendURLsClipboard(list, io::socket::MsgBits::CopyToClipboard);
 }
 
-void
-Table::ActionCut(QVector<int> &indices) {
+void Table::ActionCut(QVector<int> &indices) {
 	QStringList list;
 	if (!CreateMimeWithSelectedFiles(ClipboardAction::Cut, indices, list))
 		return;
@@ -163,8 +160,7 @@ Table::ActionCut(QVector<int> &indices) {
 	SendURLsClipboard(list, io::socket::MsgBits::CutToClipboard);
 }
 
-void
-Table::ActionPaste()
+void Table::ActionPaste()
 {
 	const Clipboard &clipboard = app_->clipboard();
 	
@@ -201,8 +197,7 @@ Table::ActionPaste()
 	}
 }
 
-void
-Table::ActionPasteLinks(const LinkType link)
+void Table::ActionPasteLinks(const LinkType link)
 {
 	const Clipboard &clipboard = app_->clipboard();
 	QString err;
@@ -228,8 +223,7 @@ Table::ActionPasteLinks(const LinkType link)
 	}
 }
 
-bool
-Table::AnyArchive(const QVector<QString> &extensions) const
+bool Table::AnyArchive(const QVector<QString> &extensions) const
 {
 	for (auto &next: ArchiveExtensions) {
 		if (extensions.contains(next))
@@ -239,8 +233,7 @@ Table::AnyArchive(const QVector<QString> &extensions) const
 	return false;
 }
 
-void
-Table::ApplyPrefs()
+void Table::ApplyPrefs()
 {
 	auto &map = app_->prefs().cols_visibility();
 	auto *hz = horizontalHeader();
@@ -253,8 +246,23 @@ Table::ApplyPrefs()
 	}
 }
 
-bool
-Table::CheckIsOnFileName(io::File *file, const int file_row, const QPoint &pos) const
+void Table::AutoScroll(const VDirection d)
+{
+	const int rh = GetRowHeight();
+	const int scroll = rh / 3;
+	const int amount = (d == VDirection::Up) ? -scroll : scroll;
+	auto *vs = verticalScrollBar();
+	const int max = vs->maximum();
+	int new_val = vs->value() + amount;
+	
+	if (new_val >= 0 && new_val <= max) {
+		vs->setValue(new_val);
+//		mtl_info("val: %d, new_val: %d, amount: %d, max: %d",
+//			vs->value(), new_val, amount, max);
+	}
+}
+
+bool Table::CheckIsOnFileName(io::File *file, const int file_row, const QPoint &pos) const
 {
 	if (!file->is_dir() || pos.y() < 0)
 		return false;
@@ -273,8 +281,7 @@ Table::CheckIsOnFileName(io::File *file, const int file_row, const QPoint &pos) 
 	return (pos.x() < absolute_name_end + FileNameRelax);
 }
 
-void
-Table::ClearDndAnimation(const QPoint &drop_coord)
+void Table::ClearDndAnimation(const QPoint &drop_coord)
 {
 	// repaint() or update() don't work because
 	// the window is not raised when dragging an item
@@ -291,16 +298,14 @@ Table::ClearDndAnimation(const QPoint &drop_coord)
 	}
 }
 
-void
-Table::ClearMouseOver()
+void Table::ClearMouseOver()
 {
 	mouse_pos_ = {-1, -1};
 	mouse_over_file_name_ = -1;
 	mouse_over_file_icon_ = -1;
 }
 
-bool
-Table::CreateMimeWithSelectedFiles(const ClipboardAction action,
+bool Table::CreateMimeWithSelectedFiles(const ClipboardAction action,
 	QVector<int> &indices, QStringList &list)
 {
 	auto &files = app_->view_files();
@@ -395,33 +400,36 @@ Table::CreateOpenWithList(const QString &full_path)
 	return ret;
 }
 
-void
-Table::dragEnterEvent(QDragEnterEvent *evt)
+void Table::dragEnterEvent(QDragEnterEvent *evt)
 {
 	const QMimeData *mimedata = evt->mimeData();
-	
 	if (mimedata->hasUrls()) {
 		evt->acceptProposedAction();
 	}
 }
 
-void
-Table::dragLeaveEvent(QDragLeaveEvent *evt)
+void Table::dragLeaveEvent(QDragLeaveEvent *evt)
 {
 	ClearDndAnimation(drop_coord_);
 	drop_coord_ = {-1, -1};
 }
 
-void
-Table::dragMoveEvent(QDragMoveEvent *event)
+void Table::dragMoveEvent(QDragMoveEvent *evt)
 {
-	drop_coord_ = event->pos();
+	drop_coord_ = evt->pos();
 	ClearDndAnimation(drop_coord_);
+	int h = size().height() - horizontalHeader()->size().height();
+	const int y = drop_coord_.y();
+	const int rh = GetRowHeight();
+	
+	if (y >= (h - rh)) {
+		AutoScroll(VDirection::Down);
+	}
 }
 
-void
-Table::dropEvent(QDropEvent *evt)
+void Table::dropEvent(QDropEvent *evt)
 {
+	mouse_down_ = false;
 	if (evt->mimeData()->hasUrls()) {
 		QVector<io::File*> *files_vec = new QVector<io::File*>();
 		
@@ -446,20 +454,19 @@ Table::dropEvent(QDropEvent *evt)
 		}
 		
 		if (to_dir == nullptr) {
+			for (auto *next: *files_vec)
+				delete next;
 			delete files_vec;
 			return;
 		}
-		
-		FinishDropOperation(files_vec, to_dir, evt->proposedAction(),
-			evt->possibleActions());
+		ExecuteDrop(files_vec, to_dir, evt->proposedAction(), evt->possibleActions());
 	}
 	
 	ClearDndAnimation(drop_coord_);
 	drop_coord_ = {-1, -1};
 }
 
-void
-Table::FinishDropOperation(QVector<io::File*> *files_vec,
+void Table::ExecuteDrop(QVector<io::File*> *files_vec,
 	io::File *to_dir, Qt::DropAction drop_action, Qt::DropActions possible_actions)
 {
 	CHECK_PTR_VOID(files_vec);
@@ -477,8 +484,7 @@ Table::FinishDropOperation(QVector<io::File*> *files_vec,
 	io::socket::SendAsync(ba);
 }
 
-io::File*
-Table::GetFileAt(const int row)
+io::File* Table::GetFileAt(const int row)
 {
 	io::Files &files = app_->view_files();
 	MutexGuard guard(&files.mutex);
@@ -489,8 +495,7 @@ Table::GetFileAt(const int row)
 	return vec[row]->Clone();
 }
 
-io::File*
-Table::GetFileAtNTS(const QPoint &pos, const Clone clone, int *ret_file_index)
+io::File* Table::GetFileAtNTS(const QPoint &pos, const Clone clone, int *ret_file_index)
 {
 	int row = rowAt(pos.y());
 	if (row == -1) {
@@ -512,8 +517,7 @@ Table::GetFileAtNTS(const QPoint &pos, const Clone clone, int *ret_file_index)
 	return (clone == Clone::Yes) ? file->Clone() : file;
 }
 
-int
-Table::GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file,
+int Table::GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file,
 	QString *full_path)
 {
 	io::Files &files = app_->view_files();
@@ -531,8 +535,7 @@ Table::GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file,
 	return row;
 }
 
-int
-Table::GetFirstSelectedFile(io::File **ret_cloned_file) {
+int Table::GetFirstSelectedFile(io::File **ret_cloned_file) {
 	io::Files &files = app_->view_files();
 	MutexGuard guard(&files.mutex);
 	
@@ -549,8 +552,7 @@ Table::GetFirstSelectedFile(io::File **ret_cloned_file) {
 	return -1;
 }
 
-QString
-Table::GetFirstSelectedFileFullPath(QString *ext) {
+QString Table::GetFirstSelectedFileFullPath(QString *ext) {
 	io::Files &files = app_->view_files();
 	MutexGuard guard(&files.mutex);
 	
@@ -565,11 +567,9 @@ Table::GetFirstSelectedFileFullPath(QString *ext) {
 	return QString();
 }
 
-int
-Table::GetRowHeight() const { return verticalHeader()->defaultSectionSize(); }
+int Table::GetRowHeight() const { return verticalHeader()->defaultSectionSize(); }
 
-void
-Table::GetSelectedArchives(QVector<QString> &urls)
+void Table::GetSelectedArchives(QVector<QString> &urls)
 {
 	io::Files &files = app_->view_files();
 	MutexGuard guard(&files.mutex);
@@ -588,8 +588,7 @@ Table::GetSelectedArchives(QVector<QString> &urls)
 	}
 }
 
-void
-Table::GetSelectedFileNames(QVector<QString> &names, const StringCase str_case)
+void Table::GetSelectedFileNames(QVector<QString> &names, const StringCase str_case)
 {
 	io::Files &files = app_->view_files();
 	MutexGuard guard = files.guard();
@@ -613,8 +612,7 @@ Table::GetSelectedFileNames(QVector<QString> &names, const StringCase str_case)
 	
 }
 
-int
-Table::GetSelectedFilesCount(QVector<QString> *extensions) {
+int Table::GetSelectedFilesCount(QVector<QString> *extensions) {
 	io::Files &files = app_->view_files();
 	MutexGuard guard(&files.mutex);
 	int count = 0;
@@ -631,14 +629,12 @@ Table::GetSelectedFilesCount(QVector<QString> *extensions) {
 	return count;
 }
 
-i32
-Table::GetVisibleRowsCount() const
+i32 Table::GetVisibleRowsCount() const
 {
 	return (height() - horizontalHeader()->height()) / GetRowHeight();
 }
 
-void
-Table::HandleKeySelect(const VDirection vdir)
+void Table::HandleKeySelect(const VDirection vdir)
 {
 	int row = shift_select_.base_row;
 	if (row == -1)
@@ -686,8 +682,7 @@ Table::HandleKeySelect(const VDirection vdir)
 	}
 }
 
-void
-Table::HandleKeyShiftSelect(const VDirection vdir)
+void Table::HandleKeyShiftSelect(const VDirection vdir)
 {
 	int row = GetFirstSelectedFile(nullptr);
 	if (row == -1)
@@ -733,8 +728,7 @@ Table::HandleKeyShiftSelect(const VDirection vdir)
 	}
 }
 
-void
-Table::HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indices)
+void Table::HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indices)
 {
 	io::Files &files = app_->view_files();
 	MutexGuard guard(&files.mutex);
@@ -754,8 +748,7 @@ Table::HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indices)
 	}
 }
 
-void
-Table::HandleMouseSelectionCtrl(const QPoint &pos, QVector<int> &indices) {
+void Table::HandleMouseSelectionCtrl(const QPoint &pos, QVector<int> &indices) {
 	io::Files &files = app_->view_files();
 	MutexGuard guard(&files.mutex);
 	
@@ -768,8 +761,7 @@ Table::HandleMouseSelectionCtrl(const QPoint &pos, QVector<int> &indices) {
 	}
 }
 
-void
-Table::HandleMouseSelectionShift(const QPoint &pos, QVector<int> &indices)
+void Table::HandleMouseSelectionShift(const QPoint &pos, QVector<int> &indices)
 {
 	io::Files &files = app_->view_files();
 	MutexGuard guard(&files.mutex);
@@ -790,8 +782,7 @@ Table::HandleMouseSelectionShift(const QPoint &pos, QVector<int> &indices)
 	}
 }
 
-void
-Table::HandleMouseSelectionNoModif(const QPoint &pos, QVector<int> &indices,
+void Table::HandleMouseSelectionNoModif(const QPoint &pos, QVector<int> &indices,
 	bool mouse_pressed)
 {
 	io::Files &files = app_->view_files();
@@ -846,8 +837,7 @@ void Table::HiliteFileUnderMouse()
 		model_->UpdateIndices(indices);
 }
 
-i32
-Table::IsOnFileIconNTS(const QPoint &local_pos, io::File **ret_file)
+i32 Table::IsOnFileIconNTS(const QPoint &local_pos, io::File **ret_file)
 {
 	i32 col = columnAt(local_pos.x());
 	if (col != (int)Column::Icon) {
@@ -863,8 +853,7 @@ Table::IsOnFileIconNTS(const QPoint &local_pos, io::File **ret_file)
 	return rowAt(local_pos.y());
 }
 
-i32
-Table::IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file)
+i32 Table::IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file)
 {
 	i32 col = columnAt(local_pos.x());
 	if (col != (int)Column::FileName) {
@@ -889,8 +878,7 @@ Table::IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file)
 	return rowAt(local_pos.y());
 }
 
-void
-Table::keyPressEvent(QKeyEvent *event)
+void Table::keyPressEvent(QKeyEvent *event)
 {
 	const int key = event->key();
 	mouse_down_ = false;
@@ -980,8 +968,7 @@ Table::keyPressEvent(QKeyEvent *event)
 	model_->UpdateIndices(indices);
 }
 
-void
-Table::keyReleaseEvent(QKeyEvent *evt) {
+void Table::keyReleaseEvent(QKeyEvent *evt) {
 	bool shift = evt->modifiers() & Qt::ShiftModifier;
 	
 	if (!shift) {
@@ -989,8 +976,7 @@ Table::keyReleaseEvent(QKeyEvent *evt) {
 	}
 }
 
-void
-Table::LaunchFromOpenWithMenu()
+void Table::LaunchFromOpenWithMenu()
 {
 	QAction *act = qobject_cast<QAction *>(sender());
 	QVariant v = act->data();
@@ -998,8 +984,7 @@ Table::LaunchFromOpenWithMenu()
 	p->Launch(open_with_.full_path, app_->current_dir());
 }
 
-void
-Table::leaveEvent(QEvent *evt)
+void Table::leaveEvent(QEvent *evt)
 {
 	const i32 row = (mouse_over_file_name_ == -1)
 		? mouse_over_file_icon_ : mouse_over_file_name_;
@@ -1029,8 +1014,7 @@ Table::ListSelectedFiles(QList<QUrl> &list)
 	return QPair(num_dirs, num_files);
 }
 
-void
-Table::mouseDoubleClickEvent(QMouseEvent *evt)
+void Table::mouseDoubleClickEvent(QMouseEvent *evt)
 {
 	QTableView::mouseDoubleClickEvent(evt);
 	i32 col = columnAt(evt->pos().x());
@@ -1051,8 +1035,7 @@ Table::mouseDoubleClickEvent(QMouseEvent *evt)
 	}
 }
 
-void
-Table::mouseMoveEvent(QMouseEvent *evt)
+void Table::mouseMoveEvent(QMouseEvent *evt)
 {
 	mouse_pos_ = evt->pos();
 	HiliteFileUnderMouse();
@@ -1067,10 +1050,8 @@ Table::mouseMoveEvent(QMouseEvent *evt)
 	}
 }
 
-void
-Table::mousePressEvent(QMouseEvent *evt)
+void Table::mousePressEvent(QMouseEvent *evt)
 {
-	QTableView::mousePressEvent(evt);
 	mouse_down_ = true;
 	
 	auto modif = evt->modifiers();
@@ -1103,10 +1084,8 @@ Table::mousePressEvent(QMouseEvent *evt)
 	model_->UpdateIndices(indices);
 }
 
-void
-Table::mouseReleaseEvent(QMouseEvent *evt)
+void Table::mouseReleaseEvent(QMouseEvent *evt)
 {
-	QTableView::mouseReleaseEvent(evt);
 	drag_start_pos_ = {-1, -1};
 	mouse_down_ = false;
 	
@@ -1138,14 +1117,12 @@ Table::mouseReleaseEvent(QMouseEvent *evt)
 	}
 }
 
-void
-Table::paintEvent(QPaintEvent *event)
+void Table::paintEvent(QPaintEvent *event)
 {
 	QTableView::paintEvent(event);
 }
 
-void
-Table::ProcessAction(const QString &action)
+void Table::ProcessAction(const QString &action)
 {
 	App *app = model_->app();
 	
@@ -1174,11 +1151,12 @@ Table::ProcessAction(const QString &action)
 		}
 	} else if (action == actions::SwitchExecBit) {
 		app->SwitchExecBitOfSelectedFiles();
+	} else if (action == actions::EditMovieTitle) {
+		app->EditSelectedMovieTitle();
 	}
 }
 
-bool
-Table::ScrollToAndSelect(QString full_path)
+bool Table::ScrollToAndSelect(QString full_path)
 {
 	if (full_path.isEmpty()) {
 		return false;
@@ -1218,8 +1196,7 @@ Table::ScrollToAndSelect(QString full_path)
 	return true;
 }
 
-void
-Table::ScrollToRow(int row)
+void Table::ScrollToRow(int row)
 {
 	if (row < 0)
 		return;
@@ -1254,14 +1231,12 @@ Table::ScrollToRow(int row)
 	}
 }
 
-void
-Table::ScrollToAndSelectRow(const int row, const bool deselect_others) {
+void Table::ScrollToAndSelectRow(const int row, const bool deselect_others) {
 	ScrollToRow(row);
 	SelectRowSimple(row, deselect_others);
 }
 
-void
-Table::SelectByLowerCase(QVector<QString> filenames)
+void Table::SelectByLowerCase(QVector<QString> filenames)
 {
 	if (filenames.isEmpty())
 		return;
@@ -1299,8 +1274,7 @@ Table::SelectByLowerCase(QVector<QString> filenames)
 	ScrollToAndSelect(full_path);
 }
 
-void
-Table::SelectAllFilesNTS(const bool flag, QVector<int> &indices) {
+void Table::SelectAllFilesNTS(const bool flag, QVector<int> &indices) {
 	int i = 0;
 	io::Files &files = app_->view_files();
 	for (auto *file: files.data.vec) {
@@ -1312,8 +1286,7 @@ Table::SelectAllFilesNTS(const bool flag, QVector<int> &indices) {
 	}
 }
 
-void
-Table::SelectFileRangeNTS(const int row1, const int row2, QVector<int> &indices)
+void Table::SelectFileRangeNTS(const int row1, const int row2, QVector<int> &indices)
 {
 	io::Files &files = app_->view_files();
 	QVector<io::File*> &vec = files.data.vec;
@@ -1336,8 +1309,7 @@ Table::SelectFileRangeNTS(const int row1, const int row2, QVector<int> &indices)
 	}
 }
 
-int
-Table::SelectNextRow(const int relative_offset,
+int Table::SelectNextRow(const int relative_offset,
 	const bool deselect_all_others, QVector<int> &indices)
 {
 	io::Files &files = app_->view_files();
@@ -1391,8 +1363,7 @@ Table::SelectNextRow(const int relative_offset,
 	return 0;
 }
 
-void
-Table::SelectRowSimple(const int row, const bool deselect_others)
+void Table::SelectRowSimple(const int row, const bool deselect_others)
 {
 	io::Files &files = app_->view_files();
 	QVector<int> indices;
@@ -1420,30 +1391,27 @@ Table::SelectRowSimple(const int row, const bool deselect_others)
 	model_->UpdateIndices(indices);
 }
 
-void
-Table::SetCustomResizePolicy() {
-	auto *hh = horizontalHeader();
+void Table::SetCustomResizePolicy()
+{
+	auto *hh = header_;
 	hh->setSectionResizeMode(i8(gui::Column::Icon), QHeaderView::Fixed);
 	hh->setSectionResizeMode(i8(gui::Column::FileName), QHeaderView::Stretch);
 	hh->setSectionResizeMode(i8(gui::Column::Size), QHeaderView::Fixed);
 	hh->setSectionResizeMode(i8(gui::Column::TimeCreated), QHeaderView::Fixed);
 	hh->setSectionResizeMode(i8(gui::Column::TimeModified), QHeaderView::Fixed);
-	
 	QFontMetrics fm = fontMetrics();
 	QString sample_date = QLatin1String("2020-12-01 18:04");
 	
 	const int icon_col_w = fm.boundingRect(QLatin1String("Steam")).width();
 	const int size_col_w = fm.boundingRect(QLatin1String("1023.9 GiB")).width() + 2;
 	const int time_col_w = fm.boundingRect(sample_date).width() + 10;
-	
 	setColumnWidth(i8(gui::Column::Icon), icon_col_w);
 	setColumnWidth(i8(gui::Column::Size), size_col_w);
 	setColumnWidth(i8(gui::Column::TimeCreated), time_col_w);
 	setColumnWidth(i8(gui::Column::TimeModified), time_col_w);
 }
 
-void
-Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
+void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 {
 	indices_.clear();
 	QVector<QString> extensions;
@@ -1552,6 +1520,17 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 		QAction *action = menu->addAction(tr("Rename File"));
 		connect(action, &QAction::triggered, [=] {ProcessAction(actions::RenameFile);});
 		action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
+		
+		QVector<QString> videos = { QLatin1String("mkv"), QLatin1String("webm") };
+		
+		if (videos.contains(file->cache().ext.toString())) {
+			action = menu->addAction(tr("Edit movie title") + QLatin1String(" [mkvpropedit]"));
+			connect(action, &QAction::triggered, [=] {ProcessAction(actions::EditMovieTitle);});
+			QIcon *icon = app_->GetIcon(file->cache().ext.toString());
+			if (icon != nullptr) {
+				action->setIcon(*icon);
+			}
+		}
 	}
 	
 	if (selected_count > 0) {
@@ -1560,16 +1539,16 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 		action->setIcon(QIcon::fromTheme(QLatin1String("system-run")));
 	}
 	
-	{
-		QAction *action = menu->addAction(tr("Open Terminal"));
-		connect(action, &QAction::triggered, [=] {ProcessAction(actions::OpenTerminal);});
-		action->setIcon(QIcon::fromTheme(QLatin1String("utilities-terminal")));
-	}
-	
 	if (selected_count > 0) {
 		QAction *action = menu->addAction(tr("Switch Exec Bit"));
 		connect(action, &QAction::triggered, [=] {ProcessAction(actions::SwitchExecBit);});
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-undo")));
+	}
+	
+	{
+		QAction *action = menu->addAction(tr("Open Terminal"));
+		connect(action, &QAction::triggered, [=] {ProcessAction(actions::OpenTerminal);});
+		action->setIcon(QIcon::fromTheme(QLatin1String("utilities-terminal")));
 	}
 	
 	if (AnyArchive(extensions)) {
@@ -1589,7 +1568,7 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 		}
 		
 		{
-			QAction *action = extract->addAction(tr("Ask Destination"));
+			QAction *action = extract->addAction(tr("To..."));
 			connect(action, &QAction::triggered, [=] { app_->ExtractAskDestFolder(); });
 		}
 	}
@@ -1647,8 +1626,7 @@ Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos)
 	menu->popup(global_pos);
 }
 
-void
-Table::ShowVisibleColumnOptions(QPoint pos)
+void Table::ShowVisibleColumnOptions(QPoint pos)
 {
 	QMenu *menu = new QMenu();
 	auto *hz = horizontalHeader();
@@ -1670,8 +1648,7 @@ Table::ShowVisibleColumnOptions(QPoint pos)
 	menu->popup(QCursor::pos());
 }
 
-void
-Table::SortingChanged(int logical, Qt::SortOrder order) {
+void Table::SortingChanged(int logical, Qt::SortOrder order) {
 	io::SortingOrder sorder = {Column(logical), order == Qt::AscendingOrder};
 	io::Files &files = app_->view_files();
 	int file_count;
@@ -1684,8 +1661,7 @@ Table::SortingChanged(int logical, Qt::SortOrder order) {
 	model_->UpdateVisibleArea();
 }
 
-void
-Table::StartDragOperation()
+void Table::StartDragOperation()
 {
 	QMimeData *mimedata = new QMimeData();
 	QList<QUrl> urls;
@@ -1731,8 +1707,7 @@ Table::StartDragOperation()
 	}
 }
 
-void
-Table::SyncWith(const cornus::Clipboard &cl, QVector<int> &indices)
+void Table::SyncWith(const cornus::Clipboard &cl, QVector<int> &indices)
 {
 	auto &files = app_->view_files();
 	MutexGuard guard(&files.mutex);
@@ -1795,8 +1770,7 @@ Table::SyncWith(const cornus::Clipboard &cl, QVector<int> &indices)
 	}
 }
 
-void
-Table::UpdateLineHeight()
+void Table::UpdateLineHeight()
 {
 	auto *vh = verticalHeader();
 	if (false) {
@@ -1812,14 +1786,13 @@ Table::UpdateLineHeight()
 	vh->setSectionsMovable(false);
 }
 
-void
-Table::wheelEvent(QWheelEvent *evt)
+void Table::wheelEvent(QWheelEvent *evt)
 {
 	if (evt->modifiers() & Qt::ControlModifier)
 	{
 		auto y = evt->angleDelta().y();
 		const Zoom zoom = (y > 0) ? Zoom::In : Zoom::Out;
-		app_->prefs().AdjustCustomTableSize(zoom);
+		app_->prefs().WheelEventFromMainView(zoom);
 		evt->ignore();
 	} else {
 		QTableView::wheelEvent(evt);

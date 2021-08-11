@@ -1,9 +1,9 @@
-extern "C" {
+///extern "C" {
 /// This has to be the first include otherwise
 /// gdbusintrospection.h causes an error.
-	#include <dconf.h>
+///	#include <dconf.h>
 ///	#include <udisks/udisks.h>
-}
+///}
 #include <chrono>
 #include <fcntl.h>
 #include <iostream>
@@ -29,14 +29,14 @@ extern "C" {
 #include "gui/actions.hxx"
 #include "gui/Location.hpp"
 #include "gui/SearchPane.hpp"
-#include "gui/SidePane.hpp"
 #include "gui/sidepane.hh"
-#include "gui/SidePaneItem.hpp"
-#include "gui/SidePaneModel.hpp"
 #include "gui/Table.hpp"
 #include "gui/TableModel.hpp"
 #include "gui/TextEdit.hpp"
 #include "gui/ToolBar.hpp"
+#include "gui/TreeItem.hpp"
+#include "gui/TreeModel.hpp"
+#include "gui/TreeView.hpp"
 #include "Media.hpp"
 #include "prefs.hh"
 #include "Prefs.hpp"
@@ -69,8 +69,6 @@ extern "C" {
 #include <QUrl>
 
 #include <glib.h>
-
-#include <QtDBus/QtDBus>
 
 namespace cornus {
 
@@ -247,7 +245,7 @@ App::App()
 	qRegisterMetaType<cornus::PartitionEvent*>();
 	qRegisterMetaType<cornus::io::CountRecursiveInfo*>();
 	qRegisterMetaType<cornus::gui::FileEvent>();
-	qRegisterMetaType<QVector<cornus::gui::SidePaneItem*>>();
+	qRegisterMetaType<QVector<cornus::gui::TreeItem*>>();
 	qDBusRegisterMetaType<QMap<QString, QVariant>>();
 	media_ = new Media();
 	
@@ -267,7 +265,6 @@ App::App()
 	SetupIconNames();
 	io::InitEnvInfo(desktop_, search_icons_dirs_, xdg_data_dirs_, possible_categories_);
 	CreateGui();
-	RegisterShortcuts();
 	if (prefs_->remember_window_size()) {
 		QSize sz = prefs_->window_size();
 		if (sz.width() < 0 || sz.height() < 0)
@@ -281,8 +278,11 @@ App::App()
 	
 	ClipboardChanged(QClipboard::Clipboard);
 	DetectThemeType();
+	RegisterVolumesListener();
+	RegisterShortcuts();
 	
-	UdisksFunc();
+/// enables receiving ordinary mouse events (when mouse is not down)
+//	setMouseTracking(true);
 }
 
 App::~App()
@@ -296,12 +296,12 @@ App::~App()
 		delete icon;
 	}
 	{
-		MutexGuard guard = side_pane_items_.guard();
-		side_pane_items_.sidepane_model_destroyed = true;
-		for (auto *item: side_pane_items_.vec)
+		MutexGuard guard = tree_data_.guard();
+		tree_data_.sidepane_model_destroyed = true;
+		for (auto *item: tree_data_.roots)
 			delete item;
 		
-		side_pane_items_.vec.clear();
+		tree_data_.roots.clear();
 	}
 	{
 		/// table_ must be deleted before prefs_ because table_model_ calls 
@@ -314,7 +314,6 @@ App::~App()
 	history_ = nullptr;
 	delete media_;
 	media_ = nullptr;
-	g_object_unref(monitor_);
 }
 
 void App::ArchiveAskDestArchivePath(const QString &ext)
@@ -577,47 +576,17 @@ void App::CreateGui()
 	notepad_.window_index = notepad_.stack->addWidget(main_splitter_);
 	notepad_.stack->setCurrentIndex(notepad_.window_index);
 	
-	{
-		side_pane_model_ = new gui::SidePaneModel(this);
-		side_pane_ = new gui::SidePane(side_pane_model_, this);
-		side_pane_model_->SetSidePane(side_pane_);
-		main_splitter_->addWidget(side_pane_);
-		{
-			auto &items = side_pane_items();
-			MutexGuard guard(&items.mutex);
-			items.widgets_created = true;
-			int status = pthread_cond_broadcast(&items.cond);
-			if (status != 0)
-				mtl_status(status);
-		}
-	}
+	CreateSidePane();
 	
 	{
-		table_model_ = new gui::TableModel(this);
-		table_ = new gui::Table(table_model_, this);
-		table_->setContentsMargins(0, 0, 0, 0);
-		table_->ApplyPrefs();
-		
-		QWidget *table_pane = new QWidget();
-		QBoxLayout *vlayout = new QBoxLayout(QBoxLayout::TopToBottom);
-		vlayout->setContentsMargins(0, 0, 0, 0);
-		vlayout->setSpacing(0);
-		table_pane->setLayout(vlayout);
-		vlayout->addWidget(table_);
-		
-		search_pane_ = new gui::SearchPane(this);
-		vlayout->addWidget(search_pane_);
-		search_pane_->setVisible(false);
-		
-		main_splitter_->addWidget(table_pane);
-		{
-			MutexGuard guard(&view_files_.mutex);
-			view_files_.data.widgets_created(true);
-			int status = pthread_cond_signal(&view_files_.cond);
-			if (status != 0)
-				mtl_warn("%s", strerror(status));
-		}
+		MutexGuard guard = tree_data_.guard();
+		tree_data_.widgets_created = true;
+		int status = pthread_cond_broadcast(&tree_data_.cond);
+		if (status != 0)
+			mtl_status(status);
 	}
+	
+	CreateFilesViewPane();
 	
 	main_splitter_->setStretchFactor(0, 0);
 	main_splitter_->setStretchFactor(1, 1);
@@ -628,6 +597,41 @@ void App::CreateGui()
 	prefs_->UpdateTableSizes();
 }
 
+void App::CreateFilesViewPane()
+{
+	table_model_ = new gui::TableModel(this);
+	table_ = new gui::Table(table_model_, this);
+	table_->setContentsMargins(0, 0, 0, 0);
+	table_->ApplyPrefs();
+	QWidget *table_pane = new QWidget();
+	QBoxLayout *vlayout = new QBoxLayout(QBoxLayout::TopToBottom);
+	vlayout->setContentsMargins(0, 0, 0, 0);
+	vlayout->setSpacing(0);
+	table_pane->setLayout(vlayout);
+	vlayout->addWidget(table_);
+	
+	search_pane_ = new gui::SearchPane(this);
+	vlayout->addWidget(search_pane_);
+	search_pane_->setVisible(false);
+	
+	main_splitter_->addWidget(table_pane);
+	{
+		MutexGuard guard(&view_files_.mutex);
+		view_files_.data.widgets_created(true);
+		int status = pthread_cond_signal(&view_files_.cond);
+		if (status != 0)
+			mtl_warn("%s", strerror(status));
+	}
+}
+
+void App::CreateSidePane()
+{
+	tree_model_ = new gui::TreeModel(this);
+	tree_view_ = new gui::TreeView(this, tree_model_);
+	tree_model_->SetView(tree_view_);
+	main_splitter_->addWidget(tree_view_);
+}
+
 i32 App::current_dir_id() const
 {
 	auto guard = view_files_.guard();
@@ -636,7 +640,7 @@ i32 App::current_dir_id() const
 
 void App::DetectThemeType()
 {
-	const QStyleOptionViewItem option = side_pane_->option();
+	const QStyleOptionViewItem option = tree_view_->option();
 	const QColor c = option.palette.window().color();
 	const i32 avg = (c.red() + c.green() + c.blue()) / 3;
 	theme_type_ = (avg > 150) ? ThemeType::Light : ThemeType::Dark;
@@ -711,6 +715,52 @@ void App::DisplaySymlinkInfo(io::File &file)
 	}
 	
 	dialog.exec();
+}
+
+void App::EditSelectedMovieTitle()
+{
+	QString ext;
+	QString full_path = table_->GetFirstSelectedFileFullPath(&ext);
+	if (full_path.isEmpty())
+		return;
+	
+	QString file_name = io::GetFileNameOfFullPath(full_path).toString();
+	if (file_name.isEmpty())
+		return;
+	
+	gui::InputDialogParams params;
+	params.title = tr("Edit movie title");
+	params.msg = file_name;
+	params.placeholder_text = tr("Movie title");
+	params.icon = GetIcon(ext);
+	QString movie_title;
+	if (!ShowInputDialog(params, movie_title))
+		return;
+	
+	movie_title = movie_title.trimmed();
+	if (movie_title.isEmpty())
+		return;
+
+	QProcess process;
+	{ // WORKAROUND for mkvpropedit's UTF-8 support. Inspired from:
+// https://www.qtcentre.org/threads/5375-Passing-to-a-console-application-(managed-via-QProcess)-UTF-8-encoded-parameters
+		auto env = QProcessEnvironment::systemEnvironment();
+		env.insert(QLatin1String("LANG"), QLatin1String("en_US.UTF-8"));
+		process.setProcessEnvironment(env);
+	}
+	
+	process.setProgram(QLatin1String("mkvpropedit"));
+	process.setWorkingDirectory(current_dir_);
+	QStringList args;
+	args.append(file_name);
+	args.append(QLatin1String("--edit"));
+	args.append(QLatin1String("info"));
+	args.append(QLatin1String("--set"));
+	QString t = QLatin1String("title=") + movie_title;
+	args.append(QString::fromLocal8Bit(t.toUtf8()));
+	
+	process.setArguments(args);
+	process.startDetached();
 }
 
 bool App::event(QEvent *evt)
@@ -883,53 +933,36 @@ QString App::GetIconThatStartsWith(const QString &s)
 
 QString App::GetPartitionFreeSpace()
 {
-	if (current_dir_.isEmpty()){
+	if (current_dir_.isEmpty())
 		return QString();
-	}
 	
-	static QString last_dir = QString();
-	static QString cached_result = QString();
-	QString dir;
+	QString current_dir;
 	{
-		MutexGuard guard = side_pane_items_.guard();
-		for (gui::SidePaneItem *next: side_pane_items_.vec) {
-			if (!next->is_partition() || !next->mounted() || !next->selected())
-				continue;
-			dir = next->mount_path();
-			break;
-		}
+		MutexGuard guard = tree_data_.guard();
+		gui::TreeItem *partition = tree_data_.GetCurrentPartitionNTS();
+		if (partition != nullptr && partition->mounted())
+			current_dir = partition->mount_path();
 	}
 	
-	if (dir.isEmpty()) {
+	if (current_dir.isEmpty())
 		return QString();
-	}
 	
-	if (last_dir == dir)
-		return cached_result;
-	last_dir = dir;
-	
-	auto ba = dir.toLocal8Bit();
+	auto ba = current_dir.toLocal8Bit();
 	struct statvfs stv = {};
 	int status = statvfs(ba.data(), &stv);
 	if (status != 0)
 	{
-		mtl_info("%s, file: %s", strerror(errno), ba.data());
+		mtl_warn("%s, file: %s", strerror(errno), ba.data());
 		return QString();
 	}
 	
 	const i64 total_space = stv.f_frsize * stv.f_blocks;
-	const i64 free_space = stv.f_bfree * stv.f_bsize;
-	const int percent_free = double(free_space) / double(total_space) * 100;
+	const i64 free_space = stv.f_bavail /*stv.f_bfree*/ * stv.f_bsize;
 	
-	QString s = QString::number(percent_free);
-	s += tr("% free (");
-	s += io::SizeToString(free_space, true);
-	s += tr(" of ");
-	s += io::SizeToString(total_space, true);
-	s += ')';
-	
-	cached_result = s;
-	
+	QString s = io::SizeToString(free_space, StringLength::Short);
+	s.append(tr(" free of "));
+	s += io::SizeToString(total_space, StringLength::Short);
+
 	return s;
 }
 
@@ -983,7 +1016,7 @@ void App::GoToFinish(cornus::io::FilesData *new_data)
 /// current_dir_ must be assigned to before model->SwitchTo
 /// otherwise won't properly show current partition's free space
 	current_dir_ = new_data->processed_dir_path;
-	side_pane_->SelectProperPartition(new_data->processed_dir_path);
+	tree_view_->MarkCurrentPartition(new_data->processed_dir_path);
 	table_model_->SwitchTo(new_data);
 	history_->Add(new_data->action, current_dir_);
 	
@@ -1104,6 +1137,10 @@ void App::GoToAndSelect(const QString full_path)
 	} else {
 		table_->ScrollToAndSelect(full_path);
 	}
+}
+
+void App::GoToSimple(const QString &full_path) {
+	GoTo(Action::To, {full_path, Processed::No});
 }
 
 void App::GoUp()
@@ -1431,9 +1468,15 @@ void App::RegisterShortcuts()
 		connect(shortcut, &QShortcut::activated, this, &App::GoUp);
 	}
 	{
+		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_0), this);
+		shortcut->setContext(Qt::ApplicationShortcut);
+		connect(shortcut, &QShortcut::activated, [=] {
+			prefs_->WheelEventFromMainView(Zoom::Reset);
+		});
+	}
+	{
 		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_H), this);
 		shortcut->setContext(Qt::ApplicationShortcut);
-		
 		connect(shortcut, &QShortcut::activated, [=] {
 			prefs_->show_hidden_files(!prefs_->show_hidden_files());
 			GoTo(Action::Reload, {current_dir_, Processed::Yes}, Reload::Yes);
@@ -1616,8 +1659,7 @@ void App::RenameSelectedFile()
 	}
 }
 
-void App::RunExecutable(const QString &full_path,
-	const ExecInfo &info)
+void App::RunExecutable(const QString &full_path, const ExecInfo &info)
 {
 	if (info.has_exec_bit()) {
 		if (info.is_elf()) {
@@ -1633,15 +1675,14 @@ void App::RunExecutable(const QString &full_path,
 
 void App::SaveBookmarks()
 {
-	QVector<gui::SidePaneItem*> item_vec;
-	SidePaneItems &items = side_pane_items();
+	QVector<gui::TreeItem*> item_vec;
 	{
-		MutexGuard guard(&items.mutex);
+		MutexGuard guard = tree_data_.guard();
 		
-		for (gui::SidePaneItem *next: items.vec) {
-			if (next->is_bookmark()) {
-				item_vec.append(next->Clone());
-			}
+		gui::TreeItem *bkm_root = tree_data_.GetBookmarksRootNTS();
+		CHECK_PTR_VOID(bkm_root);
+		for (gui::TreeItem *next: bkm_root->children()) {
+			item_vec.append(next->Clone());
 		}
 	}
 	
@@ -1666,15 +1707,20 @@ void App::SaveBookmarks()
 	ByteArray buf;
 	buf.add_u16(prefs::BookmarksFormatVersion);
 	
-	for (gui::SidePaneItem *next: item_vec) {
+	for (gui::TreeItem *next: item_vec) {
 		buf.add_u8(u8(next->type()));
 		buf.add_string(next->mount_path());
 		buf.add_string(next->bookmark_name());
 	}
+	
+	for (auto *next: item_vec) {
+		delete next;
+	}
+	
 	{
-		items.Lock();
-		items.bookmarks_changed_by_me = true;
-		items.Unlock();
+		tree_data_.Lock();
+		tree_data_.bookmarks_changed_by_me = true;
+		tree_data_.Unlock();
 	}
 	if (io::WriteToFile(full_path, buf.data(), buf.size()) != io::Err::Ok) {
 		mtl_trace("Failed to save bookmarks");
@@ -1840,58 +1886,49 @@ void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 	}
 }
 
-/** void GetClientAsync(GObject *source_object,
-	GAsyncResult *res, gpointer user_data)
+void MountAdded(GVolumeMonitor *monitor, GMount *mount, gpointer user_data)
 {
-	App *app = (App*) user_data;
-	UDisksClient *client = udisks_client_new_finish(res, NULL);
-	CHECK_PTR_VOID(client);
-	app->udisks_client(client);
+	char *name = g_mount_get_name(mount);
+	GFile *file = g_mount_get_root(mount);
+	GVolume *vol = g_mount_get_volume(mount);
+	char *path = g_file_get_path(file);
+	char *uuid = g_volume_get_uuid(vol);
+//	mtl_info("added, uuid: %s", uuid);
+	QString uuid_str = uuid;
+	QString path_str = path;
+	g_free(uuid);
+	g_free(name);
+	g_free(path);
+	g_object_unref(file);
 	
-	/// Do not free, the UDisksManager instance is owned by client:
-	UDisksManager *disks_manager_ = udisks_client_get_manager(client);
-	Q_UNUSED(disks_manager_);
-	Q_UNUSED(app);
-	\
-///  g_variant_new: expected GVariant of type 'a{sv}' but
-/// received value has type 'b'
-	GVariant *v = g_variant_new_boolean(1);
-	udisks_manager_call_get_block_devices(disks_manager_, v,
-		g_cancellable_new(), GetBlockDevicesAsync, (gpointer)app);
-	
-	
-	
-//	GList *list = udisks_client_get_partitions(client, nullptr);
-//	if (list == nullptr) {
-//		mtl_info("Nullptr");
-//	} else {
-//		mtl_info("here");
-//		GList *orig = list;
-//		while (!list) {
-//			mtl_info("Next partition");
-//			UDisksPartition *p = (UDisksPartition*)list->data;
-//			Q_UNUSED(p);
-//			GList *prev = list;
-//			list = list->next;
-//			g_object_unref(prev);
-//		}
-//		g_list_free(orig);
-//	}
-	
-	
-	g_object_unref(client);
-} **/
+	App *app = (App*)user_data;
+	app->tree_model()->MountEvent(path_str, uuid_str, PartitionEventType::Mount);
+}
 
-void App::UdisksFunc()
+void MountRemoved(GVolumeMonitor *monitor, GMount *mount, gpointer user_data)
 {
-	monitor_ = g_volume_monitor_get();
+	char *name = g_mount_get_name(mount);
+	GFile *file = g_mount_get_root(mount);
+	char *path = g_file_get_path(file);
+	QString path_str = path;
+	g_free(name);
+	g_free(path);
+	g_object_unref(file);
 	
-	g_signal_connect(monitor_, "mount-added",
-		G_CALLBACK(gui::sidepane::VolumeMounted), (gpointer)this);
-	g_signal_connect(monitor_, "mount-changed",
-		G_CALLBACK(gui::sidepane::MountChanged), (gpointer)this);
-	g_signal_connect(monitor_, "mount-removed",
-		G_CALLBACK(gui::sidepane::VolumeUnmounted), (gpointer)this);
+	App *app = (App*)user_data;
+	app->tree_model()->MountEvent(path_str, QString(), PartitionEventType::Unmount);
+}
+
+void App::RegisterVolumesListener()
+{
+	pthread_t th;
+	int status = pthread_create(&th, NULL, gui::sidepane::udev_monitor, this);
+	if (status != 0)
+		mtl_status(status);
+	GVolumeMonitor *monitor = g_volume_monitor_get ();
+	g_signal_connect(monitor, "mount-added", (GCallback)MountAdded, this);
+	g_signal_connect(monitor, "mount-removed", (GCallback)MountRemoved, this);
+	//g_signal_connect(monitor, "mount-changed", (GCallback)MountChanged, this);
 }
 
 bool App::ViewIsAt(const QString &dir_path) const

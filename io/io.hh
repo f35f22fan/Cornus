@@ -174,7 +174,13 @@ bool DirExists(const QString &full_path);
 
 bool EnsureDir(QString dir_path, const QString &subdir);
 
-bool ExpandLinksInDirPath(QString &unprocessed_dir_path, QString &processed_dir_path);
+enum class AppendSlash: i8 {
+	Yes,
+	No,
+};
+
+bool ExpandLinksInDirPath(QString &unprocessed_dir_path,
+	QString &processed_dir_path, const AppendSlash afs = AppendSlash::Yes);
 
 bool
 FileExistsCstr(const char *path, FileType *file_type = nullptr);
@@ -257,8 +263,6 @@ bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &par
 
 bool ReadLinkSimple(const char *file_path, QString &result);
 
-void ReadPartitionInfo(const QString &dev_path, i64 &size, QString &size_str);
-
 bool ReloadMeta(io::File &file, struct statx &stx, QString *dir_path = nullptr);
 
 bool RemoveXAttr(const QString &full_path, const QString &xattr_name);
@@ -267,8 +271,9 @@ bool SameFiles(const QString &path1, const QString &path2,
 	io::Err *ret_error = nullptr);
 
 bool sd_nvme(const QString &name);
+bool valid_dev_path(const QString &name);
 
-QString SizeToString(const i64 sz, const bool short_version = false);
+QString SizeToString(const i64 sz, const StringLength len = StringLength::Normal);
 
 bool SetXAttr(const QString &full_path, const QString &xattr_name,
 	const ByteArray &ba);

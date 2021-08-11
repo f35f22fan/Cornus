@@ -123,6 +123,7 @@ enum class Field: u8 {
 	VideoCodec,
 	VideoResolution,
 	FPS,
+	Comments
 };
 
 }} // cornus::media::

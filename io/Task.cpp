@@ -2,7 +2,6 @@
 
 #include "../AutoDelete.hh"
 #include "../ByteArray.hpp"
-#include "../defines.hxx"
 #include "File.hpp"
 #include "io.hh"
 

@@ -27,4 +27,5 @@ static const QString MediaNewWriter = QLatin1String("MediaNewWriter");
 static const QString MediaNewGenre = QLatin1String("MediaNewGenre");
 static const QString MediaNewSubgenre = QLatin1String("MediaNewSubgenre");
 static const QString MediaNewCountry = QLatin1String("MediaNewCountry");
+static const QString EditMovieTitle = QLatin1String("EditMovieTitle");
 }

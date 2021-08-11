@@ -2,10 +2,9 @@
 
 #include "decl.hxx"
 #include "prefs.hh"
-#include "gui/BasicTable.hpp"
+#include "gui/Table.hpp"
 
 #include <QMap>
-#include <QTableView>
 
 namespace cornus {
 
@@ -62,13 +61,14 @@ public:
 	i16 custom_table_font_size() const {
 		return (table_size_.pixels > 0) ? table_size_.pixels : table_size_.points;
 	}
-	void AdjustCustomTableSize(const Zoom zoom);
+	
 	void UpdateTableSizes();
+	void WheelEventFromMainView(const Zoom zoom);
 	QSize window_size() const { return QSize(win_w_, win_h_); }
 	
 private:
-	void ApplyTableHeight(cornus::gui::BasicTable *table, int max);
-	
+	void ApplyTableHeight(gui::Table *table, int max);
+	void ApplyTreeViewHeight();
 	
 	u64 bool_ = ShowLinkTargets | RememberWindowSize;
 	TableSize table_size_ = {};

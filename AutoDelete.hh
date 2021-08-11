@@ -1,18 +1,56 @@
 #pragma once
 
 #include <sys/inotify.h>
+#include <libudev.h>
+
 #include "gui/decl.hxx"
 #include "MutexGuard.hpp"
 #include "io/io.hh"
 
 namespace cornus {
 
+class UdevAutoUnref {
+public:
+	UdevAutoUnref(struct udev *p): p_(p) {}
+	~UdevAutoUnref() {
+		if (p_)
+			udev_unref(p_);
+	}
+private:
+	struct udev *p_ = nullptr;
+};
+
+class UdevDeviceAutoUnref {
+public:
+	UdevDeviceAutoUnref(struct udev_device *p): p_(p) {}
+	~UdevDeviceAutoUnref() {
+		if (p_)
+			udev_device_unref(p_);
+	}
+private:
+	struct udev_device *p_ = nullptr;
+};
+
+class UdevMonitorAutoUnref {
+public:
+	UdevMonitorAutoUnref(struct udev_monitor *p): p_(p) {}
+	~UdevMonitorAutoUnref() {
+		if (p_)
+			udev_monitor_unref(p_);
+	}
+private:
+	struct udev_monitor *p_ = nullptr;
+};
+
 class AutoCloseFd {
 public:
 	AutoCloseFd(int fd): fd_(fd) {}
-	~AutoCloseFd() { ::close(fd_); }
+	~AutoCloseFd() {
+		if (fd_ != -1)
+			::close(fd_);
+	}
 private:
-int fd_ = -1;
+	int fd_ = -1;
 };
 
 class AutoRemoveWatch {

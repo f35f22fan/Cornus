@@ -4,7 +4,6 @@
 #include "decl.hxx"
 #include "../io/decl.hxx"
 #include "../err.hpp"
-#include "BasicTable.hpp"
 
 #include <QAbstractTableModel>
 #include <QMouseEvent>
@@ -18,19 +17,23 @@ struct OpenWith {
 	QVector<DesktopFile*> remove_vec;
 };
 
-class Table : public BasicTable {
+class Table : public QTableView {
 	Q_OBJECT
 public:
 	Table(TableModel *tm, App *app);
 	virtual ~Table();
 	
+	App* app() const { return app_; }
 	void ApplyPrefs();
+	void AutoScroll(const VDirection d);
 	bool CheckIsOnFileName(io::File *file, const int file_row, const QPoint &pos) const;
 	void ClearMouseOver();
+	void ExecuteDrop(QVector<io::File *> *files_vec, io::File *to_dir,
+		Qt::DropAction drop_action, Qt::DropActions possible_actions);
+	TableHeader* header() const { return header_; }
 	int IsOnFileName(const QPoint &pos);
 	TableModel* model() const { return model_; }
 	const QPoint& drop_coord() const { return drop_coord_; }
-	virtual void dropEvent(QDropEvent *event) override;
 	io::File* GetFileAtNTS(const QPoint &pos, const Clone clone, int *ret_file_index = nullptr);
 	io::File* GetFileAt(const int row); /// returns cloned file
 	void GetSelectedArchives(QVector<QString> &urls);
@@ -55,7 +58,7 @@ public:
 	void SelectRowSimple(const int row, const bool deselect_others = false);
 	void ShowVisibleColumnOptions(QPoint pos);
 	void SyncWith(const cornus::Clipboard &cl, QVector<int> &indices);
-	virtual void UpdateColumnSizes() override { SetCustomResizePolicy(); }
+	void UpdateColumnSizes() { SetCustomResizePolicy(); }
 
 public Q_SLOTS:
 	bool ScrollToAndSelect(QString full_path);
@@ -64,6 +67,7 @@ protected:
 	virtual void dragEnterEvent(QDragEnterEvent *evt) override;
 	virtual void dragLeaveEvent(QDragLeaveEvent *evt) override;
 	virtual void dragMoveEvent(QDragMoveEvent *evt) override;
+	virtual void dropEvent(QDropEvent *event) override;
 	
 	virtual void keyPressEvent(QKeyEvent *evt) override;
 	virtual void keyReleaseEvent(QKeyEvent *evt) override;
@@ -92,8 +96,6 @@ private:
 	QVector<QAction*>
 	CreateOpenWithList(const QString &full_path);
 	
-	void FinishDropOperation(QVector<io::File *> *files_vec, io::File *to_dir,
-		Qt::DropAction drop_action, Qt::DropActions possible_actions);
 	void HandleKeySelect(const VDirection vdir);
 	void HandleKeyShiftSelect(const VDirection vdir);
 	void HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indices);
@@ -123,12 +125,17 @@ private:
 		int base_row = -1;
 		int head_row = -1;
 	} shift_select_ = {};
+	
+	struct DragScroll {
+		int by = 1;
+	} drag_scroll_ = {};
 
 	QPoint drop_coord_ = {-1, -1};
 	QPoint drag_start_pos_ = {-1, -1};
 	QPoint mouse_pos_ = {-1, -1};
 	QVector<int> indices_;
 	OpenWith open_with_ = {};
+	TableHeader *header_ = nullptr;
 };
 
 } // cornus::gui::

@@ -3,25 +3,28 @@
 #include "decl.hxx"
 #include "gui/decl.hxx"
 #include "MutexGuard.hpp"
-#include "gui/SidePaneItem.hpp"
 
 #include <QMetaType> /// Q_DECLARE_METATYPE()
 #include <QVector>
 #include <pthread.h>
 
 namespace cornus {
-class SidePaneItems {
+class TreeData {
 public:
-	SidePaneItems();
-	virtual ~SidePaneItems();
+	TreeData();
+	virtual ~TreeData();
 	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 	bool widgets_created = false;
 	bool partitions_loaded = false;
 	bool sidepane_model_destroyed = false;
 	bool bookmarks_changed_by_me = false;
-	QVector<gui::SidePaneItem*> vec;
+	QVector<gui::TreeItem*> roots;
 	
+	void BroadcastPartitionsLoadedLTH();
+	gui::TreeItem* GetBookmarksRootNTS(int *index = nullptr) const;
+	gui::TreeItem* GetCurrentPartitionNTS() const;
+	gui::TreeItem* GetPartitionByMountPathNTS(const QString &full_path);
 	MutexGuard guard() { return MutexGuard(&mutex); }
 	
 	inline int Lock() {
@@ -31,10 +34,12 @@ public:
 		return status;
 	}
 	
+	void MarkCurrentPartition(const QString &full_path);
+	
 	inline int Unlock() {
 		return pthread_mutex_unlock(&mutex);
 	}
 };
 } // namespace
 
-Q_DECLARE_METATYPE(QVector<cornus::gui::SidePaneItem *>);
+

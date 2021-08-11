@@ -10,7 +10,7 @@
 namespace cornus::io::disks {
 
 struct MountPartitionData {
-	gui::SidePaneItem *partition = nullptr;
+	gui::TreeItem *partition = nullptr;
 	App *app = nullptr;
 };
 

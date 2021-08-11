@@ -27,17 +27,18 @@ class OpenWithPane;
 class PrefsPane;
 class SearchLineEdit;
 class SearchPane;
-class SidePane;
-class SidePaneItem;
-class SidePaneModel;
 class Table;
 class TableDelegate;
+class TableHeader;
 class TableModel;
 class TaskGui;
 class TasksWin;
 class TextEdit;
 class TextField;
 class ToolBar;
+class TreeItem;
+class TreeModel;
+class TreeView;
 
 const int FileNameRelax = 2;
 
@@ -87,6 +88,11 @@ enum class Column : i8 {
 	TimeCreated,
 	TimeModified,
 	Count,
+};
+
+struct InsertArgs {
+	QVector<gui::TreeItem*> bookmarks;
+	QVector<gui::TreeItem*> partitions;
 };
 
 } /// namespace

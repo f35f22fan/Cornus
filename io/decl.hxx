@@ -9,10 +9,27 @@
 #include "../gui/decl.hxx"
 
 namespace cornus::io {
+class DirStream;
 class File;
 class Server;
 class Task;
-	
+
+struct DevNum {
+	i32 major;
+	i32 minor;
+};
+
+struct DiskInfo {
+	io::DevNum num = {-1, -1}; // dev_t->major
+	QString id_model;
+	QString dev_path;
+};
+
+inline bool operator==(const DevNum& lhs, const DevNum& rhs)
+{
+	return lhs.minor == rhs.minor && lhs.major == rhs.major;
+}
+
 struct ServerLife
 {
 	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;

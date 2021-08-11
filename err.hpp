@@ -49,6 +49,10 @@
 	mtl_info("%s\"%s\"", msg, __FILE____LINE__.data());\
 }
 
+#define mtl_tbd() {\
+	mtl_trace("TBD");\
+}
+
 #define NO_ASSIGN_COPY_MOVE(TypeName)\
 	TypeName(const TypeName&) = delete;\
 	void operator=(const TypeName&) = delete;\

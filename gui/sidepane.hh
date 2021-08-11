@@ -1,19 +1,33 @@
 #pragma once
-extern "C" {
+//extern "C" {
 #include <udisks/udisks.h>
 #include <glib.h>
-}
+//}
 
+#include "../decl.hxx"
+#include "../io/decl.hxx"
 #include "decl.hxx"
+#include <libudev.h>
 
 namespace cornus::gui::sidepane {
 
-int FindPlace(SidePaneItem *new_item, QVector<SidePaneItem*> &vec);
-void LoadAllVolumes(QVector<SidePaneItem*> &vec);
-bool SortItems(SidePaneItem *a, SidePaneItem *b);
+DeviceAction DeviceActionFromStr(const QString &s);
+Device DeviceFromStr(const QString &s);
 
-void VolumeMounted(GVolumeMonitor *volume_monitor, GMount *mount, gpointer user_data);
-void MountChanged(GVolumeMonitor *volume_monitor, GMount *mount, gpointer user_data);
-void VolumeUnmounted(GVolumeMonitor *volume_monitor, GMount *mount, gpointer user_data);
+struct Item {
+	QString dev_path;
+	QString fs;
+	QString mount_point;
+};
+
+int FindPlace(TreeItem *new_item, QVector<TreeItem*> &vec);
+QString GetDevPath(GVolume *vol);
+void LoadAllVolumes(QVector<TreeItem*> &vec);
+bool LoadBookmarks(QVector<TreeItem*> &vec);
+void* LoadItems(void *args);
+void ReadDiskInfo(struct udev_device *device, io::DiskInfo &info);
+bool SortItems(TreeItem *a, TreeItem *b);
+void* udev_monitor(void *args);
+void udev_list_partitions(QVector<TreeItem*> &vec);
 
 }

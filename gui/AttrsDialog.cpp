@@ -22,7 +22,6 @@ void AvailPane::Init()
 {
 	setContentsMargins(0, 0, 0, 0);
 	QBoxLayout *layout = new QBoxLayout(QBoxLayout::LeftToRight);
-	///layout->setSpacing(0);
 	setLayout(layout);
 	QString label;
 	switch (category_) {
@@ -194,7 +193,7 @@ void AttrsDialog::Init()
 		bit_depth_tf_->setFixedWidth(small_w);
 		bit_depth_tf_->setToolTip(tr("Video bit depth, usually 8, 10 or 12 bits"));
 		fps_tf_ = new TextField();
-		fps_tf_->setFixedWidth(small_w);
+		fps_tf_->setFixedWidth(fixed_w);
 		fps_tf_->setToolTip(tr("FPS - frames per second"));
 		fps_tf_->setPlaceholderText("FPS");
 		
@@ -226,6 +225,11 @@ void AttrsDialog::Init()
 		layout->addStretch(2);
 		
 		fl->addRow(tr("Released in (years):"), pane);
+	}
+	{
+		comment_area_ = new QPlainTextEdit();
+		comment_area_->setPlaceholderText(tr("Comments"));
+		fl->addRow(comment_area_);
 	}
 	
 	SyncWidgetsToFile();
@@ -275,10 +279,10 @@ void AttrsDialog::SaveAssignedAttrs()
 	
 	{
 		QString s = fps_tf_->text().trimmed();
-		int n = s.toInt(&ok);
+		f32 n = s.toFloat(&ok);
 		if (ok) {
 			ba.add_u8((u8)media::Field::FPS);
-			ba.add_i16(n);
+			ba.add_f32(n);
 		}
 	}
 	
@@ -294,6 +298,14 @@ void AttrsDialog::SaveAssignedAttrs()
 				ba.add_i32(w);
 				ba.add_i32(h);
 			}
+		}
+	}
+	
+	{
+		QString s = comment_area_->toPlainText().trimmed();
+		if (!s.isEmpty()) {
+			ba.add_u8((u8)media::Field::Comments);
+			ba.add_string(s);
 		}
 	}
 	
@@ -335,7 +347,8 @@ void AttrsDialog::SyncWidgetsToFile()
 	{
 		QComboBox *cb = nullptr;
 		const media::Field f = (media::Field)ba.next_u8();
-		switch (f) {
+		switch (f)
+		{
 		case media::Field::Actors: cb = actors_asp_->cb(); break;
 		case media::Field::Directors: cb = directors_asp_->cb(); break;
 		case media::Field::Writers: cb = writers_asp_->cb(); break;
@@ -362,8 +375,11 @@ void AttrsDialog::SyncWidgetsToFile()
 			break;
 		}
 		case media::Field::FPS: {
-			fps_tf_->setText(QString::number(ba.next_i16()));
+			fps_tf_->setText(QString::number(ba.next_f32()));
 			break;
+		}
+		case media::Field::Comments: {
+			comment_area_->setPlainText(ba.next_string());
 		}
 		default:{
 			mtl_trace();

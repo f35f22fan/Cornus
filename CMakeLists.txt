@@ -20,9 +20,9 @@ find_package(Qt5 COMPONENTS Core Gui Widgets DBus REQUIRED)
 include(FindPkgConfig)
 
 find_package(PkgConfig REQUIRED)
-pkg_search_module(DCONF REQUIRED dconf)
+# pkg_search_module(DCONF REQUIRED dconf)
 pkg_search_module(UDISKS REQUIRED udisks2)
-#libdbus-c++-dev
+pkg_search_module(UDEV REQUIRED libudev)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -36,7 +36,6 @@ set(cornus_src_files main.cpp
     ByteArray.cpp ByteArray.hpp
     category.cc category.hh
     decl.hxx
-    defines.hxx
     DesktopFile.cpp DesktopFile.hpp
     ElapsedTimer.cpp ElapsedTimer.hpp
     err.hpp
@@ -46,11 +45,10 @@ set(cornus_src_files main.cpp
     MutexGuard.cpp MutexGuard.hpp
     prefs.cc prefs.hh
     Prefs.cpp Prefs.hpp
-    SidePaneItems.cpp SidePaneItems.hpp
+    TreeData.cpp TreeData.hpp
 
     gui/actions.hxx
     gui/AttrsDialog.cpp gui/AttrsDialog.hpp
-    gui/BasicTable.hpp
     gui/CompleterModel.cpp gui/CompleterModel.hpp
     gui/CountFolder.cpp gui/CountFolder.hpp
     gui/decl.hxx
@@ -65,17 +63,19 @@ set(cornus_src_files main.cpp
     gui/SearchLineEdit.cpp gui/SearchLineEdit.hpp
     gui/SearchPane.cpp gui/SearchPane.hpp
     gui/sidepane.cc gui/sidepane.hh
-    gui/SidePane.cpp gui/SidePane.hpp
-    gui/SidePaneItem.cpp gui/SidePaneItem.hpp
-    gui/SidePaneModel.cpp gui/SidePaneModel.hpp
     gui/Table.cpp gui/Table.hpp
     gui/TableDelegate.cpp gui/TableDelegate.hpp
+    gui/TableHeader.cpp gui/TableHeader.hpp
     gui/TableModel.cpp gui/TableModel.hpp
     gui/TextEdit.cpp gui/TextEdit.hpp
     gui/TextField.cpp gui/TextField.hpp
     gui/ToolBar.cpp gui/ToolBar.hpp
+    gui/TreeItem.cpp gui/TreeItem.hpp
+    gui/TreeModel.cpp gui/TreeModel.hpp
+    gui/TreeView.cpp gui/TreeView.hpp
     
     io/decl.hxx
+    io/DirStream.cpp io/DirStream.hpp
     io/disks.cc io/disks.hh
     io/File.cpp io/File.hpp
     io/io.cc io/io.hh
@@ -92,7 +92,6 @@ set(cornus_io_src_files main_io.cpp
     AutoDelete.hh
     category.cc category.hh
     ByteArray.cpp ByteArray.hpp
-    defines.hxx
     DesktopFile.cpp DesktopFile.hpp
     ElapsedTimer.cpp ElapsedTimer.hpp
     err.hpp
@@ -120,14 +119,14 @@ endforeach()
 set (cornus_exe "cornus")
 add_executable(${cornus_exe} ${cornus_src_files} resources/resources.qrc)
 target_include_directories(${cornus_exe} PRIVATE
-    ${UDISKS_INCLUDE_DIRS} ${DCONF_INCLUDE_DIRS})
+    ${UDISKS_INCLUDE_DIRS} ${UDEV_INCLUDE_DIRS}) # ${DCONF_INCLUDE_DIRS}
 target_link_libraries(${cornus_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
-    ${UDISKS_LDFLAGS} ${DCONF_LDFLAGS} pthread)
+    ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS} pthread) # ${DCONF_LDFLAGS}
    
 set (cornus_io_exe "cornus_io")
 add_executable(${cornus_io_exe} ${cornus_io_src_files} resources/resources.qrc)
 target_include_directories(${cornus_io_exe} PRIVATE
-    ${UDISKS_INCLUDE_DIRS} ${DCONF_INCLUDE_DIRS})
+    ${UDISKS_INCLUDE_DIRS}) # ${DCONF_INCLUDE_DIRS}
 target_link_libraries(${cornus_io_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
-    ${UDISKS_LDFLAGS} ${DCONF_LDFLAGS} pthread)   
+    ${UDISKS_LDFLAGS} pthread) # ${DCONF_LDFLAGS}
 

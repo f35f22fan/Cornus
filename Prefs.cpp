@@ -2,20 +2,27 @@
 
 #include "App.hpp"
 #include "io/io.hh"
-#include "gui/SidePane.hpp"
+#include "gui/TreeView.hpp"
 #include "gui/Table.hpp"
 
+#include <QApplication>
 #include <QHeaderView>
 
 #include <fcntl.h>
 
 namespace cornus {
 
+int NormalFontSize()
+{
+	const QFont f = QApplication::font();
+	return (f.pixelSize() > 0) ? f.pixelSize() : f.pointSize();
+}
+
 Prefs::Prefs(App *app): app_(app) {}
 
 Prefs::~Prefs() {}
 
-void Prefs::ApplyTableHeight(gui::BasicTable *table, int max)
+void Prefs::ApplyTableHeight(gui::Table *table, int max)
 {
 	if (table_size_.empty())
 		return;
@@ -36,30 +43,19 @@ void Prefs::ApplyTableHeight(gui::BasicTable *table, int max)
 	table->UpdateColumnSizes();
 }
 
-void Prefs::AdjustCustomTableSize(const Zoom zoom)
+void Prefs::ApplyTreeViewHeight()
 {
-	gui::Table *table = app_->table();
-	if (table_size_.empty()) {
-		QFont f = table->font();
-		if (f.pixelSize() > 0) {
-			table_size_.pixels = f.pixelSize();
-		} else {
-			table_size_.points = f.pointSize();
-		}
-	}
-	
-	auto &value = (table_size_.pixels > 0) ? table_size_.pixels : table_size_.points;
-	if (zoom == Zoom::In)
-		value++;
-	else
-		value--;
-	
-	if (value < 0) {
-		value = -1;
+	if (table_size_.empty())
 		return;
+
+	gui::TreeView *view = app_->tree_view();
+	QFont f = view->font();
+	if (table_size_.pixels > 0) {
+		f.setPixelSize(table_size_.pixels);
+	} else {
+		f.setPointSize(table_size_.points);
 	}
-	
-	UpdateTableSizes();
+	view->setFont(f);
 }
 
 void Prefs::Load()
@@ -159,8 +155,32 @@ void Prefs::UpdateTableSizes()
 	
 	i32 max = str_h * table_size_.ratio;
 	ApplyTableHeight(app_->table(), max);
-	ApplyTableHeight(app_->side_pane(), max);
-}
+	ApplyTreeViewHeight();
 }
 
-
+void Prefs::WheelEventFromMainView(const Zoom zoom)
+{
+	gui::Table *table = app_->table();
+	if (table_size_.empty()) {
+		QFont f = table->font();
+		if (f.pixelSize() > 0) {
+			table_size_.pixels = f.pixelSize();
+		} else {
+			table_size_.points = f.pointSize();
+		}
+	}
+	
+	auto &value = (table_size_.pixels > 0) ? table_size_.pixels : table_size_.points;
+	if (zoom == Zoom::In) {
+		if (value < 50)
+			value++;
+	} else if (zoom == Zoom::Out) {
+		if (value > 8)
+			value--;
+	} else if (zoom == Zoom::Reset) {
+		value = NormalFontSize();
+	}
+	
+	UpdateTableSizes();
+}
+}

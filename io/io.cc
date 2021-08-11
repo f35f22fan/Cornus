@@ -15,7 +15,6 @@
 #include <algorithm>
 #include <cmath>
 #include <bits/stdc++.h> /// std::sort()
-#include <sys/stat.h>
 #include <sys/xattr.h>
 #include <fcntl.h>
 #include <string.h>
@@ -452,7 +451,8 @@ bool EnsureDir(QString dir_path, const QString &subdir)
 	return mkdir(ba.data(), DirPermissions) == 0;
 }
 
-bool ExpandLinksInDirPath(QString &unprocessed_dir_path, QString &processed_dir_path)
+bool ExpandLinksInDirPath(QString &unprocessed_dir_path,
+	QString &processed_dir_path, const AppendSlash afs)
 {
 	QString dir_path = QDir::cleanPath(unprocessed_dir_path);
 	
@@ -465,7 +465,7 @@ bool ExpandLinksInDirPath(QString &unprocessed_dir_path, QString &processed_dir_
 	auto list = dir_path.splitRef('/', Qt::SkipEmptyParts);
 	struct statx stx;
 	const auto flags = AT_SYMLINK_NOFOLLOW;
-	const auto fields = STATX_MODE;//STATX_ALL;
+	const auto fields = STATX_MODE;
 	QString full_long_path;
 	
 	for (auto &item: list) {
@@ -488,8 +488,10 @@ bool ExpandLinksInDirPath(QString &unprocessed_dir_path, QString &processed_dir_
 		}
 	}
 	
-	if (!full_long_path.endsWith('/'))
-		full_long_path.append('/');
+	if (afs == AppendSlash::Yes) {
+		if (!full_long_path.endsWith('/'))
+			full_long_path.append('/');
+	}
 	
 	processed_dir_path = full_long_path;
 	unprocessed_dir_path.clear();
@@ -931,8 +933,7 @@ Err MapPosixError(int e)
 	}
 }
 
-QString
-NewNamePattern(const QString &filename, i32 &next)
+QString NewNamePattern(const QString &filename, i32 &next)
 {
 	if (next == 0) {
 		next++;
@@ -949,8 +950,7 @@ NewNamePattern(const QString &filename, i32 &next)
 	return base_name + num_str + '.' + ext;
 }
 
-QString
-PasteLinks(const QVector<QString> &full_paths, QString target_dir,
+QString PasteLinks(const QVector<QString> &full_paths, QString target_dir,
 	QString *error)
 {
 	if (!target_dir.endsWith('/'))
@@ -989,8 +989,7 @@ PasteLinks(const QVector<QString> &full_paths, QString target_dir,
 	return first_successful;
 }
 
-QString
-PasteRelativeLinks(const QVector<QString> &full_paths, QString target_dir,
+QString PasteRelativeLinks(const QVector<QString> &full_paths, QString target_dir,
 	QString *error)
 {
 	if (!target_dir.endsWith('/'))
@@ -1249,47 +1248,6 @@ bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	return true;
 }
 
-void ReadPartitionInfo(const QString &dev_path, i64 &size, QString &size_str)
-{
-	int index = dev_path.indexOf(QLatin1String("/sd"));
-	QStringRef drive_name, partition_name;
-	if (index != -1)
-	{
-		drive_name = dev_path.midRef(index + 1, 3);
-		partition_name = dev_path.midRef(index + 1);
-	} else {
-		int start = dev_path.indexOf(QLatin1String("/nvme"));
-		if (start == -1)
-			return;
-		int end = dev_path.lastIndexOf('p');
-		if (end == -1)
-			return;
-		start++; /// skip '/'
-		drive_name = dev_path.midRef(start, end - start);
-		partition_name = dev_path.midRef(start);
-	}
-	
-	const bool is_digit = dev_path.at(dev_path.size() - 1).isDigit();
-	QString full_path = QLatin1String("/sys/block/") + drive_name;
-	if (is_digit) {
-		full_path += '/' + partition_name;
-	}
-	
-	QString size_path = full_path + QLatin1String("/size");
-	
-	ByteArray buf;
-	CHECK_TRUE_VOID(io::ReadFile(size_path, buf));
-	QString s = buf.toString();
-//	mtl_info("buf size: %ld, heap_size: %ld, str: %s",
-//		buf.size(), buf.heap_size(), qPrintable(s));
-	bool ok;
-	i64 num = s.toLong(&ok);
-	if (ok) {
-		size = num * 512;
-		size_str = io::SizeToString(size, true);
-	}
-}
-
 void ReadXAttrs(io::File &file, const QByteArray &full_path)
 {
 	if (!file.can_have_xattr())
@@ -1431,6 +1389,13 @@ bool sd_nvme(const QString &name)
 	return name.startsWith(sd) || name.startsWith(nvme);
 }
 
+bool valid_dev_path(const QString &name)
+{
+	static const QString sd = QLatin1String("/dev/sd");
+	static const QString nvme = QLatin1String("/dev/nvme");
+	return name.startsWith(sd) || name.startsWith(nvme);
+}
+
 bool SetXAttr(const QString &full_path, const QString &xattr_name,
 	const ByteArray &ba)
 {
@@ -1445,26 +1410,26 @@ bool SetXAttr(const QString &full_path, const QString &xattr_name,
 	return status == 0;
 }
 
-QString SizeToString(const i64 sz, const bool short_version)
+QString SizeToString(const i64 sz, const StringLength len)
 {
 	float rounded;
 	QString type;
 	if (sz >= io::TiB) {
 		rounded = sz / io::TiB;
-		type = short_version ? QLatin1String("T") : QLatin1String(" TiB");
+		type = (len == StringLength::Short) ? QLatin1String("T") : QLatin1String(" TiB");
 	}
 	else if (sz >= io::GiB) {
 		rounded = sz / io::GiB;
-		type = short_version ? QLatin1String("G") : QLatin1String(" GiB");
+		type = (len == StringLength::Short) ? QLatin1String("G") : QLatin1String(" GiB");
 	} else if (sz >= io::MiB) {
 		rounded = sz / io::MiB;
-		type = short_version ? QLatin1String("M") : QLatin1String(" MiB");
+		type = (len == StringLength::Short) ? QLatin1String("M") : QLatin1String(" MiB");
 	} else if (sz >= io::KiB) {
 		rounded = sz / io::KiB;
-		type = short_version ? QLatin1String("K") : QLatin1String(" KiB");
+		type = (len == StringLength::Short) ? QLatin1String("K") : QLatin1String(" KiB");
 	} else {
 		rounded = sz;
-		type = short_version ? QLatin1String("B") : QLatin1String(" bytes");
+		type = (len == StringLength::Short) ? QLatin1String("B") : QLatin1String(" bytes");
 	}
 	
 	return io::FloatToString(rounded, 1) + type;

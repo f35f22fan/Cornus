@@ -12,6 +12,7 @@
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QPushButton>
+#include <QPlainTextEdit>
 
 namespace cornus::gui {
 class AssignedPane;
@@ -88,6 +89,8 @@ private:
 	*bit_depth_tf_ = nullptr, *resolution_w_tf_ = nullptr,
 	*resolution_h_tf_ = nullptr, *fps_tf_ = nullptr;
 	int fixed_width_ = -1;
+	
+	QPlainTextEdit *comment_area_ = nullptr;
 	
 	ByteArray was_;
 };

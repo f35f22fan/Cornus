@@ -3,7 +3,6 @@
 #include "../AutoDelete.hh"
 #include "../ByteArray.hpp"
 #include "../DesktopFile.hpp"
-#include "../defines.hxx"
 #include "../prefs.hh"
 #include "../str.hxx"
 #include "../gui/TasksWin.hpp"

@@ -2,12 +2,12 @@
 
 #include "../App.hpp"
 #include "../AutoDelete.hh"
-#include "../defines.hxx"
 #include "../io/File.hpp"
 #include "Location.hpp"
 #include "../MutexGuard.hpp"
 #include "../Prefs.hpp"
 #include "Table.hpp"
+#include "TableHeader.hpp"
 
 #include <sys/epoll.h>
 #include <QFont>
@@ -423,7 +423,14 @@ QVariant TableModel::headerData(int section_i, Qt::Orientation orientation, int 
 			
 			switch (section) {
 			case Column::Icon: return {};
-			case Column::FileName: return GetName();
+			case Column::FileName: {
+				Table *table = app_->table();
+				if (!table)
+					return GetName();
+				
+				return (table->header()->in_drag_mode()) ?
+					tr("Move to parent folder") : GetName();
+			}
 			case Column::Size: return tr("Size");
 			case Column::TimeCreated: return tr("Created");
 			case Column::TimeModified: return tr("Modified");
@@ -740,8 +747,9 @@ void TableModel::UpdateVisibleArea()
 
 void TableModel::UpdateHeaderNameColumn()
 {
-	if (app_->prefs().show_free_partition_space())
+	if (app_->prefs().show_free_partition_space()) {
 		cached_free_space_ = app_->GetPartitionFreeSpace();
+	}
 	const int col = (int)Column::FileName;
 	headerDataChanged(Qt::Horizontal, col, col);
 }

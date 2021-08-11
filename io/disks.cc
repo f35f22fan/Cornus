@@ -2,9 +2,9 @@
 
 #include "../App.hpp"
 #include "../AutoDelete.hh"
-#include "../gui/SidePane.hpp"
-#include "../gui/SidePaneItem.hpp"
-#include "../gui/SidePaneModel.hpp"
+#include "../gui/TreeItem.hpp"
+#include "../gui/TreeModel.hpp"
+#include "../gui/TreeView.hpp"
 
 namespace cornus::io::disks {
 
@@ -22,9 +22,10 @@ void* MountPartitionTh(void *p)
 	
 	AutoDelete ad(params->partition);
 	AutoDelete mps_ad(params);
+	auto *view = params->app->tree_view();
 	
 	if (!QDBusConnection::systemBus().isConnected()) {
-		QMetaObject::invokeMethod(params->app->side_pane(), "ClearHasBeenClicked",
+		QMetaObject::invokeMethod(view, "ClearHasBeenClicked",
 			Q_ARG(QString, params->partition->dev_path()),
 			Q_ARG(QString, QString("DBus: Failed to connect to system bus")));
 		
@@ -41,7 +42,7 @@ void* MountPartitionTh(void *p)
 		"org.freedesktop.UDisks2.Filesystem", QDBusConnection::systemBus());
 	
 	if (!iface.isValid()) {
-		QMetaObject::invokeMethod(params->app->side_pane(), "ClearHasBeenClicked",
+		QMetaObject::invokeMethod(view, "ClearHasBeenClicked",
 			Q_ARG(QString, params->partition->dev_path()),
 			Q_ARG(QString, QString("Invalid interface")));
 		return nullptr;
@@ -51,7 +52,7 @@ void* MountPartitionTh(void *p)
 	QDBusReply<QString> reply = iface.call(QDBus::Block, "Mount", args);
 	
 	if (!reply.isValid()) {
-		QMetaObject::invokeMethod(params->app->side_pane(), "ClearHasBeenClicked",
+		QMetaObject::invokeMethod(view, "ClearHasBeenClicked",
 			Q_ARG(QString, params->partition->dev_path()),
 			Q_ARG(QString, reply.error().message()));
 		
@@ -83,9 +84,10 @@ void* UnmountPartitionTh(void *p)
 	
 	AutoDelete ad(mps->partition);
 	AutoDelete mps_ad(mps);
+	auto *view = mps->app->tree_view();
 	
 	if (!QDBusConnection::systemBus().isConnected()) {
-		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearHasBeenClicked",
+		QMetaObject::invokeMethod(view, "ClearHasBeenClicked",
 			Q_ARG(QString, mps->partition->dev_path()),
 			Q_ARG(QString, QString("DBus: Failed to connect to system bus")));
 		
@@ -102,7 +104,7 @@ void* UnmountPartitionTh(void *p)
 		"org.freedesktop.UDisks2.Filesystem", QDBusConnection::systemBus());
 	
 	if (!iface.isValid()) {
-		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearHasBeenClicked",
+		QMetaObject::invokeMethod(view, "ClearHasBeenClicked",
 			Q_ARG(QString, mps->partition->dev_path()),
 			Q_ARG(QString, QString("Invalid interface")));
 		return nullptr;
@@ -113,7 +115,7 @@ void* UnmountPartitionTh(void *p)
 	QDBusReply<void> reply = iface.call(QDBus::Block, "Unmount", args);
 	
 	if (!reply.isValid()) {
-		QMetaObject::invokeMethod(mps->app->side_pane(), "ClearHasBeenClicked",
+		QMetaObject::invokeMethod(view, "ClearHasBeenClicked",
 			Q_ARG(QString, mps->partition->dev_path()),
 			Q_ARG(QString, reply.error().message()));
 /// Unexpected reply signature: got "<empty signature>", expected "s" (QString)

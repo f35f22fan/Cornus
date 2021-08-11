@@ -17,10 +17,33 @@ class Media;
 class MutexGuard;
 class MyDaemon;
 class Prefs;
-class SidePaneItems;
+class TreeItems;
 
 const QString AppIconPath = QLatin1String(":/cornus.mas.png");
 const char *const SocketPath = "\0cornus_socket";
+
+enum class StringLength: i8 {
+	Short,
+	Normal
+};
+
+enum class InsertPlace: i8 {
+	AtEnd,
+	Sorted,
+	AtStart
+};
+
+enum class Device: i8 {
+	None,
+	Disk,
+	Partition
+};
+
+enum class DeviceAction: i8 {
+	None,
+	Added,
+	Removed
+};
 
 enum class VDirection: i8 {
 	Up,
@@ -34,7 +57,8 @@ enum class ListDirOption: i8 {
 
 enum class Zoom: i8 {
 	In,
-	Out
+	Out,
+	Reset
 };
 
 enum class LinkType: i8 {
@@ -127,7 +151,7 @@ struct Clipboard {
 	}
 };
 
-enum class PartitionEventType: u8 {
+enum class PartitionEventType: i8 {
 	None = 0,
 	Mount,
 	Unmount,
@@ -139,7 +163,37 @@ struct PartitionEvent {
 	QString fs;
 	PartitionEventType type = PartitionEventType::None;
 };
+
+struct PendingCommand {
+	static const u8 ExpiredBit = 1u << 0;
+	
+	u8 bits_ = 0;
+	PartitionEventType evt = PartitionEventType::None;
+	time_t expires = 0;
+	QString fs_uuid;
+	QString path;
+	
+	static inline PendingCommand New(const PartitionEventType evt,
+		const QString &fs_uuid, const QString &path)
+	{
+		return PendingCommand {
+			.evt = evt,
+			.expires = time(NULL) + 30,
+			.fs_uuid = fs_uuid,
+			.path = path
+		};
+	}
+	
+	inline bool expired_bit() const { return bits_ & ExpiredBit; }
+	inline void expired_bit(const bool flag) {
+		if (flag)
+			bits_ |= ExpiredBit;
+		else
+			bits_ &= ~ExpiredBit;
+	}
+};
 }
 
 Q_DECLARE_METATYPE(cornus::PartitionEvent*);
-
+Q_DECLARE_METATYPE(cornus::Device);
+Q_DECLARE_METATYPE(cornus::DeviceAction);

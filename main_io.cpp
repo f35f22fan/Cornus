@@ -16,7 +16,6 @@
 #include "AutoDelete.hh"
 #include "ByteArray.hpp"
 #include "decl.hxx"
-#include "defines.hxx"
 #include "err.hpp"
 #include "io/decl.hxx"
 #include "io/Server.hpp"

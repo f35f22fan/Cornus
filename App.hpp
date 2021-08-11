@@ -6,7 +6,7 @@
 #include "io/decl.hxx"
 #include "io/io.hh"
 #include "gui/decl.hxx"
-#include "SidePaneItems.hpp"
+#include "TreeData.hpp"
 
 #include <QClipboard>
 #include <QHash>
@@ -37,6 +37,7 @@ public:
 	i32 current_dir_id() const;
 	Category desktop() const { return desktop_; }
 	void DisplayFileContents(const int row, io::File *cloned_file = nullptr);
+	void EditSelectedMovieTitle();
 	void ExtractAskDestFolder();
 	void ExtractTo(const QString &to_dir);
 	void FileDoubleClicked(io::File *file, const gui::Column col);
@@ -48,11 +49,14 @@ public:
 	void GoHome();
 	bool GoTo(const Action action, DirPath dir_path, const cornus::Reload r = Reload::No,
 		QString scroll_to_and_select = QString());
+	void GoToSimple(const QString &full_path);
+	void GoUp();
+	
 	QColor green_color() const { return (theme_type_ == ThemeType::Light) ?
 		QColor(0, 100, 0) : QColor(200, 255, 200);
 	}
+	
 	void Reload();
-	void GoUp();
 	void HideTextEditor();
 	QColor hover_bg_color() const { return (theme_type_ == ThemeType::Light)
 		? QColor(150, 255, 150) : QColor(0, 80, 0); }
@@ -71,9 +75,11 @@ public:
 	void RunExecutable(const QString &full_path, const ExecInfo &info);
 	void SaveBookmarks();
 	bool ShowInputDialog(const gui::InputDialogParams &params, QString &ret_val);
-	gui::SidePane* side_pane() const { return side_pane_; }
-	SidePaneItems& side_pane_items() const { return side_pane_items_; }
-	gui::SidePaneModel* side_pane_model() const { return side_pane_model_; }
+	
+	gui::TreeModel* tree_model() const { return tree_model_; }
+	gui::TreeView* tree_view() const { return tree_view_; }
+	TreeData& tree_data() const { return tree_data_; }
+	
 	void SwitchExecBitOfSelectedFiles();
 	gui::Table* table() const { return table_; }
 	gui::TableModel* table_model() const { return table_model_; }
@@ -90,14 +96,17 @@ public Q_SLOTS:
 	
 protected:
 	bool event(QEvent *event) override;
+	
 private:
 	NO_ASSIGN_COPY_MOVE(App);
 	
 	void ArchiveAskDestArchivePath(const QString &ext);
 	void ArchiveTo(const QString &target_dir_path, const QString &ext);
 	void ClipboardChanged(QClipboard::Mode mode);
+	void CreateFilesViewPane();
 	QMenu* CreateNewMenu();
 	void CreateGui();
+	void CreateSidePane();
 	void DetectThemeType();
 	void DisplayMime(io::File *file);
 	void DisplaySymlinkInfo(io::File &file);
@@ -113,11 +122,9 @@ private:
 	void ProcessAndWriteTo(const QString ext,
 		const QString &from_full_path, QString to_dir);
 	void RegisterShortcuts();
+	void RegisterVolumesListener();
 	void SetupIconNames();
 	void ShutdownLastInotifyThread();
-	void UdisksFunc();
-	
-	GVolumeMonitor *monitor_ = nullptr;
 	
 	gui::Table *table_ = nullptr; // owned by QMainWindow
 	gui::TableModel *table_model_ = nullptr; // owned by table_
@@ -140,9 +147,10 @@ private:
 	gui::Location *location_ = nullptr;
 	Prefs *prefs_ = nullptr;
 	
-	gui::SidePane *side_pane_ = nullptr;
-	gui::SidePaneModel *side_pane_model_ = nullptr;
-	mutable SidePaneItems side_pane_items_ = {};
+	mutable TreeData tree_data_ = {};
+	gui::TreeView *tree_view_ = nullptr;
+	gui::TreeModel *tree_model_ = nullptr;
+	
 	QSplitter *main_splitter_ = nullptr;
 	
 	struct Notepad {

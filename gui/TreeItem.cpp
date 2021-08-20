@@ -116,6 +116,15 @@ QVariant TreeItem::data(const int column) const
 	return k->DisplayString();
 }
 
+bool TreeItem::DeleteChild(TreeItem *p)
+{
+	int at = children_.indexOf(p);
+	CHECK_TRUE((at != -1));
+	children_.remove(at);
+	delete p;
+	return true;
+}
+
 QString
 TreeItem::DisplayString()
 {
@@ -177,6 +186,20 @@ TreeItem::GetPartitionName() const
 	return dev_path.mid(index + 1);
 }
 
+bool TreeItem::HasRootPartition() const
+{
+	if (!is_disk())
+		return false;
+	const QChar root_path = '/';
+	for (TreeItem *next: children_)
+	{
+		if (next->mounted() && next->mount_path() == root_path)
+			return true;
+	}
+	
+	return false;
+}
+
 QModelIndex
 TreeItem::IndexOf(const QModelIndex &index, TreeItem *p, const int col) const
 {
@@ -190,10 +213,12 @@ TreeItem::IndexOf(const QModelIndex &index, TreeItem *p, const int col) const
 	return QModelIndex();
 }
 
-void TreeItem::InsertChild(TreeItem *p, const int place)
+void TreeItem::InsertChild(TreeItem *p, const int at)
 {
 	p->parent_ = this;
-	children_.insert(place, p);
+	const int count = children_.size();
+	const int n = (at >= count) ? count : at;
+	children_.insert(n, p);
 }
 
 TreeItem* TreeItem::NewBookmarksRoot(const int root_row)

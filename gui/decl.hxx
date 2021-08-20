@@ -25,6 +25,7 @@ class OpenOrderPane;
 class OpenOrderTable;
 class OpenWithPane;
 class PrefsPane;
+class RestorePainter;
 class SearchLineEdit;
 class SearchPane;
 class Table;

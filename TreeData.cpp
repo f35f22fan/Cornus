@@ -95,7 +95,9 @@ void TreeData::MarkCurrentPartition(const QString &full_path)
 	}
 }
 
-
+MutexGuard TreeData::try_guard()
+{
+	return MutexGuard(&mutex, LockType::TryLock);
 }
 
-
+}

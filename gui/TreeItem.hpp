@@ -6,6 +6,7 @@
 #include <libudev.h>
 #include <udisks/udisks.h>
 
+#include <QAbstractItemModel>
 #include <QModelIndex>
 #include <QString>
 
@@ -67,14 +68,40 @@ struct PartitionInfo
 	static PartitionInfo* FromDevice(struct udev_device *dev);
 };
 
+using BitsType = u8;
+
+enum class Bits: BitsType {
+	Empty = 0,
+	Mounted = 1u << 0,
+	Removable = 1u << 1,
+	MountChanged = 1u << 2,
+	CurrentPartition = 1u << 3,
+};
+
+inline Bits operator | (Bits a, Bits b) {
+	return static_cast<Bits>(static_cast<u8>(a) | static_cast<u8>(b));
+}
+
+inline Bits& operator |= (Bits &a, const Bits b) {
+	a = a | b;
+	return a;
+}
+
+inline Bits operator ~ (Bits a) {
+	return static_cast<Bits>(~(static_cast<u8>(a)));
+}
+
+inline Bits operator & (Bits a, Bits b) {
+	return static_cast<Bits>((static_cast<u8>(a) & static_cast<u8>(b)));
+}
+
+inline Bits& operator &= (Bits &a, const Bits b) {
+	a = a & b;
+	return a;
+}
+
 class TreeItem {
-	const u8 SelectedBit = 1u << 0;
-	const u8 MountedBit = 1u << 2;
-	const u8 HasBeenClickedBit = 1u << 3;
-	const u8 RemovableBit = 1u << 4;
-	const u8 MountChangedBit = 1u << 5;
-	const u8 CurrentPartitionBit = 1u << 6;
-	
+
 public:
 	TreeItem() {}
 	~TreeItem();
@@ -88,6 +115,8 @@ public:
 	static TreeItem* NewDisk(const io::DiskInfo &disk_info, const int root_row);
 	const QString& bookmark_name() const { return title_; }
 	void bookmark_name(const QString &s) { title_ = s; }
+	const QString& bookmark_path() const { return mount_path_; }
+	void bookmark_path(const QString &s) { mount_path_ = s; }
 	
 	QString DisplayString();
 	void set_partition() { type_ = gui::TreeItemType::Partition; }
@@ -101,21 +130,15 @@ public:
 	
 	const QString dev_path() const { return info_ ? info_->dev_path : QString(); }
 	
-	bool current_partition() const { return bits_ & CurrentPartitionBit; }
+	bool current_partition() const { return (bits_ & Bits::CurrentPartition) != Bits::Empty; }
 	void current_partition(const bool flag) {
 		if (flag)
-			bits_ |= CurrentPartitionBit;
+			bits_ |= Bits::CurrentPartition;
 		else
-			bits_ &= ~CurrentPartitionBit;
+			bits_ &= ~Bits::CurrentPartition;
 	}
 	
-	bool has_been_clicked() const { return bits_ & HasBeenClickedBit; }
-	void has_been_clicked(const bool flag) {
-		if (flag)
-			bits_ |= HasBeenClickedBit;
-		else
-			bits_ &= ~HasBeenClickedBit;
-	}
+	bool HasRootPartition() const;
 	
 	bool is_bookmark() const { return type_ == TreeItemType::Bookmark; }
 	bool is_partition() const { return type_ == TreeItemType::Partition; }
@@ -125,34 +148,28 @@ public:
 	void set_bookmarks_root();
 	
 	QString GetPartitionName() const;
-	bool mounted() const { return bits_ & MountedBit; }
+	bool mounted() const { return (bits_ & Bits::Mounted) != Bits::Empty; }
 	void mounted(const bool flag) {
-		if (flag) bits_ |= MountedBit;
-		else bits_ &= ~MountedBit;
+		if (flag) bits_ |= Bits::Mounted;
+		else bits_ &= ~Bits::Mounted;
 	}
 	
-	bool mount_changed() const { return bits_ & MountChangedBit; }
+	bool mount_changed() const { return (bits_ & Bits::MountChanged) != Bits::Empty; }
 	void mount_changed(const bool flag) {
-		if (flag) bits_ |= MountChangedBit;
-		else bits_ &= ~MountChangedBit;
+		if (flag) bits_ |= Bits::MountChanged;
+		else bits_ &= ~Bits::MountChanged;
 	}
 	
 	const QString& mount_path() const { return mount_path_; }
 	void mount_path(const QString &s) { mount_path_ = s;}
 	
-	bool removable() const { return bits_ & RemovableBit; }
+	bool removable() const { return (bits_ & Bits::Removable) != Bits::Empty; }
 	void removable(const bool flag) {
-		if (flag) bits_ |= RemovableBit;
-		else bits_ &= ~RemovableBit;
+		if (flag) bits_ |= Bits::Removable;
+		else bits_ &= ~Bits::Removable;
 	}
 	
 	void root_row(const int i) { root_row_ = i; }
-	
-	bool selected() const { return bits_ & SelectedBit; }
-	void selected(const bool flag) {
-		if (flag) bits_ |= SelectedBit;
-		else bits_ &= ~SelectedBit;
-	}
 	
 	i64 size() const { return size_; }
 	void size(i64 n) { size_ = n; }
@@ -168,6 +185,7 @@ public:
 	TreeItem* child(int row);
 	int child_count() const { return children_.size(); }
 	QVector<TreeItem*>& children() { return children_; }
+	bool DeleteChild(TreeItem *p);
 	
 	int column_count() const { return 1; }
 	TreeItem* parent() const { return parent_; }
@@ -186,7 +204,7 @@ private:
 	PartitionInfo *info_ = nullptr;
 	TreeItemType type_ = TreeItemType::None;
 	int root_row_ = -1;
-	u8 bits_ = 0;
+	Bits bits_ = Bits::Empty;
 	io::DiskInfo disk_info_ = {};
 	
 	TreeItem *parent_ = nullptr;

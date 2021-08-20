@@ -2,11 +2,27 @@
 
 namespace cornus {
 
-MutexGuard::MutexGuard(pthread_mutex_t *mutex): mutex_(mutex)
+MutexGuard::MutexGuard(pthread_mutex_t *mutex, const LockType lock_type):
+mutex_(mutex)
 {
-	int status = pthread_mutex_lock(mutex_);
-	if (status != 0)
-		mtl_status(status);
+	switch(lock_type) {
+	case LockType::Normal:
+	{
+		int status = pthread_mutex_lock(mutex_);
+		if (status != 0)
+			mtl_status(status);
+		break;
+	}
+	case LockType::TryLock: {
+		int status = pthread_mutex_trylock(mutex_);
+		if (status != 0)
+			mutex_ = nullptr;
+		break;
+	}
+	default: {
+		mtl_trace();
+	}
+	}
 }
 
 MutexGuard::~MutexGuard()

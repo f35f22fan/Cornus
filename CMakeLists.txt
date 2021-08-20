@@ -60,6 +60,7 @@ set(cornus_src_files main.cpp
     gui/OpenOrderTable.cpp gui/OpenOrderTable.hpp
     gui/OpenWithPane.cpp gui/OpenWithPane.hpp
     gui/PrefsPane.cpp gui/PrefsPane.hpp
+    gui/RestorePainter.hpp
     gui/SearchLineEdit.cpp gui/SearchLineEdit.hpp
     gui/SearchPane.cpp gui/SearchPane.hpp
     gui/sidepane.cc gui/sidepane.hh

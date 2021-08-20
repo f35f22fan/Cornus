@@ -26,11 +26,15 @@ public:
 	QModelIndex parent(const QModelIndex &index) const override;
 	
 	int rowCount(const QModelIndex &parent) const override;
-	int rowCount_real(const QModelIndex &parent_index) const;
 	int columnCount(const QModelIndex &parent = QModelIndex()) const override;
-	
-	void SetView(TreeView *p);
+
+	void DeleteSelectedBookmark();
+	bool FinishDropOperation(QVector<io::File*> *files_vec, const QPoint &pos);
 	void MountEvent(const QString &path, const QString &fs_uuid, const PartitionEventType evt);
+	void MoveBookmarks(QStringList str_list, const QPoint &pos);
+	void SetView(TreeView *p);
+	void UpdateIndices(const QModelIndex &top_left, const QModelIndex &bottom_right);
+	void UpdateIndex(const QModelIndex &index);
 	
 public Q_SLOTS:
 	void DeviceEvent(const cornus::Device device,
@@ -41,15 +45,15 @@ public Q_SLOTS:
 	
 private:
 	
+	int GetDropLocation(const QPoint &pos, QModelIndex &target);
 	gui::TreeItem* GetRootTS(const io::DiskInfo &disk_info, int *row);
 	bool InsertBookmarkAt(const i32 at, TreeItem *item);
 	void InsertBookmarks(const QVector<cornus::gui::TreeItem*> &bookmarks);
-	bool InsertPartition(TreeItem *item, const InsertPlace place);
+	bool InsertPartition(TreeItem *item);
 	void InsertPartitions(const QVector<cornus::gui::TreeItem*> &partitions);
 	void SetupModelData();
 	
 	void UpdateVisibleArea();
-	void UpdateIndex(const QModelIndex &index);
 	
 	cornus::App *app_ = nullptr;
 	TreeView *view_ = nullptr;

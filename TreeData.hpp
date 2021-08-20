@@ -25,7 +25,8 @@ public:
 	gui::TreeItem* GetBookmarksRootNTS(int *index = nullptr) const;
 	gui::TreeItem* GetCurrentPartitionNTS() const;
 	gui::TreeItem* GetPartitionByMountPathNTS(const QString &full_path);
-	MutexGuard guard() { return MutexGuard(&mutex); }
+	MutexGuard guard() { return MutexGuard(&mutex, LockType::Normal); }
+	MutexGuard try_guard();
 	
 	inline int Lock() {
 		int status = pthread_mutex_lock(&mutex);

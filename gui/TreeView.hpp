@@ -24,7 +24,7 @@ public:
 	virtual ~TreeView();
 	
 	void ExecCommand(TreeItem *item, const PartitionEventType evt);
-	TreeItem* GetSelectedBookmarkNTS(QModelIndex *index = nullptr);
+	TreeItem* GetSelectedBookmark(QModelIndex *index = nullptr);
 	void MarkCurrentPartition(const QString &full_path);
 	QStyleOptionViewItem option() const { return viewOptions(); }
 	int RowHeight(const QModelIndex &i) const { return rowHeight(i); }

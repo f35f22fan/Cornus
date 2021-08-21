@@ -13,7 +13,7 @@ TreeData::~TreeData()
 	// .roots deleted by hand in App destructor.
 }
 
-void TreeData::BroadcastPartitionsLoadedLTH()
+void TreeData::BroadcastPartitionsLoaded()
 {
 	MutexGuard g = guard();
 	partitions_loaded = true;
@@ -22,7 +22,7 @@ void TreeData::BroadcastPartitionsLoadedLTH()
 		mtl_status(status);
 }
 
-gui::TreeItem* TreeData::GetBookmarksRootNTS(int *index) const
+gui::TreeItem* TreeData::GetBookmarksRoot(int *index) const
 {
 	int i = -1;
 	for (gui::TreeItem *next: roots)
@@ -38,7 +38,7 @@ gui::TreeItem* TreeData::GetBookmarksRootNTS(int *index) const
 	return nullptr;
 }
 
-gui::TreeItem* TreeData::GetCurrentPartitionNTS() const
+gui::TreeItem* TreeData::GetCurrentPartition() const
 {
 	for (gui::TreeItem *root: roots)
 	{
@@ -53,7 +53,7 @@ gui::TreeItem* TreeData::GetCurrentPartitionNTS() const
 	return nullptr;
 }
 
-gui::TreeItem* TreeData::GetPartitionByMountPathNTS(const QString &full_path)
+gui::TreeItem* TreeData::GetPartitionByMountPath(const QString &full_path)
 {
 	int largest = 0;
 	gui::TreeItem *current = nullptr;
@@ -78,8 +78,7 @@ gui::TreeItem* TreeData::GetPartitionByMountPathNTS(const QString &full_path)
 
 void TreeData::MarkCurrentPartition(const QString &full_path)
 {
-	auto g = guard();
-	gui::TreeItem *current = GetPartitionByMountPathNTS(full_path);
+	gui::TreeItem *current = GetPartitionByMountPath(full_path);
 	if (current != nullptr)
 		current->current_partition(true);
 	

@@ -132,7 +132,7 @@ void* LoadItems(void *args)
 	LoadBookmarks(method_args.bookmarks);
 	TreeData &tree_data = app->tree_data();
 	{
-		auto g = tree_data.guard();
+		tree_data.Lock();
 		while (!tree_data.widgets_created)
 		{
 			int status = pthread_cond_wait(&tree_data.cond, &tree_data.mutex);
@@ -141,6 +141,7 @@ void* LoadItems(void *args)
 				break;
 			}
 		}
+		tree_data.Unlock();
 	}
 	
 	auto *model = app->tree_model();

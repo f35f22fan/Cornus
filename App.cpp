@@ -296,12 +296,13 @@ App::~App()
 		delete icon;
 	}
 	{
-		MutexGuard guard = tree_data_.guard();
+		tree_data_.Lock();
 		tree_data_.sidepane_model_destroyed = true;
 		for (auto *item: tree_data_.roots)
 			delete item;
 		
 		tree_data_.roots.clear();
+		tree_data_.Unlock();
 	}
 	{
 		/// table_ must be deleted before prefs_ because table_model_ calls 
@@ -579,9 +580,10 @@ void App::CreateGui()
 	CreateSidePane();
 	
 	{
-		MutexGuard guard = tree_data_.guard();
+		tree_data_.Lock();
 		tree_data_.widgets_created = true;
 		int status = pthread_cond_broadcast(&tree_data_.cond);
+		tree_data_.Unlock();
 		if (status != 0)
 			mtl_status(status);
 	}
@@ -938,8 +940,7 @@ QString App::GetPartitionFreeSpace()
 	
 	QString current_dir;
 	{
-		MutexGuard guard = tree_data_.guard();
-		gui::TreeItem *partition = tree_data_.GetCurrentPartitionNTS();
+		gui::TreeItem *partition = tree_data_.GetCurrentPartition();
 		if (partition != nullptr && partition->mounted())
 			current_dir = partition->mount_path();
 	}
@@ -1676,14 +1677,11 @@ void App::RunExecutable(const QString &full_path, const ExecInfo &info)
 void App::SaveBookmarks()
 {
 	QVector<gui::TreeItem*> item_vec;
+	gui::TreeItem *bkm_root = tree_data_.GetBookmarksRoot();
+	CHECK_PTR_VOID(bkm_root);
+	for (gui::TreeItem *next: bkm_root->children())
 	{
-		MutexGuard guard = tree_data_.guard();
-		
-		gui::TreeItem *bkm_root = tree_data_.GetBookmarksRootNTS();
-		CHECK_PTR_VOID(bkm_root);
-		for (gui::TreeItem *next: bkm_root->children()) {
-			item_vec.append(next->Clone());
-		}
+		item_vec.append(next->Clone());
 	}
 	
 	const QString full_path = prefs::GetBookmarksFilePath();

@@ -149,12 +149,8 @@ TreeView::dragMoveEvent(QDragMoveEvent *evt)
 	bool ok = false;
 	if (target.isValid())
 	{
-		TreeData &data = app_->tree_data();
-		{
-			auto g = data.guard();
-			TreeItem *item = static_cast<TreeItem*>(target.internalPointer());
-			ok = item->is_bookmark() || item->is_bookmarks_root();
-		}
+		TreeItem *item = static_cast<TreeItem*>(target.internalPointer());
+		ok = item->is_bookmark() || item->is_bookmarks_root();
 	}
 	
 	if (ok) {
@@ -176,16 +172,12 @@ TreeView::StartDrag(const QPoint &pos)
 
 	drag_start_pos_ = {-1, -1};
 	QStringList str_list;
-	auto &data = app_->tree_data();
-	
 	auto indexes = selectedIndexes();
 	if (indexes.isEmpty()) {
 		return;
 	}
 	
 	{
-		auto g = data.guard();
-		
 		for (QModelIndex &next: indexes)
 		{
 			TreeItem *node = static_cast<TreeItem*>(next.internalPointer());
@@ -246,7 +238,7 @@ TreeView::dropEvent(QDropEvent *evt)
 }
 
 TreeItem*
-TreeView::GetSelectedBookmarkNTS(QModelIndex *index)
+TreeView::GetSelectedBookmark(QModelIndex *index)
 {
 	auto indexes = selectedIndexes();
 	if (indexes.isEmpty() || indexes.size() > 1) {
@@ -334,14 +326,10 @@ void TreeView::paintEvent(QPaintEvent *evt)
 
 void TreeView::RenameSelectedBookmark()
 {
-	TreeData &data = app_->tree_data();
-	QString s;
-	{
-		auto g = data.guard();
-		TreeItem *item = GetSelectedBookmarkNTS();
-		CHECK_PTR_VOID(item);
-		s = item->bookmark_name();
-	}
+	
+	TreeItem *item = GetSelectedBookmark();
+	CHECK_PTR_VOID(item);
+	QString s = item->bookmark_name();
 	gui::InputDialogParams params;
 	params.initial_value = s;
 	params.msg = tr("Edit Bookmark:");
@@ -359,12 +347,9 @@ void TreeView::RenameSelectedBookmark()
 		return;
 	
 	QModelIndex index;
-	{
-		auto g = data.guard();
-		TreeItem *item = GetSelectedBookmarkNTS(&index);
-		CHECK_PTR_VOID(item);
-		item->bookmark_name(ret_val);
-	}
+	TreeItem *sel_bkm = GetSelectedBookmark(&index);
+	CHECK_PTR_VOID(sel_bkm);
+	sel_bkm->bookmark_name(ret_val);
 	app_->SaveBookmarks();
 	model_->UpdateIndex(index);
 }

@@ -40,7 +40,6 @@ QVariant TreeModel::data(const QModelIndex &index, int role) const
 	if (!index.isValid())
 		return QVariant();
 	
-	auto g = app_->tree_data().try_guard();
 	TreeItem *node = static_cast<TreeItem*>(index.internalPointer());
 	
 	if (role == Qt::DisplayRole)
@@ -74,23 +73,18 @@ void TreeModel::DeleteSelectedBookmark()
 	TreeData &data = app_->tree_data();
 	QModelIndex root_index;
 	{
-		auto g = data.guard();
-		TreeItem *root = data.GetBookmarksRootNTS();
+		TreeItem *root = data.GetBookmarksRoot();
 		CHECK_PTR_VOID(root);
 		QModelIndex child_index;
-		TreeItem *item = view_->GetSelectedBookmarkNTS(&child_index);
+		TreeItem *item = view_->GetSelectedBookmark(&child_index);
 		CHECK_PTR_VOID(item);
 		root_index = createIndex(root->Row(), 0, root);
 		const int at = child_index.row();
-		data.Unlock();
 		{
 			beginRemoveRows(root_index, at, at);
-			data.Lock();
 			root->DeleteChild(item);
-			data.Unlock();
 			endRemoveRows();
 		}
-		data.Lock();
 	}
 	
 	app_->SaveBookmarks();
@@ -114,16 +108,11 @@ void TreeModel::DeviceEvent(const Device device, const DeviceAction action,
 			CHECK_PTR_VOID(device);
 			UdevDeviceAutoUnref auto_unref_device(device);
 			
-			int at = -1;
-			{
-				auto g = data.guard();
-				at = data.roots.size();
-			}
+			const int at = data.roots.size();
 			TreeItem *root = TreeItem::NewDisk(device, at);
 			auto index = QModelIndex();
 			beginInsertRows(index, at, at);
 			{
-				auto g = data.guard();
 				data.roots.append(root);
 			}
 			endInsertRows();
@@ -131,24 +120,19 @@ void TreeModel::DeviceEvent(const Device device, const DeviceAction action,
 			// Creating a udev_device from sys_path here will fail
 			// because the device is removed.
 			int i = -1;
-			data.Lock();
 			for (TreeItem *root: data.roots)
 			{
 				i++;
 				if (root->is_disk() && root->disk_info().dev_path == dev_path) {
-					data.Unlock();
 					beginRemoveRows(QModelIndex(), i, i);
 					{
-						auto g = data.guard();
 						data.roots.remove(i);
 						delete root;
 					}
 					endRemoveRows();
-					data.Lock();
 					break;
 				}
 			}
-			data.Unlock();
 		}
 		return;
 	}
@@ -165,7 +149,6 @@ void TreeModel::DeviceEvent(const Device device, const DeviceAction action,
 	} else if (action == DeviceAction::Removed) {
 		bool done = false;
 		{
-			auto g = data.guard();
 			for (TreeItem *root: data.roots)
 			{
 				if (!root->is_disk())
@@ -182,17 +165,13 @@ void TreeModel::DeviceEvent(const Device device, const DeviceAction action,
 					{
 						auto parent_index = createIndex(root->Row(), 0, root);
 						{
-							data.Unlock();
 							beginRemoveRows(parent_index, i, i);
 							{
-								data.Lock();
 								vec.remove(i);
 								delete child;
 								done = true;
-								data.Unlock();
 							}
 							endRemoveRows();
-							data.Lock();
 						}
 						break;
 					}
@@ -216,7 +195,6 @@ bool TreeModel::FinishDropOperation(QVector<io::File*> *files_vec,
 	
 	TreeData &data = app_->tree_data();
 	{
-		auto g = data.guard();
 		TreeItem *item = static_cast<TreeItem*>(target.internalPointer());
 		if (!item->is_bookmark() && !item->is_bookmarks_root()) {
 			mtl_trace();
@@ -236,14 +214,10 @@ bool TreeModel::FinishDropOperation(QVector<io::File*> *files_vec,
 	if (files_vec->isEmpty())
 		return false;
 	
-	TreeItem *bookmarks_root = nullptr;
-	QModelIndex root_index;
-	{
-		auto g = data.guard();
-		bookmarks_root = data.GetBookmarksRootNTS();
-		root_index = createIndex(bookmarks_root->Row(), 0, bookmarks_root);
-	}
+	TreeItem *bookmarks_root = data.GetBookmarksRoot();
 	CHECK_PTR(bookmarks_root);
+	QModelIndex root_index = createIndex(bookmarks_root->Row(), 0, bookmarks_root);
+	
 	const int count = files_vec->size();
 	const int start_row = start_at;
 	
@@ -253,8 +227,6 @@ bool TreeModel::FinishDropOperation(QVector<io::File*> *files_vec,
 		const int at = start_row + i;
 		beginInsertRows(root_index, at, at);
 		{
-			MutexGuard g = data.guard();
-			
 			if (next->is_dir_or_so())
 			{
 				TreeItem *new_item = TreeItem::NewBookmark(*next);
@@ -294,7 +266,6 @@ gui::TreeItem* TreeModel::GetRootTS(const io::DiskInfo &disk_info, int *row)
 	TreeData &data = app_->tree_data();
 	int count = -1;
 	{
-		auto g = data.try_guard();
 		int i = -1;
 		for (gui::TreeItem *root: data.roots) {
 			i++;
@@ -314,7 +285,6 @@ gui::TreeItem* TreeModel::GetRootTS(const io::DiskInfo &disk_info, int *row)
 	auto *disk_root = gui::TreeItem::NewDisk(disk_info, at);
 	beginInsertRows(QModelIndex(), at, at);
 	{
-		auto g = data.try_guard();
 		data.roots.append(disk_root);
 	}
 	endInsertRows();
@@ -342,7 +312,6 @@ TreeModel::index(int row, int column, const QModelIndex &parent_index) const
 	}
 	
 	TreeData &data = app_->tree_data();
-	auto g = data.try_guard();
 	
 	if (!parent_index.isValid())
 	{
@@ -362,17 +331,12 @@ TreeModel::index(int row, int column, const QModelIndex &parent_index) const
 bool TreeModel::InsertBookmarkAt(const i32 at, TreeItem *item)
 {
 	TreeData &data = app_->tree_data();
-	TreeItem *bookmarks_root = nullptr;
-	{
-		MutexGuard g = data.guard();
-		bookmarks_root = data.GetBookmarksRootNTS();
-	}
+	TreeItem *bookmarks_root = data.GetBookmarksRoot();
 	CHECK_PTR(bookmarks_root);
 	auto first = at;
 	auto last = at;
 	beginInsertRows(QModelIndex(), first, last);
 	{
-		auto g = data.guard();
 		bookmarks_root->AppendChild(item);
 	}
 	endInsertRows();
@@ -409,18 +373,14 @@ void TreeModel::InsertFromAnotherThread(cornus::gui::InsertArgs args)
 	
 	InsertBookmarks(args.bookmarks);
 	InsertPartitions(args.partitions);
-	app_->tree_data().BroadcastPartitionsLoadedLTH();
+	app_->tree_data().BroadcastPartitionsLoaded();
 }
 
 void TreeModel::InsertBookmarks(const QVector<cornus::gui::TreeItem*> &bookmarks)
 {
-	TreeItem *root = nullptr;
 	TreeData &data = app_->tree_data();
 	int root_row;
-	{
-		MutexGuard g = data.guard();
-		root = data.GetBookmarksRootNTS(&root_row);
-	}
+	TreeItem *root = data.GetBookmarksRoot(&root_row);
 	CHECK_PTR_VOID(root);
 	{
 		auto first = 0;
@@ -428,7 +388,6 @@ void TreeModel::InsertBookmarks(const QVector<cornus::gui::TreeItem*> &bookmarks
 		auto root_index = createIndex(root_row, 0, root);
 		beginInsertRows(root_index, first, last);
 		{
-			MutexGuard g = data.guard();
 			for (auto *item: bookmarks) {
 				root->AppendChild(item);
 			}
@@ -440,15 +399,12 @@ void TreeModel::InsertBookmarks(const QVector<cornus::gui::TreeItem*> &bookmarks
 bool TreeModel::InsertPartition(TreeItem *item)
 {
 	CHECK_TRUE(item->is_partition());
-	TreeData &data = app_->tree_data();
-	
 	PartitionInfo *info = item->partition_info();
 	int root_row = -1;
 	int first = -1;
 	TreeItem *root = GetRootTS(info->disk_info, &root_row);
+	CHECK_PTR(root);
 	{
-		auto g = data.guard();
-		CHECK_PTR(root);
 		first = -1;
 		const int count = root->child_count();
 		const QString s = item->toString();
@@ -467,7 +423,6 @@ bool TreeModel::InsertPartition(TreeItem *item)
 	auto root_index = createIndex(root_row, 0, root);
 	beginInsertRows(root_index, first, last);
 	{
-		MutexGuard g = data.guard();
 		root->InsertChild(item, first);
 	}
 	endInsertRows();
@@ -496,8 +451,6 @@ void TreeModel::MountEvent(const QString &path, const QString &fs_uuid,
 	QString go_to, leave;
 	TreeData &data = app_->tree_data();
 	{
-		auto g = data.guard();
-		
 		if (evt == PartitionEventType::Unmount)
 		{
 			for (TreeItem *root: data.roots)
@@ -576,32 +529,28 @@ void TreeModel::MoveBookmarks(QStringList str_list, const QPoint &pos)
 	const QString &name = str_list[0];
 	const QString &path = str_list[1];
 	TreeData &data = app_->tree_data();
-	TreeItem *bkm_root = nullptr;
-	QModelIndex bkm_root_index;
 	TreeItem *source_item = nullptr;
 	int source_at = -1;
+	int root_row = -1;
+	TreeItem *bkm_root = data.GetBookmarksRoot(&root_row);
+	CHECK_PTR_VOID(bkm_root);
+	QModelIndex bkm_root_index = createIndex(root_row, 0, bkm_root);
+	auto &vec = bkm_root->children();
+	
+	for (TreeItem *next: vec)
 	{
-		auto g = data.guard();
-		int root_row = -1;
-		bkm_root = data.GetBookmarksRootNTS(&root_row);
-		CHECK_PTR_VOID(bkm_root);
-		bkm_root_index = createIndex(root_row, 0, bkm_root);
-		auto &vec = bkm_root->children();
-		for (TreeItem *next: vec) {
-			source_at++;
-			if (next->bookmark_name() == name && next->bookmark_path() == path)
-			{
-				source_item = vec[source_at];
-				break;
-			}
+		source_at++;
+		if (next->bookmark_name() == name && next->bookmark_path() == path)
+		{
+			source_item = vec[source_at];
+			break;
 		}
-		
-		CHECK_PTR_VOID(source_item);
 	}
+	
+	CHECK_PTR_VOID(source_item);
 	
 	beginRemoveRows(bkm_root_index, source_at, source_at);
 	{
-		auto g = data.guard();
 		bkm_root->children().removeAt(source_at);
 	}
 	endRemoveRows();
@@ -611,7 +560,6 @@ void TreeModel::MoveBookmarks(QStringList str_list, const QPoint &pos)
 	
 	beginInsertRows(bkm_root_index, k, k);
 	{
-		auto g = data.guard();
 		bkm_root->children().insert(k, source_item);
 	}
 	endInsertRows();
@@ -647,7 +595,6 @@ QModelIndex TreeModel::parent(const QModelIndex &index) const
 int TreeModel::rowCount(const QModelIndex &parent_index) const
 {
 	TreeData &data = app_->tree_data();
-	auto g = data.try_guard();
 	
 	if (!parent_index.isValid()) {
 		return data.roots.size();
@@ -667,7 +614,6 @@ void TreeModel::SetupModelData()
 	TreeData &data = app_->tree_data();
 	beginInsertRows(QModelIndex(), 0, 0);
 	{
-		auto g = data.try_guard();
 		data.roots.append(TreeItem::NewBookmarksRoot(data.roots.size()));
 	}
 	endInsertRows();
@@ -688,17 +634,12 @@ void TreeModel::UpdateIndex(const QModelIndex &index)
 
 void TreeModel::UpdateVisibleArea()
 {
-	QModelIndex top_left, bottom_right;
-	int len = -1;
 	TreeData &data = app_->tree_data();
-	{
-		auto g = data.try_guard();
-		if (data.roots.isEmpty())
-			return;
-		len = data.roots.size();
-		top_left = createIndex(0, 0, data.roots[0]);
-		bottom_right = createIndex(len - 1, 0, data.roots[len - 1]);
-	}
+	if (data.roots.isEmpty())
+		return;
+	int len = data.roots.size();
+	QModelIndex top_left = createIndex(0, 0, data.roots[0]);
+	QModelIndex bottom_right = createIndex(len - 1, 0, data.roots[len - 1]);
 	
 	Q_EMIT dataChanged(top_left, bottom_right, {Qt::DisplayRole});
 }

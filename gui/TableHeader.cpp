@@ -13,7 +13,10 @@ namespace cornus::gui {
 TableHeader::TableHeader(Table *parent):
 QHeaderView(Qt::Horizontal, parent), table_(parent)
 {
-	//setMouseTracking(true);
+	setSortIndicatorShown(true);
+	setSectionsMovable(false);
+	setMouseTracking(true);
+	setSectionsClickable(true);
 	{
 		setDragEnabled(true);
 		setAcceptDrops(true);
@@ -79,6 +82,22 @@ void TableHeader::dropEvent(QDropEvent *evt)
 			delete files_vec;
 		}
 	}
+}
+
+void TableHeader::mousePressEvent(QMouseEvent *evt)
+{
+	QHeaderView::mousePressEvent(evt);
+//	const auto &pos = evt->pos();
+//	const int col = logicalIndexAt(pos);//index.column();
+//mtl_info("Col: %d, x,y: %d,%d", col, pos.x(), pos.y());
+//static auto order = Qt::DescendingOrder;
+//	order = (order == Qt::AscendingOrder) ? Qt::DescendingOrder : Qt::AscendingOrder;
+//	Q_EMIT sortIndicatorChanged(col, order);
+}
+
+void TableHeader::mouseReleaseEvent(QMouseEvent *evt)
+{
+	QHeaderView::mouseReleaseEvent(evt);
 }
 
 void TableHeader::RepaintName()

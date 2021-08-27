@@ -56,5 +56,7 @@ private:
 	PendingCommands pending_commands_;
 	QPoint mouse_pos_ = {-1, -1}, drag_start_pos_ = {-1, -1};
 	bool mouse_down_ = false, dragging_ = false;
+	QCursor cursor_;
+	Qt::CursorShape cursor_shape_ = Qt::ArrowCursor;
 };
 }

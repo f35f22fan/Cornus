@@ -7,6 +7,7 @@
 
 namespace cornus::gui {
 class TableHeader: public QHeaderView {
+	Q_OBJECT
 public:
 	TableHeader(Table *parent);
 	virtual ~TableHeader();
@@ -18,6 +19,9 @@ protected:
 	virtual void dragLeaveEvent(QDragLeaveEvent *evt) override;
 	virtual void dragMoveEvent(QDragMoveEvent *evt) override;
 	virtual void dropEvent(QDropEvent *event) override;
+	
+	virtual void mousePressEvent(QMouseEvent *evt) override;
+	virtual void mouseReleaseEvent(QMouseEvent *evt) override;
 	
 private:
 	void RepaintName();

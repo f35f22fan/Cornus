@@ -9,6 +9,7 @@
 #include "TreeData.hpp"
 
 #include <QClipboard>
+
 #include <QHash>
 #include <QIcon>
 #include <QMainWindow>
@@ -17,6 +18,8 @@
 #include <QMimeDatabase>
 #include <QSplitter>
 #include <QStackedWidget>
+
+//QT_FORWARD_DECLARE_CLASS(QDrag);
 
 namespace cornus {
 

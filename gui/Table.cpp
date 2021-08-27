@@ -55,6 +55,7 @@ const QVector<QString> ArchiveExtensions = {
 Table::Table(TableModel *tm, App *app) : app_(app),
 model_(tm)
 {
+	setSortingEnabled(true);
 	setModel(model_);
 	header_ = new TableHeader(this);
 	setHorizontalHeader(header_);
@@ -66,11 +67,9 @@ model_(tm)
 	setItemDelegate(d);
 	{
 		auto *hz = horizontalHeader();
-		hz->setSortIndicatorShown(true);
 		hz->setSectionHidden(int(Column::TimeModified), true);
 		hz->setSortIndicator(int(Column::FileName), Qt::AscendingOrder);
 		connect(hz, &QHeaderView::sortIndicatorChanged, this, &Table::SortingChanged);
-		hz->setSectionsMovable(false);
 		
 		hz->setContextMenuPolicy(Qt::CustomContextMenu);
 		
@@ -1052,6 +1051,7 @@ void Table::mouseMoveEvent(QMouseEvent *evt)
 
 void Table::mousePressEvent(QMouseEvent *evt)
 {
+	QTableView::mousePressEvent(evt);
 	mouse_down_ = true;
 	
 	auto modif = evt->modifiers();
@@ -1086,6 +1086,7 @@ void Table::mousePressEvent(QMouseEvent *evt)
 
 void Table::mouseReleaseEvent(QMouseEvent *evt)
 {
+	QTableView::mouseReleaseEvent(evt);
 	drag_start_pos_ = {-1, -1};
 	mouse_down_ = false;
 	
@@ -1393,7 +1394,7 @@ void Table::SelectRowSimple(const int row, const bool deselect_others)
 
 void Table::SetCustomResizePolicy()
 {
-	auto *hh = header_;
+	auto *hh = horizontalHeader();
 	hh->setSectionResizeMode(i8(gui::Column::Icon), QHeaderView::Fixed);
 	hh->setSectionResizeMode(i8(gui::Column::FileName), QHeaderView::Stretch);
 	hh->setSectionResizeMode(i8(gui::Column::Size), QHeaderView::Fixed);
@@ -1648,7 +1649,8 @@ void Table::ShowVisibleColumnOptions(QPoint pos)
 	menu->popup(QCursor::pos());
 }
 
-void Table::SortingChanged(int logical, Qt::SortOrder order) {
+void Table::SortingChanged(int logical, Qt::SortOrder order)
+{
 	io::SortingOrder sorder = {Column(logical), order == Qt::AscendingOrder};
 	io::Files &files = app_->view_files();
 	int file_count;

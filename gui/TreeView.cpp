@@ -154,10 +154,8 @@ TreeView::dragMoveEvent(QDragMoveEvent *evt)
 	}
 	
 	if (ok) {
-		//setCursor(Qt::DragCopyCursor);
 		AnimateDND(mouse_pos_);
 	} else {
-		//setCursor(Qt::ForbiddenCursor);
 		//model_->UpdateIndex(target);
 	}
 }

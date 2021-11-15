@@ -213,7 +213,7 @@ int main(int argc, char *argv[])
 	/// The TasksWin hides/deletes itself
 	/// Currently it deletes itself, change later to just hide itself.
 	cornus::io::Server *server = new cornus::io::Server();
-	cornus::AutoDelete server_ad(server);
+	cornus::AutoDelete server___(server);
 	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, cornus::ListenTh, server);
@@ -222,19 +222,15 @@ int main(int argc, char *argv[])
 	
 	cornus::io::ServerLife &life = server->life();
 	int ret;
-	while (true) {
+	while (true)
+	{
 		ret = qapp.exec();
 		
 		life.Lock();
 		const bool do_exit = life.exit;
 		life.Unlock();
 		if (do_exit)
-		{
-#ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
-			mtl_info("Exiting main loop");
-#endif
 			break;
-		}
 	}
 	
 	return ret;

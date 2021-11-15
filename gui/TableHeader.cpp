@@ -15,7 +15,7 @@ QHeaderView(Qt::Horizontal, parent), table_(parent)
 {
 	setSortIndicatorShown(true);
 	setSectionsMovable(false);
-	setMouseTracking(true);
+//	setMouseTracking(true);
 	setSectionsClickable(true);
 	{
 		setDragEnabled(true);

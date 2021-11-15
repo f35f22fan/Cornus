@@ -395,7 +395,7 @@ Task* Task::From(cornus::ByteArray &ba)
 void Task::StartIO()
 {
 	data_.ChangeState(TaskState::Continue);
-	if (!to_dir_path_.isEmpty() && !to_dir_path_.endsWith('/'))
+	if (to_dir_path_.startsWith('/') && !to_dir_path_.endsWith('/'))
 		to_dir_path_.append('/');
 	
 	if (file_paths_.isEmpty()) {

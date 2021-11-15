@@ -19,8 +19,9 @@ enum class MimeInfo: u8 {
 
 enum class Priority: i8 {
 	Ignore = -1,
-	Highest = 3,
-	High = 2,
+	Highest = 4,
+	High = 3,
+	Normal = 2,
 	Low = 1,
 };
 
@@ -76,12 +77,6 @@ public:
 		None = 0,
 		DesktopFile,
 		JustExePath,
-	};
-	
-	enum class Action: i8 {
-		None = 0,
-		Add, /// used in prefs file to mark items to be added/removed
-		Remove
 	};
 
 	virtual ~DesktopFile();

@@ -16,11 +16,122 @@ Hiliter::Hiliter(QTextDocument *parent): QSyntaxHighlighter(parent)
 		
 		formats_.function.setFontItalic(true);
 		formats_.function.setForeground(Qt::blue);
+		
+		formats_.section.setFontWeight(QFont::Bold);
+		formats_.section.setFontItalic(true);
+		formats_.section.setForeground(QColor(0, 150, 0));
 	}
 	
 	multiline_comment_format_.setForeground(Qt::blue);
 	comment_start_expression_ = QRegularExpression(QLatin1String("/\\*"));
 	comment_end_expression_ = QRegularExpression(QLatin1String("\\*/"));
+}
+
+void Hiliter::SetupAssemblyNasm()
+{
+	HighlightingRule rule;
+	{ /// instructions
+		const QString keywords[] = {
+			QLatin1String("\\bmov\\b"), QLatin1String("\\bmovq\\b"),
+			QLatin1String("\\bpush\\b"), QLatin1String("\\bpop\\b"),
+			QLatin1String("\\bfi\\b"), QLatin1String("\\belse\\b"),
+			QLatin1String("\\bcall\\b"), QLatin1String("\\bret\\b"),
+			QLatin1String("\\badd\\b"), QLatin1String("\\bmul\\b"),
+			QLatin1String("\\bdiv\\b"), QLatin1String("\\bshr\\b"),
+			QLatin1String("\\bjmp\\b"), QLatin1String("\\bcmp\\b"),
+			QLatin1String("\\bjl\\b"), QLatin1String("\\bxor\\b"),
+			QLatin1String("\\bjge\\b")
+		};
+		for (const QString &pattern : keywords) {
+			rule.pattern = QRegularExpression(pattern);
+			rule.format = formats_.keyword;
+			hiliting_rules_.append(rule);
+		}
+	}
+	
+	{
+		QVector<const char*> registers = {
+		"rax", "eax", "ax", "ah", "al",
+		"rcx", "ecx", "cx", "ch", "cl",
+		"rdx", "edx", "dx", "dh", "dl",
+		"rbx", "ebx", "bx", "bh", "bl",
+		"rsp", "esp", "sp", "spl",
+		"rbp", "ebp", "bp", "bpl",
+		"rsi", "esi", "si", "sil", // amd64 Linux: scratch register and function arg #1
+		"rdi", "edi", "di", "dil", // amd64 Linux: scratch register and function arg #2
+		"r8", "r8d", "r8w", "r8b",
+		"r9", "r9d", "r9w", "r9b",
+		"r10", "r10d", "r10w", "r10b",
+		"r11", "r11d", "r11w", "r11b",
+		"r12", "r12d", "r12w", "r12b",
+		"r13", "r13d", "r13w", "r13b",
+		"r14", "r14d", "r14w", "r14b",
+		"r15", "r15d", "r15w", "r15b",
+		"xmm0", "xmm1", "xmm2", "xmm3",
+		"xmm4", "xmm5", "xmm6", "xmm7",
+		"xmm8", "xmm9", "xmm10", "xmm11",
+		"xmm12", "xmm13", "xmm14", "xmm15",
+		"rip", "eflags", "cs", "ss", "ds", "es", "fs", "gs",
+		"st0", "st1", "st2", "st3", "st4", "st5", "st6", "st7"
+		"fctrl", "fstat", "ftag", "fiseg", "fioff", "foseg",
+		"fooff", "fop", "mxcsr",
+		};
+		
+		/// registers
+		const QString wb = QLatin1String("\\b");
+		for (const char *register_ascii : registers) {
+			QString s = wb + register_ascii + wb;
+			rule.pattern = QRegularExpression(s);
+			rule.format = formats_.klass;
+			hiliting_rules_.append(rule);
+		}
+	}
+	
+	{
+		QVector<const char*> arr = {
+		".bss", ".text", ".data"
+		};
+		
+		/// registers
+		const QString wb = QLatin1String("\\b");
+		for (const char *ascii : arr) {
+			const char c = ascii[0];
+			QString s;
+			if (c != '.')
+				s = wb;
+			s += ascii + wb;
+			rule.pattern = QRegularExpression(s);
+			rule.format = formats_.section;
+			hiliting_rules_.append(rule);
+		}
+	}
+	
+	{
+		const QVector<const char*> arr = {
+		"extern", "section", "global",
+		"%macro", "%endmacro", "db", "dw", "dd", "dq"
+		
+		};
+		/// registers
+		const QString wb = QLatin1String("\\b");
+		for (const char *pattern : arr) {
+			QString s;
+			const char c = pattern[0];
+			if  (c == '%')
+				s = pattern + wb;
+			else
+				s = wb + pattern + wb;
+			rule.pattern = QRegularExpression(s);
+			rule.format = formats_.function;
+			hiliting_rules_.append(rule);
+		}
+	}
+	
+	{ /// single line comment
+		rule.pattern = QRegularExpression(QLatin1String("\\;[^\n]*"));
+		rule.format = formats_.single_line_comment;
+		hiliting_rules_.append(rule);
+	}
 }
 
 void Hiliter::highlightBlock(const QString &text)
@@ -235,6 +346,7 @@ void Hiliter::SwitchTo(const HiliteMode mode)
 	case HiliteMode::C_CPP: SetupC_CPP(); break;
 	case HiliteMode::ShellScript: SetupShellScript(); break;
 	case HiliteMode::DesktopFile: SetupDesktopFile(); break;
+	case HiliteMode::Assembly_NASM: SetupAssemblyNasm(); break;
 	default: SetupPlainText();
 	}
 }

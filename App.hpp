@@ -19,6 +19,8 @@
 #include <QSplitter>
 #include <QStackedWidget>
 
+#include <libmtp.h>
+
 //QT_FORWARD_DECLARE_CLASS(QDrag);
 
 namespace cornus {
@@ -83,7 +85,7 @@ public:
 	gui::TreeView* tree_view() const { return tree_view_; }
 	TreeData& tree_data() const { return tree_data_; }
 	
-	void SwitchExecBitOfSelectedFiles();
+	void ToggleExecBitOfSelectedFiles();
 	gui::Table* table() const { return table_; }
 	gui::TableModel* table_model() const { return table_model_; }
 	void TellUser(const QString &msg, const QString title = QString());
@@ -124,6 +126,7 @@ private:
 	void OpenWithDefaultApp(const QString &full_path) const;
 	void ProcessAndWriteTo(const QString ext,
 		const QString &from_full_path, QString to_dir);
+	int ReadMTP();
 	void RegisterShortcuts();
 	void RegisterVolumesListener();
 	void SetupIconNames();

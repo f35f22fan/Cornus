@@ -325,14 +325,15 @@ void OpenOrderPane::Save()
 	
 	for (DesktopFile *next: model_vec)
 	{
-		ba.add_i8(i8(DesktopFile::Action::Add));
+		ba.add_i8(i8(Present::Yes));
 		ba.add_string(next->GetId());
 	}
+	
 	const auto info = DesktopFile::GetForMime(mime_);
 	for (DesktopFile *next: removed_vec_)
 	{
 		if (next->Supports(mime_, info, app_->desktop()) != Priority::Ignore) {
-			ba.add_i8(i8(DesktopFile::Action::Remove));
+			ba.add_i8(i8(Present::No));
 			ba.add_string(next->GetId());
 		} else {
 			auto ba = next->GetId().toLocal8Bit();

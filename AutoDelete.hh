@@ -64,7 +64,7 @@ public:
 	}
 	
 	void RemoveWatch(int wd) {
-		notify_.watches.remove(wd); /// needed on IN_UNMOUNT event
+		notify_.watches.remove(wd); // needed on IN_UNMOUNT event
 	}
 	
 	~AutoRemoveWatch() {

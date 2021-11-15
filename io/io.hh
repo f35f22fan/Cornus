@@ -118,6 +118,12 @@ struct Files {
 		return status;
 	}
 	
+	inline void Signal() {
+		int status = pthread_cond_signal(&cond);
+		if (status != 0)
+			mtl_status(status);
+	}
+	
 	inline int Unlock() {
 		return pthread_mutex_unlock(&mutex);
 	}
@@ -257,6 +263,7 @@ void
 ProcessMime(QString &mime);
 
 bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
+	const PrintErrors print_errors = PrintErrors::Yes,
 	const i64 read_max = -1, mode_t *ret_mode = nullptr);
 
 bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_dir);

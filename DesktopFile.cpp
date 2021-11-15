@@ -307,6 +307,7 @@ DesktopFile::Clone() const
 {
 	DesktopFile *p = new DesktopFile();
 	p->type_ = type_;
+	p->priority_ = priority_;
 	
 	if (is_desktop_file()) {
 		p->name_ = name_;
@@ -345,6 +346,7 @@ DesktopFile::From(ByteArray &ba)
 {
 	DesktopFile *p = new DesktopFile();
 	p->type_ = (Type) ba.next_i8();
+	p->priority_ = (Priority) ba.next_i8();
 	
 	if (p->is_desktop_file())
 	{
@@ -570,8 +572,6 @@ Priority DesktopFile::Supports(const QString &mime, const MimeInfo info,
 	if (desktop != Category::None && ToBeRunInTerminal())
 		return Priority::Ignore;
 	
-///	mtl_printq(GetName());
-	
 	return main_group_->Supports(mime, info, desktop);
 }
 
@@ -590,6 +590,7 @@ bool DesktopFile::ToBeRunInTerminal() const
 void DesktopFile::WriteTo(ByteArray &ba) const
 {
 	ba.add_i8(i8(type_));
+	ba.add_i8(i8(priority_));
 	
 	if (is_desktop_file()) {
 		ba.add_string(full_path_);

@@ -26,6 +26,7 @@ protected:
 	
 private:
 	
+	void SetupAssemblyNasm();
 	void SetupC_CPP();
 	void SetupDesktopFile();
 	void SetupPlainText();
@@ -48,6 +49,7 @@ private:
 		QTextCharFormat single_line_comment;
 		QTextCharFormat quotation;
 		QTextCharFormat function;
+		QTextCharFormat section;
 	} formats_;
 
 	QTextCharFormat multiline_comment_format_;

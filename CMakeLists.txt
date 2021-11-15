@@ -11,18 +11,20 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 ADD_DEFINITIONS(-DQT_NO_KEYWORDS)
 
 if (DEFINED ENV{PREFER_CLANG})
-SET (CMAKE_C_COMPILER "/usr/bin/clang-11")
-SET (CMAKE_CXX_COMPILER "/usr/bin/clang++-11")
-SET (CMAKE_CXX_FLAGS "-Wall")
+SET (CMAKE_C_COMPILER "/usr/bin/clang")
+SET (CMAKE_CXX_COMPILER "/usr/bin/clang++")
+SET (CMAKE_CXX_FLAGS "-Wall -ftree-vectorize")
 endif()
 
 find_package(Qt5 COMPONENTS Core Gui Widgets DBus REQUIRED)
 include(FindPkgConfig)
 
 find_package(PkgConfig REQUIRED)
+pkg_search_module(MTP REQUIRED libmtp)
 # pkg_search_module(DCONF REQUIRED dconf)
 pkg_search_module(UDISKS REQUIRED udisks2)
 pkg_search_module(UDEV REQUIRED libudev)
+pkg_search_module(URING REQUIRED liburing)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -81,6 +83,7 @@ set(cornus_src_files main.cpp
     io/File.cpp io/File.hpp
     io/io.cc io/io.hh
     io/socket.cc io/socket.hh
+    io/uring.cc io/uring.hh
 )
 
 foreach(f IN LISTS cornus_src_files)
@@ -100,15 +103,17 @@ set(cornus_io_src_files main_io.cpp
     MyDaemon.cpp MyDaemon.hpp
     prefs.cc prefs.hh
 
+    gui/TaskGui.cpp gui/TaskGui.hpp
+    gui/TasksWin.cpp gui/TasksWin.hpp
+
     io/decl.hxx
     io/File.cpp io/File.hpp
     io/io.cc io/io.hh
     io/Server.cpp io/Server.hpp
     io/socket.cc io/socket.hh
     io/Task.cpp io/Task.hpp
+    io/uring.cc io/uring.hh
 
-    gui/TaskGui.cpp gui/TaskGui.hpp
-    gui/TasksWin.cpp gui/TasksWin.hpp
 )
 
 foreach(f IN LISTS cornus_io_src_files)
@@ -119,15 +124,20 @@ endforeach()
    
 set (cornus_exe "cornus")
 add_executable(${cornus_exe} ${cornus_src_files} resources/resources.qrc)
-target_include_directories(${cornus_exe} PRIVATE
+target_include_directories(${cornus_exe} PRIVATE ${MTP_INCLUDE_DIRS}
+    ${URING_INCLUDE_DIRS}
     ${UDISKS_INCLUDE_DIRS} ${UDEV_INCLUDE_DIRS}) # ${DCONF_INCLUDE_DIRS}
 target_link_libraries(${cornus_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
-    ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS} pthread) # ${DCONF_LDFLAGS}
+    ${MTP_LDFLAGS} ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS}
+    ${URING_LDFLAGS}
+    pthread) # ${DCONF_LDFLAGS}
    
 set (cornus_io_exe "cornus_io")
 add_executable(${cornus_io_exe} ${cornus_io_src_files} resources/resources.qrc)
 target_include_directories(${cornus_io_exe} PRIVATE
+    ${URING_INCLUDE_DIRS}
     ${UDISKS_INCLUDE_DIRS}) # ${DCONF_INCLUDE_DIRS}
 target_link_libraries(${cornus_io_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
+    ${URING_LDFLAGS}
     ${UDISKS_LDFLAGS} pthread) # ${DCONF_LDFLAGS}
 

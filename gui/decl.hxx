@@ -79,6 +79,7 @@ enum class HiliteMode: i16 {
 	Python,
 	ShellScript,
 	DesktopFile,
+	Assembly_NASM,
 	Count
 };
 

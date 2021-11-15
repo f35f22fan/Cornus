@@ -97,7 +97,8 @@ model_(tm)
 	connect(vs, &QAbstractSlider::valueChanged, this, &Table::HiliteFileUnderMouse);
 }
 
-Table::~Table() {
+Table::~Table()
+{
 	delete model_;
 	delete delegate_;
 	
@@ -113,23 +114,23 @@ Table::~Table() {
 	open_with_.remove_vec.clear();
 }
 
-void SendURLsClipboard(const QStringList &list, io::socket::MsgBits msg_id) {
+bool SendURLsClipboard(const QStringList &list, io::socket::MsgBits msg_id) {
 	auto ba = new ByteArray();
 	ba->set_msg_id(msg_id);
 	for (const auto &next: list)
 	{
 		ba->add_string(next);
 	}
-	io::socket::SendAsync(ba);
+	return io::socket::SendAsync(ba);
 }
 
 void Table::AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path)
 {
-	QVector<QAction*> actions = CreateOpenWithList(full_path);
+	QVector<QAction*> open_with_list = CreateOpenWithList(full_path);
 	auto *open_with_menu = new QMenu(tr("Open &With"));
 	
-	for (auto &action: actions) {
-		open_with_menu->addAction(action);
+	for (auto &next: open_with_list) {
+		open_with_menu->addAction(next);
 	}
 	
 	open_with_menu->addSeparator();
@@ -145,10 +146,8 @@ void Table::AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path)
 void Table::ActionCopy(QVector<int> &indices)
 {
 	QStringList list;
-	if(!CreateMimeWithSelectedFiles(ClipboardAction::Copy, indices, list))
-		return;
-	
-	SendURLsClipboard(list, io::socket::MsgBits::CopyToClipboard);
+	CHECK_TRUE_VOID(CreateMimeWithSelectedFiles(ClipboardAction::Copy, indices, list));
+	CHECK_TRUE_VOID(SendURLsClipboard(list, io::socket::MsgBits::CopyToClipboard));
 }
 
 void Table::ActionCut(QVector<int> &indices) {
@@ -371,10 +370,10 @@ Table::CreateOpenWithList(const QString &full_path)
 		return ret;
 	
 	while (receive_ba.has_more()) {
-		const DesktopFile::Action action = (DesktopFile::Action)receive_ba.next_i8();
-		auto *next = DesktopFile::From(receive_ba);
+		const Present present = (Present)receive_ba.next_i8();
+		DesktopFile *next = DesktopFile::From(receive_ba);
 		if (next != nullptr) {
-			if (action == DesktopFile::Action::Add)
+			if (present == Present::Yes)
 				open_with_.add_vec.append(next);
 			else
 				open_with_.remove_vec.append(next);
@@ -388,6 +387,9 @@ Table::CreateOpenWithList(const QString &full_path)
 		if (!generic.isEmpty()) {
 			name += QLatin1String(" (") + generic + ')';
 		}
+		
+		QString priority_str = QString::number((i8)next->priority());
+		name += " (↑" + priority_str + ")";
 		QAction *action = new QAction(name);
 		QVariant v = QVariant::fromValue((void *) next);
 		action->setData(v);
@@ -1150,8 +1152,8 @@ void Table::ProcessAction(const QString &action)
 			if (info.is_elf() || info.is_shell_script())
 				app->RunExecutable(full_path, info);
 		}
-	} else if (action == actions::SwitchExecBit) {
-		app->SwitchExecBitOfSelectedFiles();
+	} else if (action == actions::ToggleExecBit) {
+		app->ToggleExecBitOfSelectedFiles();
 	} else if (action == actions::EditMovieTitle) {
 		app->EditSelectedMovieTitle();
 	}
@@ -1511,39 +1513,44 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 	}
 	
 	if (selected_count > 0) {
-		QAction *action = menu->addAction(tr("Delete Files"));
-		connect(action, &QAction::triggered, [=] {ProcessAction(actions::DeleteFiles);});
-		action->setIcon(QIcon::fromTheme(QLatin1String("edit-delete")));
-		menu->addSeparator();
-	}
-	
-	if (selected_count > 0) {
-		QAction *action = menu->addAction(tr("Rename File"));
-		connect(action, &QAction::triggered, [=] {ProcessAction(actions::RenameFile);});
-		action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
+		{
+			QAction *action = menu->addAction(tr("Delete Files"));
+			connect(action, &QAction::triggered, [=] {ProcessAction(actions::DeleteFiles);});
+			action->setIcon(QIcon::fromTheme(QLatin1String("edit-delete")));
+			menu->addSeparator();
+		}
 		
-		QVector<QString> videos = { QLatin1String("mkv"), QLatin1String("webm") };
+		{
+			QAction *action = menu->addAction(tr("Rename File"));
+			connect(action, &QAction::triggered, [=] {ProcessAction(actions::RenameFile);});
+			action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
+		}
 		
-		if (videos.contains(file->cache().ext.toString())) {
-			action = menu->addAction(tr("Edit movie title") + QLatin1String(" [mkvpropedit]"));
-			connect(action, &QAction::triggered, [=] {ProcessAction(actions::EditMovieTitle);});
-			QIcon *icon = app_->GetIcon(file->cache().ext.toString());
-			if (icon != nullptr) {
-				action->setIcon(*icon);
+		{
+			QVector<QString> videos = { QLatin1String("mkv"), QLatin1String("webm") };
+			
+			if (videos.contains(file->cache().ext.toString())) {
+				QAction *action = menu->addAction(tr("Edit movie title") + QLatin1String(" [mkvpropedit]"));
+				connect(action, &QAction::triggered, [=] {ProcessAction(actions::EditMovieTitle);});
+				QIcon *icon = app_->GetIcon(file->cache().ext.toString());
+				if (icon != nullptr) {
+					action->setIcon(*icon);
+				}
 			}
 		}
-	}
-	
-	if (selected_count > 0) {
-		QAction *action = menu->addAction(tr("Run Executable"));
-		connect(action, &QAction::triggered, [=] {ProcessAction(actions::RunExecutable);});
-		action->setIcon(QIcon::fromTheme(QLatin1String("system-run")));
-	}
-	
-	if (selected_count > 0) {
-		QAction *action = menu->addAction(tr("Switch Exec Bit"));
-		connect(action, &QAction::triggered, [=] {ProcessAction(actions::SwitchExecBit);});
-		action->setIcon(QIcon::fromTheme(QLatin1String("edit-undo")));
+
+		menu->addSeparator();
+		{
+			QAction *action = menu->addAction(tr("Run Executable"));
+			connect(action, &QAction::triggered, [=] {ProcessAction(actions::RunExecutable);});
+			action->setIcon(QIcon::fromTheme(QLatin1String("system-run")));
+		}
+		{
+			QAction *action = menu->addAction(tr("Toggle Exec Bit"));
+			connect(action, &QAction::triggered, [=] {ProcessAction(actions::ToggleExecBit);});
+			action->setIcon(QIcon::fromTheme(QLatin1String("edit-undo")));
+		}
+		menu->addSeparator();
 	}
 	
 	{
@@ -1653,10 +1660,10 @@ void Table::SortingChanged(int logical, Qt::SortOrder order)
 {
 	io::SortingOrder sorder = {Column(logical), order == Qt::AscendingOrder};
 	io::Files &files = app_->view_files();
-	int file_count;
+	//int file_count;
 	{
 		MutexGuard guard(&files.mutex);
-		file_count = files.data.vec.size();
+		//file_count = files.data.vec.size();
 		files.data.sorting_order = sorder;
 		std::sort(files.data.vec.begin(), files.data.vec.end(), cornus::io::SortFiles);
 	}

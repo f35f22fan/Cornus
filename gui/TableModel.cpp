@@ -8,7 +8,9 @@
 #include "../Prefs.hpp"
 #include "Table.hpp"
 #include "TableHeader.hpp"
+#include "../io/uring.hh"
 
+#include <liburing.h>
 #include <sys/epoll.h>
 #include <QFont>
 #include <QScrollBar>
@@ -68,8 +70,10 @@ void InsertFile(io::File *new_file, QVector<io::File*> &files_vec,
 
 void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
 	bool &has_been_unmounted_or_deleted,
-	const bool with_hidden_files, cornus::gui::TableModel *model,
-	const int dir_id)
+	const bool with_hidden_files,
+	cornus::gui::TableModel *model,
+	const int dir_id,
+	const int wd)
 {
 	const ssize_t num_read = read(inotify_fd, buf, kInotifyEventBufLen);
 	if (num_read <= 0) {
@@ -84,17 +88,15 @@ void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
 	for (char *p = buf; p < buf + num_read; p += add) {
 		struct inotify_event *ev = (struct inotify_event*) p;
 		add = sizeof(struct inotify_event) + ev->len;
+		if (ev->wd != wd)
+			continue;
 		const auto mask = ev->mask;
 		const bool is_dir = mask & IN_ISDIR;
 		
-		if (mask & IN_ATTRIB) {
+		if (mask & (IN_ATTRIB | IN_MODIFY)) {
 			QString name(ev->name);
 			if (!with_hidden_files && name.startsWith('.'))
 				continue;
-			
-#ifdef CORNUS_DEBUG_INOTIFY
-mtl_trace("IN_ATTRIB: %s", ev->name);
-#endif
 			
 			int update_index;
 			io::File *found = nullptr;
@@ -251,7 +253,7 @@ mtl_trace("IN_CLOSE: %s", ev->name);
 			evt.type = gui::FileEventType::Changed;
 			QMetaObject::invokeMethod(model, "InotifyEvent",
 				ConnectionType, Q_ARG(cornus::gui::FileEvent, evt));
-		} else if (mask & IN_IGNORED || mask & IN_CLOSE_NOWRITE) {
+		} else if (mask & (IN_IGNORED | IN_CLOSE_NOWRITE)) {
 		} else {
 			mtl_warn("Unhandled inotify event: %u", mask);
 		}
@@ -270,10 +272,11 @@ void* WatchDir(void *void_args)
 	AutoDeleteArr ad_arr(buf);
 	io::Notify &notify = args->table_model->notify();
 	
-	auto path = args->dir_path.toLocal8Bit();
-	auto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE | IN_DELETE_SELF
-		| IN_MOVE_SELF | IN_CLOSE | IN_MOVE;// | IN_MODIFY;
-	int wd = inotify_add_watch(notify.fd, path.data(), event_types);
+	const auto path = args->dir_path.toLocal8Bit();
+	const auto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE
+		| IN_DELETE_SELF | IN_MOVE_SELF | IN_CLOSE_WRITE
+		| IN_MOVE | IN_MODIFY;
+	const int wd = inotify_add_watch(notify.fd, path.data(), event_types);
 	
 	if (wd == -1) {
 		mtl_status(errno);
@@ -288,17 +291,16 @@ void* WatchDir(void *void_args)
 		return 0;
 	}
 	
-	struct epoll_event pev = {};
-	pev.events = EPOLLIN;
-	pev.data.fd = notify.fd;
+	struct epoll_event poll_event = {};
+	poll_event.events = EPOLLIN;
+	poll_event.data.fd = notify.fd;
 	
-	if (epoll_ctl(epfd, EPOLL_CTL_ADD, notify.fd, &pev)) {
+	if (epoll_ctl(epfd, EPOLL_CTL_ADD, notify.fd, &poll_event)) {
 		mtl_status(errno);
 		close(epfd);
 		return nullptr;
 	}
 	
-	struct epoll_event poll_event;
 	const int seconds = 1 * 1000;
 	io::Files &files = app->view_files();
 	
@@ -326,13 +328,14 @@ void* WatchDir(void *void_args)
 			if (args->dir_id != files.data.dir_id)
 				break;
 		}
-	
-		bool has_been_unmounted_or_deleted = false;
 		
+		bool has_been_unmounted_or_deleted = false;
 		if (event_count > 0)
+		{
 			ReadEvent(poll_event.data.fd, buf, &files,
-				has_been_unmounted_or_deleted,
-				with_hidden_files, args->table_model, args->dir_id);
+				has_been_unmounted_or_deleted, with_hidden_files,
+				args->table_model, args->dir_id, wd);
+		}
 		
 		if (has_been_unmounted_or_deleted) {
 			arw.RemoveWatch(wd);
@@ -340,16 +343,11 @@ void* WatchDir(void *void_args)
 		}
 	}
 	
-	if (close(epfd)) {
-		mtl_status(errno);
-	}
-	
+	close(epfd);
 	{
-		MutexGuard guard(&files.mutex);
+		MutexGuard guard = files.guard();
 		files.data.thread_exited(true);
-		int status = pthread_cond_signal(&files.cond);
-		if (status != 0)
-			mtl_status(status);
+		files.Signal();
 	}
 	
 	return nullptr;

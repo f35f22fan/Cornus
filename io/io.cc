@@ -1192,17 +1192,18 @@ bool ReadLinkSimple(const char *file_path, QString &result)
 }
 
 bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
+	const PrintErrors print_errors,
 	const i64 read_max, mode_t *ret_mode)
 {
-	/// This function must follow links.
 	struct statx stx;
 	auto path = full_path.toLocal8Bit();
-	const auto flags = 0;///AT_SYMLINK_NOFOLLOW;
+	const auto flags = 0;// this function must follow symlinks
 	const auto fields = STATX_MODE | STATX_SIZE;
 	
 	if (statx(0, path.data(), flags, fields, &stx) != 0) {
-		mtl_warn("statx(): %s: \"%s\"", strerror(errno), path.data());
-		return false;///MapPosixError(errno);
+		if (print_errors == PrintErrors::Yes)
+			mtl_warn("statx(): %s: \"%s\"", strerror(errno), path.data());
+		return false;
 	}
 	
 	if (ret_mode != nullptr)
@@ -1225,7 +1226,8 @@ bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 			if (errno == EAGAIN)
 				continue;
 			buffer.size(so_far);
-			mtl_warn("ReadFile: %s", strerror(errno));
+			if (print_errors == PrintErrors::Yes)
+				mtl_warn("ReadFile: %s", strerror(errno));
 			close(fd);
 			return false;
 		} else if (count == 0) {

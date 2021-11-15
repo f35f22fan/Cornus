@@ -81,7 +81,7 @@ int Server(const char *addr_str)
 	return sock_fd;
 }
 
-void SendAsync(ByteArray *ba, const char *socket_path, const bool delete_path)
+bool SendAsync(ByteArray *ba, const char *socket_path, const bool delete_path)
 {
 	auto *data = new SendData();
 	data->ba = ba;
@@ -102,6 +102,8 @@ void SendAsync(ByteArray *ba, const char *socket_path, const bool delete_path)
 			delete data->addr;
 		delete data;
 	}
+	
+	return status == 0;
 }
 
 void SendQuitSignalToServer()

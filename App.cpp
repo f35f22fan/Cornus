@@ -70,6 +70,8 @@
 
 #include <glib.h>
 
+#include "io/uring.hh"
+
 namespace cornus {
 
 void* AutoLoadServerIfNeeded(void *arg)
@@ -237,6 +239,39 @@ void FigureOutSelectPath(QString &select_path, QString &go_to_path)
 	select_path.clear();
 }
 
+void MountAdded(GVolumeMonitor *monitor, GMount *mount, gpointer user_data)
+{
+	char *name = g_mount_get_name(mount);
+	GFile *file = g_mount_get_root(mount);
+	GVolume *vol = g_mount_get_volume(mount);
+	char *path = g_file_get_path(file);
+	char *uuid = g_volume_get_uuid(vol);
+//	mtl_info("added, uuid: %s", uuid);
+	QString uuid_str = uuid;
+	QString path_str = path;
+	g_free(uuid);
+	g_free(name);
+	g_free(path);
+	g_object_unref(file);
+	
+	App *app = (App*)user_data;
+	app->tree_model()->MountEvent(path_str, uuid_str, PartitionEventType::Mount);
+}
+
+void MountRemoved(GVolumeMonitor *monitor, GMount *mount, gpointer user_data)
+{
+	char *name = g_mount_get_name(mount);
+	GFile *file = g_mount_get_root(mount);
+	char *path = g_file_get_path(file);
+	QString path_str = path;
+	g_free(name);
+	g_free(path);
+	g_object_unref(file);
+	
+	App *app = (App*)user_data;
+	app->tree_model()->MountEvent(path_str, QString(), PartitionEventType::Unmount);
+}
+
 App::App()
 {
 	history_ = new History(this);
@@ -280,9 +315,16 @@ App::App()
 	DetectThemeType();
 	RegisterVolumesListener();
 	RegisterShortcuts();
-	
+	ReadMTP();
 /// enables receiving ordinary mouse events (when mouse is not down)
 //	setMouseTracking(true);
+	
+	if (false) {
+		pthread_t th;
+		int status = pthread_create(&th, NULL, &uring::DoTest, NULL);
+		if (status != 0)
+			mtl_status(status);
+	}
 }
 
 App::~App()
@@ -618,7 +660,7 @@ void App::CreateFilesViewPane()
 	
 	main_splitter_->addWidget(table_pane);
 	{
-		MutexGuard guard(&view_files_.mutex);
+		MutexGuard guard = view_files_.guard();
 		view_files_.data.widgets_created(true);
 		int status = pthread_cond_signal(&view_files_.cond);
 		if (status != 0)
@@ -1316,7 +1358,7 @@ void App::ProcessAndWriteTo(const QString ext,
 	
 	ByteArray buf;
 	mode_t mode;
-	CHECK_TRUE_VOID(io::ReadFile(from_full_path, buf, -1, &mode));
+	CHECK_TRUE_VOID(io::ReadFile(from_full_path, buf, PrintErrors::No, -1, &mode));
 	
 	QString contents = QString::fromLocal8Bit(buf.data(), buf.size());
 	int ln_index = contents.indexOf('\n');
@@ -1422,13 +1464,11 @@ void App::ProcessAndWriteTo(const QString ext,
 	}
 }
 
-ExecInfo
-App::QueryExecInfo(io::File &file) {
+ExecInfo App::QueryExecInfo(io::File &file) {
 	return QueryExecInfo(file.build_full_path(), file.cache().ext.toString());
 }
 
-ExecInfo
-App::QueryExecInfo(const QString &full_path, const QString &ext)
+ExecInfo App::QueryExecInfo(const QString &full_path, const QString &ext)
 {
 /// ls -ls ./2to3-2.7 
 /// 4 -rwxr-xr-x 1 root root 96 Aug 24 22:12 ./2to3-2.7
@@ -1454,10 +1494,129 @@ App::QueryExecInfo(const QString &full_path, const QString &ext)
 	return ret;
 }
 
-QString
-App::QueryMimeType(const QString &full_path) {
+QString App::QueryMimeType(const QString &full_path) {
 	QMimeType mt = mime_db_.mimeTypeForFile(full_path);
 	return mt.name();
+}
+
+/*static void dump_folder_list(LIBMTP_folder_t *folderlist, int level)
+{
+	if(!folderlist)
+		return;
+	
+	mtl_infon("%u\t", folderlist->folder_id);
+	for(int i = 0; i < level; i++) printf("  ");
+	
+	mtl_infon("%s\n", folderlist->name);
+	
+	dump_folder_list(folderlist->child, level+1);
+	dump_folder_list(folderlist->sibling, level);
+} */
+
+int App::ReadMTP()
+{
+	if (true)
+		return 0;
+	
+	LIBMTP_raw_device_t *rawdevices;
+	int numrawdevices;
+	int i;
+	
+	LIBMTP_Init();
+	mtl_info("Attempting to connect device(s)");
+	const int status = LIBMTP_Detect_Raw_Devices(&rawdevices, &numrawdevices);
+	mtl_info("Count: %d", numrawdevices);
+	
+	switch (status)
+	{
+	case LIBMTP_ERROR_NO_DEVICE_ATTACHED:
+		mtl_warn("No devices found");
+		return 0;
+	case LIBMTP_ERROR_CONNECTING:
+		mtl_warn("There has been an error connecting. Exit");
+		return 1;
+	case LIBMTP_ERROR_MEMORY_ALLOCATION:
+		mtl_warn("Memory Allocation Error. Exit");
+		return 1;
+		
+		/* Successfully connected at least one device, so continue */
+	case LIBMTP_ERROR_NONE: {
+		mtl_info("Successfully connected: %d", numrawdevices);
+		break;
+	}
+		
+		/* Unknown general errors - This should never execute */
+	case LIBMTP_ERROR_GENERAL:
+	default:
+		mtl_warn("mtp-folders: Unknown error, please report "
+  "this to the libmtp developers");
+		return 1;
+	}
+mtl_trace();
+	/* iterate through connected MTP devices */
+	for (i = 0; i < numrawdevices; i++)
+	{
+mtl_trace();
+		LIBMTP_mtpdevice_t *device = LIBMTP_Open_Raw_Device(&rawdevices[i]);
+mtl_trace();
+		if (device == NULL) {
+			mtl_warn("Unable to open raw device %d", i);
+			continue;
+		}
+		
+		/* Echo the friendly name so we know which device we are working with */
+mtl_trace();
+		char *friendlyname = LIBMTP_Get_Friendlyname(device);
+mtl_trace();
+		if (friendlyname == NULL) {
+			mtl_info("Friendly name is NULL");
+		} else {
+			mtl_info("Friendly name: %s", friendlyname);
+			free(friendlyname);
+		}
+mtl_trace();
+		LIBMTP_Dump_Errorstack(device);
+mtl_trace();
+		LIBMTP_Clear_Errorstack(device);
+mtl_trace();
+		/* Get all storages for this device */
+		int ret = LIBMTP_Get_Storage(device, LIBMTP_STORAGE_SORTBY_NOTSORTED);
+		if (ret != 0) {
+			mtl_errno();
+			LIBMTP_Dump_Errorstack(device);
+			LIBMTP_Clear_Errorstack(device);
+			continue;
+		}
+mtl_trace();
+		LIBMTP_devicestorage_t *storage = nullptr;
+		/* Loop over storages, dump folder for each one */
+		for (storage = device->storage; storage != 0; storage = storage->next)
+		{
+			LIBMTP_folder_t *folders;
+			mtl_info("Storage: %s", storage->StorageDescription);
+			folders = LIBMTP_Get_Folder_List_For_Storage(device, storage->id);
+mtl_trace();
+			if (folders == NULL) {
+				mtl_info("No folders found");
+				LIBMTP_Dump_Errorstack(device);
+				LIBMTP_Clear_Errorstack(device);
+			} else {
+				//dump_folder_list(folders,0);
+			}
+mtl_trace();
+			LIBMTP_destroy_folder_t(folders);
+mtl_trace();
+		}
+mtl_trace();
+		LIBMTP_Release_Device(device);
+mtl_trace();
+	}
+	
+mtl_trace();
+	free(rawdevices);
+	mtl_info("Done.");
+	
+	return 0;
 }
 
 void App::RegisterShortcuts()
@@ -1554,9 +1713,21 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
 		connect(shortcut, &QShortcut::activated, [=] {
-			SwitchExecBitOfSelectedFiles();
+			ToggleExecBitOfSelectedFiles();
 		});
 	}
+}
+
+void App::RegisterVolumesListener()
+{
+	pthread_t th;
+	int status = pthread_create(&th, NULL, gui::sidepane::udev_monitor, this);
+	if (status != 0)
+		mtl_status(status);
+	GVolumeMonitor *monitor = g_volume_monitor_get ();
+	g_signal_connect(monitor, "mount-added", (GCallback)MountAdded, this);
+	g_signal_connect(monitor, "mount-removed", (GCallback)MountRemoved, this);
+	//g_signal_connect(monitor, "mount-changed", (GCallback)MountChanged, this);
 }
 
 void App::Reload() {
@@ -1830,25 +2001,6 @@ void App::ShutdownLastInotifyThread()
 #endif
 }
 
-void App::SwitchExecBitOfSelectedFiles() {
-	MutexGuard guard(&view_files_.mutex);
-	const auto ExecBits = S_IXUSR | S_IXGRP | S_IXOTH;
-	for (io::File *next: view_files_.data.vec) {
-		if (next->selected()) {
-			mode_t mode = next->mode();
-			if (mode & ExecBits)
-				mode &= ~ExecBits;
-			else
-				mode |= ExecBits;
-			
-			auto ba = next->build_full_path().toLocal8Bit();
-			if (chmod(ba.data(), mode) != 0) {
-				mtl_warn("chmod error: %s", strerror(errno));
-			}
-		}
-	}
-}
-
 void App::TellUser(const QString &msg, const QString title) {
 	QMessageBox::warning(this, title, msg);
 }
@@ -1884,49 +2036,23 @@ void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 	}
 }
 
-void MountAdded(GVolumeMonitor *monitor, GMount *mount, gpointer user_data)
-{
-	char *name = g_mount_get_name(mount);
-	GFile *file = g_mount_get_root(mount);
-	GVolume *vol = g_mount_get_volume(mount);
-	char *path = g_file_get_path(file);
-	char *uuid = g_volume_get_uuid(vol);
-//	mtl_info("added, uuid: %s", uuid);
-	QString uuid_str = uuid;
-	QString path_str = path;
-	g_free(uuid);
-	g_free(name);
-	g_free(path);
-	g_object_unref(file);
-	
-	App *app = (App*)user_data;
-	app->tree_model()->MountEvent(path_str, uuid_str, PartitionEventType::Mount);
-}
-
-void MountRemoved(GVolumeMonitor *monitor, GMount *mount, gpointer user_data)
-{
-	char *name = g_mount_get_name(mount);
-	GFile *file = g_mount_get_root(mount);
-	char *path = g_file_get_path(file);
-	QString path_str = path;
-	g_free(name);
-	g_free(path);
-	g_object_unref(file);
-	
-	App *app = (App*)user_data;
-	app->tree_model()->MountEvent(path_str, QString(), PartitionEventType::Unmount);
-}
-
-void App::RegisterVolumesListener()
-{
-	pthread_t th;
-	int status = pthread_create(&th, NULL, gui::sidepane::udev_monitor, this);
-	if (status != 0)
-		mtl_status(status);
-	GVolumeMonitor *monitor = g_volume_monitor_get ();
-	g_signal_connect(monitor, "mount-added", (GCallback)MountAdded, this);
-	g_signal_connect(monitor, "mount-removed", (GCallback)MountRemoved, this);
-	//g_signal_connect(monitor, "mount-changed", (GCallback)MountChanged, this);
+void App::ToggleExecBitOfSelectedFiles() {
+	MutexGuard guard = view_files_.guard();
+	const auto ExecBits = S_IXUSR | S_IXGRP | S_IXOTH;
+	for (io::File *next: view_files_.data.vec) {
+		if (next->selected()) {
+			mode_t mode = next->mode();
+			if (mode & ExecBits)
+				mode &= ~ExecBits;
+			else
+				mode |= ExecBits;
+			
+			auto ba = next->build_full_path().toLocal8Bit();
+			if (chmod(ba.data(), mode) != 0) {
+				mtl_warn("chmod error: %s", strerror(errno));
+			}
+		}
+	}
 }
 
 bool App::ViewIsAt(const QString &dir_path) const

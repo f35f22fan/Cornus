@@ -50,7 +50,10 @@ public Q_SLOTS:
 private:
 	NO_ASSIGN_COPY_MOVE(Server);
 	
-	void GetOrderPrefFor(QString mime, QVector<DesktopFile *> &add_vec, QVector<DesktopFile *> &remove_vec);
+	void GetDesktopFilesForMime(const QString &mime,
+		QVector<DesktopFile*> &show_vec, QVector<DesktopFile*> &hide_vec);
+	void GetPreferredOrder(QString mime, QVector<DesktopFile *> &add_vec,
+		QVector<DesktopFile *> &hide_vec);
 	void InitTrayIcon();
 	void SetTrayVisible(const bool yes);
 	void SysTrayClicked();
@@ -66,7 +69,7 @@ private:
 	QSystemTrayIcon *tray_icon_ = nullptr;
 	QMenu *tray_menu_ = nullptr;
 	io::ServerLife life_ = {};
-	Category desktop_ = Category::None;
+	Category category_ = Category::None;
 	QHash<QString, Category> possible_categories_;
 };
 }

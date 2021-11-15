@@ -55,7 +55,7 @@ bool TextEdit::Display(io::File *cloned_file)
 	const i64 MAX = 1024 * 1024; // 1 MiB
 	full_path_ = cloned_file->build_full_path();
 	ByteArray buf;
-	CHECK_TRUE(io::ReadFile(full_path_, buf, MAX));
+	CHECK_TRUE(io::ReadFile(full_path_, buf, PrintErrors::Yes, MAX));
 	
 	hilite_mode_ = GetHiliteMode(buf, cloned_file);
 	hiliter_->SwitchTo(hilite_mode_);
@@ -88,6 +88,8 @@ TextEdit::GetHiliteMode(const ByteArray &buf, io::File *file)
 	
 	if (ext == QLatin1String("txt"))
 		return HiliteMode::PlainText;
+	if (ext == QLatin1String("asm"))
+		return HiliteMode::Assembly_NASM;
 	
 	for (const auto &next: Extensions_C_CPP) {
 		if (next == ext)

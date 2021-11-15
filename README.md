@@ -1,9 +1,9 @@
 ### Cornus - a fast file browser for KDE Linux written in C++17 and Qt5.
 
-##### Requirements: Linux 5.3+, Qt 5.15.2+
+##### Requirements: Linux 5.5+, Qt 5.15.2+
 ---
 Building on Ubuntu:
-* sudo apt-get install qt5-default mkvtoolnix libdbus-c++-dev libudev-dev libudisks2-dev libdconf-dev cmake git ark
+* sudo apt-get install qt5-default mkvtoolnix libdbus-c++-dev libudev-dev libudisks2-dev libdconf-dev cmake git ark libmtp-dev liburing-dev
 * mkdir build
 * cd build
 * cmake ..

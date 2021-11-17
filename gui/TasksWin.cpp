@@ -20,8 +20,7 @@ TasksWin::TasksWin()
 		screen_sz_ = QSize(1920, 1080);
 	}
 	
-	win_w_ = std::max(800, screen_sz_.width() / 2);
-///	mtl_info("win_w: %d, screen_w: %d", win_w_, screen_sz_.width());
+	win_w_ = std::max(800, screen_sz_.width() / 3);
 }
 
 TasksWin::~TasksWin() {

@@ -2,6 +2,7 @@
 
 #include "../App.hpp"
 #include "../AutoDelete.hh"
+#include "../ByteArray.hpp"
 #include "../prefs.hh"
 #include "TreeItem.hpp"
 #include "TreeModel.hpp"

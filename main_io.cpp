@@ -48,47 +48,46 @@ void* ProcessRequest(void *ptr)
 	
 	CHECK_TRUE_NULL(ba.Receive(fd, CloseSocket::No));
 	const auto msg = ba.next_u32() & ~(7u << 29);
-	using io::socket::MsgType;
 	
 	switch (msg) {
-	case (MsgType)io::socket::MsgBits::CheckAlive: {
+	case (io::MessageType)io::Message::CheckAlive: {
 		close(fd);
 		return nullptr;
 	}
-	case (MsgType)io::socket::MsgBits::CopyToClipboard: {
+	case (io::MessageType)io::Message::CopyToClipboard: {
 		close(fd);
 		QMetaObject::invokeMethod(server, "CopyURLsToClipboard",
 			ConnectionType, Q_ARG(ByteArray*, &ba));
 		return nullptr;
 	}
-	case (MsgType)io::socket::MsgBits::CutToClipboard: {
+	case (io::MessageType)io::Message::CutToClipboard: {
 		close(fd);
 		QMetaObject::invokeMethod(server, "CutURLsToClipboard",
 			ConnectionType, Q_ARG(ByteArray*, &ba));
 		return nullptr;
 	}
-	case (MsgType)io::socket::MsgBits::SendOpenWithList: {
+	case (io::MessageType)io::Message::SendOpenWithList: {
 		QString mime = ba.next_string();
 		QMetaObject::invokeMethod(server, "SendOpenWithList",
 			ConnectionType, Q_ARG(QString, mime), Q_ARG(int, fd));
 		return nullptr;
 	}
-	case (MsgType)io::socket::MsgBits::SendDefaultDesktopFileForFullPath: {
+	case (io::MessageType)io::Message::SendDefaultDesktopFileForFullPath: {
 		QMetaObject::invokeMethod(server, "SendDefaultDesktopFileForFullPath",
 			ConnectionType, Q_ARG(ByteArray*, &ba), Q_ARG(int, fd));
 		return nullptr;
 	}
-	case (MsgType)io::socket::MsgBits::SendDesktopFilesById: {
+	case (io::MessageType)io::Message::SendDesktopFilesById: {
 		QMetaObject::invokeMethod(server, "SendDesktopFilesById",
 			ConnectionType, Q_ARG(ByteArray*, &ba), Q_ARG(int, fd));
 		return nullptr;
 	}
-	case (MsgType)io::socket::MsgBits::SendAllDesktopFiles: {
+	case (io::MessageType)io::Message::SendAllDesktopFiles: {
 		QMetaObject::invokeMethod(server, "SendAllDesktopFiles",
 			ConnectionType, Q_ARG(int, fd));
 		return nullptr;
 	}
-	case (MsgType) io::socket::MsgBits::QuitServer: {
+	case (io::MessageType) io::Message::QuitServer: {
 #ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
 		mtl_info("Received QuitServer signal over socket");
 #endif
@@ -100,7 +99,7 @@ void* ProcessRequest(void *ptr)
 		life.Unlock();
 		
 		ByteArray ba;
-		ba.set_msg_id(io::socket::MsgBits::None);
+		ba.set_msg_id(io::Message::None);
 #ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
 		mtl_info("Waking up server to process it...");
 #endif

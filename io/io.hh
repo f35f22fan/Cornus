@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../ByteArray.hpp"
 #include "../category.hh"
 #include "decl.hxx"
 #include "../decl.hxx"
@@ -28,6 +27,83 @@
 #include <QVector>
 
 namespace cornus::io {
+
+enum class PostWrite: i8 {
+	None = 0,
+	FSync,
+	FDataSync
+};
+
+using MessageType = u32;
+enum class Message: MessageType {
+	None = 0,
+	CheckAlive,
+	QuitServer,
+	SendOpenWithList,
+	SendDefaultDesktopFileForFullPath,
+	SendDesktopFilesById,
+	SendAllDesktopFiles,
+	CopyToClipboard,
+	CutToClipboard,
+	DeleteFiles,
+	
+	Copy = 1u << 29, // copies files
+	DontTryAtomicMove = 1u << 30, // moves with rename()
+	Move = 1u << 31, // moves by copying to new dir and deleting old ones
+};
+
+inline Message operator | (Message a, Message b) {
+	return static_cast<Message>(static_cast<MessageType>(a) | static_cast<MessageType>(b));
+}
+
+inline Message& operator |= (Message &a, const Message &b) {
+	a = a | b;
+	return a;
+}
+
+inline Message operator ~ (Message a) {
+	return static_cast<Message>(~(static_cast<MessageType>(a)));
+}
+
+inline Message operator & (Message a, Message b) {
+	return static_cast<Message>((static_cast<MessageType>(a) & static_cast<MessageType>(b)));
+}
+
+inline Message& operator &= (Message &a, const Message &b) {
+	a = a & b;
+	return a;
+}
+
+inline Message MessageFor(const Qt::DropAction action)
+{
+	io::Message bits = Message::None;
+	if (action & Qt::CopyAction) {
+		bits |= Message::Copy;
+	}
+	if (action & Qt::MoveAction) {
+		bits |= Message::Move;/// | Message::AtomicMove;
+	}
+	if (action & Qt::LinkAction) {
+		mtl_trace();
+		///bits |= Message::Link;
+	}
+	return bits;
+}
+
+inline Message MessageForMany(const Qt::DropActions action)
+{
+	io::Message bits = Message::None;
+	if (action & Qt::CopyAction) {
+		bits |= Message::Copy;
+	}
+	if (action & Qt::MoveAction) {
+		bits |= Message::Move;/// | Message::AtomicMove;
+	}
+	if (action & Qt::LinkAction) {
+		mtl_trace();
+	}
+	return bits;
+}
 
 const auto ExecBits = S_IXUSR | S_IXGRP | S_IXOTH;
 
@@ -291,6 +367,7 @@ isize TryReadFile(const QString &full_path, char *buf,
 	const i64 how_much, ExecInfo *info = nullptr);
 
 Err WriteToFile(const QString &full_path, const char *data, const i64 size,
+	const PostWrite post_write = PostWrite::None,
 	mode_t *custom_mode = nullptr);
 
 } // cornus::io::::

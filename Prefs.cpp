@@ -1,6 +1,7 @@
 #include "Prefs.hpp"
 
 #include "App.hpp"
+#include "ByteArray.hpp"
 #include "io/io.hh"
 #include "gui/TreeView.hpp"
 #include "gui/Table.hpp"

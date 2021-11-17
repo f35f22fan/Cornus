@@ -29,12 +29,13 @@ static const QString NotShowIn = QStringLiteral("NotShowIn");
 static const QString OnlyShowIn = QStringLiteral("OnlyShowIn");
 }
 
-bool ContainsDesktopFile(QVector<DesktopFile*> &vec, const QString &id,
-	const DesktopFile::Type t, int *ret_index)
+bool ContainsDesktopFile(QVector<DesktopFile*> &vec,
+	DesktopFile *p, int *ret_index)
 {
+	const QString id = p->GetId(); // not a getter function
 	int i = 0;
-	for (DesktopFile *p: vec) {
-		if (p->type() == t && p->GetId() == id) {
+	for (DesktopFile *next: vec) {
+		if (next->type() == p->type() && next->GetId() == id) {
 			if (ret_index != nullptr)
 				*ret_index = i;
 			return true;
@@ -241,19 +242,19 @@ Priority Group::Supports(const QString &mime, const MimeInfo info,
 	if (info != MimeInfo::None)
 	{
 		if (info == MimeInfo::Text && is_text_editor())
-			return has_tk ? Priority::Highest : Priority::High;
+			return has_tk ? Priority::High : Priority::Normal;
 		if (info == MimeInfo::Image && is_image_viewer())
-			return has_tk ? Priority::Highest : Priority::High;
+			return has_tk ? Priority::High : Priority::Normal;
 		if (info == MimeInfo::Audio && is_audio_player())
-			return has_tk ? Priority::Highest : Priority::High;
+			return has_tk ? Priority::High : Priority::Normal;
 		if (info == MimeInfo::Video && is_video_player())
-			return has_tk ? Priority::Highest : Priority::High;
+			return has_tk ? Priority::High : Priority::Normal;
 	}
 	
 	if (!mimetypes_.contains(mime))
 		return Priority::Ignore;
 	
-	return has_tk ? Priority::High : Priority::Low;
+	return has_tk ? Priority::Normal : Priority::Low;
 }
 
 void Group::WriteTo(ByteArray &ba)

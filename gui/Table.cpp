@@ -43,6 +43,20 @@
 
 namespace cornus::gui {
 
+void OpenWith::Clear()
+{
+	for (auto *next: show_vec) {
+		delete next;
+	}
+	
+	for (auto *next: hide_vec) {
+		delete next;
+	}
+	
+	show_vec.clear();
+	hide_vec.clear();
+}
+
 const QVector<QString> ArchiveExtensions = {
 	QLatin1String("zip"), QLatin1String("xz"), QLatin1String("gz"),
 	QLatin1String("odt"), QLatin1String("ods"), QLatin1String("rar"),
@@ -101,20 +115,10 @@ Table::~Table()
 {
 	delete model_;
 	delete delegate_;
-	
-	for (auto *next: open_with_.add_vec) {
-		delete next;
-	}
-	
-	for (auto *next: open_with_.remove_vec) {
-		delete next;
-	}
-	
-	open_with_.add_vec.clear();
-	open_with_.remove_vec.clear();
+	open_with_.Clear();
 }
 
-bool SendURLsClipboard(const QStringList &list, io::socket::MsgBits msg_id) {
+bool SendURLsClipboard(const QStringList &list, io::Message msg_id) {
 	auto ba = new ByteArray();
 	ba->set_msg_id(msg_id);
 	for (const auto &next: list)
@@ -134,12 +138,11 @@ void Table::AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path)
 	}
 	
 	open_with_menu->addSeparator();
-	QAction *action = new QAction(tr("Preferences.."));
+	QAction *action = new QAction(tr("Customize..."));
 	connect(action, &QAction::triggered, [=] {
 		OpenOrderPane pane(app_);
 	});
 	open_with_menu->addAction(action);
-	
 	main_menu->addMenu(open_with_menu);
 }
 
@@ -147,7 +150,7 @@ void Table::ActionCopy(QVector<int> &indices)
 {
 	QStringList list;
 	CHECK_TRUE_VOID(CreateMimeWithSelectedFiles(ClipboardAction::Copy, indices, list));
-	CHECK_TRUE_VOID(SendURLsClipboard(list, io::socket::MsgBits::CopyToClipboard));
+	CHECK_TRUE_VOID(SendURLsClipboard(list, io::Message::CopyToClipboard));
 }
 
 void Table::ActionCut(QVector<int> &indices) {
@@ -155,19 +158,19 @@ void Table::ActionCut(QVector<int> &indices) {
 	if (!CreateMimeWithSelectedFiles(ClipboardAction::Cut, indices, list))
 		return;
 	
-	SendURLsClipboard(list, io::socket::MsgBits::CutToClipboard);
+	SendURLsClipboard(list, io::Message::CutToClipboard);
 }
 
 void Table::ActionPaste()
 {
 	const Clipboard &clipboard = app_->clipboard();
 	
-	io::socket::MsgBits io_op = io::socket::MsgBits::None;
+	io::Message io_op = io::Message::None;
 	if (clipboard.action == ClipboardAction::Copy) {
-		io_op = io::socket::MsgBits::Copy;
-		io_op |= io::socket::MsgBits::DontTryAtomicMove;
+		io_op = io::Message::Copy;
+		io_op |= io::Message::DontTryAtomicMove;
 	} else {
-		io_op = io::socket::MsgBits::Move;
+		io_op = io::Message::Move;
 	}
 	
 	auto *ba = new ByteArray();
@@ -338,49 +341,48 @@ bool Table::CreateMimeWithSelectedFiles(const ClipboardAction action,
 	return true;
 }
 
-QVector<QAction*>
-Table::CreateOpenWithList(const QString &full_path)
+bool Table::ReloadOpenWith()
 {
-	for (auto *next: open_with_.add_vec) {
-		delete next;
-	}
-	for (auto *next: open_with_.remove_vec) {
-		delete next;
-	}
-	open_with_.add_vec.clear();
-	open_with_.remove_vec.clear();
-	open_with_.full_path = full_path;
-	
-	QString mime = app_->QueryMimeType(full_path);
-	QVector<QAction*> ret;
-	
+	open_with_.Clear();
 	int fd = io::socket::Client(cornus::SocketPath);
 	if (fd == -1)
-		return ret;
+		return false;
 	
 	ByteArray send_ba;
-	send_ba.set_msg_id(io::socket::MsgBits::SendOpenWithList);
-	send_ba.add_string(mime);
+	send_ba.set_msg_id(io::Message::SendOpenWithList);
+	send_ba.add_string(open_with_.mime);
 	
 	if (!send_ba.Send(fd, false))
-		return ret;
+		return false;
 	
 	ByteArray receive_ba;
 	if (!receive_ba.Receive(fd))
-		return ret;
+		return false;
 	
-	while (receive_ba.has_more()) {
+	while (receive_ba.has_more())
+	{
 		const Present present = (Present)receive_ba.next_i8();
 		DesktopFile *next = DesktopFile::From(receive_ba);
 		if (next != nullptr) {
 			if (present == Present::Yes)
-				open_with_.add_vec.append(next);
+				open_with_.show_vec.append(next);
 			else
-				open_with_.remove_vec.append(next);
+				open_with_.hide_vec.append(next);
 		}
 	}
 	
-	for (DesktopFile *next: open_with_.add_vec)
+	return true;
+}
+
+QVector<QAction*>
+Table::CreateOpenWithList(const QString &full_path)
+{
+	open_with_.full_path = full_path;
+	open_with_.mime = app_->QueryMimeType(full_path);
+	ReloadOpenWith();
+	QVector<QAction*> ret;
+	
+	for (DesktopFile *next: open_with_.show_vec)
 	{
 		QString name = next->GetName();
 		QString generic = next->GetGenericName();
@@ -468,11 +470,12 @@ void Table::dropEvent(QDropEvent *evt)
 }
 
 void Table::ExecuteDrop(QVector<io::File*> *files_vec,
-	io::File *to_dir, Qt::DropAction drop_action, Qt::DropActions possible_actions)
+	io::File *to_dir, Qt::DropAction drop_action,
+	Qt::DropActions possible_actions)
 {
 	CHECK_PTR_VOID(files_vec);
-	io::socket::MsgBits io_operation = io::socket::MsgFlagsFor(drop_action)
-		| io::socket::MsgFlagsForMany(possible_actions);
+	io::Message io_operation = io::MessageFor(drop_action)
+		| io::MessageForMany(possible_actions);
 	//mtl_info("flags: %u", u32(io_operation));
 	auto *ba = new ByteArray();
 	ba->set_msg_id(io_operation);

@@ -2,6 +2,7 @@
 
 #include "err.hpp"
 #include "io/io.hh"
+#include "io/socket.hh"
 
 #include <signal.h>
 #include <sys/types.h>

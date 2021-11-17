@@ -137,7 +137,6 @@ private:
 	const QHash<QString, Category> *possible_categories_ = nullptr;
 };
 
-bool ContainsDesktopFile(QVector<DesktopFile*> &vec, const QString &id,
-	const DesktopFile::Type t, int *ret_index = nullptr);
+bool ContainsDesktopFile(QVector<DesktopFile*> &vec, DesktopFile *p, int *ret_index = nullptr);
 
 } /// namespace

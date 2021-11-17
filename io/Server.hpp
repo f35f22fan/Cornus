@@ -52,7 +52,7 @@ private:
 	
 	void GetDesktopFilesForMime(const QString &mime,
 		QVector<DesktopFile*> &show_vec, QVector<DesktopFile*> &hide_vec);
-	void GetPreferredOrder(QString mime, QVector<DesktopFile *> &add_vec,
+	void GetPreferredOrder(QString mime, QVector<DesktopFile *> &show_vec,
 		QVector<DesktopFile *> &hide_vec);
 	void InitTrayIcon();
 	void SetTrayVisible(const bool yes);

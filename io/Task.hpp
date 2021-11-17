@@ -3,6 +3,7 @@
 #include "../decl.hxx"
 #include "decl.hxx"
 #include "../err.hpp"
+#include "io.hh"
 #include "../MutexGuard.hpp"
 #include "socket.hh"
 #include "../ElapsedTimer.hpp"
@@ -142,8 +143,8 @@ public:
 	TaskProgress& progress() { return progress_; }
 	QVector<QString>& file_paths() { return file_paths_; }
 	
-	void ops(socket::MsgType n) { ops_ = n; }
-	socket::MsgType ops() const { return ops_; }
+	void ops(io::MessageType n) { ops_ = n; }
+	io::MessageType ops() const { return ops_; }
 	void StartIO();
 	
 private:
@@ -166,7 +167,7 @@ private:
 	
 	TaskData data_ = {};
 	TaskProgress progress_ = {};
-	socket::MsgType ops_ = 0;
+	io::MessageType ops_ = 0;
 	QString to_dir_path_;
 	QVector<QString> file_paths_;
 	struct statx stx_;

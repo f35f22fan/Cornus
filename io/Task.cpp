@@ -381,7 +381,7 @@ Task* Task::From(cornus::ByteArray &ba)
 	auto *task = new Task();
 	task->ops_ = ba.next_u32();
 	
-	if (task->ops_ != (socket::MsgType)io::socket::MsgBits::DeleteFiles) {
+	if (task->ops_ != (io::MessageType)io::Message::DeleteFiles) {
 		task->to_dir_path_ = ba.next_string();
 	}
 	
@@ -411,17 +411,13 @@ void Task::StartIO()
 		return;
 	}
 	
-///#define DEBUG_EXEC_PATH
-	using io::socket::MsgType;
-	using io::socket::MsgBits;
-	
-	if (ops_ & (MsgType)MsgBits::DeleteFiles) {
+	if (ops_ & (MessageType)Message::DeleteFiles) {
 		DeleteFiles();
-	} else if (ops_ & (MsgType)MsgBits::Copy) {
+	} else if (ops_ & (MessageType)Message::Copy) {
 #ifdef DEBUG_EXEC_PATH
 mtl_info("Copy");
 #endif
-		if (!(ops_ & (MsgType)MsgBits::DontTryAtomicMove)) {
+		if (!(ops_ & (MessageType)Message::DontTryAtomicMove)) {
 			if (TryAtomicMove()) {
 #ifdef DEBUG_EXEC_PATH
 				mtl_info("Atomic move succeeded");
@@ -431,7 +427,7 @@ mtl_info("Copy");
 			}
 		}
 		CopyFiles();
-	} else if (ops_ & (MsgType)MsgBits::Move) {
+	} else if (ops_ & (MessageType)Message::Move) {
 #ifdef DEBUG_EXEC_PATH
 		mtl_info("Move, trying to do atomic move..");
 #endif

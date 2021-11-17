@@ -13,8 +13,11 @@
 namespace cornus::gui {
 struct OpenWith {
 	QString full_path;
-	QVector<DesktopFile*> add_vec;
-	QVector<DesktopFile*> remove_vec;
+	QString mime;
+	QVector<DesktopFile*> show_vec;
+	QVector<DesktopFile*> hide_vec;
+	
+	void Clear();
 };
 
 class Table : public QTableView {
@@ -51,6 +54,7 @@ public:
 	i32 mouse_over_file_name_index() const { return mouse_over_file_name_; }
 	const OpenWith& open_with() const { return open_with_; }
 	void ProcessAction(const QString &action);
+	bool ReloadOpenWith();
 	void ScrollToRow(int row);
 	void ScrollToAndSelectRow(const int row, const bool deselect_others);
 	void SelectAllFilesNTS(const bool flag, QVector<int> &indices);

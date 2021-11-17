@@ -363,7 +363,7 @@ TableModel::~TableModel() {}
 void TableModel::DeleteSelectedFiles()
 {
 	ByteArray *ba = new ByteArray();
-	ba->set_msg_id(io::socket::MsgBits::DeleteFiles);
+	ba->set_msg_id(io::Message::DeleteFiles);
 	{
 		io::Files &files = app_->view_files();
 		MutexGuard guard(&files.mutex);

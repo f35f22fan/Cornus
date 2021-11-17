@@ -280,7 +280,7 @@ bool ByteArray::Send(int fd, bool close_socket) const
 	return so_far == size_;
 }
 
-void ByteArray::set_msg_id(const io::socket::MsgBits msg_type)
+void ByteArray::set_msg_id(const io::Message msg_type)
 {
 	add(reinterpret_cast<const char*>(&msg_type), sizeof msg_type);
 }

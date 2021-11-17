@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../ByteArray.hpp"
 #include "../gui/decl.hxx"
 #include "../err.hpp"
 #include "../media.hxx"

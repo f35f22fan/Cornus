@@ -1,6 +1,7 @@
 #pragma once
 
 #include "io/socket.hh"
+#include "io/io.hh"
 #include "types.hxx"
 
 #include <QMetaType> /// Q_DECLARE_METATYPE()
@@ -64,7 +65,7 @@ public:
 	inline void to(isize n) { at_ = n; }
 	bool Receive(int fd, const CloseSocket cs = CloseSocket::Yes);
 	bool Send(int fd, bool close_socket = true) const;
-	void set_msg_id(const io::socket::MsgBits msg_id);
+	void set_msg_id(const cornus::io::Message msg_id);
 	QString toString() const { return QString::fromLocal8Bit(data_, size_); }
 
 private:

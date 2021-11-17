@@ -1531,7 +1531,7 @@ isize TryReadFile(const QString &full_path, char *buf, const i64 how_much,
 }
 
 io::Err WriteToFile(const QString &full_path, const char *data, const i64 size,
-	mode_t *custom_mode)
+	const PostWrite post_write, mode_t *custom_mode)
 {
 	auto path = full_path.toLocal8Bit();
 	const int fd = open(path.data(), O_LARGEFILE | O_WRONLY | O_CREAT | O_TRUNC,
@@ -1556,6 +1556,12 @@ io::Err WriteToFile(const QString &full_path, const char *data, const i64 size,
 		}
 		
 		written += ret;
+	}
+	
+	switch (post_write) {
+	case PostWrite::None: break;
+	case PostWrite::FSync: fsync(fd); break;
+	case PostWrite::FDataSync: fdatasync(fd); break;
 	}
 	
 	close(fd);

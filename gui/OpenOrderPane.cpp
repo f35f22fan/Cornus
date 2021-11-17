@@ -18,9 +18,20 @@
 #include <QItemSelectionModel>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QPushButton>
 
 namespace cornus::gui {
+
+QString GetFullFilePathForMime(QString mime)
+{
+	QString save_dir = cornus::prefs::QueryMimeConfigDirPath();
+	if (!save_dir.endsWith('/'))
+		save_dir.append('/');
+	
+	const QString filename = mime.replace('/', '-');
+	return save_dir + filename;
+}
 
 bool SortDesktopFiles(DesktopFile *a, DesktopFile *b)
 {
@@ -35,7 +46,7 @@ QDialog(app), app_(app)
 	CreateGui();
 	QueryData();
 	TableSelectionChanged();
-	setWindowTitle(tr("Preference Order"));
+	setWindowTitle(tr("Customize opening order"));
 	setModal(true);
 	setVisible(true);
 	adjustSize();
@@ -44,17 +55,15 @@ QDialog(app), app_(app)
 
 OpenOrderPane::~OpenOrderPane()
 {
-	for (auto *next: open_with_original_vec_)
-		delete next;
-	for (auto *next: removed_vec_)
-		delete next;
+	ClearData();
 	for (auto *next: all_desktop_files_)
 		delete next;
 	
-	open_with_original_vec_.clear();
-	removed_vec_.clear();
 	all_desktop_files_.clear();
 	delete custom_binary_;
+	
+	delete removed_tf_;
+	removed_tf_ = nullptr;
 }
 
 void OpenOrderPane::AddSelectedCustomItem()
@@ -62,12 +71,13 @@ void OpenOrderPane::AddSelectedCustomItem()
 	QVariant v = add_custom_cb_->currentData();
 	DesktopFile *p = (DesktopFile*)v.value<void*>();
 	int index;
-	if (ContainsDesktopFile(removed_vec_, p->GetId(), p->type(), &index)) {
-		removed_vec_.remove(index);
+	if (ContainsDesktopFile(hide_vec_, p, &index)) {
+		hide_vec_.remove(index);
 	}
 	
 	model_->AppendItem(p->Clone());
 	adjustSize();
+	UpdateRemovedList();
 }
 
 void OpenOrderPane::AskAddCustomExecutable()
@@ -105,20 +115,33 @@ void OpenOrderPane::AskAddCustomExecutable()
 void OpenOrderPane::ButtonClicked(QAbstractButton *btn)
 {
 	if (btn == button_box_->button(QDialogButtonBox::Ok)) {
-		if (WasOrderModified()) {
+		if (WasOrderModified())
 			Save();
-		}
-		
 		this->close();
 	} else if (btn == button_box_->button(QDialogButtonBox::Cancel)) {
 		this->close();
+	} else if (btn == button_box_->button(QDialogButtonBox::RestoreDefaults)) {
+		RestoreDefaults();
 	}
+}
+
+void OpenOrderPane::ClearData()
+{
+	for (auto *next: open_with_original_vec_)
+		delete next;
+	open_with_original_vec_.clear();
+	
+	for (auto *next: hide_vec_)
+		delete next;
+	hide_vec_.clear();
+	
+	model_->ClearData();
 }
 
 QWidget* OpenOrderPane::CreateAddingCustomItem()
 {
 	ByteArray ba;
-	ba.set_msg_id(io::socket::MsgBits::SendAllDesktopFiles);
+	ba.set_msg_id(io::Message::SendAllDesktopFiles);
 	const int fd = io::socket::Client();
 	CHECK_TRUE_NULL((fd != -1));
 	CHECK_TRUE_NULL(ba.Send(fd, false));
@@ -139,8 +162,8 @@ QWidget* OpenOrderPane::CreateAddingCustomItem()
 	const QString two_points = QLatin1String("..");
 	const int max_len = 40;
 	
-	for (DesktopFile *p: all_desktop_files_) {
-		
+	for (DesktopFile *p: all_desktop_files_)
+	{
 		QString s = p->GetName();
 		QString generic = p->GetGenericName();
 		
@@ -170,7 +193,8 @@ QWidget* OpenOrderPane::CreateAddingCustomItem()
 	{
 		QPushButton *btn = new QPushButton();
 		btn->setIcon(QIcon::fromTheme(QLatin1String("list-add")));
-		btn->setText(tr("Add To List"));
+		btn->setText(tr("Add") + QString(" ↓"));
+		btn->setToolTip(tr("Add to table below"));
 		connect(btn, &QPushButton::clicked, this, &OpenOrderPane::AddSelectedCustomItem);
 		
 		layout->addWidget(btn);
@@ -179,14 +203,55 @@ QWidget* OpenOrderPane::CreateAddingCustomItem()
 	{
 		QPushButton *btn = new QPushButton();
 		btn->setIcon(QIcon::fromTheme(QLatin1String("application-x-executable")));
-		btn->setText(tr("Custom..."));
-		btn->setToolTip(tr("Add Custom Executable..."));
+		btn->setText(tr("Add custom..."));
+		btn->setToolTip(tr("Add custom executable to table below..."));
 		connect(btn, &QPushButton::clicked, this, &OpenOrderPane::AskAddCustomExecutable);
 		
 		layout->addWidget(btn);
 	}
 	
 	return p;
+}
+
+QDialogButtonBox*
+OpenOrderPane::CreateButtonsPane()
+{
+	auto *box = new QDialogButtonBox (QDialogButtonBox::RestoreDefaults
+		| QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	
+	{
+		up_btn_ = new QPushButton();
+		up_btn_->setText(tr("Move Up"));
+		up_btn_->setIcon(QIcon::fromTheme(QLatin1String("go-up")));
+		box->addButton(up_btn_, QDialogButtonBox::NoRole);
+		connect(up_btn_, &QAbstractButton::clicked, [=] {
+			MoveItem(Direction::Up);
+		});
+	}
+	
+	{
+		down_btn_ = new QPushButton();
+		down_btn_->setText(tr("Move Down"));
+		down_btn_->setIcon(QIcon::fromTheme(QLatin1String("go-down")));
+		box->addButton(down_btn_, QDialogButtonBox::NoRole);
+		connect(down_btn_, &QAbstractButton::clicked, [=] {
+			MoveItem(Direction::Down);
+		});
+	}
+	
+	{
+		remove_btn_ = new QPushButton();
+		remove_btn_->setText(tr("Remove"));
+		remove_btn_->setIcon(QIcon::fromTheme(QLatin1String("list-remove")));
+		box->addButton(remove_btn_, QDialogButtonBox::NoRole);
+		connect(remove_btn_, &QAbstractButton::clicked, [=] {
+			RemoveSelectedItem();
+		});
+	}
+	
+	connect(box, &QDialogButtonBox::clicked, this, &OpenOrderPane::ButtonClicked);
+	
+	return box;
 }
 
 void OpenOrderPane::CreateGui()
@@ -196,64 +261,26 @@ void OpenOrderPane::CreateGui()
 	
 	const OpenWith& open_with = app_->table()->open_with();
 	mime_ = app_->QueryMimeType(open_with.full_path);
-	
-	QLabel *msg_widget = new QLabel();
-	layout->addWidget(msg_widget);
-	msg_widget->setText(tr("Preference order for <b>") + mime_
-		+ QLatin1String("</b>"));
-	
-	model_ = new OpenOrderModel(app_, this);
-	table_ = new OpenOrderTable(app_, model_);
-	model_->table(table_);
-	connect(table_->selectionModel(), &QItemSelectionModel::selectionChanged,
-		this, &OpenOrderPane::TableSelectionChanged);
-	
-	layout->addWidget(table_);
-	
-	QWidget *w = CreateAddingCustomItem();
-	if (w)
-		layout->addWidget(w);
-	else
-		mtl_trace();
-	
-	button_box_ = new QDialogButtonBox (QDialogButtonBox::Ok
-		| QDialogButtonBox::Cancel);
-	
+	layout->addWidget(CreateAddingCustomItem());
 	{
-		auto *btn = new QPushButton();
-		btn->setText(tr("Move Up"));
-		btn->setIcon(QIcon::fromTheme(QLatin1String("go-up")));
-		button_box_->addButton(btn, QDialogButtonBox::NoRole);
-		connect(btn, &QAbstractButton::clicked, [=] {
-			MoveItem(Direction::Up);
-		});
-		up_btn_ = btn;
+		removed_tf_ = new QLineEdit();
+		removed_tf_->setReadOnly(true);
+		layout->addWidget(removed_tf_);
+	}
+	{
+		model_ = new OpenOrderModel(app_, this);
+		table_ = new OpenOrderTable(app_, model_);
+		model_->table(table_);
+		connect(table_->selectionModel(), &QItemSelectionModel::selectionChanged,
+			this, &OpenOrderPane::TableSelectionChanged);
+		
+		layout->addWidget(table_);
 	}
 	
 	{
-		auto *btn = new QPushButton();
-		btn->setText(tr("Move Down"));
-		btn->setIcon(QIcon::fromTheme(QLatin1String("go-down")));
-		button_box_->addButton(btn, QDialogButtonBox::NoRole);
-		connect(btn, &QAbstractButton::clicked, [=] {
-			MoveItem(Direction::Down);
-		});
-		down_btn_ = btn;
+		button_box_ = CreateButtonsPane();
+		layout->addWidget(button_box_);
 	}
-	
-	{
-		auto *btn = new QPushButton();
-		btn->setText(tr("Remove"));
-		btn->setIcon(QIcon::fromTheme(QLatin1String("list-remove")));
-		button_box_->addButton(btn, QDialogButtonBox::NoRole);
-		connect(btn, &QAbstractButton::clicked, [=] {
-			RemoveSelectedItem();
-		});
-		remove_btn_ = btn;
-	}
-	
-	connect(button_box_, &QDialogButtonBox::clicked, this, &OpenOrderPane::ButtonClicked);
-	layout->addWidget(button_box_);
 }
 
 int OpenOrderPane::GetSelectedRowIndex()
@@ -285,18 +312,21 @@ void OpenOrderPane::MoveItem(const Direction d)
 
 void OpenOrderPane::QueryData()
 {
+	ClearData();
+	app_->table()->ReloadOpenWith();
 	const OpenWith& open_with = app_->table()->open_with();
-	QVector<DesktopFile*> model_vec;
-	for (DesktopFile *next: open_with.add_vec) {
+	QVector<DesktopFile*> show_vec;
+	for (DesktopFile *next: open_with.show_vec) {
 		open_with_original_vec_.append(next->Clone());
-		model_vec.append(next->Clone());
+		show_vec.append(next->Clone());
 	}
 	
-	for (DesktopFile *next: open_with.remove_vec) {
-		removed_vec_.append(next->Clone());
+	for (DesktopFile *next: open_with.hide_vec) {
+		hide_vec_.append(next->Clone());
 	}
 	
-	model_->SetData(model_vec);
+	model_->SetData(show_vec);
+	UpdateRemovedList();
 }
 
 void OpenOrderPane::RemoveSelectedItem()
@@ -307,19 +337,33 @@ void OpenOrderPane::RemoveSelectedItem()
 	DesktopFile *p = model_->vec()[row];
 	model_->RemoveItem(row);
 	if (p->is_desktop_file()) {
-		removed_vec_.append(p);
+		hide_vec_.append(p);
 	} else {
 		delete p;
 	}
+	adjustSize();
+	UpdateRemovedList();
+}
+
+void OpenOrderPane::RestoreDefaults()
+{
+	const QString question = tr("Restore defaults for <b>") +
+	mime_ + QLatin1String("</b>?");
+	auto answer = QMessageBox::question(app_, tr("Please confirm"),
+		question, QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+	if (answer != QMessageBox::Yes)
+		return;
+	
+	auto full_path = GetFullFilePathForMime(mime_);
+	auto ba = full_path.toLocal8Bit();
+	remove(ba.data()); // don't return on error, QueryData must be executed.
+	QueryData();
 	adjustSize();
 }
 
 void OpenOrderPane::Save()
 {
-	QString save_dir = cornus::prefs::QueryMimeConfigDirPath();
-	if (!save_dir.endsWith('/'))
-		save_dir.append('/');
-	
+	const QString full_path = GetFullFilePathForMime(mime_);
 	QVector<DesktopFile*> &model_vec = model_->vec();
 	ByteArray ba;
 	
@@ -330,7 +374,7 @@ void OpenOrderPane::Save()
 	}
 	
 	const auto info = DesktopFile::GetForMime(mime_);
-	for (DesktopFile *next: removed_vec_)
+	for (DesktopFile *next: hide_vec_)
 	{
 		if (next->Supports(mime_, info, app_->desktop()) != Priority::Ignore) {
 			ba.add_i8(i8(Present::No));
@@ -343,10 +387,9 @@ void OpenOrderPane::Save()
 		}
 	}
 	
-	QString filename = mime_.replace('/', '-');
-	QString full_path = save_dir + filename;
-	///mtl_info("%s", qPrintable(full_path));
-	CHECK_TRUE_VOID((io::WriteToFile(full_path, ba.data(), ba.size()) == io::Err::Ok));
+	CHECK_TRUE_VOID((io::WriteToFile(full_path, ba.data(), ba.size(), io::PostWrite::FSync)
+		== io::Err::Ok));
+	//mtl_info("%s", qPrintable(full_path));
 }
 
 void OpenOrderPane::TableSelectionChanged()
@@ -358,6 +401,24 @@ void OpenOrderPane::TableSelectionChanged()
 	up_btn_->setEnabled(enabled);
 	down_btn_->setEnabled(enabled);
 	remove_btn_->setEnabled(enabled);
+}
+
+void OpenOrderPane::UpdateRemovedList()
+{
+	QString s;
+	const int count = hide_vec_.size();
+	const QString period = QLatin1String(", ");
+	for (int i = 0; i < count; i++)
+	{
+		DesktopFile *next = hide_vec_[i];
+		s += next->GetId();
+		if (i < (count - 1))
+			s += period;
+	}
+	
+	const QString text = tr("Removed (") + QString::number(count)
+		+ QLatin1String("): ") + s;
+	removed_tf_->setText(text);
 }
 
 bool OpenOrderPane::WasOrderModified() const

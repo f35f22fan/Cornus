@@ -14,9 +14,10 @@ public:
 	virtual ~OpenOrderModel();
 	
 	void AppendItem(DesktopFile *item);
+	void ClearData();
 	void RemoveItem(const int index);
 	
-	void SetData(QVector<DesktopFile*> &p);
+	void SetData(QVector<DesktopFile*> &new_vec);
 	
 	QVariant
 	data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
@@ -42,5 +43,6 @@ private:
 	
 	OpenOrderTable *table_ = nullptr;
 	QVector<DesktopFile*> vec_;
+	OpenOrderPane *oop_ = nullptr;
 };
 }

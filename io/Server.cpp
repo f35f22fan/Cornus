@@ -17,6 +17,13 @@
 
 namespace cornus::io {
 
+bool SortByPriority(DesktopFile *a, DesktopFile *b)
+{
+	if (a->priority() == b->priority())
+		return false;
+	return a->priority() < b->priority() ? false : true;
+}
+
 MutexGuard DesktopFiles::guard() const
 {
 	return MutexGuard(&mutex);
@@ -272,16 +279,45 @@ void Server::CutURLsToClipboard(ByteArray *ba)
 	QApplication::clipboard()->setMimeData(mime);
 }
 
+void Server::GetDesktopFilesForMime(const QString &mime,
+	QVector<DesktopFile*> &show_vec, QVector<DesktopFile*> &hide_vec)
+{
+	const MimeInfo mime_info = DesktopFile::GetForMime(mime);
+	GetPreferredOrder(mime, show_vec, hide_vec);
+	//mtl_info("Show: %d, hide: %d", show_vec.size(), hide_vec.size());
+	{
+		auto guard = desktop_files_.guard();
+		auto it = desktop_files_.hash.constBegin();
+		while (it != desktop_files_.hash.constEnd())
+		{
+			DesktopFile *p = it.value();
+			it++;
+			
+			if (ContainsDesktopFile(show_vec, p) || ContainsDesktopFile(hide_vec, p))
+				continue;
+			
+			const Priority pr = p->Supports(mime, mime_info, category_);
+			if (pr == Priority::Ignore)
+				continue;
+			
+			p->priority(pr);
+			show_vec.append(p);
+		}
+	}
+	
+	std::sort(show_vec.begin(), show_vec.end(), SortByPriority);
+}
+
 void Server::GetPreferredOrder(QString mime,
-	QVector<DesktopFile*> &add_vec,
+	QVector<DesktopFile*> &show_vec,
 	QVector<DesktopFile*> &hide_vec)
 {
 	QString filename = mime.replace('/', '-');
-	QString mime_config_dir = cornus::prefs::QueryMimeConfigDirPath();
-	if (!mime_config_dir.endsWith('/'))
-		mime_config_dir.append('/');
+	QString full_path = cornus::prefs::QueryMimeConfigDirPath();
+	if (!full_path.endsWith('/'))
+		full_path.append('/');
 	
-	QString full_path = mime_config_dir + filename;
+	full_path += filename;
 	ByteArray buf;
 	if (!ReadFile(full_path, buf, PrintErrors::No))
 		return;
@@ -303,10 +339,13 @@ void Server::GetPreferredOrder(QString mime,
 			continue;
 		}
 		
-		if (present == Present::Yes)
-			add_vec.append(p);
-		else
+		if (present == Present::Yes) {
+			p->priority(Priority::Highest);
+			show_vec.append(p);
+		} else {
+			p->priority(Priority::Ignore);
 			hide_vec.append(p);
+		}
 	}
 }
 
@@ -459,42 +498,6 @@ void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 	reply.Send(fd);
 }
 
-bool SortByPriority(DesktopFile *a, DesktopFile *b)
-{
-	if (a->priority() == b->priority())
-		return false;
-	return a->priority() < b->priority() ? false : true;
-}
-
-void Server::GetDesktopFilesForMime(const QString &mime,
-	QVector<DesktopFile*> &show_vec, QVector<DesktopFile*> &hide_vec)
-{
-	const MimeInfo mime_info = DesktopFile::GetForMime(mime);
-	GetPreferredOrder(mime, show_vec, hide_vec);
-	//mtl_info("Show: %d, hide: %d", show_vec.size(), hide_vec.size());
-	{
-		auto guard = desktop_files_.guard();
-		auto it = desktop_files_.hash.constBegin();
-		while (it != desktop_files_.hash.constEnd())
-		{
-			DesktopFile *p = it.value();
-			it++;
-			Priority pr = p->Supports(mime, mime_info, category_);
-			
-			if (pr == Priority::Ignore)
-				continue;
-			
-			if (!ContainsDesktopFile(show_vec, p->GetId(), p->type())
-				&& !ContainsDesktopFile(hide_vec, p->GetId(), p->type()))
-			{
-				p->priority(pr);
-				show_vec.append(p);
-			}
-		}
-	}
-	
-	std::sort(show_vec.begin(), show_vec.end(), SortByPriority);
-}
 
 void Server::SendOpenWithList(QString mime, const int fd)
 {

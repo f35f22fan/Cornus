@@ -78,7 +78,7 @@ void* AutoLoadServerIfNeeded(void *arg)
 {
 	pthread_detach(pthread_self());
 	ByteArray ba;
-	ba.set_msg_id(io::socket::MsgBits::CheckAlive);
+	ba.set_msg_id(io::Message::CheckAlive);
 	
 	if (io::socket::SendSync(ba)) {
 		return nullptr;
@@ -1332,10 +1332,8 @@ void App::OpenTerminal() {
 
 void App::OpenWithDefaultApp(const QString &full_path) const
 {
-//	QUrl url = QUrl::fromLocalFile(full_path);
-//	QDesktopServices::openUrl(url);
 	ByteArray ba;
-	ba.set_msg_id(io::socket::MsgBits::SendDefaultDesktopFileForFullPath);
+	ba.set_msg_id(io::Message::SendDefaultDesktopFileForFullPath);
 	ba.add_string(full_path);
 	int fd = io::socket::Client();
 	CHECK_TRUE_VOID((fd != -1));
@@ -1459,7 +1457,7 @@ void App::ProcessAndWriteTo(const QString ext,
 		filename += '.' + ext;
 	QString new_file_path = to_dir + filename;
 	table_model_->set_scroll_to_and_select(new_file_path);
-	if (io::WriteToFile(new_file_path, ba.data(), ba.size(), &mode) != io::Err::Ok) {
+	if (io::WriteToFile(new_file_path, ba.data(), ba.size(), io::PostWrite::None, &mode) != io::Err::Ok) {
 		mtl_trace("Failed to write data to file");
 	}
 }

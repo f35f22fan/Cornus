@@ -14,7 +14,7 @@ OpenOrderTable::OpenOrderTable(App *app, OpenOrderModel *model)
 	resizeColumnsToContents();
 	setSelectionMode(QAbstractItemView::SingleSelection);
 	setSelectionBehavior(QAbstractItemView::SelectRows);
-	
+	setAlternatingRowColors(true);
 	auto *hh = horizontalHeader();
 	hh->setSectionResizeMode(0, QHeaderView::Stretch);
 }

@@ -23,7 +23,6 @@ class MediaDialog;
 class OpenOrderModel;
 class OpenOrderPane;
 class OpenOrderTable;
-class OpenWithPane;
 class PrefsPane;
 class RestorePainter;
 class SearchLineEdit;

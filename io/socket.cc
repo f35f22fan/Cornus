@@ -1,6 +1,7 @@
 #include "socket.hh"
 
 #include "../ByteArray.hpp"
+#include "io.hh"
 
 namespace cornus::io::socket {
 
@@ -109,7 +110,7 @@ bool SendAsync(ByteArray *ba, const char *socket_path, const bool delete_path)
 void SendQuitSignalToServer()
 {
 	ByteArray *ba = new ByteArray();
-	ba->set_msg_id(MsgBits::QuitServer);
+	ba->set_msg_id(io::Message::QuitServer);
 	SendAsync(ba);
 }
 

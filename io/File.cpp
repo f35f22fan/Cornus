@@ -1,5 +1,7 @@
 #include "File.hpp"
 
+#include "../ByteArray.hpp"
+
 #include <cstdio>
 
 namespace cornus::io {

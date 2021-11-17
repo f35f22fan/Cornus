@@ -10,11 +10,12 @@
 namespace cornus::gui {
 
 OpenOrderModel::OpenOrderModel(App *app, OpenOrderPane *oop)
+: oop_(oop)
 {}
 
-OpenOrderModel::~OpenOrderModel() {
-	for (auto *next: vec_)
-		delete next;
+OpenOrderModel::~OpenOrderModel()
+{
+	ClearData();
 }
 
 void
@@ -24,6 +25,16 @@ OpenOrderModel::AppendItem(DesktopFile *item)
 	beginInsertRows(QModelIndex(), at, at);
 	vec_.append(item);
 	endInsertRows();
+}
+
+void
+OpenOrderModel::ClearData()
+{
+	beginRemoveRows(QModelIndex(), 0, vec_.size() - 1);
+		for (auto *next: vec_)
+			delete next;
+		vec_.clear();
+	endRemoveRows();
 }
 
 QVariant
@@ -69,9 +80,17 @@ OpenOrderModel::headerData(int section_i, Qt::Orientation orientation, int role)
 	{
 		if (orientation == Qt::Horizontal)
 		{
-			return QString("Applications");
+			QString s = oop_->mime() + ' ' + tr("opening order:");
+			return s;
 		}
-		return {};
+		return QString::number(section_i + 1);
+	}
+	
+	if (role == Qt::FontRole) {
+		QFont font;
+		if (orientation == Qt::Horizontal)
+			font.setBold(true);
+		return font;
 	}
 	return {};
 }
@@ -85,13 +104,12 @@ OpenOrderModel::RemoveItem(const int index)
 }
 
 void
-OpenOrderModel::SetData(QVector<DesktopFile*> &p)
+OpenOrderModel::SetData(QVector<DesktopFile*> &new_vec)
 {
-	for (auto *next: vec_)
-		delete next;
+	ClearData();
 	
-	beginInsertRows(QModelIndex(), 0, p.size() - 1);
-	vec_ = p;
+	beginInsertRows(QModelIndex(), 0, new_vec.size() - 1);
+	vec_ = new_vec;
 	endInsertRows();
 }
 

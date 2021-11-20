@@ -1,5 +1,6 @@
 #include "History.hpp"
 #include "App.hpp"
+#include "gui/Tab.hpp"
 #include "gui/Table.hpp"
 #include "gui/ToolBar.hpp"
 
@@ -89,7 +90,7 @@ void History::Record()
 {
 	int last = index_;
 	if (last >= 0 && last < vec_.size()) {
-		app_->table()->GetSelectedFileNames(vec_[last].selected_filenames, StringCase::Lower);
+		app_->tab()->table()->GetSelectedFileNames(vec_[last].selected_filenames, StringCase::Lower);
 	}
 }
 

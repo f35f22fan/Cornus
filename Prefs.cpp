@@ -3,8 +3,9 @@
 #include "App.hpp"
 #include "ByteArray.hpp"
 #include "io/io.hh"
-#include "gui/TreeView.hpp"
+#include "gui/Tab.hpp"
 #include "gui/Table.hpp"
+#include "gui/TreeView.hpp"
 
 #include <QApplication>
 #include <QHeaderView>
@@ -114,7 +115,7 @@ void Prefs::Save() const
 	buf.add_u16(prefs::PrefsFormatVersion);
 	buf.add_i16(table_size_.pixels);
 	buf.add_i16(table_size_.points);
-	auto *hh = app_->table()->horizontalHeader();
+	auto *hh = app_->tab()->table()->horizontalHeader();
 	const i8 col_start = (int)gui::Column::FileName + 1;
 	const i8 col_end = int(gui::Column::Count);
 	buf.add_i8(col_start);
@@ -145,9 +146,9 @@ void Prefs::Save() const
 void Prefs::UpdateTableSizes()
 {
 	i32 str_h = (table_size_.pixels > 0) ? table_size_.pixels : table_size_.points;
+	gui::Table *table = app_->tab()->table();
 	
 	if (table_size_.ratio < 0) {
-		gui::Table *table = app_->table();
 		QFont f = table->font();
 		int rh = table->verticalHeader()->defaultSectionSize();
 		int orig_sz = (f.pixelSize() > 0) ? f.pixelSize() : f.pointSize();
@@ -155,13 +156,13 @@ void Prefs::UpdateTableSizes()
 	}
 	
 	i32 max = str_h * table_size_.ratio;
-	ApplyTableHeight(app_->table(), max);
+	ApplyTableHeight(table, max);
 	ApplyTreeViewHeight();
 }
 
 void Prefs::WheelEventFromMainView(const Zoom zoom)
 {
-	gui::Table *table = app_->table();
+	gui::Table *table = app_->tab()->table();
 	if (table_size_.empty()) {
 		QFont f = table->font();
 		if (f.pixelSize() > 0) {

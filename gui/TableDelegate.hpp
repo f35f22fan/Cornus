@@ -21,7 +21,7 @@ struct ClipboardIcons {
 
 class TableDelegate: public QStyledItemDelegate {
 public:
-	TableDelegate(gui::Table *table, App *app);
+	TableDelegate(gui::Table *table, App *app, Tab *tab);
 	virtual ~TableDelegate();
 	
 	int min_name_w() const { return min_name_w_; }
@@ -48,6 +48,7 @@ private:
 	
 	App *app_ = nullptr;
 	gui::Table *table_ = nullptr;
+	gui::Tab *tab_ = nullptr;
 	Qt::Alignment text_alignment_ = Qt::AlignLeft | Qt::AlignVCenter;
 	mutable int min_name_w_ = -1;
 	mutable ClipboardIcons clipboard_icons_ = {};

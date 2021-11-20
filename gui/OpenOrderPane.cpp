@@ -8,6 +8,7 @@
 #include "../prefs.hh"
 #include "OpenOrderModel.hpp"
 #include "OpenOrderTable.hpp"
+#include "Tab.hpp"
 #include "Table.hpp"
 
 #include <QBoxLayout>
@@ -39,8 +40,8 @@ bool SortDesktopFiles(DesktopFile *a, DesktopFile *b)
 	return n >= 0 ? false : true;
 }
 
-OpenOrderPane::OpenOrderPane(App *app):
-QDialog(app), app_(app)
+OpenOrderPane::OpenOrderPane(App *app, gui::Tab *tab):
+QDialog(app), app_(app), tab_(tab)
 
 {
 	CreateGui();
@@ -241,7 +242,7 @@ OpenOrderPane::CreateButtonsPane()
 	
 	{
 		remove_btn_ = new QPushButton();
-		remove_btn_->setText(tr("Remove"));
+		remove_btn_->setText(tr("Hide"));
 		remove_btn_->setIcon(QIcon::fromTheme(QLatin1String("list-remove")));
 		box->addButton(remove_btn_, QDialogButtonBox::NoRole);
 		connect(remove_btn_, &QAbstractButton::clicked, [=] {
@@ -259,7 +260,7 @@ void OpenOrderPane::CreateGui()
 	QBoxLayout *layout = new QBoxLayout(QBoxLayout::TopToBottom);
 	setLayout(layout);
 	
-	const OpenWith& open_with = app_->table()->open_with();
+	const OpenWith& open_with = tab_->table()->open_with();
 	mime_ = app_->QueryMimeType(open_with.full_path);
 	layout->addWidget(CreateAddingCustomItem());
 	{
@@ -313,8 +314,7 @@ void OpenOrderPane::MoveItem(const Direction d)
 void OpenOrderPane::QueryData()
 {
 	ClearData();
-	app_->table()->ReloadOpenWith();
-	const OpenWith& open_with = app_->table()->open_with();
+	const OpenWith& open_with = tab_->table()->open_with();
 	QVector<DesktopFile*> show_vec;
 	for (DesktopFile *next: open_with.show_vec) {
 		open_with_original_vec_.append(next->Clone());
@@ -357,6 +357,7 @@ void OpenOrderPane::RestoreDefaults()
 	auto full_path = GetFullFilePathForMime(mime_);
 	auto ba = full_path.toLocal8Bit();
 	remove(ba.data()); // don't return on error, QueryData must be executed.
+	tab_->table()->ReloadOpenWith(); // to clear cache
 	QueryData();
 	adjustSize();
 }
@@ -416,7 +417,7 @@ void OpenOrderPane::UpdateRemovedList()
 			s += period;
 	}
 	
-	const QString text = tr("Removed (") + QString::number(count)
+	const QString text = tr("Hidden (") + QString::number(count)
 		+ QLatin1String("): ") + s;
 	removed_tf_->setText(text);
 }

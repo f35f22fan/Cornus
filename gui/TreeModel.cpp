@@ -5,6 +5,7 @@
 #include "../io/File.hpp"
 #include "../Prefs.hpp"
 #include "sidepane.hh"
+#include "Tab.hpp"
 #include "../TreeData.hpp"
 #include "TreeItem.hpp"
 #include "TreeView.hpp"
@@ -508,13 +509,13 @@ void TreeModel::MountEvent(const QString &path, const QString &fs_uuid,
 	}
 	
 	cmds.RemoveExpired();
-	
+	gui::Tab *tab = app_->tab();
 	if (!go_to.isEmpty()) {
-		app_->GoToSimple(go_to);
+		tab->GoToSimple(go_to);
 	} else if (!leave.isEmpty()) {
-		QString dir = app_->current_dir();
+		QString dir = tab->current_dir();
 		if (dir.startsWith(path))
-			app_->GoToSimple(QDir::homePath());
+			tab->GoToSimple(QDir::homePath());
 	}
 }
 

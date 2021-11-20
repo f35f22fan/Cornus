@@ -23,7 +23,7 @@ enum class Direction: i8 {
 
 class OpenOrderPane: public QDialog {
 public:
-	OpenOrderPane(App *app);
+	OpenOrderPane(App *app, gui::Tab *tab);
 	virtual ~OpenOrderPane();
 	
 	OpenOrderModel* model() const { return model_; }
@@ -65,5 +65,6 @@ private:
 	QPushButton *up_btn_ = nullptr, *down_btn_ = nullptr, *remove_btn_ = nullptr;
 	QComboBox *add_custom_cb_ = nullptr;
 	QLineEdit *removed_tf_ = nullptr;
+	gui::Tab *tab_ = nullptr;
 };
 }

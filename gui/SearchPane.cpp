@@ -6,6 +6,7 @@
 #include "../Media.hpp"
 #include "../MutexGuard.hpp"
 #include "SearchLineEdit.hpp"
+#include "Tab.hpp"
 #include "Table.hpp"
 #include "TableModel.hpp"
 #include "TextField.hpp"
@@ -38,7 +39,7 @@ void SearchPane::ActionHide()
 	last_dir_id_ = -1;
 	if (search_le_ != nullptr)
 		search_le_->SetCount(-1);
-	app_->table()->setFocus();
+	app_->tab()->table()->setFocus();
 }
 
 void SearchPane::BeforeExiting()
@@ -46,7 +47,7 @@ void SearchPane::BeforeExiting()
 	if (select_row_ < 0 || last_dir_id_ != app_->current_dir_id())
 		return;
 	
-	app_->table()->SelectRowSimple(select_row_, true);
+	app_->tab()->table()->SelectRowSimple(select_row_, true);
 }
 
 bool SearchPane::ContainsAll(const media::ShortData &data)
@@ -250,9 +251,10 @@ QWidget* SearchPane::CreateByMediaXattrPane()
 
 void SearchPane::DeselectAll()
 {
+	gui::Tab *tab = app_->tab();
 	QVector<int> indices;
 	{
-		auto &files = app_->view_files();
+		auto &files = tab->view_files();
 		MutexGuard guard = files.guard();
 		auto &vec = files.data.vec;
 		int i = 0;
@@ -266,11 +268,12 @@ void SearchPane::DeselectAll()
 		}
 	}
 	
-	app_->table()->model()->UpdateIndices(indices);
+	tab->table()->model()->UpdateIndices(indices);
 }
 
 void SearchPane::DoSearch(const QString *search_str)
 {
+	gui::Tab *tab = app_->tab();
 	last_dir_id_ = app_->current_dir_id();
 	
 	if (search_by_ == SearchBy::MediaXAttrs)
@@ -281,7 +284,7 @@ void SearchPane::DoSearch(const QString *search_str)
 	bool found_current = false;
 	QVector<int> indices;
 	{
-		auto &files = app_->view_files();
+		auto &files = tab->view_files();
 		MutexGuard guard = files.guard();
 		auto &vec = files.data.vec;
 		int i = 0;
@@ -313,9 +316,9 @@ void SearchPane::DoSearch(const QString *search_str)
 		search_le_->SetCount(found);
 		search_le_->SetAt(at, true);
 	}
-	app_->table()->model()->UpdateIndices(indices);
+	tab->table_model()->UpdateIndices(indices);
 	if (select_row_ != -1)
-		app_->table()->ScrollToRow(select_row_);
+		tab->table()->ScrollToRow(select_row_);
 }
 
 bool SearchPane::eventFilter(QObject  *obj, QEvent * event)
@@ -453,9 +456,10 @@ void SearchPane::ScrollToNext(const Direction dir)
 	}
 	
 	i32 at = 0;
+	gui::Tab *tab = app_->tab();
 	QVector<int> indices;
 	{
-		auto &files = app_->view_files();
+		auto &files = tab->view_files();
 		MutexGuard guard = files.guard();
 		auto &vec = files.data.vec;
 		
@@ -520,10 +524,10 @@ void SearchPane::ScrollToNext(const Direction dir)
 	if (search_by_ == SearchBy::FileName)
 		search_le_->SetAt(at, true);
 	
-	app_->table()->model()->UpdateIndices(indices);
+	tab->table()->model()->UpdateIndices(indices);
 	
 	if (select_row_ != -1)
-		app_->table()->ScrollToRow(select_row_);
+		tab->table()->ScrollToRow(select_row_);
 }
 
 void SearchPane::SetMode(const SearchBy mode)

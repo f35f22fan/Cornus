@@ -37,6 +37,7 @@ set(cornus_src_files main.cpp
     AutoDelete.hh
     ByteArray.cpp ByteArray.hpp
     category.cc category.hh
+    cornus.cc cornus.hh
     decl.hxx
     DesktopFile.cpp DesktopFile.hpp
     ElapsedTimer.cpp ElapsedTimer.hpp
@@ -65,6 +66,7 @@ set(cornus_src_files main.cpp
     gui/SearchLineEdit.cpp gui/SearchLineEdit.hpp
     gui/SearchPane.cpp gui/SearchPane.hpp
     gui/sidepane.cc gui/sidepane.hh
+    gui/Tab.cpp gui/Tab.hpp
     gui/Table.cpp gui/Table.hpp
     gui/TableDelegate.cpp gui/TableDelegate.hpp
     gui/TableHeader.cpp gui/TableHeader.hpp

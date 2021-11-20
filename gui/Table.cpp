@@ -14,6 +14,7 @@
 #include "../MutexGuard.hpp"
 #include "../Prefs.hpp"
 #include "../str.hxx"
+#include "Tab.hpp"
 #include "TableDelegate.hpp"
 #include "TableHeader.hpp"
 #include "TableModel.hpp"
@@ -66,8 +67,8 @@ const QVector<QString> ArchiveExtensions = {
 	QLatin1String("jar"), QLatin1String("zst"), QLatin1String("dmg")
 };
 
-Table::Table(TableModel *tm, App *app) : app_(app),
-model_(tm)
+Table::Table(TableModel *tm, App *app, Tab *tab) : app_(app),
+model_(tm), tab_(tab)
 {
 	setSortingEnabled(true);
 	setModel(model_);
@@ -75,7 +76,7 @@ model_(tm)
 	setHorizontalHeader(header_);
 /// enables receiving ordinary mouse events (when mouse is not down)
 	setMouseTracking(true);
-	delegate_ = new TableDelegate(this, app_);
+	delegate_ = new TableDelegate(this, app_, tab_);
 	setAlternatingRowColors(false);
 	auto d = static_cast<QAbstractItemDelegate*>(delegate_);
 	setItemDelegate(d);
@@ -140,7 +141,7 @@ void Table::AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path)
 	open_with_menu->addSeparator();
 	QAction *action = new QAction(tr("Customize..."));
 	connect(action, &QAction::triggered, [=] {
-		OpenOrderPane pane(app_);
+		OpenOrderPane pane(app_, tab_);
 	});
 	open_with_menu->addAction(action);
 	main_menu->addMenu(open_with_menu);
@@ -309,8 +310,8 @@ void Table::ClearMouseOver()
 bool Table::CreateMimeWithSelectedFiles(const ClipboardAction action,
 	QVector<int> &indices, QStringList &list)
 {
-	auto &files = app_->view_files();
-	MutexGuard guard(&files.mutex);
+	auto &files = tab_->view_files();
+	MutexGuard guard = files.guard();
 	
 	io::FileBits flag = io::FileBits::Empty;
 	if (action == ClipboardAction::Cut)
@@ -390,8 +391,8 @@ Table::CreateOpenWithList(const QString &full_path)
 			name += QLatin1String(" (") + generic + ')';
 		}
 		
-		QString priority_str = QString::number((i8)next->priority());
-		name += " (↑" + priority_str + ")";
+//		QString priority_str = QString::number((i8)next->priority());
+//		name += " (↑" + priority_str + ")";
 		QAction *action = new QAction(name);
 		QVariant v = QVariant::fromValue((void *) next);
 		action->setData(v);
@@ -445,8 +446,8 @@ void Table::dropEvent(QDropEvent *evt)
 		
 		io::File *to_dir = nullptr;
 		{
-			auto &files = app_->view_files();
-			MutexGuard guard(&files.mutex);
+			auto &files = tab_->view_files();
+			MutexGuard guard = files.guard();
 			
 			if (IsOnFileNameStringNTS(evt->pos(), &to_dir) != -1 && to_dir->is_dir_or_so()) {
 				to_dir = to_dir->Clone();
@@ -490,8 +491,8 @@ void Table::ExecuteDrop(QVector<io::File*> *files_vec,
 
 io::File* Table::GetFileAt(const int row)
 {
-	io::Files &files = app_->view_files();
-	MutexGuard guard(&files.mutex);
+	io::Files &files = tab_->view_files();
+	MutexGuard guard = files.guard();
 	auto &vec = files.data.vec;
 	if (row < 0 | row >= vec.size())
 		return nullptr;
@@ -506,7 +507,7 @@ io::File* Table::GetFileAtNTS(const QPoint &pos, const Clone clone, int *ret_fil
 		return nullptr;
 	}
 	
-	io::Files &files = app_->view_files();
+	io::Files &files = tab_->view_files();
 	auto &vec = files.data.vec;
 	if (row >= vec.size()) {
 		return nullptr;
@@ -524,7 +525,7 @@ io::File* Table::GetFileAtNTS(const QPoint &pos, const Clone clone, int *ret_fil
 int Table::GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file,
 	QString *full_path)
 {
-	io::Files &files = app_->view_files();
+	io::Files &files = tab_->view_files();
 	MutexGuard guard(&files.mutex);
 
 	io::File *file = nullptr;
@@ -540,8 +541,8 @@ int Table::GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file
 }
 
 int Table::GetFirstSelectedFile(io::File **ret_cloned_file) {
-	io::Files &files = app_->view_files();
-	MutexGuard guard(&files.mutex);
+	io::Files &files = tab_->view_files();
+	MutexGuard guard = files.guard();
 	
 	int i = 0;
 	for (auto *file: files.data.vec) {
@@ -557,7 +558,7 @@ int Table::GetFirstSelectedFile(io::File **ret_cloned_file) {
 }
 
 QString Table::GetFirstSelectedFileFullPath(QString *ext) {
-	io::Files &files = app_->view_files();
+	io::Files &files = tab_->view_files();
 	MutexGuard guard(&files.mutex);
 	
 	for (io::File *file: files.data.vec) {
@@ -575,8 +576,8 @@ int Table::GetRowHeight() const { return verticalHeader()->defaultSectionSize();
 
 void Table::GetSelectedArchives(QVector<QString> &urls)
 {
-	io::Files &files = app_->view_files();
-	MutexGuard guard(&files.mutex);
+	io::Files &files = tab_->view_files();
+	MutexGuard guard = files.guard();
 	
 	for (io::File *next: files.data.vec) {
 		if (!next->selected() || !next->is_regular())
@@ -594,7 +595,7 @@ void Table::GetSelectedArchives(QVector<QString> &urls)
 
 void Table::GetSelectedFileNames(QVector<QString> &names, const StringCase str_case)
 {
-	io::Files &files = app_->view_files();
+	io::Files &files = tab_->view_files();
 	MutexGuard guard = files.guard();
 	for (io::File *next: files.data.vec) {
 		if (next->selected()) {
@@ -616,8 +617,9 @@ void Table::GetSelectedFileNames(QVector<QString> &names, const StringCase str_c
 	
 }
 
-int Table::GetSelectedFilesCount(QVector<QString> *extensions) {
-	io::Files &files = app_->view_files();
+int Table::GetSelectedFilesCount(QVector<QString> *extensions)
+{
+	io::Files &files = tab_->view_files();
 	MutexGuard guard(&files.mutex);
 	int count = 0;
 	
@@ -653,7 +655,7 @@ void Table::HandleKeySelect(const VDirection vdir)
 	int scroll_to_row = -1;
 	QVector<int> indices;
 	{
-		io::Files &files = app_->view_files();
+		io::Files &files = tab_->view_files();
 		MutexGuard guard(&files.mutex);
 		SelectAllFilesNTS(false, indices);
 		const int count = files.data.vec.size();
@@ -700,8 +702,8 @@ void Table::HandleKeyShiftSelect(const VDirection vdir)
 	if (shift_select_.base_row == -1) {
 		shift_select_.base_row = row;
 		shift_select_.head_row = row;
-		io::Files &files = app_->view_files();
-		MutexGuard guard(&files.mutex);
+		io::Files &files = tab_->view_files();
+		MutexGuard guard = files.guard();
 		files.data.vec[row]->selected(true);
 		indices.append(row);
 	} else {
@@ -716,8 +718,8 @@ void Table::HandleKeyShiftSelect(const VDirection vdir)
 			shift_select_.head_row++;
 		}
 		{
-			io::Files &files = app_->view_files();
-			MutexGuard guard(&files.mutex);
+			io::Files &files = tab_->view_files();
+			MutexGuard guard = files.guard();
 			SelectAllFilesNTS(false, indices);
 			SelectFileRangeNTS(shift_select_.base_row, shift_select_.head_row, indices);
 		}
@@ -734,8 +736,8 @@ void Table::HandleKeyShiftSelect(const VDirection vdir)
 
 void Table::HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indices)
 {
-	io::Files &files = app_->view_files();
-	MutexGuard guard(&files.mutex);
+	io::Files &files = tab_->view_files();
+	MutexGuard guard = files.guard();
 	
 	io::File *file = nullptr;
 	int row = IsOnFileNameStringNTS(pos, &file);
@@ -753,8 +755,8 @@ void Table::HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indi
 }
 
 void Table::HandleMouseSelectionCtrl(const QPoint &pos, QVector<int> &indices) {
-	io::Files &files = app_->view_files();
-	MutexGuard guard(&files.mutex);
+	io::Files &files = tab_->view_files();
+	MutexGuard guard = files.guard();
 	
 	io::File *file = nullptr;
 	int row = IsOnFileNameStringNTS(pos, &file);
@@ -767,8 +769,8 @@ void Table::HandleMouseSelectionCtrl(const QPoint &pos, QVector<int> &indices) {
 
 void Table::HandleMouseSelectionShift(const QPoint &pos, QVector<int> &indices)
 {
-	io::Files &files = app_->view_files();
-	MutexGuard guard(&files.mutex);
+	io::Files &files = tab_->view_files();
+	MutexGuard guard = files.guard();
 	
 	io::File *file = nullptr;
 	int row = IsOnFileNameStringNTS(pos, &file);
@@ -789,8 +791,8 @@ void Table::HandleMouseSelectionShift(const QPoint &pos, QVector<int> &indices)
 void Table::HandleMouseSelectionNoModif(const QPoint &pos, QVector<int> &indices,
 	bool mouse_pressed)
 {
-	io::Files &files = app_->view_files();
-	MutexGuard guard(&files.mutex);
+	io::Files &files = tab_->view_files();
+	MutexGuard guard = files.guard();
 	
 	io::File *file = nullptr;
 	int row = IsOnFileNameStringNTS(pos, &file);
@@ -816,8 +818,8 @@ void Table::HiliteFileUnderMouse()
 	QVector<int> indices;
 	i32 name_row = -1, icon_row = -1;
 	{
-		io::Files &files = app_->view_files();
-		MutexGuard guard(&files.mutex);
+		io::Files &files = tab_->view_files();
+		MutexGuard guard = files.guard();
 		name_row = IsOnFileNameStringNTS(mouse_pos_, nullptr);
 		if (name_row == -1)
 			icon_row = IsOnFileIconNTS(mouse_pos_, nullptr);
@@ -999,8 +1001,8 @@ void Table::leaveEvent(QEvent *evt)
 QPair<int, int>
 Table::ListSelectedFiles(QList<QUrl> &list)
 {
-	auto &files = app_->view_files();
-	MutexGuard guard(&files.mutex);
+	auto &files = tab_->view_files();
+	MutexGuard guard = files.guard();
 	int num_files = 0;
 	int num_dirs = 0;
 	
@@ -1026,7 +1028,7 @@ void Table::mouseDoubleClickEvent(QMouseEvent *evt)
 	
 	if (evt->button() == Qt::LeftButton) {
 		if (col == i32(Column::FileName)) {
-			io::Files &files = app_->view_files();
+			io::Files &files = tab_->view_files();
 			io::File *cloned_file = nullptr;
 			{
 				MutexGuard guard(&files.mutex);
@@ -1108,7 +1110,7 @@ void Table::mouseReleaseEvent(QMouseEvent *evt)
 		const i32 col = columnAt(evt->pos().x());
 		if (col == i32(Column::Icon))
 		{
-			io::Files &files = app_->view_files();
+			io::Files &files = tab_->view_files();
 			io::File *cloned_file = nullptr;
 			int file_index = -1;
 			{
@@ -1177,8 +1179,8 @@ bool Table::ScrollToAndSelect(QString full_path)
 	int row_count = -1;
 	int row = -1;
 	{
-		io::Files &files = app_->view_files();
-		MutexGuard guard(&files.mutex);
+		io::Files &files = tab_->view_files();
+		MutexGuard guard = files.guard();
 		auto &vec = files.data.vec;
 		row_count = vec.size();
 		
@@ -1250,7 +1252,7 @@ void Table::SelectByLowerCase(QVector<QString> filenames)
 	QVector<int> indices;
 	int ni, fi = 0;
 	QString full_path;
-	io::Files &files = app_->view_files();
+	io::Files &files = tab_->view_files();
 	{
 		MutexGuard guard = files.guard();
 		auto &vec = files.data.vec;
@@ -1282,7 +1284,7 @@ void Table::SelectByLowerCase(QVector<QString> filenames)
 
 void Table::SelectAllFilesNTS(const bool flag, QVector<int> &indices) {
 	int i = 0;
-	io::Files &files = app_->view_files();
+	io::Files &files = tab_->view_files();
 	for (auto *file: files.data.vec) {
 		if (file->selected() != flag) {
 			indices.append(i);
@@ -1294,7 +1296,7 @@ void Table::SelectAllFilesNTS(const bool flag, QVector<int> &indices) {
 
 void Table::SelectFileRangeNTS(const int row1, const int row2, QVector<int> &indices)
 {
-	io::Files &files = app_->view_files();
+	io::Files &files = tab_->view_files();
 	QVector<io::File*> &vec = files.data.vec;
 	
 	if (row1 < 0 || row1 >= vec.size() || row2 < 0 || row2 >= vec.size()) {
@@ -1318,8 +1320,8 @@ void Table::SelectFileRangeNTS(const int row1, const int row2, QVector<int> &ind
 int Table::SelectNextRow(const int relative_offset,
 	const bool deselect_all_others, QVector<int> &indices)
 {
-	io::Files &files = app_->view_files();
-	MutexGuard guard(&files.mutex);
+	io::Files &files = tab_->view_files();
+	MutexGuard guard = files.guard();
 	auto &vec = files.data.vec;
 	int i = 0, ret_val = -1;
 	
@@ -1371,7 +1373,7 @@ int Table::SelectNextRow(const int relative_offset,
 
 void Table::SelectRowSimple(const int row, const bool deselect_others)
 {
-	io::Files &files = app_->view_files();
+	io::Files &files = tab_->view_files();
 	QVector<int> indices;
 	{
 		MutexGuard guard = files.guard();
@@ -1662,11 +1664,9 @@ void Table::ShowVisibleColumnOptions(QPoint pos)
 void Table::SortingChanged(int logical, Qt::SortOrder order)
 {
 	io::SortingOrder sorder = {Column(logical), order == Qt::AscendingOrder};
-	io::Files &files = app_->view_files();
-	//int file_count;
+	io::Files &files = tab_->view_files();
 	{
-		MutexGuard guard(&files.mutex);
-		//file_count = files.data.vec.size();
+		MutexGuard guard = files.guard();
 		files.data.sorting_order = sorder;
 		std::sort(files.data.vec.begin(), files.data.vec.end(), cornus::io::SortFiles);
 	}
@@ -1721,8 +1721,8 @@ void Table::StartDragOperation()
 
 void Table::SyncWith(const cornus::Clipboard &cl, QVector<int> &indices)
 {
-	auto &files = app_->view_files();
-	MutexGuard guard(&files.mutex);
+	auto &files = tab_->view_files();
+	MutexGuard guard = files.guard();
 	
 	QVector<QString> file_paths = cl.file_paths;
 	QString dir_path = files.data.processed_dir_path;

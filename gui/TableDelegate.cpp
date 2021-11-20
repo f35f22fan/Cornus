@@ -6,6 +6,7 @@
 #include "../MutexGuard.hpp"
 #include "../Prefs.hpp"
 #include "RestorePainter.hpp"
+#include "Tab.hpp"
 #include "Table.hpp"
 #include "TableModel.hpp"
 
@@ -27,8 +28,8 @@ void ClipboardIcons::init_if_needed() {
 	link = QIcon::fromTheme(QLatin1String("insert-link"));
 }
 
-TableDelegate::TableDelegate(gui::Table *table, App *app): app_(app),
-table_(table)
+TableDelegate::TableDelegate(gui::Table *table, App *app, gui::Tab *tab): app_(app),
+table_(table), tab_(tab)
 {
 }
 
@@ -242,8 +243,8 @@ TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 	
 	const Column col = static_cast<Column>(index.column());
 	initStyleOption(const_cast<QStyleOptionViewItem*>(&option), index);
-	io::Files &files = app_->view_files();
-	MutexGuard guard(&files.mutex);
+	io::Files &files = tab_->view_files();
+	MutexGuard guard = files.guard();
 	const int row = index.row();
 	
 	if (row >= files.data.vec.size())

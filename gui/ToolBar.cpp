@@ -6,6 +6,7 @@
 #include "Location.hpp"
 #include "MediaDialog.hpp"
 #include "PrefsPane.hpp"
+#include "Tab.hpp"
 
 #include <QBoxLayout>
 #include <QDialog>
@@ -98,14 +99,15 @@ void ToolBar::CreateGui()
 
 void ToolBar::ProcessAction(const QString &action)
 {
+	gui::Tab *tab = app_->tab();
 	if (action == actions::GoUp) {
-		app_->GoUp();
+		tab->GoUp();
 	} else if (action == actions::GoHome) {
-		app_->GoHome();
+		tab->GoHome();
 	} else if (action == actions::GoBack) {
-		app_->GoBack();
+		tab->GoBack();
 	} else if (action == actions::GoForward) {
-		app_->GoForward();
+		tab->GoForward();
 	} else if (action == actions::AboutThisApp) {
 		ShowAboutThisAppDialog();
 	} else if (action == actions::Preferences) {

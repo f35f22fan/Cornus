@@ -6,6 +6,7 @@
 #include "Location.hpp"
 #include "../MutexGuard.hpp"
 #include "../Prefs.hpp"
+#include "Tab.hpp"
 #include "Table.hpp"
 #include "TableHeader.hpp"
 #include "../io/uring.hh"
@@ -266,11 +267,11 @@ void* WatchDir(void *void_args)
 	CHECK_PTR_NULL(void_args);
 	
 	WatchArgs *args = (WatchArgs*)void_args;
-	App *app = args->table_model->app();
+	Tab *tab = args->table_model->tab();
 	AutoDelete ad_args(args);
 	char *buf = new char[kInotifyEventBufLen];
 	AutoDeleteArr ad_arr(buf);
-	io::Notify &notify = args->table_model->notify();
+	io::Notify &notify = args->table_model->app()->notify();
 	
 	const auto path = args->dir_path.toLocal8Bit();
 	const auto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE
@@ -302,12 +303,12 @@ void* WatchDir(void *void_args)
 	}
 	
 	const int seconds = 1 * 1000;
-	io::Files &files = app->view_files();
+	io::Files &files = tab->view_files();
 	
 	while (true)
 	{
 		{
-			MutexGuard guard(&files.mutex);
+			MutexGuard guard = files.guard();
 			
 			if (files.data.thread_must_exit())
 				break;
@@ -353,10 +354,8 @@ void* WatchDir(void *void_args)
 	return nullptr;
 }
 
-TableModel::TableModel(cornus::App *app): app_(app)
-{
-	notify_.Init();
-}
+TableModel::TableModel(cornus::App *app, gui::Tab *tab): app_(app), tab_(tab)
+{}
 
 TableModel::~TableModel() {}
 
@@ -365,8 +364,8 @@ void TableModel::DeleteSelectedFiles()
 	ByteArray *ba = new ByteArray();
 	ba->set_msg_id(io::Message::DeleteFiles);
 	{
-		io::Files &files = app_->view_files();
-		MutexGuard guard(&files.mutex);
+		io::Files &files = tab_->view_files();
+		MutexGuard guard = files.guard();
 		
 		for (io::File *next: files.data.vec) {
 			if (next->selected())
@@ -422,7 +421,7 @@ QVariant TableModel::headerData(int section_i, Qt::Orientation orientation, int 
 			switch (section) {
 			case Column::Icon: return {};
 			case Column::FileName: {
-				Table *table = app_->table();
+				Table *table = tab_->table();
 				if (!table)
 					return GetName();
 				
@@ -445,11 +444,9 @@ QVariant TableModel::headerData(int section_i, Qt::Orientation orientation, int 
 
 void TableModel::InotifyEvent(gui::FileEvent evt)
 {
-	auto &files = app_->view_files();
-	
+	auto &files = tab_->view_files();
 	{
-		MutexGuard guard(&files.mutex);
-		io::Files &files = app_->view_files();
+		MutexGuard guard = files.guard();
 		if (evt.dir_id != files.data.dir_id)
 			return;
 	}
@@ -557,7 +554,7 @@ Hence the table can't scroll to it (returns false) as long as it hasn't
 received the new file name from the inotify thread. Which means that if
 it returns true all jobs are done (rename event processed, table
 found the new file, selected and scrolled to it). */
-		if (app_->table()->ScrollToAndSelect(scroll_to_and_select_)) {
+		if (tab_->table()->ScrollToAndSelect(scroll_to_and_select_)) {
 			scroll_to_and_select_.clear();
 		} else {
 			tried_to_scroll_to_count_++;
@@ -572,9 +569,9 @@ found the new file, selected and scrolled to it). */
 
 bool TableModel::InsertRows(const i32 at, const QVector<cornus::io::File*> &files_to_add)
 {
-	io::Files &files = app_->view_files();
+	io::Files &files = tab_->view_files();
 	{
-		MutexGuard guard(&files.mutex);
+		MutexGuard guard = files.guard();
 		
 		if (files.data.vec.isEmpty())
 			return false;
@@ -606,11 +603,11 @@ bool TableModel::removeRows(int row, int count, const QModelIndex &parent)
 	CHECK_TRUE((count == 1));
 	const int first = row;
 	const int last = row + count - 1;
-	io::Files &files = app_->view_files();
+	io::Files &files = tab_->view_files();
 	
 	beginRemoveRows(QModelIndex(), first, last);
 	{
-		MutexGuard guard(&files.mutex);
+		MutexGuard guard = files.guard();
 		auto &vec = files.data.vec;
 		
 		for (int i = count - 1; i >= 0; i--) {
@@ -628,21 +625,21 @@ bool TableModel::removeRows(int row, int count, const QModelIndex &parent)
 
 void TableModel::SwitchTo(io::FilesData *new_data)
 {
-	io::Files &files = app_->view_files();
+	io::Files &files = tab_->view_files();
 	int prev_count, new_count;
 	{
-		MutexGuard guard(&files.mutex);
+		MutexGuard guard = files.guard();
 		prev_count = files.data.vec.size();
 		new_count = new_data->vec.size();
 	}
 	
 	beginRemoveRows(QModelIndex(), 0, prev_count - 1);
 	{
-		MutexGuard guard(&files.mutex);
+		MutexGuard guard = files.guard();
 		for (auto *file: files.data.vec)
 			delete file;
 		files.data.vec.clear();
-		app_->table()->ClearMouseOver();
+		tab_->table()->ClearMouseOver();
 		cached_row_count_ = files.data.vec.size();
 	}
 	endRemoveRows();
@@ -663,7 +660,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 	endInsertRows();
 	
 	QVector<int> indices;
-	app_->table()->SyncWith(app_->clipboard(), indices);
+	tab_->table()->SyncWith(app_->clipboard(), indices);
 	WatchArgs *args = new WatchArgs {
 		.dir_id = dir_id,
 		.dir_path = new_data->processed_dir_path,
@@ -677,7 +674,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 	}
 	
 	if (!new_data->scroll_to_and_select.isEmpty()) {
-		app_->table()->ScrollToAndSelect(new_data->scroll_to_and_select);
+		tab_->table()->ScrollToAndSelect(new_data->scroll_to_and_select);
 	}
 	
 	UpdateIndices(indices);
@@ -705,7 +702,7 @@ void TableModel::UpdateIndices(const QVector<int> &indices)
 		}
 	}
 	
-	const int count_per_page = app_->table()->GetVisibleRowsCount();
+	const int count_per_page = tab_->table()->GetVisibleRowsCount();
 	
 	if (min == -1 || max == -1) {
 		UpdateVisibleArea();
@@ -737,7 +734,7 @@ void TableModel::UpdateRange(int row1, Column c1, int row2, Column c2)
 
 void TableModel::UpdateVisibleArea()
 {
-	gui::Table *table = app_->table();
+	gui::Table *table = tab_->table();
 	int row_start = table->verticalScrollBar()->value() / table->GetRowHeight();
 	int count_per_page = table->GetVisibleRowsCount();
 	UpdateRowRange(row_start, row_start + count_per_page);

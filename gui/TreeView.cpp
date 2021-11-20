@@ -3,6 +3,7 @@
 #include "actions.hxx"
 #include "../App.hpp"
 #include "RestorePainter.hpp"
+#include "Tab.hpp"
 #include "TreeItem.hpp"
 #include "TreeModel.hpp"
 
@@ -286,7 +287,7 @@ void TreeView::mousePressEvent(QMouseEvent *evt)
 		
 		if (node->mounted() || node->is_bookmark()) {
 			DirPath dp = { node->mount_path(), Processed::No };
-			app_->GoTo(Action::To, dp);
+			app_->tab()->GoTo(Action::To, dp);
 		}
 	} else if (btn == Qt::RightButton) {
 		ShowRightClickMenu(evt->globalPos(), evt->pos());

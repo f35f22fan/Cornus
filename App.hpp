@@ -1,6 +1,7 @@
 #pragma once
 
 #include "category.hh"
+#include "cornus.hh"
 #include "decl.hxx"
 #include "err.hpp"
 #include "io/decl.hxx"
@@ -21,14 +22,9 @@
 
 #include <libmtp.h>
 
-//QT_FORWARD_DECLARE_CLASS(QDrag);
+QT_FORWARD_DECLARE_CLASS(QTabWidget);
 
 namespace cornus {
-
-struct DirPath {
-	QString path;
-	Processed processed = Processed::No;
-};
 
 class App : public QMainWindow {
 	Q_OBJECT
@@ -49,13 +45,9 @@ public:
 	QIcon* GetIcon(const QString &str);
 	QIcon* GetFileIcon(io::File *file);
 	QString GetPartitionFreeSpace();
-	void GoBack();
-	void GoForward();
-	void GoHome();
-	bool GoTo(const Action action, DirPath dir_path, const cornus::Reload r = Reload::No,
-		QString scroll_to_and_select = QString());
-	void GoToSimple(const QString &full_path);
+	
 	void GoUp();
+	GuiBits& gui_bits() { return gui_bits_; }
 	
 	QColor green_color() const { return (theme_type_ == ThemeType::Light) ?
 		QColor(0, 100, 0) : QColor(200, 255, 200);
@@ -70,6 +62,7 @@ public:
 	gui::Location* location() { return location_; }
 	QSplitter* main_splitter() const { return main_splitter_; }
 	Media* media() const { return media_; }
+	io::Notify& notify() { return notify_; }
 	void OpenTerminal();
 	const QHash<QString, Category>& possible_categories() const { return possible_categories_; }
 	Prefs& prefs() { return *prefs_; }
@@ -81,22 +74,20 @@ public:
 	void SaveBookmarks();
 	bool ShowInputDialog(const gui::InputDialogParams &params, QString &ret_val);
 	
+	gui::Tab* tab() const; // returns current tab
+	QTabWidget* tab_widget() const { return tab_widget_; }
+	
 	gui::TreeModel* tree_model() const { return tree_model_; }
 	gui::TreeView* tree_view() const { return tree_view_; }
 	TreeData& tree_data() const { return tree_data_; }
 	
 	void ToggleExecBitOfSelectedFiles();
-	gui::Table* table() const { return table_; }
-	gui::TableModel* table_model() const { return table_model_; }
 	void TellUser(const QString &msg, const QString title = QString());
 	void TestExecBuf(const char *buf, const isize size, ExecInfo &ret);
 	ThemeType theme_type() const { return theme_type_; }
 	gui::ToolBar *toolbar() const { return toolbar_; }
-	io::Files& view_files() { return view_files_; }
-	bool ViewIsAt(const QString &dir_path) const;
 	
 public Q_SLOTS:
-	void GoToFinish(cornus::io::FilesData *new_data);
 	void MediaFileChanged();
 	
 protected:
@@ -112,6 +103,7 @@ private:
 	QMenu* CreateNewMenu();
 	void CreateGui();
 	void CreateSidePane();
+	void DeleteTabAt(const int i);
 	void DetectThemeType();
 	void DisplayMime(io::File *file);
 	void DisplaySymlinkInfo(io::File &file);
@@ -119,10 +111,9 @@ private:
 	QIcon* GetFolderIcon();
 	QIcon* GetIconOrLoadExisting(const QString &icon_path);
 	QString GetIconThatStartsWith(const QString &trunc);
-	void GoToInitialDir();
-	void GoToAndSelect(const QString full_path);
 	QIcon *LoadIcon(io::File &file);
 	void LoadIconsFrom(QString dir_path);
+	void OpenNewTab();
 	void OpenWithDefaultApp(const QString &full_path) const;
 	void ProcessAndWriteTo(const QString ext,
 		const QString &from_full_path, QString to_dir);
@@ -130,11 +121,7 @@ private:
 	void RegisterShortcuts();
 	void RegisterVolumesListener();
 	void SetupIconNames();
-	void ShutdownLastInotifyThread();
-	
-	gui::Table *table_ = nullptr; // owned by QMainWindow
-	gui::TableModel *table_model_ = nullptr; // owned by table_
-	mutable io::Files view_files_ = {};
+	void TabSelected(const int i);
 	
 	QVector<QString> search_icons_dirs_;
 	QVector<QString> xdg_data_dirs_;
@@ -169,13 +156,14 @@ private:
 	
 	Notepad notepad_ = {};
 	Clipboard clipboard_ = {};
-	History *history_ = nullptr;
 	gui::SearchPane *search_pane_ = nullptr;
 	Category desktop_ = Category::None;
 	QHash<QString, Category> possible_categories_;
 	ThemeType theme_type_ = ThemeType::None;
-	QString title_;
 	Media *media_ = nullptr;
+	QTabWidget *tab_widget_ = nullptr;
+	cornus::GuiBits gui_bits_ = {};
+	io::Notify notify_ = {};
 	
 	friend class cornus::gui::Table;
 };

@@ -128,9 +128,8 @@ to remove it, otherwise just decrease it by 1.*/
 
 struct FilesData {
 	static const u16 ShowHiddenFiles = 1u << 0;
-	static const u16 WidgetsCreated = 1u << 1;
-	static const u16 ThreadMustExit = 1u << 2;
-	static const u16 ThreadExited = 1u << 3;
+	static const u16 ThreadMustExit = 1u << 1;
+	static const u16 ThreadExited = 1u << 2;
 	
 	FilesData() {}
 	~FilesData() {}
@@ -142,39 +141,31 @@ struct FilesData {
 	QString scroll_to_and_select;
 	SortingOrder sorting_order;
 	i32 dir_id = 0;/// for inotify/epoll
-	u16 bool_ = 0;
+	u16 bits_ = 0;
 	cornus::Action action = Action::None;
 	
-	bool show_hidden_files() const { return bool_ & ShowHiddenFiles; }
+	bool show_hidden_files() const { return bits_ & ShowHiddenFiles; }
 	void show_hidden_files(const bool flag) {
 		if (flag)
-			bool_ |= ShowHiddenFiles;
+			bits_ |= ShowHiddenFiles;
 		else
-			bool_ &= ~ShowHiddenFiles;
+			bits_ &= ~ShowHiddenFiles;
 	}
 	
-	bool widgets_created() const { return bool_ & WidgetsCreated; }
-	void widgets_created(const bool flag) {
-		if (flag)
-			bool_ |= WidgetsCreated;
-		else
-			bool_ &= ~WidgetsCreated;
-	}
-	
-	bool thread_must_exit() const { return bool_ & ThreadMustExit; }
+	bool thread_must_exit() const { return bits_ & ThreadMustExit; }
 	void thread_must_exit(const bool flag) {
 		if (flag)
-			bool_ |= ThreadMustExit;
+			bits_ |= ThreadMustExit;
 		else
-			bool_ &= ~ThreadMustExit;
+			bits_ &= ~ThreadMustExit;
 	}
 	
-	bool thread_exited() const { return bool_ & ThreadExited; }
+	bool thread_exited() const { return bits_ & ThreadExited; }
 	void thread_exited(const bool flag) {
 		if (flag)
-			bool_ |= ThreadExited;
+			bits_ |= ThreadExited;
 		else
-			bool_ &= ~ThreadExited;
+			bits_ &= ~ThreadExited;
 	}
 };
 
@@ -183,6 +174,12 @@ struct Files {
 	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 	FilesData data = {};
 	
+	inline void Broadcast() {
+		int status = pthread_cond_broadcast(&cond);
+		if (status != 0)
+			mtl_status(status);
+	}
+	
 	MutexGuard guard() const {
 		return MutexGuard(&mutex);
 	}
@@ -190,7 +187,7 @@ struct Files {
 	inline int Lock() {
 		int status = pthread_mutex_lock(&mutex);
 		if (status != 0)
-			mtl_warn("pthreads_mutex_lock: %s", strerror(status));
+			mtl_status(status);
 		return status;
 	}
 	

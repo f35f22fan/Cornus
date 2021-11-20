@@ -30,6 +30,7 @@
 #include "gui/Location.hpp"
 #include "gui/SearchPane.hpp"
 #include "gui/sidepane.hh"
+#include "gui/Tab.hpp"
 #include "gui/Table.hpp"
 #include "gui/TableModel.hpp"
 #include "gui/TextEdit.hpp"
@@ -66,6 +67,8 @@
 #include <QScrollBar>
 #include <QShortcut>
 #include <QStandardPaths>
+#include <QTabWidget>
+#include <QToolButton>
 #include <QUrl>
 
 #include <glib.h>
@@ -115,130 +118,6 @@ void* AutoLoadServerIfNeeded(void *arg)
 	return nullptr;
 }
 
-struct GoToParams {
-	App *app = nullptr;
-	DirPath dir_path;
-	QString scroll_to_and_select;
-	cornus::Action action = Action::None;
-	bool reload;
-};
-
-void* GoToTh(void *p)
-{
-	pthread_detach(pthread_self());
-
-	GoToParams *params = (GoToParams*)p;
-	App *app = params->app;
-
-	if (!params->reload) {
-		if (app->ViewIsAt(params->dir_path.path)) {
-			delete params;
-			return nullptr;
-		}
-	}
-
-	if (!params->dir_path.path.endsWith('/'))
-		params->dir_path.path.append('/');
-	
-	io::FilesData *new_data = new io::FilesData();
-	io::Files &view_files = app->view_files();
-	{
-		MutexGuard guard = view_files.guard();
-		new_data->sorting_order = view_files.data.sorting_order;
-	}
-
-	new_data->action = params->action;
-	new_data->start_time = std::chrono::steady_clock::now();
-	new_data->show_hidden_files(app->prefs().show_hidden_files());
-	if (params->dir_path.processed == Processed::Yes)
-		new_data->processed_dir_path = params->dir_path.path;
-	else
-		new_data->unprocessed_dir_path = params->dir_path.path;
-	new_data->scroll_to_and_select = params->scroll_to_and_select;
-
-	if (io::ListFiles(*new_data, &view_files) != io::Err::Ok) {
-		delete params;
-		delete new_data;
-		return nullptr;
-	}
-///#define CORNUS_WAITED_FOR_WIDGETS
-	view_files.Lock();
-	while (!view_files.data.widgets_created())
-	{
-		using Clock = std::chrono::steady_clock;
-		new_data->start_time = std::chrono::time_point<Clock>::max();
-#ifdef CORNUS_WAITED_FOR_WIDGETS
-		auto start_time = std::chrono::steady_clock::now();
-#endif
-		int status = pthread_cond_wait(&view_files.cond, &view_files.mutex);
-		if (status != 0) {
-			mtl_status(status);
-			break;
-		}
-#ifdef CORNUS_WAITED_FOR_WIDGETS
-		auto now = std::chrono::steady_clock::now();
-		const float elapsed = std::chrono::duration<float,
-			std::chrono::milliseconds::period>(now - start_time).count();
-		
-		mtl_info("Waited for widgets creation: %.1f ms", elapsed);
-#endif
-	}
-	view_files.Unlock();
-	
-	QMetaObject::invokeMethod(app, "GoToFinish",
-		Q_ARG(cornus::io::FilesData*, new_data));
-
-	delete params;
-	return nullptr;
-}
-
-void FigureOutSelectPath(QString &select_path, QString &go_to_path)
-{
-	if (select_path.isEmpty())
-		return;
-	
-	if (go_to_path.isEmpty()) {
-/// @go_to_path is empty
-/// @select_path is absolute path
-		if (!io::FileExists(select_path)) {
-			QString msg = "File to select doesn't exist:\n\""
-				+ select_path + QChar('\"');
-			mtl_printq(msg);
-			select_path.clear();
-			return;
-		}
-		
-		QDir parent_dir(select_path);
-		if (!parent_dir.cdUp()) {
-			mtl_warn("Can't access parent dir of file to select");
-			go_to_path = QDir::homePath();
-			select_path.clear();
-			return;
-		}
-		go_to_path = parent_dir.absolutePath();
-		return;
-	}
-	
-/// @go_to_path is NOT Empty
-	if (select_path.startsWith('/')) {
-		return;
-	}
-	
-	if (!go_to_path.endsWith('/'))
-		go_to_path.append('/');
-	
-	QString test_path = go_to_path + select_path;
-	
-	if (io::FileExists(test_path)) {
-		select_path = test_path;
-		return;
-	}
-	
-	if (!io::FileExists(go_to_path))
-		go_to_path = QDir::homePath();
-	select_path.clear();
-}
-
 void MountAdded(GVolumeMonitor *monitor, GMount *mount, gpointer user_data)
 {
 	char *name = g_mount_get_name(mount);
@@ -274,7 +153,6 @@ void MountRemoved(GVolumeMonitor *monitor, GMount *mount, gpointer user_data)
 
 App::App()
 {
-	history_ = new History(this);
 	qRegisterMetaType<cornus::io::File*>();
 	qRegisterMetaType<cornus::io::FilesData*>();
 	qRegisterMetaType<cornus::PartitionEvent*>();
@@ -283,6 +161,7 @@ App::App()
 	qRegisterMetaType<QVector<cornus::gui::TreeItem*>>();
 	qDBusRegisterMetaType<QMap<QString, QVariant>>();
 	media_ = new Media();
+	notify_.Init();
 	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, gui::sidepane::LoadItems, this);
@@ -296,7 +175,21 @@ App::App()
 	setWindowIcon(QIcon(cornus::AppIconPath));
 	prefs_ = new Prefs(this);
 	prefs_->Load();
-	GoToInitialDir();
+	
+	gui::Tab *tab = new gui::Tab(this);
+	{
+		tab_widget_ = new QTabWidget();
+		tab_widget_->setTabsClosable(true);
+		tab_widget_->addTab(tab, QString("Label"));
+		tab->GoToInitialDir();
+		
+		connect(tab_widget_, &QTabWidget::tabCloseRequested, [=] (const int i)
+		{
+			DeleteTabAt(i);
+		});
+		connect(tab_widget_, &QTabWidget::currentChanged, this, &App::TabSelected);
+	}
+	
 	SetupIconNames();
 	io::InitEnvInfo(desktop_, search_icons_dirs_, xdg_data_dirs_, possible_categories_);
 	CreateGui();
@@ -306,7 +199,6 @@ App::App()
 			sz = QSize(800, 600);
 		resize(sz);
 	}
-	table_->setFocus();
 	
 	auto *clipboard = QGuiApplication::clipboard();
 	connect(clipboard, &QClipboard::changed, this, &App::ClipboardChanged);
@@ -329,8 +221,6 @@ App::App()
 
 App::~App()
 {
-	prefs_->Save();
-	ShutdownLastInotifyThread();
 	QHashIterator<QString, QIcon*> i(icon_set_);
 	while (i.hasNext()) {
 		i.next();
@@ -349,14 +239,15 @@ App::~App()
 	{
 		/// table_ must be deleted before prefs_ because table_model_ calls 
 		/// into prefs().show_free_partition_space() in TableModel::GetName()
-		delete table_;
+		delete tab_widget_;
 		delete prefs_;
 		prefs_ = nullptr;
 	}
-	delete history_;
-	history_ = nullptr;
+	
 	delete media_;
 	media_ = nullptr;
+	
+	notify_.Close();
 }
 
 void App::ArchiveAskDestArchivePath(const QString &ext)
@@ -374,7 +265,7 @@ void App::ArchiveAskDestArchivePath(const QString &ext)
 void App::ArchiveTo(const QString &dir_path, const QString &ext)
 {
 	QVector<QString> urls;
-	table_->GetSelectedFileNames(urls);
+	tab()->table()->GetSelectedFileNames(urls);
 	if (urls.isEmpty())
 		return;
 	
@@ -462,7 +353,7 @@ void App::AskCreateNewFile(io::File *file, const QString &title)
 		vert_layout->addWidget(button_box);
 	}
 	
-	QFontMetrics fm = table_->fontMetrics();
+	QFontMetrics fm = tab()->table()->fontMetrics();
 	int w = fm.boundingRect(text).width();
 	w = std::min(800, std::max(w + 80, 400)); // between 300 and 800
 	dialog.resize(w, 100);
@@ -477,7 +368,7 @@ void App::AskCreateNewFile(io::File *file, const QString &title)
 	file->name(value);
 	const QString new_path = file->build_full_path();
 	auto path_ba = new_path.toLocal8Bit();
-	table_model_->set_scroll_to_and_select(new_path);
+	tab()->table_model()->set_scroll_to_and_select(new_path);
 	int fd;
 	
 	if (file->is_dir()) {
@@ -487,7 +378,7 @@ void App::AskCreateNewFile(io::File *file, const QString &title)
 	}
 	
 	if (fd == -1) {
-		table_model_->set_scroll_to_and_select(QString());
+		tab()->table_model()->set_scroll_to_and_select(QString());
 		if (errno == EEXIST) {
 			QString name = QString("\"") + file->name();
 			TellUser(name + "\" already exists", tr("Failed"));
@@ -521,8 +412,8 @@ void App::ClipboardChanged(QClipboard::Mode mode)
 		return;
 	
 	QVector<int> indices;
-	table_->SyncWith(clipboard_, indices);
-	table_model_->UpdateIndices(indices);
+	tab()->table()->SyncWith(clipboard_, indices);
+	tab()->table_model()->UpdateIndices(indices);
 }
 
 QMenu* App::CreateNewMenu()
@@ -597,7 +488,7 @@ QMenu* App::CreateNewMenu()
 			connect(action, &QAction::triggered, [=] {
 				io::CopyFileFromTo(from_full_path, dir_path);
 				QString new_path = dir_path + name;
-				table_model_->set_scroll_to_and_select(new_path);
+				tab()->table_model()->set_scroll_to_and_select(new_path);
 			});
 			menu->addAction(action);
 		}
@@ -639,20 +530,27 @@ void App::CreateGui()
 		main_splitter_->setSizes(sizes);
 
 	prefs_->UpdateTableSizes();
+	
+	tab()->GrabFocus();
+	
+	{
+		QIcon icon = QIcon::fromTheme(QLatin1String("window-new"));
+		QToolButton *btn = new QToolButton();
+		btn->setIcon(icon);
+		connect(btn, &QAbstractButton::clicked, this, &App::OpenNewTab);
+		tab_widget_->setCornerWidget(btn, Qt::TopRightCorner);
+	}
 }
 
 void App::CreateFilesViewPane()
 {
-	table_model_ = new gui::TableModel(this);
-	table_ = new gui::Table(table_model_, this);
-	table_->setContentsMargins(0, 0, 0, 0);
-	table_->ApplyPrefs();
 	QWidget *table_pane = new QWidget();
 	QBoxLayout *vlayout = new QBoxLayout(QBoxLayout::TopToBottom);
 	vlayout->setContentsMargins(0, 0, 0, 0);
 	vlayout->setSpacing(0);
 	table_pane->setLayout(vlayout);
-	vlayout->addWidget(table_);
+	
+	vlayout->addWidget(tab_widget_);
 	
 	search_pane_ = new gui::SearchPane(this);
 	vlayout->addWidget(search_pane_);
@@ -660,11 +558,9 @@ void App::CreateFilesViewPane()
 	
 	main_splitter_->addWidget(table_pane);
 	{
-		MutexGuard guard = view_files_.guard();
-		view_files_.data.widgets_created(true);
-		int status = pthread_cond_signal(&view_files_.cond);
-		if (status != 0)
-			mtl_warn("%s", strerror(status));
+		MutexGuard guard = gui_bits_.guard();
+		gui_bits_.created(true);
+		gui_bits_.Broadcast();
 	}
 }
 
@@ -678,8 +574,24 @@ void App::CreateSidePane()
 
 i32 App::current_dir_id() const
 {
-	auto guard = view_files_.guard();
-	return view_files_.data.dir_id;
+	auto &view_files = tab()->view_files();
+	auto guard = view_files.guard();
+	return view_files.data.dir_id;
+}
+
+void App::DeleteTabAt(const int i)
+{
+	auto *tab = tab_widget_->widget(i);
+	const bool do_exit = tab_widget_->count() == 1;
+	
+	if (do_exit)
+		prefs_->Save();
+	
+	tab_widget_->removeTab(i);
+	delete tab;
+	
+	if (do_exit)
+		QApplication::quit();
 }
 
 void App::DetectThemeType()
@@ -695,7 +607,7 @@ void App::DetectThemeType()
 void App::DisplayFileContents(const int row, io::File *cloned_file)
 {
 	if (cloned_file == nullptr) {
-		cloned_file = table_->GetFileAt(row);
+		cloned_file = tab()->table()->GetFileAt(row);
 		if (cloned_file == nullptr)
 			return;
 	}
@@ -710,7 +622,7 @@ void App::DisplayFileContents(const int row, io::File *cloned_file)
 		setWindowTitle(tr("Press Esc to exit or Ctrl+S to save and exit"));
 		toolbar_->setVisible(false);
 		notepad_.stack->setCurrentIndex(notepad_.editor_index);
-		table_->ClearMouseOver();
+		tab()->table()->ClearMouseOver();
 	}
 }
 
@@ -752,7 +664,7 @@ void App::DisplaySymlinkInfo(io::File &file)
 		go_btn->setToolTip("Go to this file");
 		connect(go_btn, &QPushButton::clicked, [&dialog, this, next]() {
 			dialog.close();
-			GoToAndSelect(next);
+			tab()->GoToAndSelect(next);
 		});
 		
 		layout->addRow(input, go_btn);
@@ -764,7 +676,7 @@ void App::DisplaySymlinkInfo(io::File &file)
 void App::EditSelectedMovieTitle()
 {
 	QString ext;
-	QString full_path = table_->GetFirstSelectedFileFullPath(&ext);
+	QString full_path = tab()->table()->GetFirstSelectedFileFullPath(&ext);
 	if (full_path.isEmpty())
 		return;
 	
@@ -840,7 +752,7 @@ void App::ExtractAskDestFolder()
 void App::ExtractTo(const QString &to_dir)
 {
 	QVector<QString> urls;
-	table_->GetSelectedArchives(urls);
+	tab()->table()->GetSelectedArchives(urls);
 	if (urls.isEmpty())
 		return;
 	
@@ -873,10 +785,10 @@ void App::FileDoubleClicked(io::File *file, const gui::Column col)
 	} else if (col == gui::Column::FileName) {
 		if (file->is_dir()) {
 			QString full_path = file->build_full_path();
-			GoTo(Action::To, {full_path, Processed::No});
+			tab()->GoTo(Action::To, {full_path, Processed::No});
 		} else if (file->is_link_to_dir()) {
 			if (file->link_target() != nullptr) {
-				GoTo(Action::To, {file->link_target()->path, Processed::Yes});
+				tab()->GoTo(Action::To, {file->link_target()->path, Processed::Yes});
 			}
 		} else if (file->is_regular() || file->is_symlink()) {
 			
@@ -1009,196 +921,7 @@ QString App::GetPartitionFreeSpace()
 	return s;
 }
 
-void App::GoBack() {
-	QString s = history_->Back();
-	if (s.isEmpty())
-		return;
-	
-	GoTo(Action::Back, {s, Processed::Yes});
-}
-
-void App::GoForward() {
-	QString s = history_->Forward();
-	if (s.isEmpty())
-		return;
-	
-	GoTo(Action::Forward, {s, Processed::Yes});
-}
-
-void App::GoHome() { GoTo(Action::To, {QDir::homePath(), Processed::No}); }
-
-bool App::GoTo(const Action action, DirPath dp, const cornus::Reload r, QString scroll_to_and_select)
-{
-	GoToParams *params = new GoToParams();
-	params->app = this;
-	params->dir_path = dp;
-	params->reload = r == Reload::Yes;
-	params->scroll_to_and_select = scroll_to_and_select;
-	params->action = action;
-	
-	pthread_t th;
-	int status = pthread_create(&th, NULL, cornus::GoToTh, params);
-	if (status != 0)
-		mtl_warn("pthread_create: %s", strerror(errno));
-	
-	return true;
-}
-
-void App::GoToFinish(cornus::io::FilesData *new_data)
-{
-	if (new_data->action != Action::Back) {
-		history_->Record();
-		for (auto &next: history_->recorded()) {
-			mtl_printq2("recorded: ", next);
-		}
-	}
-	
-	AutoDelete ad(new_data);
-	int count = new_data->vec.size();
-	table_->ClearMouseOver();
-/// current_dir_ must be assigned to before model->SwitchTo
-/// otherwise won't properly show current partition's free space
-	current_dir_ = new_data->processed_dir_path;
-	tree_view_->MarkCurrentPartition(new_data->processed_dir_path);
-	table_model_->SwitchTo(new_data);
-	history_->Add(new_data->action, current_dir_);
-	
-	if (new_data->action == Action::Back) {
-		QVector<QString> list;
-		history_->GetSelectedFiles(list);
-		table_->SelectByLowerCase(list);
-	} else if (new_data->scroll_to_and_select.isEmpty())
-		table_->ScrollToRow(0);
-	
-	QString dir_name = QDir(new_data->processed_dir_path).dirName();
-	if (dir_name.isEmpty())
-		dir_name = new_data->processed_dir_path; // likely "/"
-	
-	using Clock = std::chrono::steady_clock;
-	if (prefs_->show_ms_files_loaded() &&
-		(new_data->start_time != std::chrono::time_point<Clock>::max()))
-	{
-		auto now = std::chrono::steady_clock::now();
-		const float elapsed = std::chrono::duration<float,
-			std::chrono::milliseconds::period>(now - new_data->start_time).count();
-		QString diff_str = io::FloatToString(elapsed, 2);
-		
-		title_ = dir_name
-			+ QLatin1String(" (") + QString::number(count)
-			+ QChar('/') + diff_str + QLatin1String(" ms)");
-	} else {
-		title_ = dir_name;
-	}
-	setWindowTitle(title_ + QLatin1String(" - Cornus"));
-	
-	location_->SetLocation(new_data->processed_dir_path);
-}
-
-void App::GoToInitialDir()
-{
-	const QStringList args = QCoreApplication::arguments();
-	
-	if (args.size() <= 1) {
-		GoHome();
-		return;
-	}
-	
-	struct Commands {
-		QString select;
-		QString go_to_path;
-	} cmds = {};
-	
-	const QString SelectCmdName = QLatin1String("select");
-	const QString CmdPrefix = QLatin1String("--");
-	const int arg_count = args.size();
-	
-	QString *next_command = nullptr;
-	
-	for (int i = 1; i < arg_count; i++) {
-		const QString &next = args[i];
-		
-		if (next_command != nullptr) {
-			*next_command = next;
-			next_command = nullptr;
-			continue;
-		}
-		
-		if (next.startsWith(CmdPrefix)) {
-			if (next.endsWith(SelectCmdName)) {
-				next_command = &cmds.select;
-				continue;
-			}
-		} else {
-			if (next.startsWith(QLatin1String("file://"))) {
-				cmds.go_to_path = QUrl(next).toLocalFile();
-			} else if (!next.startsWith('/')) {
-				cmds.go_to_path = QCoreApplication::applicationDirPath()
-					+ '/' + next;
-			} else {
-				cmds.go_to_path = next;
-			}
-		}
-	}
-	
-	FigureOutSelectPath(cmds.select, cmds.go_to_path);
-	
-	if (!cmds.go_to_path.isEmpty()) {
-		io::FileType file_type;
-		if (!io::FileExists(cmds.go_to_path, &file_type)) {
-			QString msg = "Directory doesn't exist:\n\""
-				+ cmds.go_to_path + QChar('\"');
-			mtl_printq(msg);
-			GoTo(Action::To, {QDir::homePath(), Processed::No}, Reload::No, cmds.select);
-			return;
-		}
-		if (file_type == io::FileType::Dir) {
-			GoTo(Action::To, {cmds.go_to_path, Processed::No}, Reload::No, cmds.select);
-		} else {
-			QDir parent_dir(cmds.go_to_path);
-			if (!parent_dir.cdUp()) {
-				QString msg = "Can't access parent dir of file:\n\"" +
-					cmds.go_to_path + QChar('\"');
-				mtl_printq(msg);
-				GoHome();
-				return;
-			}
-			GoTo(Action::To, {parent_dir.absolutePath(), Processed::No}, Reload::No, cmds.go_to_path);
-			return;
-		}
-	}
-}
-
-void App::GoToAndSelect(const QString full_path)
-{
-	QFileInfo info(full_path);
-	QDir parent = info.dir();
-	CHECK_TRUE_VOID(parent.exists());
-	QString parent_dir = parent.absolutePath();
-	
-	if (!io::SameFiles(parent_dir, current_dir_)) {
-		CHECK_TRUE_VOID(GoTo(Action::To, {parent_dir, Processed::No}, Reload::No, full_path));
-	} else {
-		table_->ScrollToAndSelect(full_path);
-	}
-}
-
-void App::GoToSimple(const QString &full_path) {
-	GoTo(Action::To, {full_path, Processed::No});
-}
-
-void App::GoUp()
-{
-	if (current_dir_.isEmpty())
-		return;
-	
-	QDir dir(current_dir_);
-	
-	if (!dir.cdUp())
-		return;
-	
-	QString select_path = current_dir_;
-	GoTo(Action::Up, {dir.absolutePath(), Processed::Yes}, Reload::No, select_path);
-}
+void App::GoUp() { tab()->GoUp(); }
 
 void App::HideTextEditor() {
 	if (notepad_.stack->currentIndex() == notepad_.window_index)
@@ -1311,6 +1034,15 @@ void App::LoadIconsFrom(QString dir_path)
 void App::MediaFileChanged()
 {
 	Q_EMIT media_->Changed();
+}
+
+void App::OpenNewTab()
+{
+	gui::Tab *tab = new gui::Tab(this);
+	tab_widget_->addTab(tab, QString());
+	tab_widget_->setCurrentWidget(tab);
+	tab->setVisible(true);
+	tab->GoHome();
 }
 
 void App::OpenTerminal() {
@@ -1456,7 +1188,7 @@ void App::ProcessAndWriteTo(const QString ext,
 	if (!ext.isEmpty())
 		filename += '.' + ext;
 	QString new_file_path = to_dir + filename;
-	table_model_->set_scroll_to_and_select(new_file_path);
+	tab()->table_model()->set_scroll_to_and_select(new_file_path);
 	if (io::WriteToFile(new_file_path, ba.data(), ba.size(), io::PostWrite::None, &mode) != io::Err::Ok) {
 		mtl_trace("Failed to write data to file");
 	}
@@ -1637,7 +1369,7 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		connect(shortcut, &QShortcut::activated, [=] {
 			prefs_->show_hidden_files(!prefs_->show_hidden_files());
-			GoTo(Action::Reload, {current_dir_, Processed::Yes}, Reload::Yes);
+			tab()->GoTo(Action::Reload, {current_dir_, Processed::Yes}, Reload::Yes);
 			prefs_->Save();
 		});
 	}
@@ -1674,7 +1406,7 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
 		connect(shortcut, &QShortcut::activated, [=] {
-			table_model_->DeleteSelectedFiles();
+			tab()->table_model()->DeleteSelectedFiles();
 		});
 	}
 	{
@@ -1682,7 +1414,7 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
 		connect(shortcut, &QShortcut::activated, [=] {
-			table_->setFocus();
+			tab()->GrabFocus();
 		});
 	}
 	{
@@ -1699,11 +1431,13 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
 		connect(shortcut, &QShortcut::activated, [=] {
-			table_->setFocus();
+			gui::Tab *tab = this->tab();
+			tab->GrabFocus();
 			QVector<int> indices;
-			MutexGuard guard(&view_files_.mutex);
-			table_->SelectAllFilesNTS(true, indices);
-			table_model_->UpdateIndices(indices);
+			auto &view_files = tab->view_files();
+			MutexGuard guard = view_files.guard();
+			tab->table()->SelectAllFilesNTS(true, indices);
+			tab->table_model()->UpdateIndices(indices);
 		});
 	}
 	{
@@ -1712,6 +1446,14 @@ void App::RegisterShortcuts()
 		
 		connect(shortcut, &QShortcut::activated, [=] {
 			ToggleExecBitOfSelectedFiles();
+		});
+	}
+	{
+		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_T), this);
+		shortcut->setContext(Qt::ApplicationShortcut);
+		
+		connect(shortcut, &QShortcut::activated, [=] {
+			OpenNewTab();
 		});
 	}
 }
@@ -1729,13 +1471,14 @@ void App::RegisterVolumesListener()
 }
 
 void App::Reload() {
-	GoTo(Action::Reload, {current_dir_, Processed::Yes}, Reload::Yes);
+	tab()->GoTo(Action::Reload, {current_dir_, Processed::Yes}, Reload::Yes);
 }
 
 void App::RenameSelectedFile()
 {
 	io::File *file = nullptr;
-	if (table_->GetFirstSelectedFile(&file) == -1)
+	gui::Tab *tab = this->tab();
+	if (tab->table()->GetFirstSelectedFile(&file) == -1)
 		return;
 	
 	AutoDelete ad(file);
@@ -1802,7 +1545,7 @@ void App::RenameSelectedFile()
 		vert_layout->addWidget(button_box);
 	}
 	
-	QFontMetrics fm = table_->fontMetrics();
+	QFontMetrics fm = tab->table()->fontMetrics();
 	int w = fm.boundingRect(text).width();
 	w = std::min(800, std::max(w + 80, 400)); // between 300 and 800
 	dialog.resize(w, 100);
@@ -1820,12 +1563,12 @@ void App::RenameSelectedFile()
 	if (old_path == new_path)
 		return;
 	
-	table_model_->set_scroll_to_and_select(new_path);
+	tab->table_model()->set_scroll_to_and_select(new_path);
 	
 	if (rename(old_path.data(), new_path.data()) != 0) {
 		QString err = QString("Failed: ") + strerror(errno);
 		QMessageBox::warning(this, "Failed", err);
-		table_model_->set_scroll_to_and_select(QString());
+		tab->table_model()->set_scroll_to_and_select(QString());
 	}
 }
 
@@ -1971,32 +1714,16 @@ bool App::ShowInputDialog(const gui::InputDialogParams &params,
 	return ok;
 }
 
-void App::ShutdownLastInotifyThread()
+gui::Tab* App::tab() const
 {
-	auto &files = view_files();
-	files.Lock();
-#ifdef CORNUS_WAITED_FOR_WIDGETS
-	auto start_time = std::chrono::steady_clock::now();
-#endif
-	files.data.thread_must_exit(true);
-	
-	while (!files.data.thread_exited()) {
-		int status = pthread_cond_wait(&files.cond, &files.mutex);
-		if (status != 0) {
-			mtl_status(status);
-			break;
-		}
-	}
-	
-	files.Unlock();
-	
-#ifdef CORNUS_WAITED_FOR_WIDGETS
-	auto now = std::chrono::steady_clock::now();
-	const float elapsed = std::chrono::duration<float,
-		std::chrono::milliseconds::period>(now - start_time).count();
-	
-	mtl_info("Waited for thread termination: %.1f ms", elapsed);
-#endif
+	return (gui::Tab*) tab_widget_->currentWidget();
+}
+
+void App::TabSelected(const int index)
+{
+	gui::Tab *tab = (gui::Tab*)tab_widget_->widget(index);
+	QString path = tab->current_dir();
+	location_->SetLocation(path);
 }
 
 void App::TellUser(const QString &msg, const QString title) {
@@ -2034,10 +1761,12 @@ void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 	}
 }
 
-void App::ToggleExecBitOfSelectedFiles() {
-	MutexGuard guard = view_files_.guard();
+void App::ToggleExecBitOfSelectedFiles()
+{
+	auto &view_files = tab()->view_files();
+	MutexGuard guard = view_files.guard();
 	const auto ExecBits = S_IXUSR | S_IXGRP | S_IXOTH;
-	for (io::File *next: view_files_.data.vec) {
+	for (io::File *next: view_files.data.vec) {
 		if (next->selected()) {
 			mode_t mode = next->mode();
 			if (mode & ExecBits)
@@ -2051,21 +1780,6 @@ void App::ToggleExecBitOfSelectedFiles() {
 			}
 		}
 	}
-}
-
-bool App::ViewIsAt(const QString &dir_path) const
-{
-	QString old_dir_path;
-	{
-		MutexGuard guard(&view_files_.mutex);
-		old_dir_path = view_files_.data.processed_dir_path;
-	}
-	
-	if (old_dir_path.isEmpty()) {
-		return false;
-	}
-	
-	return io::SameFiles(dir_path, old_dir_path);
 }
 
 }

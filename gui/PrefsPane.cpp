@@ -3,6 +3,7 @@
 #include "../App.hpp"
 #include "../MutexGuard.hpp"
 #include "../Prefs.hpp"
+#include "Tab.hpp"
 #include "TableModel.hpp"
 
 #include <QCheckBox>
@@ -111,7 +112,7 @@ void PrefsPane::SavePrefs()
 	}
 	
 	if (show_free_space != prefs.show_free_partition_space())
-		app_->table_model()->UpdateHeaderNameColumn();
+		app_->tab()->table_model()->UpdateHeaderNameColumn();
 }
 
 }

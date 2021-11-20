@@ -23,7 +23,7 @@ struct OpenWith {
 class Table : public QTableView {
 	Q_OBJECT
 public:
-	Table(TableModel *tm, App *app);
+	Table(TableModel *tm, App *app, Tab *tab);
 	virtual ~Table();
 	
 	App* app() const { return app_; }
@@ -121,6 +121,7 @@ private:
 	
 	App *app_ = nullptr;
 	TableModel *model_ = nullptr;
+	gui::Tab *tab_ = nullptr;
 	TableDelegate *delegate_ = nullptr;
 	bool mouse_down_ = false;
 	i32 mouse_over_file_name_ = -1;

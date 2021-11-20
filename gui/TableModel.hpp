@@ -19,7 +19,7 @@ class TableModel: public QAbstractTableModel
 {
 	Q_OBJECT
 public:
-	TableModel(cornus::App *app);
+	TableModel(cornus::App *app, gui::Tab *tab);
 	virtual ~TableModel();
 	
 	cornus::App*
@@ -50,8 +50,6 @@ public:
 		return true;
 	}
 	
-	io::Notify& notify() { return notify_; }
-	
 	virtual bool removeRows(int row, int count, const QModelIndex &parent) override;
 	virtual bool removeColumns(int column, int count, const QModelIndex &parent) override {
 		mtl_trace();
@@ -60,6 +58,7 @@ public:
 	
 	void set_scroll_to_and_select(const QString &s) { scroll_to_and_select_ = s; }
 	void SwitchTo(io::FilesData *new_data);
+	gui::Tab* tab() const { return tab_; }
 	void UpdateIndices(const QVector<int> &indices);
 	void UpdateRange(int row1, Column c1, int row2, Column c2);
 	void UpdateSingleRow(int row) {
@@ -81,7 +80,7 @@ private:
 	QString GetName() const;
 	
 	cornus::App *app_ = nullptr;
-	io::Notify notify_ = {};
+	gui::Tab *tab_ = nullptr;
 	QString scroll_to_and_select_;
 	mutable QString cached_free_space_;
 	int tried_to_scroll_to_count_ = 0;

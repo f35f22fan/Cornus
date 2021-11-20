@@ -3,6 +3,7 @@
 #include "../App.hpp"
 #include "../io/io.hh"
 #include "CompleterModel.hpp"
+#include "Tab.hpp"
 
 #include <QCompleter>
 #include <functional>
@@ -32,7 +33,7 @@ void Location::HitEnter()
 	if (io::FileExists(str, &ft) &&
 		(ft == io::FileType::Dir || ft == io::FileType::Symlink))
 	{
-		app_->GoTo(Action::To, {str, Processed::No});
+		app_->tab()->GoTo(Action::To, {str, Processed::No});
 	}
 }
 

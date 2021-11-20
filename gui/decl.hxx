@@ -27,6 +27,7 @@ class PrefsPane;
 class RestorePainter;
 class SearchLineEdit;
 class SearchPane;
+class Tab;
 class Table;
 class TableDelegate;
 class TableHeader;

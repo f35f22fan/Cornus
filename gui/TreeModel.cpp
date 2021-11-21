@@ -630,7 +630,6 @@ void TreeModel::UpdateIndices(const QModelIndex &top_left,
 void TreeModel::UpdateIndex(const QModelIndex &index)
 {
 	Q_EMIT dataChanged(index, index, {Qt::DisplayRole});
-	//view_->update(index);
 }
 
 void TreeModel::UpdateVisibleArea()

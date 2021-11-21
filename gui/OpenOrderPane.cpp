@@ -86,7 +86,7 @@ void OpenOrderPane::AskAddCustomExecutable()
 	QFileDialog dialog(app_);
 	dialog.setFileMode(QFileDialog::AnyFile);
 	dialog.setViewMode(QFileDialog::Detail);
-	dialog.setDirectory(app_->current_dir());
+	dialog.setDirectory(app_->tab()->current_dir());
 	
 	if (!dialog.exec())
 		return;

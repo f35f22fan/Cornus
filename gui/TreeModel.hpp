@@ -35,6 +35,7 @@ public:
 	void SetView(TreeView *p);
 	void UpdateIndices(const QModelIndex &top_left, const QModelIndex &bottom_right);
 	void UpdateIndex(const QModelIndex &index);
+	void UpdateVisibleArea();
 	
 public Q_SLOTS:
 	void DeviceEvent(const cornus::Device device,
@@ -52,8 +53,6 @@ private:
 	bool InsertPartition(TreeItem *item);
 	void InsertPartitions(const QVector<cornus::gui::TreeItem*> &partitions);
 	void SetupModelData();
-	
-	void UpdateVisibleArea();
 	
 	cornus::App *app_ = nullptr;
 	TreeView *view_ = nullptr;

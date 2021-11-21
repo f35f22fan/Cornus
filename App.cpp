@@ -181,6 +181,7 @@ App::App()
 		tab_widget_ = new QTabWidget();
 		tab_widget_->setTabsClosable(true);
 		tab_widget_->addTab(tab, QString("Label"));
+		tab_widget_->setTabBarAutoHide(true);
 		tab->GoToInitialDir();
 		
 		connect(tab_widget_, &QTabWidget::tabCloseRequested, [=] (const int i)
@@ -253,7 +254,8 @@ App::~App()
 void App::ArchiveAskDestArchivePath(const QString &ext)
 {
 	QUrl url = QFileDialog::getExistingDirectoryUrl(this,
-		tr("Archive destination folder"), QUrl::fromLocalFile(current_dir_));
+		tr("Archive destination folder"),
+		QUrl::fromLocalFile(tab()->current_dir()));
 	
 	if (url.isEmpty())
 		return;
@@ -269,7 +271,7 @@ void App::ArchiveTo(const QString &dir_path, const QString &ext)
 	if (urls.isEmpty())
 		return;
 	
-	QString files_dir = current_dir_;
+	QString files_dir = tab()->current_dir();
 	if (!files_dir.endsWith('/'))
 		files_dir.append('/');
 	
@@ -426,7 +428,7 @@ QMenu* App::CreateNewMenu()
 		if (icon != nullptr)
 			action->setIcon(*icon);
 		connect(action, &QAction::triggered, [=] {
-			AskCreateNewFile(io::File::NewFolder(current_dir(), "New Folder"),
+			AskCreateNewFile(io::File::NewFolder(tab()->current_dir(), "New Folder"),
 				tr("Create New Folder"));
 		});
 	}
@@ -438,7 +440,7 @@ QMenu* App::CreateNewMenu()
 			action->setIcon(*icon);
 		
 		connect(action, &QAction::triggered, [=] {
-			AskCreateNewFile(io::File::NewTextFile(current_dir(), "File.txt"),
+			AskCreateNewFile(io::File::NewTextFile(tab()->current_dir(), "File.txt"),
 				tr("Create New File"));
 		});
 	}
@@ -457,7 +459,7 @@ QMenu* App::CreateNewMenu()
 	if (!names.isEmpty())
 		menu->addSeparator();
 	
-	QString dir_path = current_dir_;
+	QString dir_path = tab()->current_dir();
 	if (!dir_path.endsWith('/'))
 		dir_path.append('/');
 	
@@ -706,7 +708,7 @@ void App::EditSelectedMovieTitle()
 	}
 	
 	process.setProgram(QLatin1String("mkvpropedit"));
-	process.setWorkingDirectory(current_dir_);
+	process.setWorkingDirectory(tab()->current_dir());
 	QStringList args;
 	args.append(file_name);
 	args.append(QLatin1String("--edit"));
@@ -739,7 +741,7 @@ bool App::event(QEvent *evt)
 
 void App::ExtractAskDestFolder()
 {
-	QUrl dir = QUrl::fromLocalFile(current_dir_);
+	QUrl dir = QUrl::fromLocalFile(tab()->current_dir());
 	QUrl url = QFileDialog::getExistingDirectoryUrl(this,
 		tr("Extract destination folder"), dir);
 	
@@ -889,7 +891,7 @@ QString App::GetIconThatStartsWith(const QString &s)
 
 QString App::GetPartitionFreeSpace()
 {
-	if (current_dir_.isEmpty())
+	if (tab()->current_dir().isEmpty())
 		return QString();
 	
 	QString current_dir;
@@ -961,7 +963,7 @@ void App::LaunchOrOpenDesktopFile(const QString &full_path,
 	if (df == nullptr)
 		return;
 	
-	df->LaunchEmpty(current_dir_);
+	df->LaunchEmpty(tab()->current_dir());
 	delete df;
 }
 
@@ -1059,7 +1061,7 @@ void App::OpenTerminal() {
 	}
 	
 	QStringList arguments;
-	QProcess::startDetached(*path, arguments, current_dir_);
+	QProcess::startDetached(*path, arguments, tab()->current_dir());
 }
 
 void App::OpenWithDefaultApp(const QString &full_path) const
@@ -1076,7 +1078,7 @@ void App::OpenWithDefaultApp(const QString &full_path) const
 	
 	DesktopFile *p = DesktopFile::From(ba);
 	CHECK_PTR_VOID(p);
-	p->Launch(full_path, current_dir_);
+	p->Launch(full_path, tab()->current_dir());
 	delete p;
 }
 
@@ -1369,7 +1371,7 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		connect(shortcut, &QShortcut::activated, [=] {
 			prefs_->show_hidden_files(!prefs_->show_hidden_files());
-			tab()->GoTo(Action::Reload, {current_dir_, Processed::Yes}, Reload::Yes);
+			tab()->GoTo(Action::Reload, {tab()->current_dir(), Processed::Yes}, Reload::Yes);
 			prefs_->Save();
 		});
 	}
@@ -1471,7 +1473,7 @@ void App::RegisterVolumesListener()
 }
 
 void App::Reload() {
-	tab()->GoTo(Action::Reload, {current_dir_, Processed::Yes}, Reload::Yes);
+	tab()->GoTo(Action::Reload, {tab()->current_dir(), Processed::Yes}, Reload::Yes);
 }
 
 void App::RenameSelectedFile()
@@ -1577,9 +1579,9 @@ void App::RunExecutable(const QString &full_path, const ExecInfo &info)
 	if (info.has_exec_bit()) {
 		if (info.is_elf()) {
 			QStringList args;
-			QProcess::startDetached(full_path, args, current_dir_);
+			QProcess::startDetached(full_path, args, tab()->current_dir());
 		} else if (info.is_shell_script()) {
-			info.Run(full_path, current_dir_);
+			info.Run(full_path, tab()->current_dir());
 		} else {
 			mtl_trace();
 		}
@@ -1722,8 +1724,9 @@ gui::Tab* App::tab() const
 void App::TabSelected(const int index)
 {
 	gui::Tab *tab = (gui::Tab*)tab_widget_->widget(index);
-	QString path = tab->current_dir();
+	const QString &path = tab->current_dir();
 	location_->SetLocation(path);
+	tree_view_->MarkCurrentPartition(path);
 }
 
 void App::TellUser(const QString &msg, const QString title) {

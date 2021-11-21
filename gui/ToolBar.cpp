@@ -184,6 +184,6 @@ void ToolBar::UpdateIcons(History *p)
 	
 	action_back_->setEnabled(index > 0);
 	action_fwd_->setEnabled(index < (size - 1));
-	action_up_->setEnabled(app_->current_dir() != QLatin1String("/"));
+	action_up_->setEnabled(app_->tab()->current_dir() != QLatin1String("/"));
 }
 }

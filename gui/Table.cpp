@@ -176,7 +176,7 @@ void Table::ActionPaste()
 	
 	auto *ba = new ByteArray();
 	ba->set_msg_id(io_op);
-	QString to_dir = app_->current_dir();
+	QString to_dir = app_->tab()->current_dir();
 	ba->add_string(to_dir);
 	QString scroll_to_first_one;
 	for (const auto &next: clipboard.file_paths) {
@@ -205,9 +205,9 @@ void Table::ActionPasteLinks(const LinkType link)
 	QString err;
 	QString first_one;
 	if (link == LinkType::Absolute)
-		first_one = io::PasteLinks(clipboard.file_paths, app_->current_dir(), &err);
+		first_one = io::PasteLinks(clipboard.file_paths, app_->tab()->current_dir(), &err);
 	else if (link == LinkType::Relative)
-		first_one = io::PasteRelativeLinks(clipboard.file_paths, app_->current_dir(), &err);
+		first_one = io::PasteRelativeLinks(clipboard.file_paths, app_->tab()->current_dir(), &err);
 	else {
 		mtl_trace();
 		return;
@@ -987,7 +987,7 @@ void Table::LaunchFromOpenWithMenu()
 	QAction *act = qobject_cast<QAction *>(sender());
 	QVariant v = act->data();
 	DesktopFile *p = (DesktopFile*) v.value<void *>();
-	p->Launch(open_with_.full_path, app_->current_dir());
+	p->Launch(open_with_.full_path, app_->tab()->current_dir());
 }
 
 void Table::leaveEvent(QEvent *evt)
@@ -1576,7 +1576,7 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 		{
 			QAction *action = extract->addAction(tr("Here"));
 			connect(action, &QAction::triggered, [=] {
-				app_->ExtractTo(app_->current_dir());
+				app_->ExtractTo(app_->tab()->current_dir());
 			});
 		}
 		
@@ -1601,30 +1601,16 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 			QLatin1String("7z")
 		};
 		
-//		QMenu *archive_here = new QMenu(tr("Here"));
-//		archive_menu->addMenu(archive_here);
-		
 		for (const auto &ext: exts)
 		{
 			QAction *action = archive_menu->addAction(ext);
 			connect(action, &QAction::triggered, [=] {
-				app_->ArchiveTo(app_->current_dir(), ext);
+				app_->ArchiveTo(app_->tab()->current_dir(), ext);
 			});
 		}
-		
-//		QMenu *archive_to = new QMenu(tr("Ask Destination"));
-//		archive_menu->addMenu(archive_to);
-		
-//		for (const auto &ext: exts)
-//		{
-//			QAction *action = archive_to->addAction(ext);
-//			connect(action, &QAction::triggered, [=] {
-//				app_->ArchiveAskDestArchivePath(ext);
-//			});
-//		}
 	}
 	
-	QString count_folder = dir_full_path.isEmpty() ? app_->current_dir() : dir_full_path;
+	QString count_folder = dir_full_path.isEmpty() ? app_->tab()->current_dir() : dir_full_path;
 	
 	if (count_folder != QLatin1String("/")) {
 		QAction *action = menu->addAction(tr("Count Folder Size"));

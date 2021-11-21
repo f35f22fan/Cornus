@@ -304,7 +304,8 @@ void TreeView::MarkCurrentPartition(const QString &full_path)
 {
 	TreeData &data = app_->tree_data();
 	data.MarkCurrentPartition(full_path);
-	update();
+	//update();
+	model_->UpdateVisibleArea();
 }
 
 void TreeView::paintEvent(QPaintEvent *evt)

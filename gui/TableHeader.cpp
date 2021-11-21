@@ -3,6 +3,7 @@
 #include "../App.hpp"
 #include "../io/File.hpp"
 #include "../io/io.hh"
+#include "Tab.hpp"
 #include "Table.hpp"
 
 #include <QDragEnterEvent>
@@ -62,7 +63,7 @@ void TableHeader::dropEvent(QDropEvent *evt)
 				files_vec->append(file);
 		}
 		
-		const QString current_dir = app->current_dir();
+		const QString current_dir = app->tab()->current_dir();
 		QDir up_dir(current_dir);
 		QString to_dir_path;
 		if (up_dir.cdUp()) {

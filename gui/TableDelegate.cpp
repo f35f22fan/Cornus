@@ -243,7 +243,7 @@ TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 	
 	const Column col = static_cast<Column>(index.column());
 	initStyleOption(const_cast<QStyleOptionViewItem*>(&option), index);
-	io::Files &files = tab_->view_files();
+	io::Files &files = *app_->files(tab_->files_id());
 	MutexGuard guard = files.guard();
 	const int row = index.row();
 	

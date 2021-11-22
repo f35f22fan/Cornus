@@ -183,11 +183,7 @@ App::App()
 		tab_widget_->addTab(tab, QString("Label"));
 		tab_widget_->setTabBarAutoHide(true);
 		tab->GoToInitialDir();
-		
-		connect(tab_widget_, &QTabWidget::tabCloseRequested, [=] (const int i)
-		{
-			DeleteTabAt(i);
-		});
+		connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &App::DeleteTabAt);
 		connect(tab_widget_, &QTabWidget::currentChanged, this, &App::TabSelected);
 	}
 	
@@ -576,20 +572,29 @@ void App::CreateSidePane()
 
 i32 App::current_dir_id() const
 {
-	auto &view_files = tab()->view_files();
-	auto guard = view_files.guard();
-	return view_files.data.dir_id;
+	gui::Tab *tab = this->tab();
+	auto *view_files = files(tab->files_id());
+	auto guard = view_files->guard();
+	return view_files->data.dir_id;
+}
+
+void App::DeleteFilesById(const i64 id)
+{
+	io::Files *p = files_.value(id, nullptr);
+	if (p != nullptr)
+	{
+		files_.remove(id);
+		delete p;
+	}
 }
 
 void App::DeleteTabAt(const int i)
 {
 	auto *tab = tab_widget_->widget(i);
-	const bool do_exit = tab_widget_->count() == 1;
-	
+	const bool do_exit = (tab_widget_->count() == 1);
+	tab_widget_->removeTab(i);
 	if (do_exit)
 		prefs_->Save();
-	
-	tab_widget_->removeTab(i);
 	delete tab;
 	
 	if (do_exit)
@@ -825,6 +830,18 @@ void App::FileDoubleClicked(io::File *file, const gui::Column col)
 			}
 		}
 	}
+}
+
+io::Files* App::files(const i64 files_id) const
+{
+	return files_.value(files_id, nullptr);
+}
+
+i64 App::GenNextFilesId()
+{
+	next_files_id_++;
+	files_.insert(next_files_id_, new io::Files());
+	return next_files_id_;
 }
 
 QIcon* App::GetDefaultIcon()
@@ -1436,7 +1453,7 @@ void App::RegisterShortcuts()
 			gui::Tab *tab = this->tab();
 			tab->GrabFocus();
 			QVector<int> indices;
-			auto &view_files = tab->view_files();
+			auto &view_files = *files(tab->files_id());
 			MutexGuard guard = view_files.guard();
 			tab->table()->SelectAllFilesNTS(true, indices);
 			tab->table_model()->UpdateIndices(indices);
@@ -1766,7 +1783,7 @@ void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 
 void App::ToggleExecBitOfSelectedFiles()
 {
-	auto &view_files = tab()->view_files();
+	auto &view_files = *files(tab()->files_id());
 	MutexGuard guard = view_files.guard();
 	const auto ExecBits = S_IXUSR | S_IXGRP | S_IXOTH;
 	for (io::File *next: view_files.data.vec) {

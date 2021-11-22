@@ -1,6 +1,5 @@
 #pragma once
 
-#include <sys/inotify.h>
 #include <libudev.h>
 
 #include "gui/decl.hxx"
@@ -51,46 +50,6 @@ public:
 	}
 private:
 	int fd_ = -1;
-};
-
-class AutoRemoveWatch {
-public:
-	AutoRemoveWatch(io::Notify &notify, int wd):
-		notify_(notify), wd_(wd)
-	{
-		MutexGuard guard(&notify.watches_mutex);
-		int count = notify.watches.value(wd_, 0);
-		notify.watches[wd_] = count + 1;
-	}
-	
-	void RemoveWatch(int wd) {
-		notify_.watches.remove(wd); // needed on IN_UNMOUNT event
-	}
-	
-	~AutoRemoveWatch() {
-		bool contains_wd = false;
-		{
-			MutexGuard guard(&notify_.watches_mutex);
-			contains_wd = notify_.watches.contains(wd_);
-			int count = notify_.watches.value(wd_) - 1;
-			
-			if (count > 0) {
-				notify_.watches[wd_] = count;
-				return;
-			}
-			
-			notify_.watches.remove(wd_);
-		}
-		
-		if (contains_wd) {
-			int status = inotify_rm_watch(notify_.fd, wd_);
-			if (status != 0)
-				mtl_warn("%s: %d", strerror(errno), wd_);
-		}
-	}
-private:
-	io::Notify &notify_;
-	int wd_ = -1;
 };
 
 template <class A_Type> class AutoFree {

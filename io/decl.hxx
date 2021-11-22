@@ -9,8 +9,10 @@
 #include "../gui/decl.hxx"
 
 namespace cornus::io {
+class AutoRemoveWatch;
 class DirStream;
 class File;
+class Notify;
 class Server;
 class Task;
 

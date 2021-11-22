@@ -3,6 +3,7 @@
 #include "../App.hpp"
 #include "../AutoDelete.hh"
 #include "../io/File.hpp"
+#include "../io/Notify.hpp"
 #include "Location.hpp"
 #include "../MutexGuard.hpp"
 #include "../Prefs.hpp"
@@ -18,6 +19,19 @@
 #include <QTime>
 
 namespace cornus::gui {
+
+class AutoRemoveNotifyWatch {
+public:
+	AutoRemoveNotifyWatch(const int notify_fd, const int wd)
+	: notify_fd_(notify_fd), wd_(wd) {}
+	
+	~AutoRemoveNotifyWatch() {
+		inotify_rm_watch(notify_fd_, wd_);
+	}
+	
+	int notify_fd_ = -1;
+	int wd_ = -1;
+};
 
 struct WatchArgs {
 	i32 dir_id = 0;
@@ -69,28 +83,41 @@ void InsertFile(io::File *new_file, QVector<io::File*> &files_vec,
 	files_vec.insert(*inserted_at, new_file);
 }
 
-void ReadEvent(int inotify_fd, char *buf, cornus::io::Files *files,
+void ReadEvent(const int inotify_fd, char *buf, cornus::io::Files *files,
 	bool &has_been_unmounted_or_deleted,
 	const bool with_hidden_files,
 	cornus::gui::TableModel *model,
 	const int dir_id,
 	const int wd)
 {
+//#define CORNUS_DEBUG_INOTIFY
+#ifdef CORNUS_DEBUG_INOTIFY
+	mtl_info("thread %ld, wd: %d, dir_id: %d", i64(pthread_self()), wd, dir_id);
+#endif
 	const ssize_t num_read = read(inotify_fd, buf, kInotifyEventBufLen);
 	if (num_read <= 0) {
 		if (num_read == -1)
 			mtl_status(errno);
 		return;
 	}
+	
+	if (has_been_unmounted_or_deleted) {
+		mtl_trace();
+		return;
+	}
+	
 	const auto ConnectionType = Qt::BlockingQueuedConnection;
 	ssize_t add = 0;
 	struct statx stx;
 	
-	for (char *p = buf; p < buf + num_read; p += add) {
+	for (char *p = buf; p < buf + num_read; p += add)
+	{
 		struct inotify_event *ev = (struct inotify_event*) p;
 		add = sizeof(struct inotify_event) + ev->len;
-		if (ev->wd != wd)
+		if (ev->wd != wd) {
+			mtl_trace("wd %d vs %d", ev->wd, wd);
 			continue;
+		}
 		const auto mask = ev->mask;
 		const bool is_dir = mask & IN_ISDIR;
 		
@@ -259,6 +286,9 @@ mtl_trace("IN_CLOSE: %s", ev->name);
 			mtl_warn("Unhandled inotify event: %u", mask);
 		}
 	}
+#ifdef CORNUS_DEBUG_INOTIFY
+	mtl_trace("ReadEvent() end of thread %ld", i64(pthread_self()));
+#endif
 }
 
 void* WatchDir(void *void_args)
@@ -268,42 +298,45 @@ void* WatchDir(void *void_args)
 	
 	WatchArgs *args = (WatchArgs*)void_args;
 	Tab *tab = args->table_model->tab();
+	App *app = tab->app();
+	const i64 files_id = tab->files_id();
 	AutoDelete ad_args(args);
 	char *buf = new char[kInotifyEventBufLen];
 	AutoDeleteArr ad_arr(buf);
-	io::Notify &notify = args->table_model->app()->notify();
+	const int notify_fd = inotify_init();
+	cornus::AutoCloseFd notify_close(notify_fd);
 	
 	const auto path = args->dir_path.toLocal8Bit();
 	const auto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE
 		| IN_DELETE_SELF | IN_MOVE_SELF | IN_CLOSE_WRITE
 		| IN_MOVE | IN_MODIFY;
-	const int wd = inotify_add_watch(notify.fd, path.data(), event_types);
+	const int wd = inotify_add_watch(notify_fd, path.data(), event_types);
 	
 	if (wd == -1) {
 		mtl_status(errno);
 		return nullptr;
 	}
+	AutoRemoveNotifyWatch auto_remove_watch(notify_fd, wd);
+//	mtl_info("Thread %ld, wd: %d, path: %s", i64(pthread_self()), wd, path.data());
+	const int poll_fd = epoll_create(1);
 	
-	AutoRemoveWatch arw(notify, wd);
-	int epfd = epoll_create(1);
-	
-	if (epfd == -1) {
+	if (poll_fd == -1) {
 		mtl_status(errno);
 		return 0;
 	}
-	
+	AutoCloseFd poll_fd___(poll_fd);
 	struct epoll_event poll_event = {};
 	poll_event.events = EPOLLIN;
-	poll_event.data.fd = notify.fd;
+	poll_event.data.fd = notify_fd;
 	
-	if (epoll_ctl(epfd, EPOLL_CTL_ADD, notify.fd, &poll_event)) {
+	if (epoll_ctl(poll_fd, EPOLL_CTL_ADD, notify_fd, &poll_event)) {
 		mtl_status(errno);
-		close(epfd);
+		close(poll_fd);
 		return nullptr;
 	}
 	
 	const int seconds = 1 * 1000;
-	io::Files &files = tab->view_files();
+	io::Files &files = *app->files(files_id);
 	
 	while (true)
 	{
@@ -317,10 +350,10 @@ void* WatchDir(void *void_args)
 				break;
 		}
 		
-		int event_count = epoll_wait(epfd, &poll_event, 1, seconds);
-		bool with_hidden_files = false;
+		int event_count = epoll_wait(poll_fd, &poll_event, 1, seconds);
+		bool with_hidden_files;
 		{
-			MutexGuard guard(&files.mutex);
+			MutexGuard guard = files.guard();
 			with_hidden_files = files.data.show_hidden_files();
 			
 			if (files.data.thread_must_exit())
@@ -339,18 +372,21 @@ void* WatchDir(void *void_args)
 		}
 		
 		if (has_been_unmounted_or_deleted) {
-			arw.RemoveWatch(wd);
+//			arw.RemoveWatch(wd);
 			break;
 		}
 	}
 	
-	close(epfd);
 	{
 		MutexGuard guard = files.guard();
-		files.data.thread_exited(true);
-		files.Signal();
+		if (args->dir_id == files.data.dir_id)
+		{
+			files.data.thread_exited(true);
+			files.Signal();
+		}
 	}
 	
+//	mtl_trace("Thread %ld exited", i64(pthread_self()));
 	return nullptr;
 }
 
@@ -364,7 +400,7 @@ void TableModel::DeleteSelectedFiles()
 	ByteArray *ba = new ByteArray();
 	ba->set_msg_id(io::Message::DeleteFiles);
 	{
-		io::Files &files = tab_->view_files();
+		io::Files &files = *app_->files(tab_->files_id());
 		MutexGuard guard = files.guard();
 		
 		for (io::File *next: files.data.vec) {
@@ -444,7 +480,7 @@ QVariant TableModel::headerData(int section_i, Qt::Orientation orientation, int 
 
 void TableModel::InotifyEvent(gui::FileEvent evt)
 {
-	auto &files = tab_->view_files();
+	auto &files = *app_->files(tab_->files_id());
 	{
 		MutexGuard guard = files.guard();
 		if (evt.dir_id != files.data.dir_id)
@@ -569,7 +605,7 @@ found the new file, selected and scrolled to it). */
 
 bool TableModel::InsertRows(const i32 at, const QVector<cornus::io::File*> &files_to_add)
 {
-	io::Files &files = tab_->view_files();
+	io::Files &files = *app_->files(tab_->files_id());
 	{
 		MutexGuard guard = files.guard();
 		
@@ -603,7 +639,7 @@ bool TableModel::removeRows(int row, int count, const QModelIndex &parent)
 	CHECK_TRUE((count == 1));
 	const int first = row;
 	const int last = row + count - 1;
-	io::Files &files = tab_->view_files();
+	io::Files &files = *app_->files(tab_->files_id());
 	
 	beginRemoveRows(QModelIndex(), first, last);
 	{
@@ -625,7 +661,7 @@ bool TableModel::removeRows(int row, int count, const QModelIndex &parent)
 
 void TableModel::SwitchTo(io::FilesData *new_data)
 {
-	io::Files &files = tab_->view_files();
+	io::Files &files = *app_->files(tab_->files_id());
 	int prev_count, new_count;
 	{
 		MutexGuard guard = files.guard();
@@ -647,7 +683,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 	beginInsertRows(QModelIndex(), 0, new_count - 1);
 	i32 dir_id;
 	{
-		MutexGuard guard(&files.mutex);
+		MutexGuard guard = files.guard();
 		dir_id = ++files.data.dir_id;
 		files.data.processed_dir_path = new_data->processed_dir_path;
 		/// copying sorting order is logically wrong because it overwrites

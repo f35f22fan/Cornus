@@ -254,7 +254,7 @@ void SearchPane::DeselectAll()
 	gui::Tab *tab = app_->tab();
 	QVector<int> indices;
 	{
-		auto &files = tab->view_files();
+		auto &files = *app_->files(tab->files_id());
 		MutexGuard guard = files.guard();
 		auto &vec = files.data.vec;
 		int i = 0;
@@ -284,7 +284,7 @@ void SearchPane::DoSearch(const QString *search_str)
 	bool found_current = false;
 	QVector<int> indices;
 	{
-		auto &files = tab->view_files();
+		auto &files = *app_->files(tab->files_id());
 		MutexGuard guard = files.guard();
 		auto &vec = files.data.vec;
 		int i = 0;
@@ -459,7 +459,7 @@ void SearchPane::ScrollToNext(const Direction dir)
 	gui::Tab *tab = app_->tab();
 	QVector<int> indices;
 	{
-		auto &files = tab->view_files();
+		auto &files = *app_->files(tab->files_id());
 		MutexGuard guard = files.guard();
 		auto &vec = files.data.vec;
 		

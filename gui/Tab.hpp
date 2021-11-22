@@ -34,6 +34,7 @@ public:
 	App* app() const { return app_; }
 	void CreateGui();
 	const QString& current_dir() const { return current_dir_; }
+	i64 files_id() const { return files_id_; }
 	
 	void GoBack();
 	void GoForward();
@@ -51,7 +52,6 @@ public:
 	
 	gui::Table* table() const { return table_; }
 	gui::TableModel* table_model() const { return table_model_; }
-	io::Files& view_files() { return view_files_; }
 	
 	bool ViewIsAt(const QString &dir_path) const;
 	
@@ -69,7 +69,7 @@ private:
 	
 	gui::Table *table_ = nullptr; // owned by QMainWindow
 	gui::TableModel *table_model_ = nullptr; // owned by table_
-	mutable io::Files view_files_ = {};
+	i64 files_id_ = -1;
 	QString title_;
 	QString current_dir_;
 };

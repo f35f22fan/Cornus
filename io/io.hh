@@ -107,32 +107,13 @@ inline Message MessageForMany(const Qt::DropActions action)
 
 const auto ExecBits = S_IXUSR | S_IXGRP | S_IXOTH;
 
-struct Notify {
-	int fd = -1;
-/** Why a map? => inotify_add_watch() only adds a new watch if
-there's no previous watch watching the same location, otherwise it
-returns an existing descriptor which is likely used by some other code.
-Therefore the following bug can happen:
-if two code paths register/watch the same location thru the same
-inotify instance at the same time and one of them removes the
-watch - the other code path will also lose ability to watch that
-same location. That's quite a subtle bug. Therefore use a map that
-acts like a refcounter: when a given watch FD goes to zero it's OK
-to remove it, otherwise just decrease it by 1.*/
-	QMap<int, int> watches;
-	pthread_mutex_t watches_mutex = PTHREAD_MUTEX_INITIALIZER;
-	QVector<const char*> MaskToString(const u32 mask);
-	void Close();
-	void Init();
-};
-
 struct FilesData {
 	static const u16 ShowHiddenFiles = 1u << 0;
 	static const u16 ThreadMustExit = 1u << 1;
 	static const u16 ThreadExited = 1u << 2;
 	
 	FilesData() {}
-	~FilesData() {}
+	~FilesData();
 	FilesData(const FilesData &rhs) = delete;
 	std::chrono::time_point<std::chrono::steady_clock> start_time;
 	QVector<io::File*> vec;
@@ -199,6 +180,10 @@ struct Files {
 	
 	inline int Unlock() {
 		return pthread_mutex_unlock(&mutex);
+	}
+	
+	inline int CondWait() {
+		return pthread_cond_wait(&cond, &mutex);
 	}
 };
 

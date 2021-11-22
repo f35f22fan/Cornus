@@ -6,6 +6,7 @@
 #include "err.hpp"
 #include "io/decl.hxx"
 #include "io/io.hh"
+#include "io/Notify.hpp"
 #include "gui/decl.hxx"
 #include "TreeData.hpp"
 
@@ -35,15 +36,18 @@ public:
 	void AskCreateNewFile(io::File *file, const QString &title);
 	const Clipboard& clipboard() { return clipboard_; }
 	i32 current_dir_id() const;
+	void DeleteFilesById(const i64 id);
 	Category desktop() const { return desktop_; }
 	void DisplayFileContents(const int row, io::File *cloned_file = nullptr);
 	void EditSelectedMovieTitle();
 	void ExtractAskDestFolder();
 	void ExtractTo(const QString &to_dir);
 	void FileDoubleClicked(io::File *file, const gui::Column col);
+	io::Files* files(const i64 files_id) const;
 	QIcon* GetIcon(const QString &str);
 	QIcon* GetFileIcon(io::File *file);
 	QString GetPartitionFreeSpace();
+	i64 GenNextFilesId();
 	
 	void GoUp();
 	GuiBits& gui_bits() { return gui_bits_; }
@@ -162,6 +166,15 @@ private:
 	QTabWidget *tab_widget_ = nullptr;
 	cornus::GuiBits gui_bits_ = {};
 	io::Notify notify_ = {};
+	
+	/* tabs' inotify threads keep running for a while after tabs get deleted,
+	and they (the threads) need to keep accessing tab's files & mutexes which
+	otherwise get deleted with the tabs, hence keep them here and
+	only delete them after the corresponding thread exits */
+	// ==> start
+	QHash<i64, io::Files*> files_;
+	i64 next_files_id_ = 0;
+	// <== end
 	
 	friend class cornus::gui::Table;
 };

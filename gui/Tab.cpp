@@ -80,7 +80,7 @@ void* GoToTh(void *p)
 		params->dir_path.path.append('/');
 	
 	io::FilesData *new_data = new io::FilesData();
-	io::Files &view_files = tab->view_files();
+	io::Files &view_files = *app->files(tab->files_id());
 	{
 		MutexGuard guard = view_files.guard();
 		new_data->sorting_order = view_files.data.sorting_order;
@@ -145,6 +145,7 @@ Tab::~Tab()
 	delete table_;
 	delete history_;
 	history_ = nullptr;
+	app_->DeleteFilesById(files_id_);
 }
 
 void Tab::CreateGui()
@@ -210,7 +211,7 @@ void Tab::GoToFinish(cornus::io::FilesData *new_data)
 	AutoDelete ad(new_data);
 	int count = new_data->vec.size();
 	table_->ClearMouseOver();
-/// current_dir_ must be assigned to before model->SwitchTo
+/// current_dir_ must be assigned before model->SwitchTo
 /// otherwise won't properly show current partition's free space
 	current_dir_ = new_data->processed_dir_path;
 	app_->tree_view()->MarkCurrentPartition(new_data->processed_dir_path);
@@ -357,36 +358,9 @@ void Tab::GrabFocus() {
 	table_->setFocus();
 }
 
-void Tab::ShutdownLastInotifyThread()
-{
-	auto &files = view_files();
-	files.Lock();
-#ifdef CORNUS_WAITED_FOR_WIDGETS
-	auto start_time = std::chrono::steady_clock::now();
-#endif
-	files.data.thread_must_exit(true);
-	
-	while (!files.data.thread_exited()) {
-		int status = pthread_cond_wait(&files.cond, &files.mutex);
-		if (status != 0) {
-			mtl_status(status);
-			break;
-		}
-	}
-	
-	files.Unlock();
-	
-#ifdef CORNUS_WAITED_FOR_WIDGETS
-	auto now = std::chrono::steady_clock::now();
-	const float elapsed = std::chrono::duration<float,
-		std::chrono::milliseconds::period>(now - start_time).count();
-	
-	mtl_info("Waited for thread termination: %.1f ms", elapsed);
-#endif
-}
-
 void Tab::Init()
 {
+	files_id_ = app_->GenNextFilesId();
 	history_ = new History(app_);
 	CreateGui();
 }
@@ -405,12 +379,43 @@ void Tab::SetTitle(const QString &s)
 	w->setTabText(index, short_title);
 }
 
+void Tab::ShutdownLastInotifyThread()
+{
+	io::Files *p = app_->files(files_id_);
+	CHECK_PTR_VOID(p);
+	auto &files = *p;
+	files.Lock();
+#ifdef CORNUS_WAITED_FOR_WIDGETS
+	auto start_time = std::chrono::steady_clock::now();
+#endif
+	files.data.thread_must_exit(true);
+	
+	while (!files.data.thread_exited())
+	{
+		int status = files.CondWait();
+		if (status != 0) {
+			mtl_status(status);
+			break;
+		}
+	}
+	
+	files.Unlock();
+#ifdef CORNUS_WAITED_FOR_WIDGETS
+	auto now = std::chrono::steady_clock::now();
+	const float elapsed = std::chrono::duration<float,
+		std::chrono::milliseconds::period>(now - start_time).count();
+	
+	mtl_info("Waited for thread termination: %.1f ms", elapsed);
+#endif
+}
+
 bool Tab::ViewIsAt(const QString &dir_path) const
 {
 	QString old_dir_path;
 	{
-		MutexGuard guard = view_files_.guard();
-		old_dir_path = view_files_.data.processed_dir_path;
+		auto &files = *app_->files(files_id_);
+		MutexGuard guard = files.guard();
+		old_dir_path = files.data.processed_dir_path;
 	}
 	
 	if (old_dir_path.isEmpty()) {

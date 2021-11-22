@@ -22,6 +22,14 @@
 
 namespace cornus::io {
 
+FilesData::~FilesData()
+{
+	for (auto *next: vec) {
+		delete next;
+	}
+	vec.clear();
+}
+
 media::ShortData* DecodeShort(ByteArray &ba)
 {
 	ba.to(0);
@@ -83,73 +91,6 @@ media::ShortData* DecodeShort(ByteArray &ba)
 	}
 	
 	return p;
-}
-
-void Notify::Init()
-{
-	if (fd == -1)
-	{
-		fd = inotify_init();
-		if (fd == -1)
-			mtl_status(errno);
-	}
-}
-
-void Notify::Close()
-{
-	if (fd != -1 && pthread_mutex_lock(&watches_mutex) == 0) {
-		close(fd);
-		fd = -1;
-		pthread_mutex_unlock(&watches_mutex);
-	}
-}
-
-QVector<const char*>
-Notify::MaskToString(const u32 mask)
-{
-	QVector<const char*> v;
-	if (mask & IN_ACCESS)
-		v.append("IN_ACCESS");
-	if (mask & IN_OPEN)
-		v.append("IN_OPEN");
-	if (mask & IN_CREATE)
-		v.append("IN_CREATE");
-	if (mask & IN_DELETE)
-		v.append("IN_DELETE");
-	if (mask & IN_DELETE_SELF)
-		v.append("IN_DELETE_SELF");
-	if (mask & IN_MOVE_SELF)
-		v.append("IN_MOVE_SELF");
-	if (mask & IN_MOVED_FROM)
-		v.append("IN_MOVED_FROM");
-	if (mask & IN_MOVED_TO)
-		v.append("IN_MOVED_TO");
-	if (mask & IN_Q_OVERFLOW)
-		v.append("IN_Q_OVERFLOW");
-	if (mask & IN_UNMOUNT)
-		v.append("IN_UNMOUNT");
-	if (mask & IN_CLOSE_NOWRITE)
-		v.append("IN_CLOSE_NOWRITE");
-	if (mask & IN_CLOSE_WRITE)
-		v.append("IN_CLOSE_WRITE");
-	if (mask & IN_IGNORED)
-		v.append("IN_IGNORED");
-	if (mask & IN_DONT_FOLLOW)
-		v.append("IN_DONT_FOLLOW");
-	if (mask & IN_MASK_ADD)
-		v.append("IN_MASK_ADD");
-	if (mask & IN_ONESHOT)
-		v.append("IN_ONESHOT");
-	if (mask & IN_ONLYDIR)
-		v.append("IN_ONLYDIR");
-	if (mask & IN_MASK_CREATE)
-		v.append("IN_MASK_CREATE");
-	if (mask & IN_ISDIR)
-		v.append("IN_ISDIR");
-	if (mask & IN_Q_OVERFLOW)
-		v.append("IN_Q_OVERFLOW");
-	
-	return v;
 }
 
 static int CompareDigits(QStringRef a, QStringRef b)

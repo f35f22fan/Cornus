@@ -6,6 +6,7 @@
 #include "../decl.hxx"
 #include "../err.hpp"
 #include "io.hh"
+#include "Notify.hpp"
 
 #include <QMenu>
 #include <QMimeDatabase>

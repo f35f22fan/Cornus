@@ -22,6 +22,11 @@ class TreeItems;
 const QString AppIconPath = QLatin1String(":/cornus.mas.png");
 const char *const SocketPath = "\0cornus_socket";
 
+enum class FirstTime: i8 {
+	No,
+	Yes
+};
+
 enum class Present: i8 {
 	Yes,
 	No

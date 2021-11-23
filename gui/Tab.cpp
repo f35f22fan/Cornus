@@ -214,7 +214,6 @@ void Tab::GoToFinish(cornus::io::FilesData *new_data)
 /// current_dir_ must be assigned before model->SwitchTo
 /// otherwise won't properly show current partition's free space
 	current_dir_ = new_data->processed_dir_path;
-	app_->tree_view()->MarkCurrentPartition(new_data->processed_dir_path);
 	table_model_->SwitchTo(new_data);
 	history_->Add(new_data->action, current_dir_);
 	
@@ -244,8 +243,7 @@ void Tab::GoToFinish(cornus::io::FilesData *new_data)
 	} else {
 		SetTitle(dir_name);
 	}
-	setWindowTitle(title() + QLatin1String(" - Cornus"));
-	app_->location()->SetLocation(new_data->processed_dir_path);
+	app_->SelectCurrentTab();
 }
 
 void Tab::GoToInitialDir()

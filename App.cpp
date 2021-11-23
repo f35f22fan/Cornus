@@ -176,15 +176,13 @@ App::App()
 	prefs_ = new Prefs(this);
 	prefs_->Load();
 	
-	gui::Tab *tab = new gui::Tab(this);
 	{
 		tab_widget_ = new QTabWidget();
 		tab_widget_->setTabsClosable(true);
-		tab_widget_->addTab(tab, QString("Label"));
 		tab_widget_->setTabBarAutoHide(true);
-		tab->GoToInitialDir();
 		connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &App::DeleteTabAt);
 		connect(tab_widget_, &QTabWidget::currentChanged, this, &App::TabSelected);
+		OpenNewTab(cornus::FirstTime::Yes);
 	}
 	
 	SetupIconNames();
@@ -535,7 +533,9 @@ void App::CreateGui()
 		QIcon icon = QIcon::fromTheme(QLatin1String("window-new"));
 		QToolButton *btn = new QToolButton();
 		btn->setIcon(icon);
-		connect(btn, &QAbstractButton::clicked, this, &App::OpenNewTab);
+		connect(btn, &QAbstractButton::clicked, [=] () {
+			OpenNewTab();
+		});
 		tab_widget_->setCornerWidget(btn, Qt::TopRightCorner);
 	}
 }
@@ -1055,13 +1055,19 @@ void App::MediaFileChanged()
 	Q_EMIT media_->Changed();
 }
 
-void App::OpenNewTab()
+gui::Tab* App::OpenNewTab(const cornus::FirstTime ft)
 {
 	gui::Tab *tab = new gui::Tab(this);
 	tab_widget_->addTab(tab, QString());
-	tab_widget_->setCurrentWidget(tab);
-	tab->setVisible(true);
-	tab->GoHome();
+	if (ft == FirstTime::Yes) {
+		tab->GoToInitialDir();
+	} else {
+		tab->setVisible(true);
+		tab->GoHome();
+		tab_widget_->setCurrentWidget(tab);
+	}
+	
+	return tab;
 }
 
 void App::OpenTerminal() {
@@ -1656,6 +1662,11 @@ void App::SaveBookmarks()
 	}
 }
 
+void App::SelectCurrentTab()
+{
+	TabSelected(tab_widget_->currentIndex());
+}
+
 void App::SetupIconNames()
 {
 	const QString folder_name = QLatin1String("file_icons");
@@ -1740,10 +1751,15 @@ gui::Tab* App::tab() const
 
 void App::TabSelected(const int index)
 {
+	if (location_ == nullptr) {
+		return;
+	}
 	gui::Tab *tab = (gui::Tab*)tab_widget_->widget(index);
 	const QString &path = tab->current_dir();
 	location_->SetLocation(path);
 	tree_view_->MarkCurrentPartition(path);
+	const QString s = tab->title() + QLatin1String(" - Cornus");
+	setWindowTitle(s);
 }
 
 void App::TellUser(const QString &msg, const QString title) {

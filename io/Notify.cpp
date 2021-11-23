@@ -82,7 +82,7 @@ AutoRemoveWatch::~AutoRemoveWatch()
 	MutexGuard guard = notify_.guard();
 	const bool contains_wd = notify_.watches.contains(wd_);
 	const int count_subtracted = notify_.watches.value(wd_) - 1;
-		
+	
 	if (count_subtracted > 0) {
 		notify_.watches[wd_] = count_subtracted;
 		return;

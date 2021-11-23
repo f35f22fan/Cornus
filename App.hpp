@@ -75,6 +75,7 @@ public:
 	void RenameSelectedFile();
 	void RunExecutable(const QString &full_path, const ExecInfo &info);
 	void SaveBookmarks();
+	void SelectCurrentTab();
 	bool ShowInputDialog(const gui::InputDialogParams &params, QString &ret_val);
 	
 	gui::Tab* tab() const; // returns current tab
@@ -116,7 +117,7 @@ private:
 	QString GetIconThatStartsWith(const QString &trunc);
 	QIcon *LoadIcon(io::File &file);
 	void LoadIconsFrom(QString dir_path);
-	void OpenNewTab();
+	gui::Tab *OpenNewTab(const cornus::FirstTime ft = FirstTime::No);
 	void OpenWithDefaultApp(const QString &full_path) const;
 	void ProcessAndWriteTo(const QString ext,
 		const QString &from_full_path, QString to_dir);

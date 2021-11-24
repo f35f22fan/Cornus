@@ -9,8 +9,15 @@ Building on Ubuntu:
 * cmake ..
 * make -j4
 
-##### Application Shortcuts:
+The file browser executable is "cornus", "cornus_io" is the IO server that is started automatically when needed.
+To have a desktop icon - update the file at export/cornus_mas.desktop (specifically its "Icon" and "Exec" fields) according to where you have the "cornus" executable and copy this file to your desktop folder.
 
+##### Big TODO items:
+* Implement MTP to deal with Android devices
+* Improve the IO server GUI pane.
+
+##### Application Shortcuts:
+* Ctrl+T => Open new tab
 * Alt+Up => Move one directory up
 * Ctrl+H => Toggle show hidden files
 * Ctrl+Q => Quit app

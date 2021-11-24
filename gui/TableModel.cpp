@@ -20,19 +20,6 @@
 
 namespace cornus::gui {
 
-class AutoRemoveNotifyWatch {
-public:
-	AutoRemoveNotifyWatch(const int notify_fd, const int wd)
-	: notify_fd_(notify_fd), wd_(wd) {}
-	
-	~AutoRemoveNotifyWatch() {
-		inotify_rm_watch(notify_fd_, wd_);
-	}
-	
-	int notify_fd_ = -1;
-	int wd_ = -1;
-};
-
 struct WatchArgs {
 	i32 dir_id = 0;
 	QString dir_path;
@@ -115,7 +102,7 @@ void ReadEvent(const int inotify_fd, char *buf, cornus::io::Files *files,
 		struct inotify_event *ev = (struct inotify_event*) p;
 		add = sizeof(struct inotify_event) + ev->len;
 		if (ev->wd != wd) {
-			mtl_trace("wd %d vs %d", ev->wd, wd);
+			//mtl_trace("wd %d vs %d", ev->wd, wd);
 			continue;
 		}
 		const auto mask = ev->mask;
@@ -303,8 +290,8 @@ void* WatchDir(void *void_args)
 	AutoDelete ad_args(args);
 	char *buf = new char[kInotifyEventBufLen];
 	AutoDeleteArr ad_arr(buf);
-	const int notify_fd = inotify_init();
-	cornus::AutoCloseFd notify_close(notify_fd);
+	io::Notify &notify = tab->notify();
+	const int notify_fd = notify.fd;
 	
 	const auto path = args->dir_path.toLocal8Bit();
 	const auto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE
@@ -316,7 +303,8 @@ void* WatchDir(void *void_args)
 		mtl_status(errno);
 		return nullptr;
 	}
-	AutoRemoveNotifyWatch auto_remove_watch(notify_fd, wd);
+	
+	io::AutoRemoveWatch auto____(notify, wd);
 //	mtl_info("Thread %ld, wd: %d, path: %s", i64(pthread_self()), wd, path.data());
 	const int poll_fd = epoll_create(1);
 	

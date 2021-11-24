@@ -5,6 +5,7 @@
 #include "../err.hpp"
 #include "../io/decl.hxx"
 #include "../io/io.hh"
+#include "../io/Notify.hpp"
 
 #include <QTabBar>
 
@@ -48,6 +49,7 @@ public:
 	
 	void GrabFocus();
 	History* history() const { return history_; }
+	io::Notify& notify() { return notify_; }
 	void ShutdownLastInotifyThread();
 	
 	gui::Table* table() const { return table_; }
@@ -66,6 +68,7 @@ private:
 	
 	App *app_ = nullptr;
 	History *history_ = nullptr;
+	io::Notify notify_;
 	
 	gui::Table *table_ = nullptr; // owned by QMainWindow
 	gui::TableModel *table_model_ = nullptr; // owned by table_

@@ -1758,7 +1758,7 @@ void App::TabSelected(const int index)
 	const QString &path = tab->current_dir();
 	location_->SetLocation(path);
 	tree_view_->MarkCurrentPartition(path);
-	const QString s = tab->title() + QLatin1String(" - Cornus");
+	const QString s = tab->title() + QString(" — Cornus");
 	setWindowTitle(s);
 }
 

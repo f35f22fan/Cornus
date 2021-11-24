@@ -143,6 +143,7 @@ Tab::~Tab()
 	/// into prefs().show_free_partition_space() in TableModel::GetName()
 	ShutdownLastInotifyThread();
 	delete table_;
+	notify_.Close();
 	delete history_;
 	history_ = nullptr;
 	app_->DeleteFilesById(files_id_);
@@ -203,9 +204,6 @@ void Tab::GoToFinish(cornus::io::FilesData *new_data)
 	if (new_data->action != Action::Back)
 	{
 		history_->Record();
-		for (auto &next: history_->recorded()) {
-			mtl_printq2("recorded: ", next);
-		}
 	}
 	
 	AutoDelete ad(new_data);
@@ -358,6 +356,7 @@ void Tab::GrabFocus() {
 
 void Tab::Init()
 {
+	notify_.Init();
 	files_id_ = app_->GenNextFilesId();
 	history_ = new History(app_);
 	CreateGui();

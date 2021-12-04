@@ -12,7 +12,7 @@ TasksWin::TasksWin()
 {
 	CreateGui();
 	setWindowIcon(QIcon(cornus::AppIconPath));
-	setWindowTitle("I/O");
+	setWindowTitle("Cornus I/O Daemon");
 	QList<QScreen*> screens = QGuiApplication::screens();
 	if (!screens.isEmpty()) {
 		screen_sz_ = screens[0]->availableSize();
@@ -21,6 +21,7 @@ TasksWin::TasksWin()
 	}
 	
 	win_w_ = std::max(800, screen_sz_.width() / 3);
+	resize(win_w_, 100);
 }
 
 TasksWin::~TasksWin() {

@@ -12,7 +12,6 @@ ByteArray::ByteArray(const ByteArray &rhs)
 	add(rhs.data(), rhs.size());
 	at_ = 0;
 }
-
 ByteArray::~ByteArray()
 {
 	Clear();
@@ -101,6 +100,12 @@ void ByteArray::alloc(const isize n)
 {
 	make_sure(n);
 	size_ = n;
+}
+
+ByteArray ByteArray::From(const QString &s) {
+	ByteArray ba;
+	ba.add_string(s);
+	return ba;
 }
 
 void ByteArray::make_sure(const isize more_bytes, const bool exact_size)

@@ -161,7 +161,6 @@ App::App()
 	qRegisterMetaType<QVector<cornus::gui::TreeItem*>>();
 	qDBusRegisterMetaType<QMap<QString, QVariant>>();
 	media_ = new Media();
-	notify_.Init();
 	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, gui::sidepane::LoadItems, this);
@@ -241,8 +240,6 @@ App::~App()
 	
 	delete media_;
 	media_ = nullptr;
-	
-	notify_.Close();
 }
 
 void App::ArchiveAskDestArchivePath(const QString &ext)
@@ -1383,6 +1380,20 @@ void App::RegisterShortcuts()
 		connect(shortcut, &QShortcut::activated, this, &App::GoUp);
 	}
 	{
+		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_U), this);
+		shortcut->setContext(Qt::ApplicationShortcut);
+		connect(shortcut, &QShortcut::activated, [=] {
+//			tab()->UndoDelete(0); // 0 = most recent batch, -1 = all
+		});
+	}
+	{
+		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_O), this);
+		shortcut->setContext(Qt::ApplicationShortcut);
+		connect(shortcut, &QShortcut::activated, [=] {
+			OpenTerminal();
+		});
+	}
+	{
 		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_0), this);
 		shortcut->setContext(Qt::ApplicationShortcut);
 		connect(shortcut, &QShortcut::activated, [=] {
@@ -1431,7 +1442,7 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
 		connect(shortcut, &QShortcut::activated, [=] {
-			tab()->table_model()->DeleteSelectedFiles();
+			tab()->table_model()->DeleteSelectedFiles(ShiftPressed::Yes);
 		});
 	}
 	{

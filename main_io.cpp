@@ -18,9 +18,11 @@
 #include "decl.hxx"
 #include "err.hpp"
 #include "io/decl.hxx"
+#include "io/io.hh"
 #include "io/Server.hpp"
 #include "io/socket.hh"
 #include "io/Task.hpp"
+#include "trash.hh"
 #include "gui/TasksWin.hpp"
 #include "MyDaemon.hpp"
 
@@ -34,6 +36,29 @@ struct args_data {
 	io::Server *server = nullptr;
 	int fd = -1;
 };
+
+void* PutTrashInGlobalGitignore(void *args)
+{
+	pthread_detach(pthread_self());
+	
+	QString gitignore_path = trash::gitignore_global_path();
+	
+	if (gitignore_path.isEmpty())
+	{
+		gitignore_path = trash::CreateGlobalGitignore();
+		trash::gitignore_global_path(&gitignore_path);
+		mtl_printq2("New global gitignore ", trash::gitignore_global_path());
+	} else {
+		CHECK_TRUE_NULL(io::EnsureRegularFile(gitignore_path));
+	}
+	
+	if (!io::FileContentsContains(gitignore_path, trash::basename_regex())) {
+		CHECK_TRUE_NULL(trash::AddTrashNameToGitignore(gitignore_path));
+		mtl_info("Added %s to global gitignore", qPrintable(trash::basename_regex()));
+	}
+	
+	return nullptr;
+}
 
 void* ProcessRequest(void *ptr)
 {
@@ -214,10 +239,16 @@ int main(int argc, char *argv[])
 	cornus::io::Server *server = new cornus::io::Server();
 	cornus::AutoDelete server___(server);
 	
-	pthread_t th;
-	int status = pthread_create(&th, NULL, cornus::ListenTh, server);
-	if (status != 0)
-		mtl_status(status);
+	{
+		pthread_t th;
+		int status = pthread_create(&th, NULL, cornus::ListenTh, server);
+		if (status != 0)
+			mtl_status(status);
+		
+		status = pthread_create(&th, NULL, cornus::PutTrashInGlobalGitignore, NULL);
+		if (status != 0)
+			mtl_status(status);
+	}
 	
 	cornus::io::ServerLife &life = server->life();
 	int ret;

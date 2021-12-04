@@ -30,7 +30,9 @@ public:
 	bool DeleteFromDisk();
 	
 	File* Clone() const;
-	
+	void CopyBits(File *rhs) {
+		bits_ = rhs->bits_;
+	}
 	QString build_full_path() const;
 	FileCache& cache() { return cache_; }
 	void ClearCache();
@@ -62,8 +64,9 @@ public:
 	inline void toggle_flag(const FileBits flag, const bool do_add) {
 		if (do_add)
 			bits_ |= flag;
-		else
+		else {
 			bits_ &= ~flag;
+		}
 	}
 	
 	const FileBits AllActions = FileBits::ActionCopy | FileBits::ActionCut |
@@ -104,7 +107,9 @@ public:
 	}
 	
 	bool selected() const { return (bits_ & FileBits::Selected) != FileBits::Empty; }
-	void selected(const bool add) { toggle_flag(FileBits::Selected, add); }
+	void selected(const bool add) {
+		toggle_flag(FileBits::Selected, add);
+	}
 	
 	bool selected_by_search() const { return (bits_ & FileBits::SelectedBySearch) != FileBits::Empty; }
 	void selected_by_search(const bool add) { toggle_flag(FileBits::SelectedBySearch, add); }

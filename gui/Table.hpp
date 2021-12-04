@@ -58,7 +58,7 @@ public:
 	void ScrollToRow(int row);
 	void ScrollToAndSelectRow(const int row, const bool deselect_others);
 	void SelectAllFilesNTS(const bool flag, QVector<int> &indices);
-	void SelectByLowerCase(QVector<QString> filenames);
+	void SelectByLowerCase(QVector<QString> filenames, const NamesAreLowerCase are_lower);
 	void SelectRowSimple(const int row, const bool deselect_others = false);
 	void ShowVisibleColumnOptions(QPoint pos);
 	void SyncWith(const cornus::Clipboard &cl, QVector<int> &indices);
@@ -141,6 +141,7 @@ private:
 	QVector<int> indices_;
 	OpenWith open_with_ = {};
 	TableHeader *header_ = nullptr;
+	QMenu *undo_delete_menu_ = nullptr;
 };
 
 } // cornus::gui::

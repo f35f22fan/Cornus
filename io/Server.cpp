@@ -498,7 +498,6 @@ void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 	reply.Send(fd);
 }
 
-
 void Server::SendOpenWithList(QString mime, const int fd)
 {
 	QVector<DesktopFile*> show_vec;
@@ -522,12 +521,13 @@ void Server::SendOpenWithList(QString mime, const int fd)
 
 void Server::SysTrayClicked()
 {
-	static bool flag = true;
-	tasks_win_->setVisible(flag);
-	if (flag) {
-		tasks_win_->raise();
-	}
-	flag = !flag;
+//	static bool flag = true;
+//	tasks_win_->setVisible(flag);
+//	if (flag) {
+//		tasks_win_->raise();
+//	}
+//	flag = !flag;
+	tasks_win_->setVisible(!tasks_win_->isVisible());
 }
 
 void Server::SetTrayVisible(const bool yes)

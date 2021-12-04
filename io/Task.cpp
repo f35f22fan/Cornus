@@ -4,6 +4,7 @@
 #include "../ByteArray.hpp"
 #include "File.hpp"
 #include "io.hh"
+#include "../trash.hh"
 
 #include <QObject>
 
@@ -381,7 +382,9 @@ Task* Task::From(cornus::ByteArray &ba)
 	auto *task = new Task();
 	task->ops_ = ba.next_u32();
 	
-	if (task->ops_ != (io::MessageType)io::Message::DeleteFiles) {
+	if (task->ops_ != (io::MessageType)io::Message::DeleteFiles &&
+		task->ops_ != (io::MessageType)io::Message::MoveToTrash)
+	{
 		task->to_dir_path_ = ba.next_string();
 	}
 	
@@ -390,6 +393,34 @@ Task* Task::From(cornus::ByteArray &ba)
 	}
 	
 	return task;
+}
+
+void Task::MoveToTrash()
+{
+	if (file_paths_.isEmpty())
+		return;
+	
+	QString trash_path = trash::EnsureTrashForFile(file_paths_[0]);
+	if (trash_path.isEmpty())
+		return;
+	if (!trash_path.endsWith('/'))
+		trash_path.append('/');
+	
+	const i64 now = time(NULL);
+	const QString time_str = trash::time_to_str(now) + '_';
+	
+	for (auto &next: file_paths_)
+	{
+		QStringRef name = io::GetFileNameOfFullPath(next);
+		auto new_path = (trash_path + time_str + name).toLocal8Bit();
+		auto old_path = next.toLocal8Bit();
+		//mtl_info("new_path: %s\n, old_path: %s", new_path.data(), old_path.data());
+		int status = rename(old_path.data(), new_path.data());
+		if (status != 0) {
+			mtl_status(status);
+			continue;
+		}
+	}
 }
 
 void Task::StartIO()
@@ -410,9 +441,10 @@ void Task::StartIO()
 		data().ChangeState(io::TaskState::Finished);
 		return;
 	}
-	
-	if (ops_ & (MessageType)Message::DeleteFiles) {
+	if (ops_ == (MessageType)Message::DeleteFiles) {
 		DeleteFiles();
+	} else if (ops_ == (MessageType)Message::MoveToTrash) {
+		MoveToTrash();
 	} else if (ops_ & (MessageType)Message::Copy) {
 #ifdef DEBUG_EXEC_PATH
 mtl_info("Copy");
@@ -449,7 +481,6 @@ mtl_info("Just copy");
 #endif
 		CopyFiles();
 	}
-	
 	auto state = data_.GetState(nullptr);
 	
 	if (state & TaskState::Abort) {

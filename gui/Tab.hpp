@@ -6,7 +6,9 @@
 #include "../io/decl.hxx"
 #include "../io/io.hh"
 #include "../io/Notify.hpp"
+#include "../trash.hh"
 
+#include <QMenu>
 #include <QTabBar>
 
 namespace cornus {
@@ -35,6 +37,7 @@ public:
 	App* app() const { return app_; }
 	void CreateGui();
 	const QString& current_dir() const { return current_dir_; }
+	QString CurrentDirTrashPath();
 	i64 files_id() const { return files_id_; }
 	
 	void GoBack();
@@ -50,6 +53,9 @@ public:
 	void GrabFocus();
 	History* history() const { return history_; }
 	io::Notify& notify() { return notify_; }
+	
+	void PopulateUndoDelete(QMenu *menu);
+	
 	void ShutdownLastInotifyThread();
 	
 	gui::Table* table() const { return table_; }
@@ -65,6 +71,7 @@ public Q_SLOTS:
 	
 private:
 	void Init();
+	void UndeleteFiles(const QMap<i64, QVector<cornus::trash::Names> > &items);
 	
 	App *app_ = nullptr;
 	History *history_ = nullptr;

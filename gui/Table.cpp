@@ -117,6 +117,8 @@ Table::~Table()
 	delete model_;
 	delete delegate_;
 	open_with_.Clear();
+	delete undo_delete_menu_;
+	undo_delete_menu_ = nullptr;
 }
 
 bool SendURLsClipboard(const QStringList &list, io::Message msg_id) {
@@ -622,12 +624,12 @@ void Table::GetSelectedFileNames(QVector<QString> &names, const StringCase str_c
 int Table::GetSelectedFilesCount(QVector<QString> *extensions)
 {
 	io::Files &files = *app_->files(tab_->files_id());
-	MutexGuard guard(&files.mutex);
+	MutexGuard guard = files.guard();
 	int count = 0;
 	
 	for (io::File *next: files.data.vec) {
 		if (next->selected()) {
-			if (extensions != nullptr && next->is_regular()) {
+			if ((extensions != nullptr) && next->is_regular()) {
 				extensions->append(next->cache().ext.toString());
 			}
 			count++;
@@ -895,9 +897,10 @@ void Table::keyPressEvent(QKeyEvent *event)
 	const auto modifiers = event->modifiers();
 	const bool any_modifiers = (modifiers != Qt::NoModifier);
 	const bool shift = (modifiers & Qt::ShiftModifier);
+	const bool ctrl = (modifiers & Qt::ControlModifier);
 	QVector<int> indices;
 	
-	if (modifiers & Qt::ControlModifier) {
+	if (ctrl) {
 		if (key == Qt::Key_C)
 			ActionCopy(indices);
 		else if (key == Qt::Key_X)
@@ -907,7 +910,9 @@ void Table::keyPressEvent(QKeyEvent *event)
 		}
 	}
 	
-	if (key == Qt::Key_F2) {
+	if (!any_modifiers && key == Qt::Key_Delete) {
+		model_->DeleteSelectedFiles(ShiftPressed::No);
+	} else if (key == Qt::Key_F2) {
 		app_->RenameSelectedFile();
 	} else if (key == Qt::Key_Return) {
 		if (!any_modifiers) {
@@ -1142,12 +1147,14 @@ void Table::ProcessAction(const QString &action)
 		if (count == 0)
 			return;
 		
-		QString question = "Delete " + QString::number(count) + " files?";
+		QString question = tr("Delete PERMANENTLY ") + QString::number(count)
+			+ tr(" files?");
 		QMessageBox::StandardButton reply = QMessageBox::question(this,
-			"Delete Files", question, QMessageBox::Yes|QMessageBox::No);
+			tr("Delete Files"), question, QMessageBox::Yes | QMessageBox::No,
+			QMessageBox::No);
 		
 		if (reply == QMessageBox::Yes)
-			model_->DeleteSelectedFiles();
+			model_->DeleteSelectedFiles(ShiftPressed::Yes);
 	} else if (action == actions::RenameFile) {
 		app->RenameSelectedFile();
 	} else if (action == actions::OpenTerminal) {
@@ -1242,16 +1249,18 @@ void Table::ScrollToRow(int row)
 	}
 }
 
-void Table::ScrollToAndSelectRow(const int row, const bool deselect_others) {
+void Table::ScrollToAndSelectRow(const int row, const bool deselect_others)
+{
 	ScrollToRow(row);
 	SelectRowSimple(row, deselect_others);
 }
 
-void Table::SelectByLowerCase(QVector<QString> filenames)
+void Table::SelectByLowerCase(QVector<QString> filenames,
+	const NamesAreLowerCase are_lower)
 {
 	if (filenames.isEmpty())
 		return;
-	
+
 	QVector<int> indices;
 	int ni, fi = 0;
 	QString full_path;
@@ -1265,8 +1274,11 @@ void Table::SelectByLowerCase(QVector<QString> filenames)
 			if (count == 0)
 				break;
 			ni = 0;
-			for (const QString &name: filenames) {
-				if (next->name_lower() == name) {
+			for (const QString &name: filenames)
+			{
+				const auto fn = (are_lower == NamesAreLowerCase::Yes)
+					? next->name_lower() : next->name();
+				if (fn == name) {
 					if (full_path.isEmpty()) {
 						full_path = next->build_full_path();
 					}
@@ -1285,7 +1297,8 @@ void Table::SelectByLowerCase(QVector<QString> filenames)
 	ScrollToAndSelect(full_path);
 }
 
-void Table::SelectAllFilesNTS(const bool flag, QVector<int> &indices) {
+void Table::SelectAllFilesNTS(const bool flag, QVector<int> &indices)
+{
 	int i = 0;
 	io::Files &files = *app_->files(tab_->files_id());
 	for (auto *file: files.data.vec) {
@@ -1430,6 +1443,7 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 	QMenu *menu = new QMenu();
 	menu->setAttribute(Qt::WA_DeleteOnClose);
 	
+	const QString current_dir = app_->tab()->current_dir();
 	QString dir_full_path;
 	QString file_under_mouse_full_path;
 	io::File *file = nullptr;
@@ -1474,10 +1488,23 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 	
 	QMenu *new_menu = app_->CreateNewMenu();
 	menu->addMenu(new_menu);
-	menu->addSeparator();
+	
+	if (selected_count == 0) {
+		{
+			menu->addSeparator();
+			QAction *action = menu->addAction(tr("New Tab"));
+			action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_T));
+			connect(action, &QAction::triggered, [=] {
+				app_->OpenNewTab();
+			});
+			action->setIcon(QIcon::fromTheme(QLatin1String("window-new")));
+		}
+	}
 	
 	if (selected_count > 0)
-	{ // cut copy
+	{
+		// cut copy
+		menu->addSeparator();
 		QAction *action = menu->addAction(tr("Cut"));
 		connect(action, &QAction::triggered, [this] {
 			ActionCut(this->indices_);
@@ -1522,7 +1549,17 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 	
 	if (selected_count > 0) {
 		{
-			QAction *action = menu->addAction(tr("Delete Files"));
+			QAction *action = menu->addAction(tr("Move to trash"));
+			action->setShortcut(QKeySequence(Qt::Key_Delete));
+			connect(action, &QAction::triggered, [=] {
+				model_->DeleteSelectedFiles(ShiftPressed::No);
+			});
+			action->setIcon(QIcon::fromTheme(QLatin1String("user-trash")));
+		}
+		{
+			menu->addSeparator();
+			QAction *action = menu->addAction(tr("Delete Permanently"));
+			action->setShortcut(QKeySequence(Qt::SHIFT + Qt::Key_Delete));
 			connect(action, &QAction::triggered, [=] {ProcessAction(actions::DeleteFiles);});
 			action->setIcon(QIcon::fromTheme(QLatin1String("edit-delete")));
 			menu->addSeparator();
@@ -1555,6 +1592,7 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 		}
 		{
 			QAction *action = menu->addAction(tr("Toggle Exec Bit"));
+			action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_E));
 			connect(action, &QAction::triggered, [=] {ProcessAction(actions::ToggleExecBit);});
 			action->setIcon(QIcon::fromTheme(QLatin1String("edit-undo")));
 		}
@@ -1563,6 +1601,7 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 	
 	{
 		QAction *action = menu->addAction(tr("Open Terminal"));
+		action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_O));
 		connect(action, &QAction::triggered, [=] {ProcessAction(actions::OpenTerminal);});
 		action->setIcon(QIcon::fromTheme(QLatin1String("utilities-terminal")));
 	}
@@ -1613,10 +1652,25 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 		}
 	}
 	
-	QString count_folder = dir_full_path.isEmpty() ? app_->tab()->current_dir() : dir_full_path;
+	if (selected_count == 0) {
+		if (io::DirExists(tab_->CurrentDirTrashPath())){
+			menu->addSeparator();
+			if (undo_delete_menu_ == nullptr)
+			{
+				undo_delete_menu_ = new QMenu(tr("Undo Delete"));
+				undo_delete_menu_->setIcon(QIcon::fromTheme(QLatin1String("edit-undo")));
+				connect(undo_delete_menu_, &QMenu::aboutToShow, [=]() {
+					tab_->PopulateUndoDelete(undo_delete_menu_);
+				});
+			}
+			menu->addMenu(undo_delete_menu_);
+		}
+	}
+	
+	QString count_folder = dir_full_path.isEmpty() ? current_dir : dir_full_path;
 	
 	if (count_folder != QLatin1String("/")) {
-		QAction *action = menu->addAction(tr("Count Folder Size"));
+		QAction *action = menu->addAction(tr("Compute folder size"));
 		
 		connect(action, &QAction::triggered, [=] {
 			gui::CountFolder cf(app_, count_folder);

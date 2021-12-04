@@ -4,14 +4,18 @@
 #include "../AutoDelete.hh"
 #include "../Prefs.hpp"
 #include "../History.hpp"
+#include "../io/File.hpp"
 #include "Location.hpp"
 #include "Table.hpp"
 #include "TableModel.hpp"
 #include "TreeView.hpp"
 
+#include <QAction>
 #include <QBoxLayout>
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDir>
+#include <QMessageBox>
 
 namespace cornus {
 
@@ -164,6 +168,16 @@ void Tab::CreateGui()
 	layout->addWidget(table_);
 }
 
+QString Tab::CurrentDirTrashPath()
+{
+	QString full_path = current_dir_;
+	if (!full_path.endsWith('/'))
+		full_path.append('/');
+	full_path.append(trash::name());
+	
+	return full_path;
+}
+
 void Tab::GoBack() {
 	QString s = history_->Back();
 	if (s.isEmpty())
@@ -218,7 +232,7 @@ void Tab::GoToFinish(cornus::io::FilesData *new_data)
 	if (new_data->action == Action::Back) {
 		QVector<QString> list;
 		history_->GetSelectedFiles(list);
-		table_->SelectByLowerCase(list);
+		table_->SelectByLowerCase(list, NamesAreLowerCase::Yes);
 	} else if (new_data->scroll_to_and_select.isEmpty())
 		table_->ScrollToRow(0);
 	
@@ -362,6 +376,61 @@ void Tab::Init()
 	CreateGui();
 }
 
+void Tab::PopulateUndoDelete(QMenu *menu)
+{
+	menu->clear();
+	QMap<i64, QVector<trash::Names>> all_items;
+	CHECK_TRUE_VOID(trash::ListItems(CurrentDirTrashPath(), all_items));
+	
+	if (all_items.isEmpty())
+		return;
+	
+	const QString format = QLatin1String("yyyy/MM/dd hh:mm:ss");
+	const int MaxMenuItemsToShow = 3;
+	int counter = 0;
+	int file_count = 0;
+// Note: file_count != items.count(), the former is the file count,
+// the latter is num items in the map.
+	QMapIterator<i64, QVector<trash::Names>> i(all_items);
+	i.toBack();
+	while (i.hasPrevious())
+	{
+		i.previous();
+		counter++;
+		const i64 t = i.key();
+		const QVector<trash::Names> &value = i.value();
+		file_count += value.size();
+		
+		if (counter <= MaxMenuItemsToShow)
+		{
+			QDateTime dt = QDateTime::fromSecsSinceEpoch(t);
+			QString time_str = dt.toString(format);
+			QString label = time_str + QLatin1String(" (");
+			label.append(QString::number(value.size()));
+			label.append(')');
+			QAction *action = menu->addAction(label);
+			connect(action, &QAction::triggered, [=] {
+				QMap<i64, QVector<trash::Names>> submap;
+				submap.insert(t, value);
+				UndeleteFiles(submap);
+			});
+			menu->addAction(action);
+		}
+	}
+	
+	if (all_items.count() > 1)
+	{
+		menu->addSeparator();
+		QString label = tr("Undelete all files (")
+			+ QString::number(file_count) + ')';
+		QAction *action = menu->addAction(label);
+		connect(action, &QAction::triggered, [=] {
+			UndeleteFiles(all_items);
+		});
+		menu->addAction(action);
+	}
+}
+
 void Tab::SetTitle(const QString &s)
 {
 	title_ = s;
@@ -404,6 +473,120 @@ void Tab::ShutdownLastInotifyThread()
 	
 	mtl_info("Waited for thread termination: %.1f ms", elapsed);
 #endif
+}
+
+void Tab::UndeleteFiles(const QMap<i64, QVector<trash::Names>> &items)
+{
+	QVector<QString> filenames;
+	{
+		auto &files = *app_->files(files_id_);
+		MutexGuard guard = files.guard();
+		auto &vec = files.data.vec;
+		
+		for (io::File *next: vec) {
+			filenames.append(next->name());
+		}
+	}
+	
+	QSet<QString> found_matches;
+	{
+		auto it = items.constBegin();
+		while (it != items.constEnd())
+		{
+			const QVector<trash::Names> &vec = it.value();
+			for (const trash::Names &name: vec)
+			{
+				if (filenames.contains(name.decoded)) {
+					found_matches.insert(name.decoded);
+				}
+			}
+			it++;
+		}
+	}
+	
+	if (!found_matches.isEmpty())
+	{
+		QMessageBox msg_box;
+		msg_box.setText(tr("Undelete all files?"));
+		QString s = tr("Warning! ") + QString::number(found_matches.count()) +
+		tr(" will be overwritten!");
+		msg_box.setInformativeText(s);
+		msg_box.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+		msg_box.setDefaultButton(QMessageBox::No);
+		int ret = msg_box.exec();
+		if (ret != QMessageBox::Yes)
+			return;
+	}
+	
+	QString current_dir = current_dir_;
+	if (!current_dir.endsWith('/'))
+		current_dir.append('/');
+	
+	const bool autorename_files = true;
+	
+	QString trash_dir = CurrentDirTrashPath();
+	if (!trash_dir.endsWith('/'))
+		trash_dir.append('/');
+	
+	const QString format = QLatin1String("yyyy_MMM_dd hh:mm:ss");
+	QDateTime now_dt = QDateTime::fromSecsSinceEpoch(time(NULL));
+	const QString renamed_suffix = tr("_AUTORENAMED_") + now_dt.toString(format);
+	
+	{
+		QVector<QString> select_vec;
+		QString s;
+		auto it = items.constBegin();
+		while (it != items.constEnd())
+		{
+			const QVector<trash::Names> &vec = it.value();
+			for (const trash::Names &name: vec)
+			{
+				select_vec.append(name.decoded);
+				s += " " + name.decoded;
+			}
+			it++;
+		}
+		mtl_info("Gotta select: %s", qPrintable(s));
+		table_model_->SelectFilesLater(select_vec);
+	}
+	
+	{
+		auto it = items.constBegin();
+		while (it != items.constEnd())
+		{
+			const QVector<trash::Names> &vec = it.value();
+			for (const trash::Names &name: vec)
+			{
+				const QString new_path_str = current_dir + name.decoded;
+				const auto new_path = new_path_str.toLocal8Bit();
+				
+				if (autorename_files && io::FileExists(new_path.data()))
+				{
+					auto renamed_path = (new_path_str + renamed_suffix).toLocal8Bit();
+					int status = rename(new_path.data(), renamed_path.data());
+					if (status != 0) {
+						mtl_status(errno);
+					}
+				}
+				
+				auto old_path = (trash_dir + name.encoded).toLocal8Bit();
+				int status = rename(old_path.data(), new_path.data());
+				if (status != 0) {
+					mtl_status(errno);
+				}
+			}
+			it++;
+		}
+	}
+	
+	if (io::CountDirFilesSkippingSubdirs(trash_dir) <= 0)
+	{
+		auto trash_ba = trash_dir.toLocal8Bit();
+		int status = remove(trash_ba.data());
+		if (status != 0) {
+			mtl_status(errno);
+		}
+	}
 }
 
 bool Tab::ViewIsAt(const QString &dir_path) const

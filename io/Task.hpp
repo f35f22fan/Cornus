@@ -160,6 +160,7 @@ private:
 	ActUponAnswer DealWithWriteFailedAnswer(const i64 file_size);
 	void DeleteFile(const QString &full_path, struct statx &stx);
 	void DeleteFiles();
+	void MoveToTrash();
 	bool TryAtomicMove();
 	int TryCreateRegularFile(const QString &new_dir_path,
 		const QString &filename, const int WriteFlags,

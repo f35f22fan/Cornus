@@ -85,7 +85,7 @@ void ProcessEvent(struct io_uring_cqe *cqe)
 
 void monitor_file(struct io_uring *ring)
 {
-	for (int i = 0; i < 5; i++)
+	while(true)
 	{
 		struct io_uring_cqe *cqe = nullptr;
 		int ret = io_uring_wait_cqe(ring, &cqe);

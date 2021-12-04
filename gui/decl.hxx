@@ -45,18 +45,19 @@ const int FileNameRelax = 2;
 
 enum class FileEventType: u8 {
 	None = 0,
-	Changed,
+	Modified,
 	Deleted,
 	Created,
-	MovedTo,
+	Renamed,
 };
 
 struct FileEvent {
 	cornus::io::File *new_file = nullptr;
+	QString from_name;
+	QString to_name;
 	int dir_id = -1;
 	int index = -1;
 	FileEventType type = FileEventType::None;
-	bool is_dir = false;
 };
 
 struct InputDialogParams {

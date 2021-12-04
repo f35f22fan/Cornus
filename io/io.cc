@@ -30,6 +30,65 @@ FilesData::~FilesData()
 	vec.clear();
 }
 
+static int CompareDigits(QStringRef a, QStringRef b)
+{
+	int i = 0;
+	for (; i < a.size(); i++) {
+		if (a[i] != '0')
+			break;
+	}
+	if (i != 0)
+		a = a.mid(i);
+	
+	i = 0;
+	for (; i < b.size(); i++) {
+		if (b[i] != '0')
+			break;
+	}
+	
+	if (i != 0)
+		b = b.mid(i);
+	
+	if (a.size() != b.size())
+		return a.size() < b.size() ? -1 : 1;
+	
+	i = 0;
+	for (; i < a.size(); i++)
+	{
+		const int an = a[i].digitValue();
+		const int bn = b[i].digitValue();
+		if (an != bn)
+			return (an < bn) ? -1 : 1;
+	}
+	
+	return 0;
+}
+
+int CountDirFilesSkippingSubdirs(const QString &dir_path)
+{
+	// This function is used to check if the folder has any files.
+	struct dirent *entry;
+	auto dir_path_ba = dir_path.toLocal8Bit();
+	DIR *dp = opendir(dir_path_ba.data());
+	
+	if (dp == NULL)
+		return -errno; // errno is positive, hence negating it.
+	
+	int count = 0;
+	while ((entry = readdir(dp)))
+	{
+		const char *n = entry->d_name;
+		if (strcmp(n, ".") == 0 || strcmp(n, "..") == 0)
+			continue;
+		
+		count++;
+	}
+	
+	closedir(dp);
+	
+	return count;
+}
+
 media::ShortData* DecodeShort(ByteArray &ba)
 {
 	ba.to(0);
@@ -91,40 +150,6 @@ media::ShortData* DecodeShort(ByteArray &ba)
 	}
 	
 	return p;
-}
-
-static int CompareDigits(QStringRef a, QStringRef b)
-{
-	int i = 0;
-	for (; i < a.size(); i++) {
-		if (a[i] != '0')
-			break;
-	}
-	if (i != 0)
-		a = a.mid(i);
-	
-	i = 0;
-	for (; i < b.size(); i++) {
-		if (b[i] != '0')
-			break;
-	}
-	
-	if (i != 0)
-		b = b.mid(i);
-	
-	if (a.size() != b.size())
-		return a.size() < b.size() ? -1 : 1;
-	
-	i = 0;
-	for (; i < a.size(); i++)
-	{
-		const int an = a[i].digitValue();
-		const int bn = b[i].digitValue();
-		if (an != bn)
-			return (an < bn) ? -1 : 1;
-	}
-	
-	return 0;
 }
 
 static QStringRef GetDigits(const QString &s, const int from)
@@ -253,7 +278,6 @@ bool CountSizeRecursive(const QString &path, struct statx &stx,
 	info.size += stx.stx_size;
 	
 	if (!is_dir) {
-		info.size_without_dirs_meta += stx.stx_size;
 		info.file_count++;
 		return true;
 	}
@@ -288,35 +312,35 @@ bool CountSizeRecursiveTh(const QString &path, struct statx &stx,
 	const auto fields = STATX_SIZE | STATX_MODE;
 	auto ba = path.toLocal8Bit();
 	
-	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
+	if (statx(0, ba.data(), flags, fields, &stx) != 0)
+	{
 		mtl_warn("statx(): %s", strerror(errno));
-		data.Lock();
-		QString msg = QChar('\"') + path + "\": " + strerror(errno);
-		data.err = msg;
-		data.Unlock();
+		QString msg;
+		{
+			auto guard = data.guard();
+			msg = QChar('\"') + path + "\": " + strerror(errno);
+			data.err = msg;
+		}
 		auto err_ba = msg.toLocal8Bit();
 		mtl_warn("%s", err_ba.data());
 		return -1;
 	}
 	
 	const bool is_dir = S_ISDIR(stx.stx_mode);
-	data.Lock();
-		if (data.app_has_quit) {
-			data.Unlock();
+	{
+		auto guard = data.guard();
+		if (data.app_has_quit)
 			return false;
-		}
 	
 		data.info.size += stx.stx_size;
 		
 		if (!is_dir) {
-			data.info.size_without_dirs_meta += stx.stx_size;
 			data.info.file_count++;
-			data.Unlock();
 			return true;
 		}
 		
 		data.info.dir_count++;
-	data.Unlock();
+	}
 	
 	QVector<QString> names;
 	
@@ -325,7 +349,8 @@ bool CountSizeRecursiveTh(const QString &path, struct statx &stx,
 		return false;
 	}
 	
-	for (const auto &name: names) {
+	for (const auto &name: names)
+	{
 		QString full_path = path;
 		if (!full_path.endsWith('/'))
 			full_path.append('/');
@@ -371,7 +396,7 @@ bool DirExists(const QString &full_path)
 	return (S_ISDIR(stx.stx_mode));
 }
 
-bool EnsureDir(QString dir_path, const QString &subdir)
+bool EnsureDir(QString dir_path, const QString &subdir, QString *result)
 {
 	if (!dir_path.endsWith('/'))
 		dir_path.append('/');
@@ -382,14 +407,47 @@ bool EnsureDir(QString dir_path, const QString &subdir)
 	
 	if (FileExistsCstr(ba.data(), &ft))
 	{
-		if (ft == FileType::Dir)
+		if (ft == FileType::Dir) {
+			if (result)
+				*result = dir_path;
 			return true;
+		}
 		
 		if (remove(ba.data()) != 0)
 			return false;
 	}
 	
-	return mkdir(ba.data(), DirPermissions) == 0;
+	const int status = mkdir(ba.data(), DirPermissions);
+	if (status == 0)
+	{
+		if (result)
+			*result = dir_path;
+		return true;
+	}
+	
+	return false;
+}
+
+bool EnsureRegularFile(const QString &full_path)
+{
+	const QByteArray ba = full_path.toLocal8Bit();
+	FileType t;
+	if (FileExistsCstr(ba.data(), &t))
+	{
+		if (t == FileType::Regular) {
+			return true;
+		}
+		CHECK_TRUE((remove(ba.data()) == 0));
+	}
+	const auto OverwriteFlags = O_CREAT | O_LARGEFILE;
+	int output_fd = ::open(ba.data(), OverwriteFlags, 0644);
+	if (output_fd == -1) {
+		mtl_status(errno);
+		return false;
+	}
+	
+	::close(output_fd);
+	return true;
 }
 
 bool ExpandLinksInDirPath(QString &unprocessed_dir_path,
@@ -438,6 +496,16 @@ bool ExpandLinksInDirPath(QString &unprocessed_dir_path,
 	unprocessed_dir_path.clear();
 	
 	return true;
+}
+
+bool FileContentsContains(const QString &full_path,
+	const QString &searched_str)
+{
+	ByteArray buf;
+	CHECK_TRUE(io::ReadFile(full_path, buf, PrintErrors::Yes));
+	
+	QString s = buf.toString();
+	return s.contains(searched_str);
 }
 
 bool FileExistsCstr(const char *path, FileType *file_type)
@@ -645,6 +713,31 @@ GetFileNameOfFullPath(const QString &full_path)
 	}
 	
 	return QStringRef();
+}
+
+QStringRef
+GetParentDirPath(const QString &full_path)
+{
+	int at = full_path.size() - 1;
+	
+	while ((at > 0) && (full_path.at(at) == '/')) {
+		at--;
+	}
+	
+	at--;
+	
+	while ((at >= 0) && (full_path.at(at) != '/')) {
+		at--;
+	}
+	
+	if (at < 0) {
+		return QStringRef();
+	}
+	
+	if (at == 0)
+		at = 1;
+	
+	return full_path.midRef(0, at);
 }
 
 Bool HasExecBit(const QString &full_path)
@@ -1150,7 +1243,7 @@ bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	if (ret_mode != nullptr)
 		*ret_mode = stx.stx_mode;
 	
-	const int fd = open(path.data(), O_RDONLY);
+	const int fd = ::open(path.data(), O_RDONLY);
 	
 	if (fd == -1)
 		return false;///MapPosixError(errno);

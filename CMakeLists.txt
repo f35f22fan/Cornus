@@ -48,6 +48,7 @@ set(cornus_src_files main.cpp
     MutexGuard.cpp MutexGuard.hpp
     prefs.cc prefs.hh
     Prefs.cpp Prefs.hpp
+    trash.cc trash.hh
     TreeData.cpp TreeData.hpp
 
     gui/actions.hxx
@@ -104,6 +105,7 @@ set(cornus_io_src_files main_io.cpp
     MutexGuard.cpp MutexGuard.hpp
     MyDaemon.cpp MyDaemon.hpp
     prefs.cc prefs.hh
+    trash.cc trash.hh
 
     gui/TaskGui.cpp gui/TaskGui.hpp
     gui/TasksWin.cpp gui/TasksWin.hpp

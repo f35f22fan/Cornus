@@ -25,7 +25,7 @@ public:
 	cornus::App*
 	app() const { return app_; }
 	
-	void DeleteSelectedFiles();
+	void DeleteSelectedFiles(const ShiftPressed sp);
 	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
 	int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 	
@@ -56,6 +56,7 @@ public:
 		return true;
 	}
 	
+	void SelectFilesLater(const QVector<QString> &v);
 	void set_scroll_to_and_select(const QString &s) { scroll_to_and_select_ = s; }
 	void SwitchTo(io::FilesData *new_data);
 	gui::Tab* tab() const { return tab_; }
@@ -74,6 +75,7 @@ public:
 	
 public Q_SLOTS:
 	void InotifyEvent(cornus::gui::FileEvent evt);
+	void InotifyBatchFinished();
 	
 private:
 	
@@ -82,6 +84,18 @@ private:
 	cornus::App *app_ = nullptr;
 	gui::Tab *tab_ = nullptr;
 	QString scroll_to_and_select_;
+	
+	/* When needing to select a file sometimes the file isn't yet in
+	  the table_model's list because the inotify event didn't tell
+	  it yet that a new file is available.
+	 i16 holds the count how many times a given filename wasn't found
+	 in the current list of files. When it happens a certain amount of
+	 times the filename should be deleted from the hash - which is a
+	 way to not allow the hash to grow uncontrollably by keeping
+	 garbage.
+	*/
+	QHash<QString, i16> filenames_to_select_;// <filename, counter>
+	
 	mutable QString cached_free_space_;
 	int tried_to_scroll_to_count_ = 0;
 	int cached_row_count_ = 0;

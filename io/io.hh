@@ -46,6 +46,7 @@ enum class Message: MessageType {
 	CopyToClipboard,
 	CutToClipboard,
 	DeleteFiles,
+	MoveToTrash,
 	
 	Copy = 1u << 29, // copies files
 	DontTryAtomicMove = 1u << 30, // moves with rename()
@@ -189,7 +190,6 @@ struct Files {
 
 struct CountRecursiveInfo {
 	i64 size = 0;
-	i64 size_without_dirs_meta = 0;
 	i32 file_count = 0;
 	i32 dir_count = -1; // -1 to exclude counting parent folder
 };
@@ -199,9 +199,10 @@ Q_DECLARE_METATYPE(cornus::io::CountRecursiveInfo*);
 
 namespace cornus::io {
 
-media::ShortData* DecodeShort(ByteArray &ba);
-
 int CompareStrings(const QString &a, const QString &b);
+
+// returns a negative number on error
+int CountDirFilesSkippingSubdirs(const QString &dir_path);
 
 bool CopyFileFromTo(const QString &from_full_path, QString to_dir);
 
@@ -224,6 +225,8 @@ struct CountFolderData {
 		if (status != 0)
 			mtl_status(status);
 	}
+	
+	MutexGuard guard() { return MutexGuard(&mutex); }
 };
 
 bool CountSizeRecursive(const QString &path, struct statx &stx,
@@ -232,11 +235,15 @@ bool CountSizeRecursive(const QString &path, struct statx &stx,
 bool CountSizeRecursiveTh(const QString &path, struct statx &stx,
 	CountFolderData &data);
 
+media::ShortData* DecodeShort(ByteArray &ba);
+
 void Delete(io::File *file);
 
 bool DirExists(const QString &full_path);
 
-bool EnsureDir(QString dir_path, const QString &subdir);
+bool EnsureDir(QString dir_path, const QString &subdir, QString *result = nullptr);
+
+bool EnsureRegularFile(const QString &full_path);
 
 enum class AppendSlash: i8 {
 	Yes,
@@ -246,8 +253,10 @@ enum class AppendSlash: i8 {
 bool ExpandLinksInDirPath(QString &unprocessed_dir_path,
 	QString &processed_dir_path, const AppendSlash afs = AppendSlash::Yes);
 
-bool
-FileExistsCstr(const char *path, FileType *file_type = nullptr);
+bool FileContentsContains(const QString &full_path,
+	const QString &searched_str);
+
+bool FileExistsCstr(const char *path, FileType *file_type = nullptr);
 
 inline bool
 FileExists(const QString &path, FileType *file_type = nullptr) {
@@ -274,6 +283,9 @@ GetFileNameExtension(const QString &name, QStringRef *base_name = nullptr);
 
 QStringRef
 GetFileNameOfFullPath(const QString &full_path);
+
+QStringRef
+GetParentDirPath(const QString &full_path);
 
 Bool HasExecBit(const QString &full_path);
 

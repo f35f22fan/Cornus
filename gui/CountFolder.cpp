@@ -18,17 +18,17 @@ void *CountFolderTh(void *arg)
 	struct statx stx;
 	bool ok = cornus::io::CountSizeRecursiveTh(data->full_path, stx, *data);
 	
-	data->Lock();
-		if (data->app_has_quit) {
-			data->Unlock();
-			delete data;
-			return nullptr;
-		}
-		if (!ok && data->err.isEmpty()) {
-			data->err = QString("Failed");
-		}
-		data->thread_has_quit = true;
-	data->Unlock();
+	auto guard = data->guard();
+	if (data->app_has_quit)
+	{
+		delete data;
+		return nullptr;
+	}
+	
+	if (!ok && data->err.isEmpty())
+		data->err = QString("Failed");
+	
+	data->thread_has_quit = true;
 	
 	return nullptr;
 }
@@ -112,21 +112,18 @@ void CountFolder::CreateGui()
 		if (w > FixedLineWidth)
 			folder_name_w = std::min(FixedLineWidth + 200, w);
 		folder_name_label_->setFixedWidth(folder_name_w);
-		form->addRow(tr("Parent folder:"), folder_name_label_);
-		folder_name_label_->setText(name_);
+		form->addRow(tr("Folder:"), folder_name_label_);
+		folder_name_label_->setText(full_path_);
 	}
 	
-	file_count_label_ = CreateLineEdit();
-	form->addRow(tr("File count:"), file_count_label_);
-	
 	folder_count_label_ = CreateLineEdit();
-	form->addRow(tr("Folder count:"), folder_count_label_);
+	form->addRow(tr("Sub-folders:"), folder_count_label_);
+	
+	file_count_label_ = CreateLineEdit();
+	form->addRow(tr("Files:"), file_count_label_);
 	
 	size_label_ = CreateLineEdit();
 	form->addRow(tr("Total size:"), size_label_);
-	
-	size_no_meta_label_ = CreateLineEdit();
-	form->addRow(tr("Size without dir meta:"), size_no_meta_label_);
 	
 	progress_label_ = CreateLineEdit();
 	form->addRow(tr("Progress:"), progress_label_);
@@ -153,20 +150,13 @@ bool CountFolder::Init(const QString &dir_path)
 	io::ExpandLinksInDirPath(in_full_path, full_path_);
 	
 	if (full_path_ == QLatin1String("/")) {
-		app_->TellUser(tr("Counting all files on the computer is probably a mistake"));
+		app_->TellUser(tr("Computing total file size from / would be misleading"));
 		return false;
 	}
 	
 	name_ = io::GetFileNameOfFullPath(full_path_).toString();
 	CHECK_TRUE((!name_.isEmpty()));
-	
-//	struct statx stx;
-//	io::CountRecursiveInfo info = {};
-//	if (!io::CountSizeRecursive(full_path_, stx, info)) {
-//		app_->TellUser(tr("Can't count folder size"));
-//		return false;
-//	}
-	
+
 	return true;
 }
 
@@ -185,19 +175,10 @@ CountFolder::UpdateInfo(cornus::io::CountRecursiveInfo *info,
 		}
 		size_label_->setText(s);
 	}
-	{
-		const i64 n = info->size_without_dirs_meta;
-		QString s = io::SizeToString(n);
-		if (n > 1023) {
-			s += QLatin1String(" (") + QString::number(n)
-				+ QLatin1String(" bytes)");
-		}
-		size_no_meta_label_->setText(s);
-	}
 	
 	if (thread_has_quit_) {
 		timer_->stop();
-		progress_label_->setText(tr("Count Finished ") + QChar(0x2705));
+		progress_label_->setText(tr("Done ") + QChar(0x2705));
 	} else if (!err_msg.isEmpty()) {
 		timer_->stop();
 		progress_label_->setText(QChar(0x274C) + tr("Error: ") + err_msg);

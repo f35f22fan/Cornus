@@ -65,7 +65,6 @@ public:
 	gui::Location* location() { return location_; }
 	QSplitter* main_splitter() const { return main_splitter_; }
 	Media* media() const { return media_; }
-	io::Notify& notify() { return notify_; }
 	void OpenTerminal();
 	const QHash<QString, Category>& possible_categories() const { return possible_categories_; }
 	Prefs& prefs() { return *prefs_; }
@@ -166,7 +165,6 @@ private:
 	Media *media_ = nullptr;
 	QTabWidget *tab_widget_ = nullptr;
 	cornus::GuiBits gui_bits_ = {};
-	io::Notify notify_ = {};
 	
 	/* tabs' inotify threads keep running for a while after tabs get deleted,
 	and they (the threads) need to keep accessing tab's files & mutexes which

@@ -33,7 +33,6 @@ private:
 	QString full_path_, name_;
 	QLineEdit *folder_name_label_ = nullptr;
 	QLineEdit *size_label_ = nullptr;
-	QLineEdit *size_no_meta_label_ = nullptr;
 	QLineEdit *file_count_label_ = nullptr;
 	QLineEdit *folder_count_label_ = nullptr;
 	QLineEdit *progress_label_ = nullptr;

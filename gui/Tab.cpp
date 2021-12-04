@@ -153,6 +153,11 @@ Tab::~Tab()
 	app_->DeleteFilesById(files_id_);
 }
 
+void Tab::ComputeTrashSize(const QString &dir_path)
+{
+	mtl_trace();
+}
+
 void Tab::CreateGui()
 {
 	setContentsMargins(0, 0, 0, 0);

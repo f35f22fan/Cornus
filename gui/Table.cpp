@@ -1506,12 +1506,14 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 		// cut copy
 		menu->addSeparator();
 		QAction *action = menu->addAction(tr("Cut"));
+		action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_X));
 		connect(action, &QAction::triggered, [this] {
 			ActionCut(this->indices_);
 		});
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-cut")));
 		
 		action = menu->addAction(tr("Copy"));
+		action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_C));
 		connect(action, &QAction::triggered, [this] {
 			ActionCopy(this->indices_);
 		});
@@ -1525,6 +1527,7 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 			+ QString::number(clipboard.file_count()) + ')';
 		{ // paste
 			QAction *action = menu->addAction(tr("Paste") + file_count_str);
+			action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_V));
 			connect(action, &QAction::triggered, [this] {
 				ActionPaste();
 			});
@@ -1547,6 +1550,8 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 		menu->addSeparator();
 	}
 	
+	const QIcon trash_icon = QIcon::fromTheme(QLatin1String("user-trash"));
+	
 	if (selected_count > 0) {
 		{
 			QAction *action = menu->addAction(tr("Move to trash"));
@@ -1554,7 +1559,7 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 			connect(action, &QAction::triggered, [=] {
 				model_->DeleteSelectedFiles(ShiftPressed::No);
 			});
-			action->setIcon(QIcon::fromTheme(QLatin1String("user-trash")));
+			action->setIcon(trash_icon);
 		}
 		{
 			menu->addSeparator();
@@ -1567,6 +1572,7 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 		
 		{
 			QAction *action = menu->addAction(tr("Rename File"));
+			action->setShortcut(QKeySequence(Qt::Key_F2));
 			connect(action, &QAction::triggered, [=] {ProcessAction(actions::RenameFile);});
 			action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
 		}
@@ -1639,7 +1645,7 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 		
 		QStringList exts = {
 			QLatin1String("tar.gz"), QLatin1String("zip"),
-			QLatin1String("tar.xz"), QLatin1String("zst"),
+			QLatin1String("tar.xz"), QLatin1String("tar.zst"),
 			QLatin1String("7z")
 		};
 		
@@ -1665,12 +1671,21 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 			}
 			menu->addMenu(undo_delete_menu_);
 		}
+		
+		{
+			QAction *action = menu->addAction(tr("Empty trash"));
+			connect(action, &QAction::triggered, [=] {
+				trash::EmptyRecursively(current_dir);
+			});
+			action->setIcon(trash_icon);
+		}
 	}
 	
 	QString count_folder = dir_full_path.isEmpty() ? current_dir : dir_full_path;
 	
 	if (count_folder != QLatin1String("/")) {
-		QAction *action = menu->addAction(tr("Compute folder size"));
+		menu->addSeparator();
+		QAction *action = menu->addAction(tr("Folder stats"));
 		
 		connect(action, &QAction::triggered, [=] {
 			gui::CountFolder cf(app_, count_folder);

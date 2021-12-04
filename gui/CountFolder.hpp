@@ -2,6 +2,7 @@
 
 #include <QDialog>
 #include <QLineEdit>
+#include <QLocale>
 #include <QTimer>
 
 #include "../decl.hxx"
@@ -38,6 +39,7 @@ private:
 	QLineEdit *progress_label_ = nullptr;
 	
 	io::CountFolderData *data_ = nullptr;
+	QLocale locale_;
 	bool thread_has_quit_ = false;
 };
 }

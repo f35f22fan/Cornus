@@ -49,6 +49,11 @@ QString CreateGlobalGitignore()
 	return new_path;
 }
 
+void EmptyRecursively(const QString &dir_path)
+{
+	mtl_info();
+}
+
 QString EnsureTrashForFile(const QString &file_path)
 {
 	QString parent_dir = io::GetParentDirPath(file_path).toString();

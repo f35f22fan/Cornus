@@ -190,8 +190,13 @@ struct Files {
 
 struct CountRecursiveInfo {
 	i64 size = 0;
+	i64 trash_size = 0;
+	
 	i32 file_count = 0;
+	i32 trash_file_count = 0;
+	
 	i32 dir_count = -1; // -1 to exclude counting parent folder
+	i32 trash_dir_count = 0;
 };
 }
 Q_DECLARE_METATYPE(cornus::io::FilesData*);
@@ -209,10 +214,10 @@ bool CopyFileFromTo(const QString &from_full_path, QString to_dir);
 struct CountFolderData {
 	io::CountRecursiveInfo info = {};
 	QString full_path;
-	QString err;
 	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 	bool thread_has_quit = false;
 	bool app_has_quit = false;
+	QString err_str;
 	
 	inline void Lock() {
 		int status = pthread_mutex_lock(&mutex);
@@ -232,14 +237,18 @@ struct CountFolderData {
 bool CountSizeRecursive(const QString &path, struct statx &stx,
 	CountRecursiveInfo &info);
 
-bool CountSizeRecursiveTh(const QString &path, struct statx &stx,
-	CountFolderData &data);
+// returns errno, or zero for success
+int CountSizeRecursiveTh(const QString &path,
+	struct statx &stx, CountFolderData &data, const bool inside_trash);
 
 media::ShortData* DecodeShort(ByteArray &ba);
 
 void Delete(io::File *file);
 
 bool DirExists(const QString &full_path);
+
+int DoStat(const QString &full_path, struct statx &stx,
+	bool &is_trash_dir, const bool do_check, CountFolderData &data);
 
 bool EnsureDir(QString dir_path, const QString &subdir, QString *result = nullptr);
 

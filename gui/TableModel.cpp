@@ -158,7 +158,7 @@ void ReadEvent(const int inotify_fd, char *buf, cornus::io::Files *files,
 	const int wd,
 	QVector<RenameData> &rename_vec)
 {
-#define CORNUS_DEBUG_INOTIFY
+//#define CORNUS_DEBUG_INOTIFY
 #ifdef CORNUS_DEBUG_INOTIFY
 	QString num_str = QString::number(i64(pthread_self()), 36);
 	mtl_info("Thread %s, wd: %d, dir_id: %d", qPrintable(num_str), wd, dir_id);
@@ -182,7 +182,7 @@ void ReadEvent(const int inotify_fd, char *buf, cornus::io::Files *files,
 		struct inotify_event *ev = (struct inotify_event*) p;
 		add = sizeof(struct inotify_event) + ev->len;
 		if (ev->wd != wd) {
-			mtl_trace("ev->wd: %d, wd: %d", ev->wd, wd);
+			//mtl_trace("ev->wd: %d, wd: %d", ev->wd, wd);
 			continue;
 		}
 		const auto mask = ev->mask;
@@ -275,7 +275,10 @@ mtl_info("IN_MOVED_TO cookie %d, %s", ev->cookie, ev->name);
 				continue;
 			
 #ifdef CORNUS_DEBUG_INOTIFY
-mtl_trace("IN_CLOSE: %s", ev->name);
+			if (ev->len > 0)
+				mtl_trace("IN_CLOSE: %s", ev->name);
+			else
+				mtl_trace("IN_CLOSE");
 #endif
 			SendModifiedEvent(model, files, name, dir_id);
 		} else if (mask & (IN_IGNORED | IN_CLOSE_NOWRITE)) {

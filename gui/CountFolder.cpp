@@ -4,6 +4,7 @@
 #include "../AutoDelete.hh"
 #include "../io/io.hh"
 #include "../MutexGuard.hpp"
+#include "../trash.hh"
 
 #include <QBoxLayout>
 #include <QFormLayout>
@@ -16,7 +17,17 @@ void *CountFolderTh(void *arg)
 	pthread_detach(pthread_self());
 	io::CountFolderData *data = (io::CountFolderData*)arg;
 	struct statx stx;
-	bool ok = cornus::io::CountSizeRecursiveTh(data->full_path, stx, *data);
+	bool is_trash_dir;
+	int err = io::DoStat(data->full_path, stx, is_trash_dir, true, *data);
+	
+	if (err != 0){
+		auto guard = data->guard();
+		data->err_str = QObject::tr("Failed: ") + strerror(err);
+		data->thread_has_quit = true;
+		return nullptr;
+	}
+	
+	err = io::CountSizeRecursiveTh(data->full_path, stx, *data, is_trash_dir);
 	
 	auto guard = data->guard();
 	if (data->app_has_quit)
@@ -25,8 +36,8 @@ void *CountFolderTh(void *arg)
 		return nullptr;
 	}
 	
-	if (!ok && data->err.isEmpty())
-		data->err = QString("Failed");
+	if (err != 0)
+		data->err_str = QObject::tr("Failed: ") + strerror(err);
 	
 	data->thread_has_quit = true;
 	
@@ -83,12 +94,12 @@ void CountFolder::CheckState()
 		MutexGuard guard(&data_->mutex);
 		info = data_->info;
 		thread_has_quit_ = data_->thread_has_quit;
-		error = data_->err;
+		error = data_->err_str;
 	}
 	UpdateInfo(&info, error);
 }
 
-const int FixedLineWidth = 300;
+const int FixedLineWidth = 500;
 
 inline QLineEdit* CreateLineEdit() {
 	QLineEdit *p = new QLineEdit();
@@ -160,12 +171,22 @@ bool CountFolder::Init(const QString &dir_path)
 	return true;
 }
 
-void
-CountFolder::UpdateInfo(cornus::io::CountRecursiveInfo *info,
+void CountFolder::UpdateInfo(cornus::io::CountRecursiveInfo *info,
 	const QString &err_msg)
 {
-	folder_count_label_->setText(QString::number(info->dir_count));
-	file_count_label_->setText(QString::number(info->file_count));
+	QString s;
+	{
+		s = locale_.toString(info->dir_count);
+		s.append(tr(", in trash: "));
+		s.append(locale_.toString(info->trash_dir_count));
+		folder_count_label_->setText(s);
+	}
+	{
+		s = locale_.toString(info->file_count);
+		s.append(tr(", in trash: "));
+		s.append(locale_.toString(info->trash_file_count));
+		file_count_label_->setText(s);
+	}
 	{
 		const i64 n = info->size;
 		QString s = io::SizeToString(n);
@@ -173,6 +194,7 @@ CountFolder::UpdateInfo(cornus::io::CountRecursiveInfo *info,
 			s += QLatin1String(" (") +
 				QString::number(n) + QLatin1String(" bytes)");
 		}
+		s.append(tr(", trash: ") + io::SizeToString(info->trash_size));
 		size_label_->setText(s);
 	}
 	

@@ -9,19 +9,19 @@ Building on Ubuntu:
 * cmake ..
 * make -j4
 
-The file browser executable is "cornus", "cornus_io" is the IO server that is started automatically when needed.
+The file browser executable is "cornus", "cornus_io" is the IO daemon that is started automatically when needed.
 To have a desktop launcher for this app - update the file at export/cornus_mas.desktop (specifically its "Icon" and "Exec" fields) according to where you have the "cornus" executable and copy this file to your desktop folder.
 
 ##### Big TODO items:
 * Implement MTP to deal with Android devices
-* Improve the IO server GUI pane.
+* Improve the IO daemon GUI pane.
 
 ##### Application Shortcuts:
 * Ctrl+T => Open a new tab
 * Alt+Up => Go one directory up
 * Ctrl+H => Toggle showing of hidden files
 * Ctrl+Q => Quit app
-* Shift+Delete => Delete selected files
+* Shift+Delete => Delete selected files permanently, no confirmation asked.
 * F2 => Rename selected file
 * Ctrl+I => Focus table
 * Ctrl+L => Focus address bar
@@ -39,18 +39,19 @@ To have a desktop launcher for this app - update the file at export/cornus_mas.d
 ![](resources/Screenshot_light.webp)
 
 
-##### Differences from other file browsers like Nautilus or Dolphin:
+##### Things you should know:
 * Files with the executable bit set are marked green.
-* If needed right click a file -> Open With -> Preferences... to set a default app with which to open a given type of file.
-* To see the tree of links of a symbolic link click the icon of the link in the browser.
+* To set a default app to open a given type of file right click a file -> Open With -> Preferences...
+* To see the tree of links of a symbolic link click the icon of the link.
 * Press 'D' after selecting a non-folder to display its contents (or click its icon). The built-in text editor is meant for a quick update of its contents or a glean into the file, not as a full blown text editor. Files' contents unrecognized as text files are opened in read-only mode.
-* Files are deleted with Shift+Delete. No recycle bin. At least for now.
-* A grey dot near the icon of the file means the file has extended attributes.
+* Shift+Delete = delete permanently, Delete = move to trash.
+* A grey dot near the icon of the file means the file has extended attributes,
+a blue one means it has media related extended attributes.
 *  You can easily set your own icons for files of different types by dropping an icon into the "file_icons" folder with the proper extension as its name, browse the folder "file_icons" to see what I mean, probably located at "/usr/share/cornus/file_icons".
 * "cornus_io" is the I/O daemon that is started automatically, keep it in the same folder as "cornus".
 * File icons are loaded from "$HOME/.config/CornusMas/file_icons", then from "/usr/share/cornus/file_icons", the icons from the former folder are used if both folders contain files with equal names.
 * Supports marking movie files rip quality, codec, resolution, actors, etc.
-For this first go to the settings menu -> "Media Database" and fill in with the actors etc you might ever care about. Then you can apply any of these to any movie by clicking on the movie file and pressing "m", the end result:
+For this first go to the settings menu -> "Media Database" and fill in with the actors, directors etc you might ever care about. Then you can apply any of these to any movie by selecting the movie file and pressing "m", the end result:
 ### Movie Dialog Screenshot:
 
 ![](resources/movie_file_attributes.webp)

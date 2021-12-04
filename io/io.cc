@@ -6,6 +6,7 @@
 #include "File.hpp"
 #include "../err.hpp"
 #include "../ByteArray.hpp"
+#include "../trash.hh"
 
 #include <QDir>
 #include <QFileInfo>
@@ -271,7 +272,7 @@ bool CountSizeRecursive(const QString &path, struct statx &stx,
 	
 	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
 		mtl_warn("statx(): %s", strerror(errno));
-		return -1;
+		return false;
 	}
 	
 	const bool is_dir = S_ISDIR(stx.stx_mode);
@@ -305,48 +306,60 @@ bool CountSizeRecursive(const QString &path, struct statx &stx,
 	return true;
 }
 
-bool CountSizeRecursiveTh(const QString &path, struct statx &stx,
-	CountFolderData &data)
+int DoStat(const QString &full_path, struct statx &stx, bool &is_trash_dir,
+	const bool do_check, CountFolderData &data)
 {
 	const auto flags = AT_SYMLINK_NOFOLLOW;
 	const auto fields = STATX_SIZE | STATX_MODE;
-	auto ba = path.toLocal8Bit();
+	auto path_ba = full_path.toLocal8Bit();
 	
-	if (statx(0, ba.data(), flags, fields, &stx) != 0)
+	if (statx(0, path_ba.data(), flags, fields, &stx) == 0)
 	{
-		mtl_warn("statx(): %s", strerror(errno));
-		QString msg;
-		{
-			auto guard = data.guard();
-			msg = QChar('\"') + path + "\": " + strerror(errno);
-			data.err = msg;
+		if (do_check) {
+			QStringRef name = io::GetFileNameOfFullPath(full_path);
+			is_trash_dir = S_ISDIR(stx.stx_mode) && name.startsWith(trash::basename());
+			if (is_trash_dir) {
+				auto guard = data.guard();
+				data.info.trash_dir_count--;
+			}
 		}
-		auto err_ba = msg.toLocal8Bit();
-		mtl_warn("%s", err_ba.data());
-		return -1;
+		return 0;
 	}
-	
+
+	mtl_warn("statx(): %s", strerror(errno));
+	return errno;
+}
+
+int CountSizeRecursiveTh(const QString &path,
+	struct statx &stx, CountFolderData &data, const bool inside_trash)
+{
 	const bool is_dir = S_ISDIR(stx.stx_mode);
 	{
 		auto guard = data.guard();
 		if (data.app_has_quit)
-			return false;
-	
+			return 0;
+		
+		if (inside_trash)
+			data.info.trash_size += stx.stx_size;
 		data.info.size += stx.stx_size;
 		
 		if (!is_dir) {
 			data.info.file_count++;
-			return true;
+			if (inside_trash)
+				data.info.trash_file_count++;
+			return 0;
 		}
 		
 		data.info.dir_count++;
+		if (inside_trash)
+			data.info.trash_dir_count++;
 	}
 	
 	QVector<QString> names;
 	
 	if (ListFileNames(path, names) != Err::Ok) {
 		mtl_printq(path);
-		return false;
+		return errno;
 	}
 	
 	for (const auto &name: names)
@@ -356,12 +369,18 @@ bool CountSizeRecursiveTh(const QString &path, struct statx &stx,
 			full_path.append('/');
 		full_path.append(name);
 		
-		if (!CountSizeRecursiveTh(full_path, stx, data)) {
-			return false;
-		}
+		bool is_trash_dir = false;
+		int err = io::DoStat(full_path, stx, is_trash_dir, !inside_trash, data);
+		if (err != 0)
+			return err;
+		
+		const bool inside_trash2 = inside_trash ? inside_trash : is_trash_dir;
+		err = CountSizeRecursiveTh(full_path, stx, data, inside_trash2);
+		if (err != 0)
+			return err;
 	}
 	
-	return true;
+	return 0;
 }
 
 void Delete(io::File *file) {

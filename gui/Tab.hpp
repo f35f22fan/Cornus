@@ -35,6 +35,7 @@ public:
 	virtual ~Tab();
 	
 	App* app() const { return app_; }
+	void ComputeTrashSize(const QString &dir_path);
 	void CreateGui();
 	const QString& current_dir() const { return current_dir_; }
 	QString CurrentDirTrashPath();

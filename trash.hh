@@ -23,6 +23,8 @@ const QString& basename_regex();
 
 QString CreateGlobalGitignore();
 
+void EmptyRecursively(const QString &dir_path);
+
 QString EnsureTrashForFile(const QString &file_path);
 
 const QString& gitignore_global_path(const QString *override_data = nullptr);

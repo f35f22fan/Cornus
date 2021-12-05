@@ -16,9 +16,9 @@ void *CountFolderTh(void *arg)
 {
 	pthread_detach(pthread_self());
 	io::CountFolderData *data = (io::CountFolderData*)arg;
-	struct statx stx;
 	bool is_trash_dir;
-	int err = io::DoStat(data->full_path, stx, is_trash_dir, true, *data);
+	const QString name = io::GetFileNameOfFullPath(data->full_path).toString();
+	int err = io::DoStat(data->full_path, name, is_trash_dir, true, *data);
 	
 	if (err != 0){
 		auto guard = data->guard();
@@ -27,7 +27,7 @@ void *CountFolderTh(void *arg)
 		return nullptr;
 	}
 	
-	err = io::CountSizeRecursiveTh(data->full_path, stx, *data, is_trash_dir);
+	err = io::CountSizeRecursiveTh(data->full_path, *data, is_trash_dir);
 	
 	auto guard = data->guard();
 	if (data->app_has_quit)
@@ -52,7 +52,7 @@ app_(app)
 	
 	CreateGui();
 	
-	setWindowTitle(name_);
+	setWindowTitle(tr("Folder stats"));
 	adjustSize();
 	setModal(true);
 	setVisible(true);

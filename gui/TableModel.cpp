@@ -350,13 +350,12 @@ void* WatchDir(void *void_args)
 	
 	if (epoll_ctl(poll_fd, EPOLL_CTL_ADD, notify_fd, &poll_event)) {
 		mtl_status(errno);
-		close(poll_fd);
 		return nullptr;
 	}
 	
-	const int _1000ms = 1000;
 	io::Files &files = *app->files(files_id);
 	QVector<RenameData> rename_vec;
+	bool call_event_func = false;
 	
 	while (true)
 	{
@@ -370,7 +369,7 @@ void* WatchDir(void *void_args)
 				break;
 		}
 		
-		const int ms = rename_vec.isEmpty() ? _1000ms : 20;
+		const int ms = (!rename_vec.isEmpty()) ? 20 : 1000;
 		const int num_file_descriptors = epoll_wait(poll_fd, &poll_event, 1, ms);
 		bool with_hidden_files;
 		{
@@ -394,17 +393,24 @@ void* WatchDir(void *void_args)
 		
 		if (!rename_vec.isEmpty())
 		{
-			mtl_info("rename_vec size is: %d", rename_vec.size());
 			ReinterpretRenames(rename_vec, args->table_model, &files, args->dir_id);
-			mtl_info("rename_vec size is now: %d", rename_vec.size());
 		}
 		
 		if (rename_vec.isEmpty()) {
-			/* This must be dispatched as "QueuedConnection" (low priority)
-			to allow the previous
-			inotify events to be processed first, otherwise file selection doesn't
-			get preserved because inotify events arrive at random pace. */
-			QMetaObject::invokeMethod(model, "InotifyBatchFinished", Qt::QueuedConnection);
+			{
+				MutexGuard guard = files.guard();
+				auto &select_list = files.data.filenames_to_select;
+				call_event_func = !select_list.isEmpty() && !files.data.should_skip_selecting();
+			}
+			
+			if (call_event_func)
+			{
+				/* This must be dispatched as "QueuedConnection" (low priority)
+				to allow the previous
+				inotify events to be processed first, otherwise file selection doesn't
+				get preserved because inotify events arrive at random pace. */
+				QMetaObject::invokeMethod(model, "InotifyBatchFinished", Qt::QueuedConnection);
+			}
 			
 			if (has_been_unmounted_or_deleted) {
 				arw.RemoveWatch(wd);
@@ -524,23 +530,26 @@ QVariant TableModel::headerData(int section_i, Qt::Orientation orientation, int 
 	}
 	return {};
 }
-
+// #define CORNUS_DEBUG_INOTIFY_BATCH
 void TableModel::InotifyBatchFinished()
 {
-	if (filenames_to_select_.isEmpty())
-		return;
-#ifdef CORNUS_DEBUG_INOTIFY_BATCH
-mtl_info("==> New Batch ==>>");
-#endif
 	QVector<int> indices;
 	auto &files = *app_->files(tab_->files_id());
 	{
 		MutexGuard guard = files.guard();
+		auto &select_list = files.data.filenames_to_select;
+		if (select_list.isEmpty() || files.data.should_skip_selecting())
+			return;
+		
+#ifdef CORNUS_DEBUG_INOTIFY_BATCH
+mtl_info("==> New Batch ==>>");
+#endif
+
 		QVector<io::File*> &files_vec = files.data.vec;
-		auto it = filenames_to_select_.begin();
+		auto it = select_list.begin();
 		const int files_count = files_vec.size();
 		
-		while (it != filenames_to_select_.end())
+		while (it != select_list.end())
 		{
 			const QString &name = it.key();
 			bool found = false;
@@ -550,10 +559,12 @@ mtl_info("==> New Batch ==>>");
 				if (file->name() == name) {
 					indices.append(i);
 					file->selected(true);
+//					mtl_info("Found! %s, index: %d, file_count: %d",
+//						qPrintable(file->name()), i, files_count);
 #ifdef CORNUS_DEBUG_INOTIFY_BATCH
 					mtl_info("Selected: %s", qPrintable(name));
 #endif
-					it = filenames_to_select_.erase(it);
+					it = select_list.erase(it);
 					found = true;
 					break;
 				}
@@ -564,9 +575,9 @@ mtl_info("==> New Batch ==>>");
 #endif
 				const int new_count = it.value() + 1;
 				if (new_count > 5) {
-					it = filenames_to_select_.erase(it);
+					it = select_list.erase(it);
 				} else {
-					filenames_to_select_[it.key()] = new_count;
+					select_list[it.key()] = new_count;
 #ifdef CORNUS_DEBUG_INOTIFY_BATCH
 					mtl_info("%s is now %d", qPrintable(it.key()), new_count);
 #endif
@@ -580,12 +591,7 @@ mtl_info("==> New Batch ==>>");
 		UpdateIndices(indices);
 		tab_->table()->ScrollToRow(indices[0]);
 	}
-#ifdef CORNUS_DEBUG_INOTIFY_BATCH
-	mtl_info("Remaining items: %d", filenames_to_select_.count());
-#endif
 }
-
-//#define CORNUS_DEBUG_INOTIFY
 
 void TableModel::InotifyEvent(gui::FileEvent evt)
 {
@@ -645,28 +651,6 @@ void TableModel::InotifyEvent(gui::FileEvent evt)
 		mtl_trace();
 	}
 	} /// switch()
-
-	if (!scroll_to_and_select_.isEmpty()) {
-/** When the user renames a file from a file rename dialog you want after
- renaming to select the newly renamed file and scroll to it,
- but you can't do it from the
- rename dialog code because the tableview will only receive the new
-file name from the inotify event which is processed in another thread.
-Hence the table can't scroll to it (returns false) as long as it hasn't
-received the new file name from the inotify thread. Which means that if
-it returns true all jobs are done (rename event processed, table
-found the new file, selected and scrolled to it). */
-		if (tab_->table()->ScrollToAndSelect(scroll_to_and_select_)) {
-			scroll_to_and_select_.clear();
-		} else {
-			tried_to_scroll_to_count_++;
-		}
-		
-		if (tried_to_scroll_to_count_ > 5) {
-			tried_to_scroll_to_count_ = 0;
-			scroll_to_and_select_.clear();
-		}
-	}
 }
 
 bool TableModel::InsertRows(const i32 at, const QVector<cornus::io::File*> &files_to_add)
@@ -725,10 +709,14 @@ bool TableModel::removeRows(int row, int count, const QModelIndex &parent)
 	return true;
 }
 
-void TableModel::SelectFilesLater(const QVector<QString> &v)
+void TableModel::SelectFilenamesLater(const QVector<QString> &v, const SameDir sd)
 {
+	io::Files &files = *app_->files(tab_->files_id());
+	MutexGuard guard = files.guard();
+	auto dir_to_skip = (sd == SameDir::Yes) ? -1 : files.data.dir_id;
+	files.data.skip_dir_id = dir_to_skip;
 	for (const auto &s: v) {
-		filenames_to_select_.insert(s, 0);
+		files.data.filenames_to_select.insert(s, 0);
 	}
 }
 
@@ -776,18 +764,15 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 		.table_model = this,
 	};
 	
+	UpdateIndices(indices);
+	UpdateHeaderNameColumn();
+	InotifyBatchFinished();
+	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, cornus::gui::WatchDir, args);
 	if (status != 0) {
 		mtl_status(status);
 	}
-	
-	if (!new_data->scroll_to_and_select.isEmpty()) {
-		tab_->table()->ScrollToAndSelect(new_data->scroll_to_and_select);
-	}
-	
-	UpdateIndices(indices);
-	UpdateHeaderNameColumn();
 }
 
 void TableModel::UpdateIndices(const QVector<int> &indices)

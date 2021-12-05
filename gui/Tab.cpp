@@ -97,7 +97,7 @@ void* GoToTh(void *p)
 		new_data->processed_dir_path = params->dir_path.path;
 	else
 		new_data->unprocessed_dir_path = params->dir_path.path;
-	new_data->scroll_to_and_select = params->scroll_to_and_select;
+	//new_data->scroll_to_and_select = params->scroll_to_and_select;
 
 	if (io::ListFiles(*new_data, &view_files) != io::Err::Ok) {
 		delete params;
@@ -153,11 +153,6 @@ Tab::~Tab()
 	app_->DeleteFilesById(files_id_);
 }
 
-void Tab::ComputeTrashSize(const QString &dir_path)
-{
-	mtl_trace();
-}
-
 void Tab::CreateGui()
 {
 	setContentsMargins(0, 0, 0, 0);
@@ -201,13 +196,12 @@ void Tab::GoForward() {
 
 void Tab::GoHome() { GoTo(Action::To, {QDir::homePath(), Processed::No}); }
 
-bool Tab::GoTo(const Action action, DirPath dp, const cornus::Reload r, QString scroll_to_and_select)
+bool Tab::GoTo(const Action action, DirPath dp, const cornus::Reload r)
 {
 	GoToParams *params = new GoToParams();
 	params->tab = this;
 	params->dir_path = dp;
 	params->reload = r == Reload::Yes;
-	params->scroll_to_and_select = scroll_to_and_select;
 	params->action = action;
 	
 	pthread_t th;
@@ -231,6 +225,11 @@ void Tab::GoToFinish(cornus::io::FilesData *new_data)
 /// current_dir_ must be assigned before model->SwitchTo
 /// otherwise won't properly show current partition's free space
 	current_dir_ = new_data->processed_dir_path;
+	bool got_files_to_select;
+	{
+		io::Files &files = *app_->files(files_id());
+		got_files_to_select = !files.data.filenames_to_select.isEmpty();
+	}
 	table_model_->SwitchTo(new_data);
 	history_->Add(new_data->action, current_dir_);
 	
@@ -238,8 +237,10 @@ void Tab::GoToFinish(cornus::io::FilesData *new_data)
 		QVector<QString> list;
 		history_->GetSelectedFiles(list);
 		table_->SelectByLowerCase(list, NamesAreLowerCase::Yes);
-	} else if (new_data->scroll_to_and_select.isEmpty())
-		table_->ScrollToRow(0);
+	} else if (new_data->scroll_to_and_select.isEmpty()) {
+		if (!got_files_to_select)
+			table_->ScrollToRow(0);
+	}
 	
 	QString dir_name = QDir(new_data->processed_dir_path).dirName();
 	if (dir_name.isEmpty())
@@ -308,20 +309,25 @@ void Tab::GoToInitialDir()
 			}
 		}
 	}
-
+	
 	FigureOutSelectPath(cmds.select, cmds.go_to_path);
 	if (!cmds.go_to_path.isEmpty())
 	{
 		io::FileType file_type;
 		if (!io::FileExists(cmds.go_to_path, &file_type)) {
-			QString msg = "Directory doesn't exist:\n\""
-				+ cmds.go_to_path + QChar('\"');
-			mtl_printq(msg);
-			GoTo(Action::To, {QDir::homePath(), Processed::No}, Reload::No, cmds.select);
+			QString name = cmds.select;
+			if (name.startsWith('/'))
+				name = io::GetFileNameOfFullPath(name).toString();
+			table_model_->SelectFilenamesLater({name});
+			GoTo(Action::To, {QDir::homePath(), Processed::No}, Reload::No);
 			return;
 		}
 		if (file_type == io::FileType::Dir) {
-			GoTo(Action::To, {cmds.go_to_path, Processed::No}, Reload::No, cmds.select);
+			QString name = cmds.select;
+			if (name.startsWith('/'))
+				name = io::GetFileNameOfFullPath(name).toString();
+			table_model_->SelectFilenamesLater({name});
+			GoTo(Action::To, {cmds.go_to_path, Processed::No}, Reload::No);
 		} else {
 			QDir parent_dir(cmds.go_to_path);
 			if (!parent_dir.cdUp()) {
@@ -331,7 +337,9 @@ void Tab::GoToInitialDir()
 				GoHome();
 				return;
 			}
-			GoTo(Action::To, {parent_dir.absolutePath(), Processed::No}, Reload::No, cmds.go_to_path);
+			QString name = io::GetFileNameOfFullPath(cmds.go_to_path).toString();
+			table_model_->SelectFilenamesLater({name});
+			GoTo(Action::To, {parent_dir.absolutePath(), Processed::No}, Reload::No);
 			return;
 		}
 	}
@@ -343,11 +351,12 @@ void Tab::GoToAndSelect(const QString full_path)
 	QDir parent = info.dir();
 	CHECK_TRUE_VOID(parent.exists());
 	QString parent_dir = parent.absolutePath();
+	const QString name = io::GetFileNameOfFullPath(full_path).toString();
+	const SameDir same_dir = io::SameFiles(parent_dir, current_dir_) ? SameDir::Yes : SameDir::No;
+	table_->model()->SelectFilenamesLater({name}, same_dir);
 	
-	if (!io::SameFiles(parent_dir, current_dir_)) {
-		CHECK_TRUE_VOID(GoTo(Action::To, {parent_dir, Processed::No}, Reload::No, full_path));
-	} else {
-		table_->ScrollToAndSelect(full_path);
+	if (same_dir == SameDir::No) {
+		CHECK_TRUE_VOID(GoTo(Action::To, {parent_dir, Processed::No}, Reload::No));
 	}
 }
 
@@ -365,8 +374,9 @@ void Tab::GoUp()
 	if (!dir.cdUp())
 		return;
 	
-	QString select_path = current_dir_;
-	GoTo(Action::Up, {dir.absolutePath(), Processed::Yes}, Reload::No, select_path);
+	QString name = io::GetFileNameOfFullPath(current_dir_).toString();
+	table_model_->SelectFilenamesLater({name});
+	GoTo(Action::Up, {dir.absolutePath(), Processed::Yes}, Reload::No);
 }
 
 void Tab::GrabFocus() {
@@ -539,7 +549,6 @@ void Tab::UndeleteFiles(const QMap<i64, QVector<trash::Names>> &items)
 	
 	{
 		QVector<QString> select_vec;
-		QString s;
 		auto it = items.constBegin();
 		while (it != items.constEnd())
 		{
@@ -547,12 +556,10 @@ void Tab::UndeleteFiles(const QMap<i64, QVector<trash::Names>> &items)
 			for (const trash::Names &name: vec)
 			{
 				select_vec.append(name.decoded);
-				s += " " + name.decoded;
 			}
 			it++;
 		}
-		mtl_info("Gotta select: %s", qPrintable(s));
-		table_model_->SelectFilesLater(select_vec);
+		table_model_->SelectFilenamesLater(select_vec, SameDir::Yes);
 	}
 	
 	{

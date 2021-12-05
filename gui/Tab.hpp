@@ -21,7 +21,7 @@ struct DirPath {
 struct GoToParams {
 	gui::Tab *tab = nullptr;
 	DirPath dir_path;
-	QString scroll_to_and_select;
+	//QString scroll_to_and_select;
 	cornus::Action action = Action::None;
 	bool reload;
 };
@@ -35,7 +35,6 @@ public:
 	virtual ~Tab();
 	
 	App* app() const { return app_; }
-	void ComputeTrashSize(const QString &dir_path);
 	void CreateGui();
 	const QString& current_dir() const { return current_dir_; }
 	QString CurrentDirTrashPath();
@@ -44,8 +43,7 @@ public:
 	void GoBack();
 	void GoForward();
 	void GoHome();
-	bool GoTo(const Action action, DirPath dir_path, const cornus::Reload r = Reload::No,
-		QString scroll_to_and_select = QString());
+	bool GoTo(const Action action, DirPath dir_path, const cornus::Reload r = Reload::No);
 	void GoToAndSelect(const QString full_path);
 	void GoToSimple(const QString &full_path);
 	void GoUp();

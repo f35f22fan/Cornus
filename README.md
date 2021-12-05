@@ -4,8 +4,7 @@
 ---
 Building on Ubuntu:
 * sudo apt-get install qt5-default mkvtoolnix libdbus-c++-dev libudev-dev libudisks2-dev libdconf-dev cmake git ark libmtp-dev liburing-dev
-* mkdir build
-* cd build
+* mkdir build && cd build
 * cmake ..
 * make -j4
 
@@ -47,7 +46,18 @@ To have a desktop launcher for this app - update the file at export/cornus_mas.d
 * Shift+Delete = delete permanently, Delete = move to trash.
 * A grey dot near the icon of the file means the file has extended attributes,
 a blue one means it has media related extended attributes.
-*  You can easily set your own icons for files of different types by dropping an icon into the "file_icons" folder with the proper extension as its name, browse the folder "file_icons" to see what I mean, probably located at "/usr/share/cornus/file_icons".
+* Launching Cornus from the command line and getting it to select a folder at startup, examples:<br/>
+To select the folder "Documents" from ${HOME} execute:<br/>
+`cornus ${HOME} --select Documents`<br/>
+or<br/>
+`cornus ${HOME} --select "My Folder With Whitespaces"`<br/>
+To select "File.txt" from ${HOME} execute:</br>
+`cornus ${HOME}/File.txt`<br/>
+or:<br/>
+`cornus ${HOME} --select File.txt`<br/>
+or:<br/>
+`cornus ${HOME} --select "My File With Whitespaces.txt"`<br/>
+* You can easily set your own icons for files of different types by dropping an icon into the "file_icons" folder with the proper extension as its name, browse the folder "file_icons" to see what I mean, probably located at "/usr/share/cornus/file_icons".
 * "cornus_io" is the I/O daemon that is started automatically, keep it in the same folder as "cornus".
 * File icons are loaded from "$HOME/.config/CornusMas/file_icons", then from "/usr/share/cornus/file_icons", the icons from the former folder are used if both folders contain files with equal names.
 * Supports marking movie files rip quality, codec, resolution, actors, etc.

@@ -29,7 +29,7 @@
 namespace cornus::io {
 
 enum class PostWrite: i8 {
-	None = 0,
+	DoNothing = 0,
 	FSync,
 	FDataSync
 };
@@ -118,6 +118,19 @@ struct FilesData {
 	FilesData(const FilesData &rhs) = delete;
 	std::chrono::time_point<std::chrono::steady_clock> start_time;
 	QVector<io::File*> vec;
+	/* When needing to select a file sometimes the file isn't yet in
+	  the table_model's list because the inotify event didn't tell
+	  it yet that a new file is available.
+	 i16 holds the count how many times a given filename wasn't found
+	 in the current list of files. When it happens a certain amount of
+	 times the filename should be deleted from the hash - which is a
+	 way to not allow the hash to grow uncontrollably by keeping
+	 garbage.
+	*/
+	i32 skip_dir_id = -1; // to not start selection prematurely
+	QHash<QString, i16> filenames_to_select;// <filename, counter>
+	bool should_skip_selecting() const { return dir_id == skip_dir_id; }
+	
 	QString processed_dir_path;
 	QString unprocessed_dir_path;
 	QString scroll_to_and_select;
@@ -217,6 +230,7 @@ struct CountFolderData {
 	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 	bool thread_has_quit = false;
 	bool app_has_quit = false;
+	struct statx stx;
 	QString err_str;
 	
 	inline void Lock() {
@@ -238,8 +252,7 @@ bool CountSizeRecursive(const QString &path, struct statx &stx,
 	CountRecursiveInfo &info);
 
 // returns errno, or zero for success
-int CountSizeRecursiveTh(const QString &path,
-	struct statx &stx, CountFolderData &data, const bool inside_trash);
+int CountSizeRecursiveTh(const QString &path, CountFolderData &data, const bool inside_trash);
 
 media::ShortData* DecodeShort(ByteArray &ba);
 
@@ -247,7 +260,7 @@ void Delete(io::File *file);
 
 bool DirExists(const QString &full_path);
 
-int DoStat(const QString &full_path, struct statx &stx,
+int DoStat(const QString &full_path, const QString &name,
 	bool &is_trash_dir, const bool do_check, CountFolderData &data);
 
 bool EnsureDir(QString dir_path, const QString &subdir, QString *result = nullptr);
@@ -335,8 +348,9 @@ MapPosixTypeToLocal(const mode_t mode) {
 QString
 NewNamePattern(const QString &filename, i32 &next);
 
-QString PasteLinks(const QVector<QString> &full_paths, QString target_dir, QString *err);
-QString PasteRelativeLinks(const QVector<QString> &full_paths, QString target_dir, QString *err);
+void PasteLinks(const QVector<QString> &full_paths, QVector<QString> &filenames, QString target_dir, QString *err);
+void PasteRelativeLinks(const QVector<QString> &full_paths,
+	QVector<QString> &filenames, QString target_dir, QString *err);
 
 void
 ProcessMime(QString &mime);
@@ -370,7 +384,7 @@ isize TryReadFile(const QString &full_path, char *buf,
 	const i64 how_much, ExecInfo *info = nullptr);
 
 Err WriteToFile(const QString &full_path, const char *data, const i64 size,
-	const PostWrite post_write = PostWrite::None,
+	const PostWrite post_write = PostWrite::DoNothing,
 	mode_t *custom_mode = nullptr);
 
 } // cornus::io::::

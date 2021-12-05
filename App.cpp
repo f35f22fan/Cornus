@@ -361,7 +361,7 @@ void App::AskCreateNewFile(io::File *file, const QString &title)
 	file->name(value);
 	const QString new_path = file->build_full_path();
 	auto path_ba = new_path.toLocal8Bit();
-	tab()->table_model()->set_scroll_to_and_select(new_path);
+	tab()->table_model()->SelectFilenamesLater({file->name()});
 	int fd;
 	
 	if (file->is_dir()) {
@@ -371,7 +371,6 @@ void App::AskCreateNewFile(io::File *file, const QString &title)
 	}
 	
 	if (fd == -1) {
-		tab()->table_model()->set_scroll_to_and_select(QString());
 		if (errno == EEXIST) {
 			QString name = QString("\"") + file->name();
 			TellUser(name + "\" already exists", tr("Failed"));
@@ -480,8 +479,7 @@ QMenu* App::CreateNewMenu()
 			
 			connect(action, &QAction::triggered, [=] {
 				io::CopyFileFromTo(from_full_path, dir_path);
-				QString new_path = dir_path + name;
-				tab()->table_model()->set_scroll_to_and_select(new_path);
+				tab()->table_model()->SelectFilenamesLater({name});
 			});
 			menu->addAction(action);
 		}
@@ -1210,8 +1208,8 @@ void App::ProcessAndWriteTo(const QString ext,
 	if (!ext.isEmpty())
 		filename += '.' + ext;
 	QString new_file_path = to_dir + filename;
-	tab()->table_model()->set_scroll_to_and_select(new_file_path);
-	if (io::WriteToFile(new_file_path, ba.data(), ba.size(), io::PostWrite::None, &mode) != io::Err::Ok) {
+	tab()->table_model()->SelectFilenamesLater({filename});
+	if (io::WriteToFile(new_file_path, ba.data(), ba.size(), io::PostWrite::DoNothing, &mode) != io::Err::Ok) {
 		mtl_trace("Failed to write data to file");
 	}
 }
@@ -1599,12 +1597,11 @@ void App::RenameSelectedFile()
 	if (old_path == new_path)
 		return;
 	
-	tab->table_model()->set_scroll_to_and_select(new_path);
+	tab->table_model()->SelectFilenamesLater({value});
 	
 	if (rename(old_path.data(), new_path.data()) != 0) {
 		QString err = QString("Failed: ") + strerror(errno);
 		QMessageBox::warning(this, "Failed", err);
-		tab->table_model()->set_scroll_to_and_select(QString());
 	}
 }
 

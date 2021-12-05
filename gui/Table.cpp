@@ -180,20 +180,16 @@ void Table::ActionPaste()
 	ba->set_msg_id(io_op);
 	QString to_dir = app_->tab()->current_dir();
 	ba->add_string(to_dir);
-	QString scroll_to_first_one;
-	for (const auto &next: clipboard.file_paths) {
-		if (scroll_to_first_one.isEmpty()) {
-			QString filename = io::GetFileNameOfFullPath(next).toString();
-			scroll_to_first_one = to_dir;
-			if (!scroll_to_first_one.endsWith('/'))
-				scroll_to_first_one.append('/');
-			scroll_to_first_one.append(filename);
-		}
+	QVector<QString> names;
+	for (const auto &next: clipboard.file_paths)
+	{
+		QString filename = io::GetFileNameOfFullPath(next).toString();
+		names.append(filename);
 		ba->add_string(next);
 	}
 	
 	io::socket::SendAsync(ba);
-	model_->set_scroll_to_and_select(scroll_to_first_one);
+	model_->SelectFilenamesLater(names);
 	
 	if (clipboard.action == ClipboardAction::Cut) {
 		/// Not using qclipboard->clear() because it doesn't work:
@@ -205,17 +201,17 @@ void Table::ActionPasteLinks(const LinkType link)
 {
 	const Clipboard &clipboard = app_->clipboard();
 	QString err;
-	QString first_one;
+	QVector<QString> names;
 	if (link == LinkType::Absolute)
-		first_one = io::PasteLinks(clipboard.file_paths, app_->tab()->current_dir(), &err);
+		io::PasteLinks(clipboard.file_paths, names, app_->tab()->current_dir(), &err);
 	else if (link == LinkType::Relative)
-		first_one = io::PasteRelativeLinks(clipboard.file_paths, app_->tab()->current_dir(), &err);
+		io::PasteRelativeLinks(clipboard.file_paths, names, app_->tab()->current_dir(), &err);
 	else {
 		mtl_trace();
 		return;
 	}
 	
-	model_->set_scroll_to_and_select(first_one);
+	model_->SelectFilenamesLater(names);
 	if (clipboard.action == ClipboardAction::Cut)
 	{
 		/// Not using qclipboard->clear() because it doesn't work:

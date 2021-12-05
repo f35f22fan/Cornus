@@ -15,6 +15,11 @@
 
 namespace cornus::gui {
 
+enum class SameDir: i8 {
+	Yes,
+	No
+};
+
 class TableModel: public QAbstractTableModel
 {
 	Q_OBJECT
@@ -56,8 +61,7 @@ public:
 		return true;
 	}
 	
-	void SelectFilesLater(const QVector<QString> &v);
-	void set_scroll_to_and_select(const QString &s) { scroll_to_and_select_ = s; }
+	void SelectFilenamesLater(const QVector<QString> &v, const SameDir sd = SameDir::No);
 	void SwitchTo(io::FilesData *new_data);
 	gui::Tab* tab() const { return tab_; }
 	void UpdateIndices(const QVector<int> &indices);
@@ -83,18 +87,6 @@ private:
 	
 	cornus::App *app_ = nullptr;
 	gui::Tab *tab_ = nullptr;
-	QString scroll_to_and_select_;
-	
-	/* When needing to select a file sometimes the file isn't yet in
-	  the table_model's list because the inotify event didn't tell
-	  it yet that a new file is available.
-	 i16 holds the count how many times a given filename wasn't found
-	 in the current list of files. When it happens a certain amount of
-	 times the filename should be deleted from the hash - which is a
-	 way to not allow the hash to grow uncontrollably by keeping
-	 garbage.
-	*/
-	QHash<QString, i16> filenames_to_select_;// <filename, counter>
 	
 	mutable QString cached_free_space_;
 	int tried_to_scroll_to_count_ = 0;

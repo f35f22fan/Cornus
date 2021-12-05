@@ -306,21 +306,20 @@ bool CountSizeRecursive(const QString &path, struct statx &stx,
 	return true;
 }
 
-int DoStat(const QString &full_path, struct statx &stx, bool &is_trash_dir,
+int DoStat(const QString &full_path, const QString &name, bool &is_trash_dir,
 	const bool do_check, CountFolderData &data)
 {
 	const auto flags = AT_SYMLINK_NOFOLLOW;
 	const auto fields = STATX_SIZE | STATX_MODE;
 	auto path_ba = full_path.toLocal8Bit();
 	
-	if (statx(0, path_ba.data(), flags, fields, &stx) == 0)
+	if (statx(0, path_ba.data(), flags, fields, &data.stx) == 0)
 	{
-		if (do_check) {
-			QStringRef name = io::GetFileNameOfFullPath(full_path);
-			is_trash_dir = S_ISDIR(stx.stx_mode) && name.startsWith(trash::basename());
+		if (do_check && S_ISDIR(data.stx.stx_mode)) {
+			is_trash_dir = name.startsWith(trash::basename());
 			if (is_trash_dir) {
 				auto guard = data.guard();
-				data.info.trash_dir_count--;
+				data.info.trash_dir_count--; // don't count the trash can itself
 			}
 		}
 		return 0;
@@ -331,17 +330,17 @@ int DoStat(const QString &full_path, struct statx &stx, bool &is_trash_dir,
 }
 
 int CountSizeRecursiveTh(const QString &path,
-	struct statx &stx, CountFolderData &data, const bool inside_trash)
+	CountFolderData &data, const bool inside_trash)
 {
-	const bool is_dir = S_ISDIR(stx.stx_mode);
+	const bool is_dir = S_ISDIR(data.stx.stx_mode);
 	{
 		auto guard = data.guard();
 		if (data.app_has_quit)
 			return 0;
 		
 		if (inside_trash)
-			data.info.trash_size += stx.stx_size;
-		data.info.size += stx.stx_size;
+			data.info.trash_size += data.stx.stx_size;
+		data.info.size += data.stx.stx_size;
 		
 		if (!is_dir) {
 			data.info.file_count++;
@@ -370,12 +369,12 @@ int CountSizeRecursiveTh(const QString &path,
 		full_path.append(name);
 		
 		bool is_trash_dir = false;
-		int err = io::DoStat(full_path, stx, is_trash_dir, !inside_trash, data);
+		int err = io::DoStat(full_path, name, is_trash_dir, !inside_trash, data);
 		if (err != 0)
 			return err;
 		
 		const bool inside_trash2 = inside_trash ? inside_trash : is_trash_dir;
-		err = CountSizeRecursiveTh(full_path, stx, data, inside_trash2);
+		err = CountSizeRecursiveTh(full_path, data, inside_trash2);
 		if (err != 0)
 			return err;
 	}
@@ -1003,13 +1002,11 @@ QString NewNamePattern(const QString &filename, i32 &next)
 	return base_name + num_str + '.' + ext;
 }
 
-QString PasteLinks(const QVector<QString> &full_paths, QString target_dir,
-	QString *error)
+void PasteLinks(const QVector<QString> &full_paths,
+	QVector<QString> &filenames, QString target_dir, QString *error)
 {
 	if (!target_dir.endsWith('/'))
 		target_dir.append('/');
-	
-	QString first_successful;
 	
 	for (const QString &in_full_path: full_paths)
 	{
@@ -1017,6 +1014,7 @@ QString PasteLinks(const QVector<QString> &full_paths, QString target_dir,
 		if (filename.isEmpty())
 			continue;
 		
+		filenames.append(filename);
 		auto target_path_ba = in_full_path.toLocal8Bit();
 		i32 next = 0;
 		while (true)
@@ -1026,8 +1024,6 @@ QString PasteLinks(const QVector<QString> &full_paths, QString target_dir,
 			int status = symlink(target_path_ba.data(), new_file_path.data());
 			
 			if (status == 0) {
-				if (first_successful.isEmpty())
-					first_successful = full_path;
 				break;
 			} else if (errno == EEXIST) {
 				continue;
@@ -1038,17 +1034,13 @@ QString PasteLinks(const QVector<QString> &full_paths, QString target_dir,
 			}
 		}
 	}
-	
-	return first_successful;
 }
 
-QString PasteRelativeLinks(const QVector<QString> &full_paths, QString target_dir,
+void PasteRelativeLinks(const QVector<QString> &full_paths, QVector<QString> &filenames, QString target_dir,
 	QString *error)
 {
 	if (!target_dir.endsWith('/'))
 		target_dir.append('/');
-	
-	QString first_successful;
 	
 	for (const QString &in_full_path: full_paths)
 	{
@@ -1057,6 +1049,7 @@ QString PasteRelativeLinks(const QVector<QString> &full_paths, QString target_di
 			mtl_trace();
 			continue;
 		}
+		filenames.append(filename);
 		QString target = in_full_path;
 		if (target.startsWith(target_dir)) {
 			target = target.mid(target_dir.size());
@@ -1069,12 +1062,7 @@ QString PasteRelativeLinks(const QVector<QString> &full_paths, QString target_di
 			auto link_path_ba = full_path.toLocal8Bit();
 			
 			int status = symlink(target_path_ba.data(), link_path_ba.data());
-//			mtl_info("status %d", status);
-//			mtl_info("target: %s", target_path_ba.data());
-//			mtl_info("link_path_ba: %s", link_path_ba.data());
 			if (status == 0) {
-				if (first_successful.isEmpty())
-					first_successful = full_path;
 				break;
 			} else if (errno == EEXIST) {
 				continue;
@@ -1086,7 +1074,6 @@ QString PasteRelativeLinks(const QVector<QString> &full_paths, QString target_di
 		}
 	}
 	
-	return first_successful;
 }
 
 void ProcessMime(QString &mime)
@@ -1612,7 +1599,7 @@ io::Err WriteToFile(const QString &full_path, const char *data, const i64 size,
 	}
 	
 	switch (post_write) {
-	case PostWrite::None: break;
+	case PostWrite::DoNothing: break;
 	case PostWrite::FSync: fsync(fd); break;
 	case PostWrite::FDataSync: fdatasync(fd); break;
 	}

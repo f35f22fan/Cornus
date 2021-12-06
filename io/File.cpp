@@ -73,15 +73,9 @@ void File::ClearCache()
 	}
 }
 
-bool File::DeleteFromDisk() {
+int File::Delete() {
 	auto ba = build_full_path().toLocal8Bit();
-	int status = remove(ba.data());
-	
-	if (status != 0) {
-		mtl_warn("Failed to delete \"%s\": %s", ba.data(), strerror(errno));
-	}
-	
-	return status == 0;
+	return remove(ba.data());
 }
 
 bool File::has_exec_bit() const {

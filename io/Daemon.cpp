@@ -1,10 +1,11 @@
-#include "Server.hpp"
+#include "Daemon.hpp"
 
 #include "../AutoDelete.hh"
 #include "../ByteArray.hpp"
 #include "../DesktopFile.hpp"
 #include "../prefs.hh"
 #include "../str.hxx"
+#include "../trash.hh"
 #include "../gui/TasksWin.hpp"
 
 #include <QAction>
@@ -29,15 +30,15 @@ MutexGuard DesktopFiles::guard() const
 	return MutexGuard(&mutex);
 }
 
-const size_t kInotifyEventBufLen = 8 * (sizeof(struct inotify_event) + 16);
+const size_t kInotifyEventBufLen = 16 * (sizeof(struct inotify_event) + NAME_MAX + 1);
 
 struct DesktopFileWatchArgs {
 	QStringList dir_paths;
-	cornus::io::Server *server = nullptr;
+	cornus::io::Daemon *server = nullptr;
 };
 
 void ReadEvent(int inotify_fd, char *buf,
-	bool &has_been_unmounted_or_deleted, io::Server *server,
+	bool &has_been_unmounted_or_deleted, io::Daemon *server,
 	QHash<int, QString> &fd_to_path)
 {
 	const ssize_t num_read = read(inotify_fd, buf, kInotifyEventBufLen);
@@ -169,7 +170,7 @@ void* WatchDesktopFileDirs(void *void_args)
 	CHECK_PTR_NULL(void_args);
 	
 	QScopedPointer<DesktopFileWatchArgs> args((DesktopFileWatchArgs*) void_args);
-	Server *server = args->server;
+	Daemon *server = args->server;
 	
 	char *buf = new char[kInotifyEventBufLen];
 	AutoDeleteArr ad_arr(buf);
@@ -233,7 +234,7 @@ void* WatchDesktopFileDirs(void *void_args)
 	return nullptr;
 }
 
-Server::Server()
+Daemon::Daemon()
 {
 	notify_.Init();
 	io::InitEnvInfo(category_, search_icons_dirs_, xdg_data_dirs_, possible_categories_);
@@ -242,12 +243,12 @@ Server::Server()
 	InitTrayIcon();
 }
 
-Server::~Server() {
+Daemon::~Daemon() {
 	notify_.Close();
 	delete tray_menu_;
 }
 
-void Server::CopyURLsToClipboard(ByteArray *ba)
+void Daemon::CopyURLsToClipboard(ByteArray *ba)
 {
 	QMimeData *mime = new QMimeData();
 	
@@ -260,7 +261,7 @@ void Server::CopyURLsToClipboard(ByteArray *ba)
 	QApplication::clipboard()->setMimeData(mime);
 }
 
-void Server::CutURLsToClipboard(ByteArray *ba)
+void Daemon::CutURLsToClipboard(ByteArray *ba)
 {
 	QMimeData *mime = new QMimeData();
 	
@@ -279,7 +280,58 @@ void Server::CutURLsToClipboard(ByteArray *ba)
 	QApplication::clipboard()->setMimeData(mime);
 }
 
-void Server::GetDesktopFilesForMime(const QString &mime,
+bool Daemon::EmptyTrashRecursively(QString dp, const bool notify_user)
+{
+	if (!dp.endsWith('/'))
+		dp.append('/');
+	const QIcon trash_icon = QIcon::fromTheme(QLatin1String("user-trash"));
+	QVector<QString> names;
+	int status = io::ListDirNames(dp, names, ListDirOption::DontIncludeLinksToDir);
+	if (status != 0)
+	{
+		QString err = strerror(status) + QLatin1String("<br/>") + dp;
+		tray_icon_->showMessage(tr("Trash error"), err, trash_icon);
+		return false;
+	}
+	
+	if (names.isEmpty())
+	{
+		if (notify_user)
+		{
+			tray_icon_->showMessage(tr("There was nothing in the trash can"),
+				dp, trash_icon);
+		}
+		return true;
+	}
+	
+	const int index = names.indexOf(trash::name());
+	
+	if (index != -1) {
+		const QString full_path = dp + trash::name();
+		status = io::DeleteFolder(full_path);
+		names.remove(index);
+		if (status != 0) {
+			QString err = strerror(status) + QLatin1String("<br/>") + full_path;
+			tray_icon_->showMessage(tr("Trash error"), err, trash_icon);
+			return false;
+		}
+	}
+	
+	for (const QString &name: names)
+	{
+		if (!EmptyTrashRecursively(dp + name, false))
+			return false;
+	}
+	
+	if (notify_user)
+	{
+		tray_icon_->showMessage(tr("Trash can is now empty"), dp, trash_icon);
+	}
+	
+	return true;
+}
+
+void Daemon::GetDesktopFilesForMime(const QString &mime,
 	QVector<DesktopFile*> &show_vec, QVector<DesktopFile*> &hide_vec)
 {
 	const MimeInfo mime_info = DesktopFile::GetForMime(mime);
@@ -308,7 +360,7 @@ void Server::GetDesktopFilesForMime(const QString &mime,
 	std::sort(show_vec.begin(), show_vec.end(), SortByPriority);
 }
 
-void Server::GetPreferredOrder(QString mime,
+void Daemon::GetPreferredOrder(QString mime,
 	QVector<DesktopFile*> &show_vec,
 	QVector<DesktopFile*> &hide_vec)
 {
@@ -349,13 +401,13 @@ void Server::GetPreferredOrder(QString mime,
 	}
 }
 
-void Server::InitTrayIcon()
+void Daemon::InitTrayIcon()
 {
 	tray_icon_ = new QSystemTrayIcon();
 	tray_icon_->setIcon(QIcon(cornus::AppIconPath));
 	tray_icon_->setVisible(true);
 	tray_icon_->setToolTip("cornus I/O daemon");
-	connect(tray_icon_, &QSystemTrayIcon::activated, this, &Server::SysTrayClicked);
+	connect(tray_icon_, &QSystemTrayIcon::activated, this, &Daemon::SysTrayClicked);
 	
 	tray_menu_ = new QMenu(tasks_win_);
 	tray_icon_->setContextMenu(tray_menu_);
@@ -375,7 +427,7 @@ void Server::InitTrayIcon()
 	}
 }
 
-void Server::LoadDesktopFiles()
+void Daemon::LoadDesktopFiles()
 {
 	for (const auto &next: xdg_data_dirs_) {
 		QString dir = next;
@@ -395,13 +447,13 @@ void Server::LoadDesktopFiles()
 		mtl_status(status);
 }
 
-void Server::LoadDesktopFilesFrom(QString dir_path)
+void Daemon::LoadDesktopFilesFrom(QString dir_path)
 {
 	if (!dir_path.endsWith('/'))
 		dir_path.append('/');
 	
 	QVector<QString> names;
-	if (io::ListFileNames(dir_path, names) != io::Err::Ok)
+	if (io::ListFileNames(dir_path, names) != 0)
 		return;
 	
 	watch_desktop_file_dirs_.append(dir_path);
@@ -430,7 +482,7 @@ void Server::LoadDesktopFilesFrom(QString dir_path)
 	}
 }
 
-void Server::QuitGuiApp()
+void Daemon::QuitGuiApp()
 {
 #ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
 	mtl_info("Quitting GUI App");
@@ -441,7 +493,7 @@ void Server::QuitGuiApp()
 #endif
 }
 
-void Server::SendAllDesktopFiles(const int fd)
+void Daemon::SendAllDesktopFiles(const int fd)
 {
 	ByteArray ba;
 	{
@@ -458,7 +510,7 @@ void Server::SendAllDesktopFiles(const int fd)
 	ba.Send(fd);
 }
 
-void Server::SendDesktopFilesById(ByteArray *ba, const int fd)
+void Daemon::SendDesktopFilesById(ByteArray *ba, const int fd)
 {
 	ByteArray reply;
 	{
@@ -479,7 +531,7 @@ void Server::SendDesktopFilesById(ByteArray *ba, const int fd)
 	reply.Send(fd);
 }
 
-void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
+void Daemon::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 {
 	QString full_path = ba->next_string();
 	QMimeType mt = mime_db_.mimeTypeForFile(full_path);
@@ -498,7 +550,7 @@ void Server::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 	reply.Send(fd);
 }
 
-void Server::SendOpenWithList(QString mime, const int fd)
+void Daemon::SendOpenWithList(QString mime, const int fd)
 {
 	QVector<DesktopFile*> show_vec;
 	QVector<DesktopFile*> hide_vec;
@@ -519,7 +571,7 @@ void Server::SendOpenWithList(QString mime, const int fd)
 	ba.Send(fd);
 }
 
-void Server::SysTrayClicked()
+void Daemon::SysTrayClicked()
 {
 //	static bool flag = true;
 //	tasks_win_->setVisible(flag);
@@ -530,7 +582,7 @@ void Server::SysTrayClicked()
 	tasks_win_->setVisible(!tasks_win_->isVisible());
 }
 
-void Server::SetTrayVisible(const bool yes)
+void Daemon::SetTrayVisible(const bool yes)
 {
 	tray_icon_->setVisible(yes);
 }

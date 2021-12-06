@@ -46,6 +46,7 @@ enum class Message: MessageType {
 	CopyToClipboard,
 	CutToClipboard,
 	DeleteFiles,
+	EmptyTrashRecursively,
 	MoveToTrash,
 	
 	Copy = 1u << 29, // copies files
@@ -258,6 +259,8 @@ media::ShortData* DecodeShort(ByteArray &ba);
 
 void Delete(io::File *file);
 
+int DeleteFolder(QString dir_path); // returns 0 on success
+
 bool DirExists(const QString &full_path);
 
 int DoStat(const QString &full_path, const QString &name,
@@ -317,11 +320,11 @@ void InitEnvInfo(Category &desktop, QVector<QString> &search_icons_dirs,
 
 inline bool IsNearlyEqual(double x, double y);
 
-/// lists only dir names
-void ListDirNames(QString dir_path, QVector<QString> &vec,
+/// lists only dir names, returns 0 on success, errno otherwise
+int ListDirNames(QString dir_path, QVector<QString> &vec,
 	const ListDirOption option = ListDirOption::IncludeLinksToDirs);
 
-io::Err /// lists files and folders
+int /// lists files and folders, returns 0 on success
 ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 	FilterFunc ff = nullptr);
 

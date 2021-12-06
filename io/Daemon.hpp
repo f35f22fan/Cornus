@@ -26,11 +26,11 @@ struct DesktopFiles {
 	MutexGuard guard() const;
 };
 
-class Server: public QObject {
+class Daemon: public QObject {
 	Q_OBJECT
 public:
-	Server();
-	virtual ~Server();
+	Daemon();
+	virtual ~Daemon();
 	
 	DesktopFiles& desktop_files() { return desktop_files_; }
 	io::ServerLife& life() { return life_; }
@@ -41,6 +41,7 @@ public:
 public Q_SLOTS:
 	void CutURLsToClipboard(ByteArray *ba);
 	void CopyURLsToClipboard(ByteArray *ba);
+	bool EmptyTrashRecursively(QString dir_path, const bool notify_user);
 	void LoadDesktopFiles();
 	void LoadDesktopFilesFrom(QString dir_path);
 	void QuitGuiApp();
@@ -49,7 +50,7 @@ public Q_SLOTS:
 	void SendDesktopFilesById(cornus::ByteArray *ba, const int fd);
 	void SendOpenWithList(QString mime, const int fd);
 private:
-	NO_ASSIGN_COPY_MOVE(Server);
+	NO_ASSIGN_COPY_MOVE(Daemon);
 	
 	void GetDesktopFilesForMime(const QString &mime,
 		QVector<DesktopFile*> &show_vec, QVector<DesktopFile*> &hide_vec);

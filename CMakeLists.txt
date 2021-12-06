@@ -110,11 +110,11 @@ set(cornus_io_src_files main_io.cpp
     gui/TaskGui.cpp gui/TaskGui.hpp
     gui/TasksWin.cpp gui/TasksWin.hpp
 
+    io/Daemon.cpp io/Daemon.hpp
     io/decl.hxx
     io/File.cpp io/File.hpp
     io/io.cc io/io.hh
     io/Notify.cpp io/Notify.hpp
-    io/Server.cpp io/Server.hpp
     io/socket.cc io/socket.hh
     io/Task.cpp io/Task.hpp
     io/uring.cc io/uring.hh

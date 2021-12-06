@@ -286,7 +286,7 @@ bool CountSizeRecursive(const QString &path, struct statx &stx,
 	info.dir_count++;
 	QVector<QString> names;
 	
-	if (ListFileNames(path, names) != Err::Ok) {
+	if (ListFileNames(path, names) != 0) {
 		mtl_printq(path);
 		return false;
 	}
@@ -304,6 +304,45 @@ bool CountSizeRecursive(const QString &path, struct statx &stx,
 	}
 	
 	return true;
+}
+
+int DeleteFolder(QString dp)
+{
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_MODE;
+	struct statx stx;
+	
+	QVector<QString> filenames;
+	int status = ListFileNames(dp, filenames);
+	if (status != 0)
+		return status;
+	
+	if (!dp.endsWith('/'))
+		dp.append('/');
+	
+	for (const QString &name: filenames)
+	{
+		QString full_path = dp + name;
+		auto ba = full_path.toLocal8Bit();
+		if (statx(0, ba.data(), flags, fields, &stx) == -1)
+		{
+			mtl_warn("%s: %s", ba.data(), strerror(errno));
+			return errno;
+		}
+		
+		if (S_ISDIR(stx.stx_mode)) {
+			status = DeleteFolder(full_path);
+			if (status != 0)
+				return status;
+		} else {
+			if(::remove(ba.data()) == -1) {
+				return errno;
+			}
+		}
+	}
+	
+	auto dir_ba = dp.toLocal8Bit();
+	return (::remove(dir_ba.data()) == -1) ? errno : 0;
 }
 
 int DoStat(const QString &full_path, const QString &name, bool &is_trash_dir,
@@ -356,7 +395,7 @@ int CountSizeRecursiveTh(const QString &path,
 	
 	QVector<QString> names;
 	
-	if (ListFileNames(path, names) != Err::Ok) {
+	if (ListFileNames(path, names) != 0) {
 		mtl_printq(path);
 		return errno;
 	}
@@ -382,7 +421,8 @@ int CountSizeRecursiveTh(const QString &path,
 	return 0;
 }
 
-void Delete(io::File *file) {
+void Delete(io::File *file)
+{
 	if (file->is_dir())
 	{
 		io::Files files;
@@ -394,11 +434,11 @@ void Delete(io::File *file) {
 			if (next->is_dir())
 				Delete(next);
 			else
-				next->DeleteFromDisk();
+				next->Delete();
 			delete next;
 		}
 	}
-	file->DeleteFromDisk();
+	file->Delete();
 }
 
 bool DirExists(const QString &full_path)
@@ -847,14 +887,14 @@ bool IsNearlyEqual(double x, double y)
 	// see Knuth section 4.2.2 pages 217-218
 }
 
-void ListDirNames(QString dir_path, QVector<QString> &vec, const ListDirOption option)
+int ListDirNames(QString dir_path, QVector<QString> &vec, const ListDirOption option)
 {
 	struct dirent *entry;
 	auto dir_path_ba = dir_path.toLocal8Bit();
 	DIR *dp = opendir(dir_path_ba.data());
 	
 	if (dp == NULL)
-		return;
+		return errno;
 	
 	if (!dir_path.endsWith('/'))
 		dir_path.append('/');
@@ -879,7 +919,7 @@ void ListDirNames(QString dir_path, QVector<QString> &vec, const ListDirOption o
 		
 		if (S_ISDIR(stx.stx_mode))
 			vec.append(name);
-		else if (S_ISLNK(stx.stx_mode) && option == ListDirOption::IncludeLinksToDirs)
+		else if (option == ListDirOption::IncludeLinksToDirs && S_ISLNK(stx.stx_mode))
 		{
 			LinkTarget target;
 			ReadLink(ba.data(), target, dir_path);
@@ -889,9 +929,11 @@ void ListDirNames(QString dir_path, QVector<QString> &vec, const ListDirOption o
 	}
 	
 	closedir(dp);
+	
+	return 0;
 }
 
-Err ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
+int ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 	FilterFunc ff)
 {
 	struct dirent *entry;
@@ -899,7 +941,7 @@ Err ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 	DIR *dp = opendir(dir_path_ba.data());
 	
 	if (dp == NULL)
-		return MapPosixError(errno);
+		return errno;
 	
 	QString dir_path = full_dir_path;
 	
@@ -921,7 +963,7 @@ Err ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 	
 	closedir(dp);
 	
-	return Err::Ok;
+	return 0;
 }
 
 Err ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)

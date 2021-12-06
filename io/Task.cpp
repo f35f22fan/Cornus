@@ -117,7 +117,7 @@ void Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 	if (S_ISDIR(mode)) {
 		
 		QVector<QString> names;
-		if (io::ListFileNames(file_path, names) != io::Err::Ok) {
+		if (io::ListFileNames(file_path, names) != 0) {
 			data_.ChangeState(TaskState::Error);
 			return;
 		}

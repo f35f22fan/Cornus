@@ -188,8 +188,8 @@ void Table::ActionPaste()
 		ba->add_string(next);
 	}
 	
+	model_->SelectFilenamesLater(names, SameDir::Yes);
 	io::socket::SendAsync(ba);
-	model_->SelectFilenamesLater(names);
 	
 	if (clipboard.action == ClipboardAction::Cut) {
 		/// Not using qclipboard->clear() because it doesn't work:
@@ -211,7 +211,7 @@ void Table::ActionPasteLinks(const LinkType link)
 		return;
 	}
 	
-	model_->SelectFilenamesLater(names);
+	model_->SelectFilenamesLater(names, SameDir::Yes);
 	if (clipboard.action == ClipboardAction::Cut)
 	{
 		/// Not using qclipboard->clear() because it doesn't work:
@@ -1670,8 +1670,15 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 		
 		{
 			QAction *action = menu->addAction(tr("Empty trash"));
-			connect(action, &QAction::triggered, [=] {
-				trash::EmptyRecursively(current_dir);
+			connect(action, &QAction::triggered, [=]
+			{
+				QMessageBox::StandardButton reply = QMessageBox::question(this,
+					tr("Please confirm"),
+					tr("Empty trash can?"), QMessageBox::Yes | QMessageBox::No,
+					QMessageBox::No);
+				
+				if (reply == QMessageBox::Yes)
+					trash::EmptyRecursively(current_dir);
 			});
 			action->setIcon(trash_icon);
 		}

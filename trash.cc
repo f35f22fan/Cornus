@@ -51,7 +51,10 @@ QString CreateGlobalGitignore()
 
 void EmptyRecursively(const QString &dir_path)
 {
-	mtl_info();
+	auto ba = new ByteArray();
+	ba->set_msg_id(io::Message::EmptyTrashRecursively);
+	ba->add_string(dir_path);
+	io::socket::SendAsync(ba);
 }
 
 QString EnsureTrashForFile(const QString &file_path)
@@ -84,7 +87,7 @@ const QString& gitignore_global_path(const QString *override_data)
 bool ListItems(const QString &dir_path, QMap<i64, QVector<Names> > &hash)
 {
 	QVector<QString> names;
-	CHECK_TRUE((io::ListFileNames(dir_path, names) == io::Err::Ok));
+	CHECK_TRUE((io::ListFileNames(dir_path, names) == 0));
 	
 	for (auto &name: names)
 	{

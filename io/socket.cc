@@ -58,7 +58,7 @@ int Client(const char *addr_str)
 	return sock_fd;
 }
 
-int Server(const char *addr_str)
+int Daemon(const char *addr_str)
 {
 	int sock_fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock_fd == -1) {

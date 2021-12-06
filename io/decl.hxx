@@ -10,10 +10,10 @@
 
 namespace cornus::io {
 class AutoRemoveWatch;
+class Daemon;
 class DirStream;
 class File;
 class Notify;
-class Server;
 class Task;
 
 struct DevNum {

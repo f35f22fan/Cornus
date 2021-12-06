@@ -19,7 +19,7 @@
 #include "err.hpp"
 #include "io/decl.hxx"
 #include "io/io.hh"
-#include "io/Server.hpp"
+#include "io/Daemon.hpp"
 #include "io/socket.hh"
 #include "io/Task.hpp"
 #include "trash.hh"
@@ -33,7 +33,7 @@ Q_DECLARE_METATYPE(cornus::io::Task*);
 namespace cornus {
 const auto ConnectionType = Qt::BlockingQueuedConnection;
 struct args_data {
-	io::Server *server = nullptr;
+	io::Daemon *daemon = nullptr;
 	int fd = -1;
 };
 
@@ -66,8 +66,8 @@ void* ProcessRequest(void *ptr)
 	cornus::ByteArray ba;
 	args_data *args = (args_data*)ptr;
 	int fd = args->fd;
-	cornus::io::Server *server = args->server;
-	gui::TasksWin *tasks_win = server->tasks_win();
+	cornus::io::Daemon *daemon = args->daemon;
+	gui::TasksWin *tasks_win = daemon->tasks_win();
 	delete args;
 	args = nullptr;
 	
@@ -81,34 +81,41 @@ void* ProcessRequest(void *ptr)
 	}
 	case (io::MessageType)io::Message::CopyToClipboard: {
 		close(fd);
-		QMetaObject::invokeMethod(server, "CopyURLsToClipboard",
+		QMetaObject::invokeMethod(daemon, "CopyURLsToClipboard",
 			ConnectionType, Q_ARG(ByteArray*, &ba));
 		return nullptr;
 	}
 	case (io::MessageType)io::Message::CutToClipboard: {
 		close(fd);
-		QMetaObject::invokeMethod(server, "CutURLsToClipboard",
+		QMetaObject::invokeMethod(daemon, "CutURLsToClipboard",
 			ConnectionType, Q_ARG(ByteArray*, &ba));
+		return nullptr;
+	}
+	case (io::MessageType)io::Message::EmptyTrashRecursively: {
+		close(fd);
+		QString dir_path = ba.next_string();
+		QMetaObject::invokeMethod(daemon, "EmptyTrashRecursively",
+			ConnectionType, Q_ARG(QString, dir_path), Q_ARG(bool, true));
 		return nullptr;
 	}
 	case (io::MessageType)io::Message::SendOpenWithList: {
 		QString mime = ba.next_string();
-		QMetaObject::invokeMethod(server, "SendOpenWithList",
+		QMetaObject::invokeMethod(daemon, "SendOpenWithList",
 			ConnectionType, Q_ARG(QString, mime), Q_ARG(int, fd));
 		return nullptr;
 	}
 	case (io::MessageType)io::Message::SendDefaultDesktopFileForFullPath: {
-		QMetaObject::invokeMethod(server, "SendDefaultDesktopFileForFullPath",
+		QMetaObject::invokeMethod(daemon, "SendDefaultDesktopFileForFullPath",
 			ConnectionType, Q_ARG(ByteArray*, &ba), Q_ARG(int, fd));
 		return nullptr;
 	}
 	case (io::MessageType)io::Message::SendDesktopFilesById: {
-		QMetaObject::invokeMethod(server, "SendDesktopFilesById",
+		QMetaObject::invokeMethod(daemon, "SendDesktopFilesById",
 			ConnectionType, Q_ARG(ByteArray*, &ba), Q_ARG(int, fd));
 		return nullptr;
 	}
 	case (io::MessageType)io::Message::SendAllDesktopFiles: {
-		QMetaObject::invokeMethod(server, "SendAllDesktopFiles",
+		QMetaObject::invokeMethod(daemon, "SendAllDesktopFiles",
 			ConnectionType, Q_ARG(int, fd));
 		return nullptr;
 	}
@@ -118,7 +125,7 @@ void* ProcessRequest(void *ptr)
 #endif
 		close(fd);
 		
-		cornus::io::ServerLife &life = server->life();
+		cornus::io::ServerLife &life = daemon->life();
 		life.Lock();
 		life.exit = true;
 		life.Unlock();
@@ -126,7 +133,7 @@ void* ProcessRequest(void *ptr)
 		ByteArray ba;
 		ba.set_msg_id(io::Message::None);
 #ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
-		mtl_info("Waking up server to process it...");
+		mtl_info("Waking up daemon to process it...");
 #endif
 		io::socket::SendSync(ba);
 		return nullptr;
@@ -149,11 +156,11 @@ void* ProcessRequest(void *ptr)
 void* ListenTh(void *args)
 {
 	pthread_detach(pthread_self());
-	auto *server = (io::Server*)args;
-	io::ServerLife &life = server->life();
+	auto *daemon = (io::Daemon*)args;
+	io::ServerLife &life = daemon->life();
 	
-	int server_sock_fd = cornus::io::socket::Server(cornus::SocketPath);
-	if (server_sock_fd == -1) {
+	int daemon_sock_fd = cornus::io::socket::Daemon(cornus::SocketPath);
+	if (daemon_sock_fd == -1) {
 		mtl_info("Another cornus_io is running. Exiting.");
 		exit(0);
 	}
@@ -161,7 +168,7 @@ void* ListenTh(void *args)
 	pthread_t th;
 	
 	while (true) {
-		int client_fd = accept(server_sock_fd, NULL, NULL);
+		int client_fd = accept(daemon_sock_fd, NULL, NULL);
 		if (client_fd == -1) {
 			mtl_status(errno);
 			break;
@@ -174,7 +181,7 @@ void* ListenTh(void *args)
 			
 			if (do_exit) {
 #ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
-				mtl_info("Server is quitting");
+				mtl_info("Daemon is quitting");
 #endif
 				break;
 			}
@@ -182,7 +189,7 @@ void* ListenTh(void *args)
 		
 		auto *args = new args_data();
 		args->fd = client_fd;
-		args->server = server;
+		args->daemon = daemon;
 		int status = pthread_create(&th, NULL, ProcessRequest, args);
 		if (status != 0) {
 			mtl_status(status);
@@ -190,10 +197,10 @@ void* ListenTh(void *args)
 		}
 	}
 	
-	close(server_sock_fd);
-	QMetaObject::invokeMethod(server, "QuitGuiApp", ConnectionType);
+	close(daemon_sock_fd);
+	QMetaObject::invokeMethod(daemon, "QuitGuiApp", ConnectionType);
 #ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
-	mtl_info("Server socket closed");
+	mtl_info("Daemon socket closed");
 #endif
 	
 	return nullptr;
@@ -236,12 +243,12 @@ int main(int argc, char *argv[])
 	
 	/// The TasksWin hides/deletes itself
 	/// Currently it deletes itself, change later to just hide itself.
-	cornus::io::Server *server = new cornus::io::Server();
-	cornus::AutoDelete server___(server);
+	cornus::io::Daemon *daemon = new cornus::io::Daemon();
+	cornus::AutoDelete daemon___(daemon);
 	
 	{
 		pthread_t th;
-		int status = pthread_create(&th, NULL, cornus::ListenTh, server);
+		int status = pthread_create(&th, NULL, cornus::ListenTh, daemon);
 		if (status != 0)
 			mtl_status(status);
 		
@@ -250,7 +257,7 @@ int main(int argc, char *argv[])
 			mtl_status(status);
 	}
 	
-	cornus::io::ServerLife &life = server->life();
+	cornus::io::ServerLife &life = daemon->life();
 	int ret;
 	while (true)
 	{

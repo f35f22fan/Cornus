@@ -14,7 +14,7 @@
 namespace cornus::io::socket {
 
 int Client(const char *addr_str = cornus::SocketPath);
-int Server(const char *addr_str = cornus::SocketPath);
+int Daemon(const char *addr_str = cornus::SocketPath);
 
 bool SendAsync(ByteArray *ba, const char *socket_path = nullptr,
 	const bool delete_path = false);

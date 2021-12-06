@@ -1028,7 +1028,7 @@ void App::LoadIconsFrom(QString dir_path)
 {
 ///	mtl_info("Loading icons from: %s", qPrintable(dir_path));
 	QVector<QString> available_names;
-	if (io::ListFileNames(dir_path, available_names) != io::Err::Ok) {
+	if (io::ListFileNames(dir_path, available_names) != 0) {
 		mtl_trace();
 	}
 	

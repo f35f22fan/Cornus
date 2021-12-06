@@ -27,7 +27,7 @@ public:
 	
 	static File* NewTextFile(const QString &dir_path, const QString &name);
 	static File* NewFolder(const QString &dir_path, const QString &name);
-	bool DeleteFromDisk();
+	int Delete(); // returns 0 on success
 	
 	File* Clone() const;
 	void CopyBits(File *rhs) {

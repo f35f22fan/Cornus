@@ -18,6 +18,7 @@ class AttrsDialog;
 class CompleterModel;
 class CountFolder;
 class Hiliter;
+class IconView;
 class Location;
 class MediaDialog;
 class OpenOrderModel;
@@ -42,6 +43,12 @@ class TreeModel;
 class TreeView;
 
 const int FileNameRelax = 2;
+
+enum class ViewMode: i8 {
+	None,
+	Details,
+	Icons,
+};
 
 enum class FileEventType: u8 {
 	None = 0,

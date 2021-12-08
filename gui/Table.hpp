@@ -62,6 +62,7 @@ public:
 	void SelectRowSimple(const int row, const bool deselect_others = false);
 	void ShowVisibleColumnOptions(QPoint pos);
 	void SyncWith(const cornus::Clipboard &cl, QVector<int> &indices);
+	gui::Tab* tab() const { return tab_; }
 	void UpdateColumnSizes() { SetCustomResizePolicy(); }
 
 public Q_SLOTS:

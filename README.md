@@ -38,7 +38,7 @@ To have a desktop launcher for this app - update the file at export/cornus_mas.d
 ![](resources/Screenshot_light.webp)
 
 
-##### Things you should know:
+#### Things you should know:
 * Files with the executable bit set are marked green.
 * To set a default app to open a given type of file right click a file -> Open With -> Preferences...
 * To see the tree of links of a symbolic link click the icon of the link.
@@ -62,7 +62,7 @@ or:<br/>
 * File icons are loaded from "$HOME/.config/CornusMas/file_icons", then from "/usr/share/cornus/file_icons", the icons from the former folder are used if both folders contain files with equal names.
 * Supports marking movie files rip quality, codec, resolution, actors, etc.
 For this first go to the settings menu -> "Media Database" and fill in with the actors, directors etc you might ever care about. Then you can apply any of these to any movie by selecting the movie file and pressing "m", the end result:
-### Movie Dialog Screenshot:
+#### Movie Dialog Screenshot:
 
 ![](resources/movie_file_attributes.webp)
 
@@ -76,22 +76,23 @@ Since the official XDG trash specification is over engineered, slow and doesn't 
 
 The official XDG trash can spec:
 * mandates creating 2 files per file deleted
-* files can be placed into random partitions which doesn't prevent copying files.
-* Undeleting files is thus rather I/O expensive since one needs to read *all* files from any trash folder, processing them and only then proceeding undeleting files, potentially involving copying (instead of atomic moving).
+* files can be placed into random partitions which doesn't prevent copying of files.
+* Undeleting files is thus rather I/O expensive since one needs to read *all* files from *all* trash folders, processing them and only then proceeding undeleting files, potentially involving copying (instead of atomic moving).
 
 The Cornus file browser places deleted files in a hidden folder at same location and puts the meta in its title, thus the pros:
 
 * avoids ever copying files
 * no opening/reading/closing of files
 * no 2 files (info file + the file itself) per deleted file.
-* no dangling files (when the user deletes a folder he also deletes its trash if any)
+* no dangling files (when the user deletes a folder he automatically also deletes its trash if any)
 * listing files to undelete is instant
 * is very easy to group deleted files into batches sorted by deletion time and give the user the option to choose which batch to undelete, a feature implemented (only) by Cornus.
-* no need to detect which files belong to a folder and which ones don't
+* no need to sort out which files belong to a folder and which ones don't
+* no filename clashes thus no need to implemenent name clash prevention
 * extremely simple implementation
 
 And one big con:
-* User might not want many trash folders even if hidden.
+* Some users might not want to have a trash folder in the same folder where the files were deleted even if the trash is hidden.
 
 However the latter is somewhat leveraged in cases of git projects because Cornus automatically adds an entry to the <b>global</b> gitignore file thus:
 * a) all git projects will be unaffected by a potentially unwanted hidden folder.

@@ -18,6 +18,8 @@
 namespace cornus::gui {
 
 const QString NewMediaEntryAction = QLatin1String("NewMediaEntry");
+const QString IconsViewStr = QLatin1String("view-list-icons");
+const QString DetailsViewStr = QLatin1String("view-list-details");
 
 ToolBar::ToolBar(cornus::App *app): app_(app) {
 	CreateGui();
@@ -57,14 +59,6 @@ ToolBar::Add(QMenu *menu, const QString &text,
 
 void ToolBar::CreateGui()
 {
-//	back_btn_ = new QToolButton();
-//	back_btn_->setIcon(QIcon::fromTheme(QLatin1String("go-previous")));
-//	connect(back_btn_, &QToolButton::clicked, [=] {ProcessAction(actions::GoBack);});
-//	back_btn_->setPopupMode(QToolButton::MenuButtonPopup);
-//	back_btn_->setArrowType(Qt::NoArrow);
-//	back_btn_->setAutoRaise(false);
-//	addWidget(back_btn_);
-	
 	action_back_ = Add(actions::GoBack, QLatin1String("go-previous"));
 	action_fwd_ = Add(actions::GoForward, QLatin1String("go-next"));
 	action_up_ = Add(actions::GoUp, QLatin1String("go-up"));
@@ -72,6 +66,10 @@ void ToolBar::CreateGui()
 	
 	location_ = new Location(app_);
 	addWidget(location_);
+	
+	view_action_ = new QAction();
+	addAction(view_action_);
+	connect(view_action_, &QAction::triggered, this, &ToolBar::ViewChanged);
 	
 	QToolButton* prefs_menu_btn = new QToolButton(this);
 	addWidget(prefs_menu_btn);
@@ -88,13 +86,6 @@ void ToolBar::CreateGui()
 		QLatin1String("contact-new"));
 	Add(prefs_menu_, tr("About"), actions::AboutThisApp,
 		QLatin1String("help-about"));
-	
-//	Add(media_menu, tr("Actor"), actions::MediaNewActor);
-//	Add(media_menu, tr("Director"), actions::MediaNewDirector);
-//	Add(media_menu, tr("Writer"), actions::MediaNewWriter);
-//	Add(media_menu, tr("Genre"), actions::MediaNewGenre);
-//	Add(media_menu, tr("Sub-genre"), actions::MediaNewSubgenre);
-//	Add(media_menu, tr("Country"), actions::MediaNewCountry);
 }
 
 void ToolBar::ProcessAction(const QString &action)
@@ -186,4 +177,47 @@ void ToolBar::UpdateIcons(History *p)
 	action_fwd_->setEnabled(index < (size - 1));
 	action_up_->setEnabled(app_->tab()->current_dir() != QLatin1String("/"));
 }
+
+void ToolBar::ViewChanged()
+{
+	Tab *tab = app_->tab();
+	const auto view_was = tab->view_mode();
+	ViewMode mode = ViewMode::None;
+	
+	if (view_was == ViewMode::Details)
+	{
+		mode = ViewMode::Icons;
+		AdjustGui(mode);
+	} else if (view_was == ViewMode::Icons || view_was == ViewMode::None) {
+		mode = ViewMode::Details;
+		AdjustGui(mode);
+	}
+	
+	if (view_was != ViewMode::None) {
+		tab->SetViewMode(mode);
+	}
+}
+
+void ToolBar::AdjustGui(const ViewMode new_mode)
+{
+	if (new_mode == ViewMode::Details) {
+		if (details_view_icon_.isNull()) {
+			details_view_icon_ = QIcon::fromTheme(DetailsViewStr);
+		}
+		view_action_->setIcon(details_view_icon_);
+		view_action_->setToolTip(tr("Details View"));
+	} else if (new_mode == ViewMode::Icons) {
+		if (icons_view_icon_.isNull()) {
+			icons_view_icon_ = QIcon::fromTheme(IconsViewStr);
+		}
+		view_action_->setIcon(icons_view_icon_);
+		view_action_->setToolTip(tr("Icons View"));
+	}
+}
+
+void ToolBar::SyncViewModeWithCurrentTab()
+{
+	AdjustGui(app_->tab()->view_mode());
+}
+
 }

@@ -181,7 +181,7 @@ App::App()
 		tab_widget_->setTabBarAutoHide(true);
 		connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &App::DeleteTabAt);
 		connect(tab_widget_, &QTabWidget::currentChanged, this, &App::TabSelected);
-		OpenNewTab(cornus::FirstTime::Yes);
+		OpenNewTab(FirstTime::Yes);
 	}
 	
 	SetupIconNames();
@@ -361,7 +361,7 @@ void App::AskCreateNewFile(io::File *file, const QString &title)
 	file->name(value);
 	const QString new_path = file->build_full_path();
 	auto path_ba = new_path.toLocal8Bit();
-	tab()->table_model()->SelectFilenamesLater({file->name()});
+	tab()->table_model()->SelectFilenamesLater({file->name()}, gui::SameDir::Yes);
 	int fd;
 	
 	if (file->is_dir()) {
@@ -408,86 +408,6 @@ void App::ClipboardChanged(QClipboard::Mode mode)
 	tab()->table_model()->UpdateIndices(indices);
 }
 
-QMenu* App::CreateNewMenu()
-{
-	QMenu *menu = new QMenu(tr("Create &New"), this);
-	
-	{
-		QAction *action = menu->addAction(tr("Folder"));
-		auto *icon = GetFolderIcon();
-		if (icon != nullptr)
-			action->setIcon(*icon);
-		connect(action, &QAction::triggered, [=] {
-			AskCreateNewFile(io::File::NewFolder(tab()->current_dir(), "New Folder"),
-				tr("Create New Folder"));
-		});
-	}
-	
-	{
-		QAction *action = menu->addAction(tr("Text File"));
-		auto *icon = GetIcon(QLatin1String("text"));
-		if (icon != nullptr)
-			action->setIcon(*icon);
-		
-		connect(action, &QAction::triggered, [=] {
-			AskCreateNewFile(io::File::NewTextFile(tab()->current_dir(), "File.txt"),
-				tr("Create New File"));
-		});
-	}
-	
-	QString config_path = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
-	
-	if (!config_path.endsWith('/'))
-		config_path.append('/');
-	
-	QString full_path = config_path.append(QLatin1String("Templates"));
-	
-	QVector<QString> names;
-	io::ListFileNames(full_path, names);
-	std::sort(names.begin(), names.end());
-	
-	if (!names.isEmpty())
-		menu->addSeparator();
-	
-	QString dir_path = tab()->current_dir();
-	if (!dir_path.endsWith('/'))
-		dir_path.append('/');
-	
-	for (const auto &name: names) {
-		QString from_full_path = full_path + '/' + name;
-		
-		QString ext = io::GetFileNameExtension(name).toString();
-		if (ext.isEmpty())
-			continue;
-		
-		if (name.startsWith('{')) {
-			QString trimmed = name.mid(1, name.size() - (ext.size() + 3));
-			QAction *action = new QAction(trimmed + QLatin1String(".."));
-			QIcon *icon = GetIcon(ext);
-			if (icon != nullptr)
-				action->setIcon(*icon);
-			
-			connect(action, &QAction::triggered, [=] {
-				ProcessAndWriteTo(ext, from_full_path, dir_path);
-			});
-			menu->addAction(action);
-		} else {
-			QAction *action = new QAction(name);
-			QIcon *icon = GetIcon(ext);
-			if (icon != nullptr)
-				action->setIcon(*icon);
-			
-			connect(action, &QAction::triggered, [=] {
-				io::CopyFileFromTo(from_full_path, dir_path);
-				tab()->table_model()->SelectFilenamesLater({name});
-			});
-			menu->addAction(action);
-		}
-	}
-	
-	return menu;
-}
-
 void App::CreateGui()
 {
 	toolbar_ = new gui::ToolBar(this);
@@ -523,7 +443,6 @@ void App::CreateGui()
 	prefs_->UpdateTableSizes();
 	
 	tab()->GrabFocus();
-	
 	{
 		QIcon icon = QIcon::fromTheme(QLatin1String("window-new"));
 		QToolButton *btn = new QToolButton();
@@ -555,6 +474,73 @@ void App::CreateFilesViewPane()
 		gui_bits_.created(true);
 		gui_bits_.Broadcast();
 	}
+}
+
+QMenu* App::CreateNewMenu()
+{
+	QMenu *menu = new QMenu(tr("Create &New"), this);
+	
+	{
+		QAction *action = menu->addAction(tr("Folder"));
+		auto *icon = GetFolderIcon();
+		if (icon != nullptr)
+			action->setIcon(*icon);
+		connect(action, &QAction::triggered, [=] {
+			AskCreateNewFile(io::File::NewFolder(tab()->current_dir(), "New Folder"),
+				tr("Create New Folder"));
+		});
+	}
+	
+	{
+		QAction *action = menu->addAction(tr("Text File"));
+		auto *icon = GetIcon(QLatin1String("text"));
+		if (icon != nullptr)
+			action->setIcon(*icon);
+		
+		connect(action, &QAction::triggered, [=] {
+			AskCreateNewFile(io::File::NewTextFile(tab()->current_dir(), "File.txt"),
+				tr("Create New File"));
+		});
+	}
+	
+	QString config_path = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
+	
+	if (!config_path.endsWith('/'))
+		config_path.append('/');
+	
+	QString full_path = config_path.append(QLatin1String("Templates"));
+	QVector<QString> names;
+	io::ListFileNames(full_path, names);
+	std::sort(names.begin(), names.end());
+	
+	if (!names.isEmpty())
+		menu->addSeparator();
+	
+	QString dir_path = tab()->current_dir();
+	if (!dir_path.endsWith('/'))
+		dir_path.append('/');
+	
+	for (const auto &name: names)
+	{
+		QString from_full_path = full_path + '/' + name;
+		
+		QString ext = io::GetFileNameExtension(name).toString();
+		if (ext.isEmpty())
+			continue;
+		
+		QAction *action = new QAction(name);
+		QIcon *icon = GetIcon(ext);
+		if (icon != nullptr)
+			action->setIcon(*icon);
+		
+		connect(action, &QAction::triggered, [=] {
+			tab()->table_model()->SelectFilenamesLater({name}, gui::SameDir::Yes);
+			io::CopyFileFromTo(from_full_path, dir_path);
+		});
+		menu->addAction(action);
+	}
+	
+	return menu;
 }
 
 void App::CreateSidePane()
@@ -620,7 +606,8 @@ void App::DisplayFileContents(const int row, io::File *cloned_file)
 	}
 	
 	notepad_.saved_window_title = windowTitle();
-	if (notepad_.editor->Display(cloned_file)) {
+	if (notepad_.editor->Display(cloned_file))
+	{
 		setWindowTitle(tr("Press Esc to exit or Ctrl+S to save and exit"));
 		toolbar_->setVisible(false);
 		notepad_.stack->setCurrentIndex(notepad_.editor_index);
@@ -656,7 +643,8 @@ void App::DisplaySymlinkInfo(io::File &file)
 	max_len = std::min(900, std::max(350, max_len));
 	static auto go_icon = QIcon::fromTheme(QLatin1String("go-jump"));
 	
-	for (auto &next: t->chain_paths_) {
+	for (auto &next: t->chain_paths_)
+	{
 		QLineEdit *input = new QLineEdit();
 		input->setReadOnly(true);
 		input->setFixedWidth(max_len);
@@ -903,16 +891,7 @@ QString App::GetIconThatStartsWith(const QString &s)
 
 QString App::GetPartitionFreeSpace()
 {
-	if (tab()->current_dir().isEmpty())
-		return QString();
-	
-	QString current_dir;
-	{
-		gui::TreeItem *partition = tree_data_.GetCurrentPartition();
-		if (partition != nullptr && partition->mounted())
-			current_dir = partition->mount_path();
-	}
-	
+	QString current_dir = tab()->current_dir();
 	if (current_dir.isEmpty())
 		return QString();
 	
@@ -1057,8 +1036,8 @@ gui::Tab* App::OpenNewTab(const cornus::FirstTime ft)
 	if (ft == FirstTime::Yes) {
 		tab->GoToInitialDir();
 	} else {
-		tab->setVisible(true);
 		tab->GoHome();
+		tab->setVisible(true);
 		tab_widget_->setCurrentWidget(tab);
 	}
 	
@@ -1098,120 +1077,6 @@ void App::OpenWithDefaultApp(const QString &full_path) const
 	CHECK_PTR_VOID(p);
 	p->Launch(full_path, tab()->current_dir());
 	delete p;
-}
-
-void App::ProcessAndWriteTo(const QString ext,
-	const QString &from_full_path, QString to_dir)
-{
-	if (!to_dir.endsWith('/'))
-		to_dir.append('/');
-	
-	ByteArray buf;
-	mode_t mode;
-	CHECK_TRUE_VOID(io::ReadFile(from_full_path, buf, PrintErrors::No, -1, &mode));
-	
-	QString contents = QString::fromLocal8Bit(buf.data(), buf.size());
-	int ln_index = contents.indexOf('\n');
-	if (ln_index == -1)
-		return;
-	
-	QString separator_in_dialog = contents.mid(0, ln_index);
-	
-	int ln2_index = contents.indexOf('\n', ln_index + 1);
-	if (ln2_index == -1)
-		return;
-	
-	const int start = ln_index + 1;
-	QString line = contents.mid(start, ln2_index - start);
-	
-	struct Pair {
-		QString replace_str;
-		QString display_str;
-	};
-	
-	QVector<Pair> pairs;
-	auto args = line.split(separator_in_dialog);
-	QString placeholder_text;
-	
-	int ni = -1;
-	const int count = args.size();
-	for (auto &next: args) {
-		ni++;
-		QString arg = next.trimmed();
-		
-		int iopen = arg.indexOf('(');
-		if (iopen == -1 || !arg.endsWith(')')) {
-			pairs.append({arg, arg});
-			placeholder_text.append(arg);
-		} else {
-			QString _1 = arg.mid(0, iopen);
-			int from = iopen + 1;
-			QString _2 = arg.mid(from, arg.size() - from - 1);
-			pairs.append({_1, _2});
-			placeholder_text.append(_2);
-		}
-		
-		if (ni < count - 1) {
-			placeholder_text.append(separator_in_dialog);
-		}
-	}
-	
-	contents = contents.mid(ln2_index + 1);
-	
-	QString fn = io::GetFileNameOfFullPath(from_full_path).toString();
-	int first = fn.indexOf('{');
-	int last = fn.lastIndexOf('}');
-	if (first != -1 && last != -1) {
-		fn = fn.mid(first + 1, last - first - 1);
-	}
-	
-	gui::InputDialogParams params = {};
-	params.size = QSize(500, -1);
-	params.title = "";
-	params.msg = fn;
-	//params.initial_value = visible;
-	params.placeholder_text = placeholder_text;
-	params.icon = GetIcon(ext);
-	params.selection_start = 0;
-	params.selection_end = 0;
-	
-	QString input_text;
-	if (!ShowInputDialog(params, input_text)) {
-		return;
-	}
-	
-	auto list = input_text.split(separator_in_dialog);
-	
-	if (list.size() != pairs.size()) {
-		return;
-	}
-	
-	for (int i = 0; i < count; i++) {
-		contents.replace(pairs[i].replace_str, list[i]);
-	}
-	
-	auto ba = contents.toLocal8Bit();
-
-	QString filename;
-	int i = 0;
-	for (auto &next: pairs) {
-		if (next.replace_str.endsWith('_')) {
-			filename = list[i];
-			break;
-		}
-		i++;
-	}
-	
-	if (filename.isEmpty())
-		filename = list[0];
-	
-	if (!ext.isEmpty())
-		filename += '.' + ext;
-	QString new_file_path = to_dir + filename;
-	tab()->table_model()->SelectFilenamesLater({filename});
-	if (io::WriteToFile(new_file_path, ba.data(), ba.size(), io::PostWrite::DoNothing, &mode) != io::Err::Ok) {
-		mtl_trace("Failed to write data to file");
-	}
 }
 
 ExecInfo App::QueryExecInfo(io::File &file) {
@@ -1766,6 +1631,7 @@ void App::TabSelected(const int index)
 	const QString &path = tab->current_dir();
 	location_->SetLocation(path);
 	tree_view_->MarkCurrentPartition(path);
+	toolbar_->SyncViewModeWithCurrentTab();
 	const QString s = tab->title() + QString(" — Cornus");
 	setWindowTitle(s);
 }
@@ -1824,6 +1690,11 @@ void App::ToggleExecBitOfSelectedFiles()
 			}
 		}
 	}
+}
+
+void App::ViewChanged()
+{
+	mtl_tbd();
 }
 
 }

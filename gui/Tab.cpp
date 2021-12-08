@@ -4,6 +4,7 @@
 #include "../AutoDelete.hh"
 #include "../Prefs.hpp"
 #include "../History.hpp"
+#include "IconView.hpp"
 #include "../io/File.hpp"
 #include "Location.hpp"
 #include "Table.hpp"
@@ -161,11 +162,18 @@ void Tab::CreateGui()
 	table_ = new gui::Table(table_model_, app_, this);
 	table_->setContentsMargins(0, 0, 0, 0);
 	table_->ApplyPrefs();
+	
+	stack_ = new QStackedWidget();
+	details_view_index_ = stack_->addWidget(table_);
+	
+	icon_view_ = new IconView(app_, table_);
+	icons_view_index_ = stack_->addWidget(icon_view_);
+	
 	QBoxLayout *layout = new QBoxLayout(QBoxLayout::TopToBottom);
 	setLayout(layout);
 	layout->setSpacing(0);
 	layout->setContentsMargins(0, 0, 0, 0);
-	layout->addWidget(table_);
+	layout->addWidget(stack_);
 }
 
 QString Tab::CurrentDirTrashPath()
@@ -458,6 +466,25 @@ void Tab::SetTitle(const QString &s)
 	}
 	
 	w->setTabText(index, short_title);
+}
+
+void Tab::SetViewMode(const ViewMode mode)
+{
+	view_mode_ = mode;
+	
+	switch (view_mode_) {
+	case ViewMode::Details: {
+		stack_->setCurrentIndex(details_view_index_);
+		break;
+	}
+	case ViewMode::Icons: {
+		stack_->setCurrentIndex(icons_view_index_);
+		break;
+	}
+	default: {
+		mtl_trace();
+	}
+	}
 }
 
 void Tab::ShutdownLastInotifyThread()

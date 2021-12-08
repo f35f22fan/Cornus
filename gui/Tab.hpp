@@ -10,6 +10,7 @@
 
 #include <QMenu>
 #include <QTabBar>
+#include <QStackedWidget>
 
 namespace cornus {
 
@@ -21,7 +22,6 @@ struct DirPath {
 struct GoToParams {
 	gui::Tab *tab = nullptr;
 	DirPath dir_path;
-	//QString scroll_to_and_select;
 	cornus::Action action = Action::None;
 	bool reload;
 };
@@ -61,6 +61,8 @@ public:
 	gui::TableModel* table_model() const { return table_model_; }
 	
 	bool ViewIsAt(const QString &dir_path) const;
+	ViewMode view_mode() const { return view_mode_; }
+	void SetViewMode(const ViewMode mode);
 	
 	const QString& title() const { return title_; }
 	void SetTitle(const QString &s);
@@ -81,6 +83,12 @@ private:
 	i64 files_id_ = -1;
 	QString title_;
 	QString current_dir_;
+	
+	QStackedWidget *stack_ = nullptr;
+	int details_view_index_ = -1, icons_view_index_ = -1;
+	
+	ViewMode view_mode_ = ViewMode::Details;
+	gui::IconView *icon_view_ = nullptr;
 };
 
 }}

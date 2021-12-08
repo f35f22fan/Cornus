@@ -90,6 +90,8 @@ public:
 	ThemeType theme_type() const { return theme_type_; }
 	gui::ToolBar *toolbar() const { return toolbar_; }
 	
+	void ViewChanged();
+	
 public Q_SLOTS:
 	void MediaFileChanged();
 	
@@ -118,8 +120,6 @@ private:
 	void LoadIconsFrom(QString dir_path);
 	gui::Tab *OpenNewTab(const cornus::FirstTime ft = FirstTime::No);
 	void OpenWithDefaultApp(const QString &full_path) const;
-	void ProcessAndWriteTo(const QString ext,
-		const QString &from_full_path, QString to_dir);
 	int ReadMTP();
 	void RegisterShortcuts();
 	void RegisterVolumesListener();

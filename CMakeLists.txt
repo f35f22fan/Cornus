@@ -57,6 +57,7 @@ set(cornus_src_files main.cpp
     gui/CountFolder.cpp gui/CountFolder.hpp
     gui/decl.hxx
     gui/Hiliter.cpp gui/Hiliter.hpp
+    gui/IconView.cpp gui/IconView.hpp
     gui/Location.cpp gui/Location.hpp
     gui/MediaDialog.cpp gui/MediaDialog.hpp
     gui/OpenOrderPane.cpp gui/OpenOrderPane.hpp

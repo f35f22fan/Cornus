@@ -272,4 +272,4 @@ int main(int argc, char *argv[])
 	
 	return ret;
 }
-// pkexec env DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY /home/fox/dev/Cornus/build/cornus
+

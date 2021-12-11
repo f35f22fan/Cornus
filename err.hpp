@@ -18,10 +18,12 @@
 #define MTL_COLOR_MAGENTA   "\e[35m"
 #define MTL_BLINK_START     "\e[5m"
 #define MTL_BLINK_END       "\e[25m"
-#define MTL_BOLD            "\e[1m"
-#define MTL_NON_BOLD        "\e[21"
+#define MTL_BOLD_START      "\e[1m"
+#define MTL_BOLD_END        "\033[0m"
 #define MTL_INVERTED		"\e[7m"
 #define MTL_INVERTED_CANCEL "\e[27m"
+#define MTL_UNDERLINE_START "\033[4m"
+#define MTL_UNDERLINE_END   "\033[0m"
 
 #define mtl_info(fmt, args...) fprintf(stdout, \
 	"%s[%s:%.3d %s]%s " fmt "\n", MTL_COLOR_BLUE, SRC_FILE_NAME, \
@@ -36,8 +38,8 @@
 	__LINE__, __FUNCTION__, ##args, MTL_COLOR_DEFAULT)
 
 #define mtl_trace(fmt, args...) fprintf(stderr, \
-	"%s%s[%s:%.3d %s]%s%s " fmt "\n", MTL_BOLD, MTL_COLOR_MAGENTA, SRC_FILE_NAME, \
-	__LINE__, __FUNCTION__, MTL_NON_BOLD, MTL_COLOR_DEFAULT, ##args)
+	"%s%s[%s:%.3d %s]%s%s " fmt "\n", MTL_BOLD_START, MTL_COLOR_MAGENTA, SRC_FILE_NAME, \
+	__LINE__, __FUNCTION__, MTL_BOLD_END, MTL_COLOR_DEFAULT, ##args)
 
 #define mtl_status(status) fprintf (stderr, "%s[%s %.3d] %s%s\n", \
 	MTL_COLOR_RED, SRC_FILE_NAME, \

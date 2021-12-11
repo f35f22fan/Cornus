@@ -96,6 +96,16 @@ foreach(f IN LISTS cornus_src_files)
 		COMPILE_DEFINITIONS "SRC_FILE_NAME=\"${b}\"")
 endforeach()
 
+set (cornus_exe "cornus")
+add_executable(${cornus_exe} ${cornus_src_files} resources/resources.qrc)
+target_include_directories(${cornus_exe} PRIVATE ${MTP_INCLUDE_DIRS}
+    ${URING_INCLUDE_DIRS}
+    ${UDISKS_INCLUDE_DIRS} ${UDEV_INCLUDE_DIRS}) # ${DCONF_INCLUDE_DIRS}
+target_link_libraries(${cornus_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
+    ${MTP_LDFLAGS} ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS}
+    ${URING_LDFLAGS}
+    pthread) # ${DCONF_LDFLAGS}
+
 set(cornus_io_src_files main_io.cpp
     AutoDelete.hh
     category.cc category.hh
@@ -119,7 +129,6 @@ set(cornus_io_src_files main_io.cpp
     io/socket.cc io/socket.hh
     io/Task.cpp io/Task.hpp
     io/uring.cc io/uring.hh
-
 )
 
 foreach(f IN LISTS cornus_io_src_files)
@@ -127,16 +136,6 @@ foreach(f IN LISTS cornus_io_src_files)
 	set_source_files_properties(${f} PROPERTIES
 		COMPILE_DEFINITIONS "SRC_FILE_NAME=\"${b}\"")
 endforeach()
-   
-set (cornus_exe "cornus")
-add_executable(${cornus_exe} ${cornus_src_files} resources/resources.qrc)
-target_include_directories(${cornus_exe} PRIVATE ${MTP_INCLUDE_DIRS}
-    ${URING_INCLUDE_DIRS}
-    ${UDISKS_INCLUDE_DIRS} ${UDEV_INCLUDE_DIRS}) # ${DCONF_INCLUDE_DIRS}
-target_link_libraries(${cornus_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
-    ${MTP_LDFLAGS} ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS}
-    ${URING_LDFLAGS}
-    pthread) # ${DCONF_LDFLAGS}
    
 set (cornus_io_exe "cornus_io")
 add_executable(${cornus_io_exe} ${cornus_io_src_files} resources/resources.qrc)
@@ -146,4 +145,30 @@ target_include_directories(${cornus_io_exe} PRIVATE
 target_link_libraries(${cornus_io_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
     ${URING_LDFLAGS}
     ${UDISKS_LDFLAGS} pthread) # ${DCONF_LDFLAGS}
+
+set(cornus_r_src_files main_r.cpp
+    AutoDelete.hh
+    ByteArray.cpp ByteArray.hpp
+    category.cc category.hh
+    ElapsedTimer.cpp ElapsedTimer.hpp
+    err.hpp
+    MutexGuard.cpp MutexGuard.hpp
+    trash.cc trash.hh
+
+    io/decl.hxx
+    io/File.cpp io/File.hpp
+    io/io.cc io/io.hh
+    io/socket.cc io/socket.hh
+)
+
+foreach(f IN LISTS cornus_r_src_files)
+	get_filename_component(b ${f} NAME)
+	set_source_files_properties(${f} PROPERTIES
+		COMPILE_DEFINITIONS "SRC_FILE_NAME=\"${b}\"")
+endforeach()
+
+set (cornus_r_exe "cornus_r")
+add_executable(${cornus_r_exe} ${cornus_r_src_files} resources/resources.qrc)
+#target_include_directories(${cornus_r_exe})
+target_link_libraries(${cornus_r_exe} Qt5::Core Qt5::Gui pthread)
 

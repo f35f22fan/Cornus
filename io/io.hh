@@ -42,6 +42,7 @@ struct FileEvent {
 	QString to_name;
 	int dir_id = -1;
 	int index = -1;
+	int renaming_deleted_file_at = -1;
 	FileEventType type = FileEventType::None;
 };
 

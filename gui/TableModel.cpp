@@ -251,17 +251,28 @@ mtl_info("IN_MOVED_TO cookie %d, new_name: %s, from_name: %s", ev->cookie, ev->n
 				SendCreateEvent(model, files, new_name, dir_id);
 			} else {
 				rename_vec.remove(rename_data_index);
-				int index = -1;
+				int index = -1, removed_at = -1;
+				int deleted_file_index = -1;
 				{
 					MutexGuard guard = files->guard();
 					auto &vec = files->data.vec;
-					io::File *old_file = Find(vec, from_name, nullptr);
+					io::File *file_to_delete = Find(vec, new_name, &deleted_file_index);
+					
+					if (file_to_delete != nullptr) {
+						vec.remove(deleted_file_index);
+						delete file_to_delete;
+					}
+					
+					io::File *old_file = Find(vec, from_name, &removed_at);
 					old_file->name(new_name);
+					old_file->ClearCache();// to update the icon later when needed,
+					// because currently it has the icon of the previous file name.
 					std::sort(vec.begin(), vec.end(), cornus::io::SortFiles);
 					Find(vec, new_name, &index);
 				}
 				io::FileEvent evt = {};
 				evt.dir_id = dir_id;
+				evt.renaming_deleted_file_at = deleted_file_index;
 				evt.index = index;
 				evt.type = io::FileEventType::Renamed;
 				QMetaObject::invokeMethod(model, "InotifyEvent",
@@ -331,7 +342,7 @@ void* WatchDir(void *void_args)
 	const auto path = args->dir_path.toLocal8Bit();
 	const auto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE
 		| IN_DELETE_SELF | IN_MOVE_SELF | IN_CLOSE_WRITE
-		| IN_MOVE | IN_MODIFY;
+		| IN_MOVE;// | IN_MODIFY;
 	const int wd = inotify_add_watch(notify_fd, path.data(), event_types);
 	
 	if (wd == -1) {
@@ -666,6 +677,19 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 		break;
 	}
 	case io::FileEventType::Renamed: {
+		if (evt.renaming_deleted_file_at != -1)
+		{
+			int real_index = evt.renaming_deleted_file_at;
+			if (real_index > evt.index)
+				real_index--;
+			
+			if (real_index >= 0) {
+				beginRemoveRows(QModelIndex(), real_index, real_index);
+				
+				endRemoveRows();
+			}
+		}
+		
 		UpdateSingleRow(evt.index);
 		break;
 	}

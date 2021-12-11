@@ -25,6 +25,8 @@
 #include <QAction>
 #include <QApplication>
 #include <QClipboard>
+#include <QDBusConnection>
+#include <QDBusMessage>
 #include <QDir>
 #include <QDrag>
 #include <QDragEnterEvent>
@@ -340,39 +342,6 @@ bool Table::CreateMimeWithSelectedFiles(const ClipboardAction action,
 	return true;
 }
 
-bool Table::ReloadOpenWith()
-{
-	open_with_.Clear();
-	int fd = io::socket::Client(cornus::SocketPath);
-	if (fd == -1)
-		return false;
-	
-	ByteArray send_ba;
-	send_ba.set_msg_id(io::Message::SendOpenWithList);
-	send_ba.add_string(open_with_.mime);
-	
-	if (!send_ba.Send(fd, false))
-		return false;
-	
-	ByteArray receive_ba;
-	if (!receive_ba.Receive(fd))
-		return false;
-	
-	while (receive_ba.has_more())
-	{
-		const Present present = (Present)receive_ba.next_i8();
-		DesktopFile *next = DesktopFile::From(receive_ba);
-		if (next != nullptr) {
-			if (present == Present::Yes)
-				open_with_.show_vec.append(next);
-			else
-				open_with_.hide_vec.append(next);
-		}
-	}
-	
-	return true;
-}
-
 QVector<QAction*>
 Table::CreateOpenWithList(const QString &full_path)
 {
@@ -404,9 +373,27 @@ Table::CreateOpenWithList(const QString &full_path)
 
 void Table::dragEnterEvent(QDragEnterEvent *evt)
 {
-	const QMimeData *mimedata = evt->mimeData();
-	if (mimedata->hasUrls()) {
+	const QMimeData *md = evt->mimeData();
+	
+	if (md->hasUrls())
+	{
 		evt->acceptProposedAction();
+		return;
+	}
+	
+	const QString dbus_service_key = QLatin1String("application/x-kde-ark-dndextract-service");
+	const QString dbus_path_key = QLatin1String("application/x-kde-ark-dndextract-path");
+	
+	if (md->hasFormat(dbus_path_key) && md->hasFormat(dbus_service_key))
+	{
+		const QString dbus_client = md->data(dbus_service_key);
+		const QString dbus_path = md->data(dbus_path_key);
+		QUrl url = QUrl::fromLocalFile(tab_->current_dir());
+		
+		QDBusMessage msg = QDBusMessage::createMethodCall(dbus_client, dbus_path,
+			QLatin1String("org.kde.ark.DndExtract"), QLatin1String("extractSelectedFilesTo"));
+		msg.setArguments({url.toDisplayString(QUrl::PreferLocalFile)});
+		QDBusConnection::sessionBus().call(msg);
 	}
 }
 
@@ -1168,6 +1155,39 @@ void Table::ProcessAction(const QString &action)
 	} else if (action == actions::EditMovieTitle) {
 		app->EditSelectedMovieTitle();
 	}
+}
+
+bool Table::ReloadOpenWith()
+{
+	open_with_.Clear();
+	int fd = io::socket::Client(cornus::SocketPath);
+	if (fd == -1)
+		return false;
+	
+	ByteArray send_ba;
+	send_ba.set_msg_id(io::Message::SendOpenWithList);
+	send_ba.add_string(open_with_.mime);
+	
+	if (!send_ba.Send(fd, false))
+		return false;
+	
+	ByteArray receive_ba;
+	if (!receive_ba.Receive(fd))
+		return false;
+	
+	while (receive_ba.has_more())
+	{
+		const Present present = (Present)receive_ba.next_i8();
+		DesktopFile *next = DesktopFile::From(receive_ba);
+		if (next != nullptr) {
+			if (present == Present::Yes)
+				open_with_.show_vec.append(next);
+			else
+				open_with_.hide_vec.append(next);
+		}
+	}
+	
+	return true;
 }
 
 bool Table::ScrollToAndSelect(QString full_path)

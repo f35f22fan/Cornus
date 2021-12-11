@@ -530,7 +530,7 @@ QVariant TableModel::headerData(int section_i, Qt::Orientation orientation, int 
 	}
 	return {};
 }
-// #define CORNUS_DEBUG_INOTIFY_BATCH
+//#define CORNUS_DEBUG_INOTIFY_BATCH
 void TableModel::InotifyBatchFinished()
 {
 	QVector<int> indices;

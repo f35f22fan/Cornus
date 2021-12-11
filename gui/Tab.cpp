@@ -17,6 +17,8 @@
 #include <QDateTime>
 #include <QDir>
 #include <QMessageBox>
+#include <QScrollArea>
+#include <QScrollBar>
 
 namespace cornus {
 
@@ -156,6 +158,10 @@ Tab::~Tab()
 
 void Tab::CreateGui()
 {
+	QBoxLayout *layout = new QBoxLayout(QBoxLayout::TopToBottom);
+	setLayout(layout);
+	layout->setSpacing(0);
+	layout->setContentsMargins(0, 0, 0, 0);
 	setContentsMargins(0, 0, 0, 0);
 	
 	table_model_ = new gui::TableModel(app_, this);
@@ -165,14 +171,12 @@ void Tab::CreateGui()
 	
 	stack_ = new QStackedWidget();
 	details_view_index_ = stack_->addWidget(table_);
+	icon_scroll_area_ = new QScrollArea();
+	icon_view_ = new IconView(app_, table_, icon_scroll_area_);
+	icon_scroll_area_->setWidget(icon_view_);
 	
-	icon_view_ = new IconView(app_, table_);
-	icons_view_index_ = stack_->addWidget(icon_view_);
+	icons_view_index_ = stack_->addWidget(icon_scroll_area_);
 	
-	QBoxLayout *layout = new QBoxLayout(QBoxLayout::TopToBottom);
-	setLayout(layout);
-	layout->setSpacing(0);
-	layout->setContentsMargins(0, 0, 0, 0);
 	layout->addWidget(stack_);
 }
 

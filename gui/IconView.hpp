@@ -5,18 +5,37 @@
 #include "../err.hpp"
 #include "../io/io.hh"
 
-#include <QFontMetrics>
+QT_FORWARD_DECLARE_CLASS(QScrollArea)
 #include <QWidget>
 
 namespace cornus::gui {
-// view-list-icons, view-list-details
+
+struct IconDim {
+	int per_row = -1;
+	int size = -1;
+	int gap = -1;
+	int max_w = -1;
+	int max_icon_h = -1;
+	int in_between = -1;
+	int row_count = -1;
+};
+
+struct Last {
+	int file_count = -1;
+	int row_count = -1;
+};
+
 class IconView : public QWidget {
 public:
-	IconView(App *app, Table *table);
+	IconView(App *app, Table *table, QScrollArea *sa);
 	virtual ~IconView();
 	
 	io::Files& view_files();
-
+	
+	QSize minimumSize() const;
+	QSize maximumSize() const;
+	virtual QSize sizeHint() const override;
+	
 protected:
 	virtual void mouseDoubleClickEvent(QMouseEvent *evt) override;
 	virtual void mouseMoveEvent(QMouseEvent *evt) override;
@@ -31,6 +50,9 @@ private:
 	App *app_ = nullptr;
 	Table *table_ = nullptr;
 	float zoom_ = 1.0f;
+	Last last_ = {};
+	IconDim icon_dim_ = {};
+	QScrollArea *scroll_area_ = nullptr;
 };
 
 

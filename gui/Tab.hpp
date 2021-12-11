@@ -12,6 +12,8 @@
 #include <QTabBar>
 #include <QStackedWidget>
 
+QT_FORWARD_DECLARE_CLASS(QScrollArea)
+
 namespace cornus {
 
 struct DirPath {
@@ -51,6 +53,7 @@ public:
 	
 	void GrabFocus();
 	History* history() const { return history_; }
+	gui::IconView* icon_view() const { return icon_view_; }
 	io::Notify& notify() { return notify_; }
 	
 	void PopulateUndoDelete(QMenu *menu);
@@ -89,6 +92,7 @@ private:
 	
 	ViewMode view_mode_ = ViewMode::Details;
 	gui::IconView *icon_view_ = nullptr;
+	QScrollArea *icon_scroll_area_ = nullptr;
 };
 
 }}

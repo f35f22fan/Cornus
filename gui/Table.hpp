@@ -9,6 +9,7 @@
 #include <QMouseEvent>
 #include <QPoint>
 #include <QTableView>
+#include <QUrl>
 
 namespace cornus::gui {
 struct OpenWith {
@@ -64,7 +65,8 @@ public:
 	void SyncWith(const cornus::Clipboard &cl, QVector<int> &indices);
 	gui::Tab* tab() const { return tab_; }
 	void UpdateColumnSizes() { SetCustomResizePolicy(); }
-
+	QStyleOptionViewItem view_options() const { return viewOptions(); }
+	
 public Q_SLOTS:
 	bool ScrollToAndSelect(QString full_path);
 	

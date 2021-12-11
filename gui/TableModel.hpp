@@ -78,7 +78,7 @@ public:
 	void UpdateHeaderNameColumn();
 	
 public Q_SLOTS:
-	void InotifyEvent(cornus::gui::FileEvent evt);
+	void InotifyEvent(cornus::io::FileEvent evt);
 	void InotifyBatchFinished();
 	
 private:

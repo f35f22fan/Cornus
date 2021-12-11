@@ -50,23 +50,6 @@ enum class ViewMode: i8 {
 	Icons,
 };
 
-enum class FileEventType: u8 {
-	None = 0,
-	Modified,
-	Deleted,
-	Created,
-	Renamed,
-};
-
-struct FileEvent {
-	cornus::io::File *new_file = nullptr;
-	QString from_name;
-	QString to_name;
-	int dir_id = -1;
-	int index = -1;
-	FileEventType type = FileEventType::None;
-};
-
 struct InputDialogParams {
 	QSize size = {-1, -1};
 	i32 selection_start = -1;
@@ -106,4 +89,3 @@ struct InsertArgs {
 };
 
 } /// namespace
-Q_DECLARE_METATYPE(cornus::gui::FileEvent);

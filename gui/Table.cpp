@@ -393,7 +393,7 @@ void Table::dragEnterEvent(QDragEnterEvent *evt)
 		QDBusMessage msg = QDBusMessage::createMethodCall(dbus_client, dbus_path,
 			QLatin1String("org.kde.ark.DndExtract"), QLatin1String("extractSelectedFilesTo"));
 		msg.setArguments({url.toDisplayString(QUrl::PreferLocalFile)});
-		QDBusConnection::sessionBus().call(msg);
+		QDBusConnection::sessionBus().call(msg, QDBus::NoBlock);
 	}
 }
 

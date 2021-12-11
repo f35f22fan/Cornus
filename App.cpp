@@ -155,9 +155,9 @@ App::App()
 {
 	qRegisterMetaType<cornus::io::File*>();
 	qRegisterMetaType<cornus::io::FilesData*>();
+	qRegisterMetaType<cornus::io::FileEvent>();
 	qRegisterMetaType<cornus::PartitionEvent*>();
 	qRegisterMetaType<cornus::io::CountRecursiveInfo*>();
-	qRegisterMetaType<cornus::gui::FileEvent>();
 	qRegisterMetaType<QVector<cornus::gui::TreeItem*>>();
 	qDBusRegisterMetaType<QMap<QString, QVariant>>();
 	media_ = new Media();

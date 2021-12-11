@@ -28,6 +28,23 @@
 
 namespace cornus::io {
 
+enum class FileEventType: u8 {
+	None = 0,
+	Modified,
+	Deleted,
+	Created,
+	Renamed,
+};
+
+struct FileEvent {
+	io::File *new_file = nullptr;
+	QString from_name;
+	QString to_name;
+	int dir_id = -1;
+	int index = -1;
+	FileEventType type = FileEventType::None;
+};
+
 enum class PostWrite: i8 {
 	DoNothing = 0,
 	FSync,
@@ -391,3 +408,4 @@ Err WriteToFile(const QString &full_path, const char *data, const i64 size,
 	mode_t *custom_mode = nullptr);
 
 } // cornus::io::::
+Q_DECLARE_METATYPE(cornus::io::FileEvent);

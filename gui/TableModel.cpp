@@ -19,6 +19,9 @@
 #include <QTime>
 #include <QTimer>
 
+//#define CORNUS_DEBUG_INOTIFY_BATCH
+//#define CORNUS_DEBUG_INOTIFY
+
 namespace cornus::gui {
 
 const auto ConnectionType = Qt::BlockingQueuedConnection;
@@ -102,12 +105,12 @@ void SendCreateEvent(TableModel *model, cornus::io::Files *files,
 	if (!io::ReloadMeta(*new_file, stx))
 		mtl_trace();
 	
-	FileEvent evt = {};
+	io::FileEvent evt = {};
 	evt.new_file = new_file;
 	evt.dir_id = dir_id;
-	evt.type = gui::FileEventType::Created;
+	evt.type = io::FileEventType::Created;
 	QMetaObject::invokeMethod(model, "InotifyEvent",
-		ConnectionType, Q_ARG(cornus::gui::FileEvent, evt));
+		ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
 }
 
 void SendDeleteEvent(TableModel *model, cornus::io::Files *files,
@@ -121,12 +124,12 @@ void SendDeleteEvent(TableModel *model, cornus::io::Files *files,
 	
 	CHECK_TRUE_VOID((index != -1));
 	
-	FileEvent evt = {};
+	io::FileEvent evt = {};
 	evt.dir_id = dir_id;
 	evt.index = index;
-	evt.type = gui::FileEventType::Deleted;
+	evt.type = io::FileEventType::Deleted;
 	QMetaObject::invokeMethod(model, "InotifyEvent",
-		ConnectionType, Q_ARG(cornus::gui::FileEvent, evt));
+		ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
 }
 
 void SendModifiedEvent(TableModel *model, cornus::io::Files *files,
@@ -142,12 +145,12 @@ void SendModifiedEvent(TableModel *model, cornus::io::Files *files,
 		CHECK_TRUE_VOID(io::ReloadMeta(*found, stx));
 	}
 	
-	FileEvent evt = {};
+	io::FileEvent evt = {};
 	evt.dir_id = dir_id;
 	evt.index = index;
-	evt.type = gui::FileEventType::Modified;
+	evt.type = io::FileEventType::Modified;
 	QMetaObject::invokeMethod(model, "InotifyEvent",
-		ConnectionType, Q_ARG(cornus::gui::FileEvent, evt));
+		ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
 }
 
 void ReadEvent(const int inotify_fd, char *buf, cornus::io::Files *files,
@@ -158,7 +161,6 @@ void ReadEvent(const int inotify_fd, char *buf, cornus::io::Files *files,
 	const int wd,
 	QVector<RenameData> &rename_vec)
 {
-//#define CORNUS_DEBUG_INOTIFY
 #ifdef CORNUS_DEBUG_INOTIFY
 	QString num_str = QString::number(i64(pthread_self()), 36);
 	mtl_info("Thread %s, wd: %d, dir_id: %d", qPrintable(num_str), wd, dir_id);
@@ -239,11 +241,12 @@ mtl_info("IN_MOVED_FROM cookie %d, %s", ev->cookie, ev->name);
 			if (!with_hidden_files && new_name.startsWith('.'))
 				continue;
 			
-#ifdef CORNUS_DEBUG_INOTIFY
-mtl_info("IN_MOVED_TO cookie %d, %s", ev->cookie, ev->name);
-#endif
 			QString from_name;
 			int rename_data_index = FindTheOtherNameByCookie(rename_vec, ev->cookie, from_name);
+#ifdef CORNUS_DEBUG_INOTIFY
+mtl_info("IN_MOVED_TO cookie %d, new_name: %s, from_name: %s", ev->cookie, ev->name,
+	qPrintable(from_name));
+#endif
 			if (rename_data_index == -1) {
 				SendCreateEvent(model, files, new_name, dir_id);
 			} else {
@@ -257,12 +260,12 @@ mtl_info("IN_MOVED_TO cookie %d, %s", ev->cookie, ev->name);
 					std::sort(vec.begin(), vec.end(), cornus::io::SortFiles);
 					Find(vec, new_name, &index);
 				}
-				FileEvent evt = {};
+				io::FileEvent evt = {};
 				evt.dir_id = dir_id;
 				evt.index = index;
-				evt.type = gui::FileEventType::Renamed;
+				evt.type = io::FileEventType::Renamed;
 				QMetaObject::invokeMethod(model, "InotifyEvent",
-					ConnectionType, Q_ARG(cornus::gui::FileEvent, evt));
+					ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
 			}
 		} else if (mask & IN_Q_OVERFLOW) {
 			mtl_warn("IN_Q_OVERFLOW");
@@ -530,7 +533,7 @@ QVariant TableModel::headerData(int section_i, Qt::Orientation orientation, int 
 	}
 	return {};
 }
-//#define CORNUS_DEBUG_INOTIFY_BATCH
+
 void TableModel::InotifyBatchFinished()
 {
 	QVector<int> indices;
@@ -593,42 +596,61 @@ mtl_info("==> New Batch ==>>");
 	}
 }
 
-void TableModel::InotifyEvent(gui::FileEvent evt)
+void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 {
 	auto &files = *app_->files(tab_->files_id());
 	{
 		MutexGuard guard = files.guard();
-		if (evt.dir_id != files.data.dir_id)
+		if (evt.dir_id != files.data.dir_id) {
+			if (evt.new_file != nullptr)
+				delete evt.new_file;
 			return;
+		}
 	}
 	
 	switch (evt.type) {
-	case FileEventType::Modified: {
+	case io::FileEventType::Modified: {
 #ifdef CORNUS_DEBUG_INOTIFY
 		mtl_info("MODIFIED");
 #endif
 		UpdateSingleRow(evt.index);
 		break;
 	}
-	case FileEventType::Created: {
+	case io::FileEventType::Created: {
 #ifdef CORNUS_DEBUG_INOTIFY
 		mtl_printq2("CREATED: ", evt.new_file->name());
 #endif
 		int index = -1;
 		{
 			MutexGuard guard = files.guard();
-			index = FindPlace(evt.new_file, files.data.vec);
+			QVector<io::File*> &vec = files.data.vec;
+			const int count = vec.size();
+			for (int i = 0; i < count; i++)
+			{
+				io::File *next = vec[i];
+				if (next->name() == evt.new_file->name())
+				{
+					evt.new_file->CopyBits(next);
+					delete next;
+					vec[i] = evt.new_file;
+					evt.new_file = nullptr;
+					return;
+				}
+			}
+			
+			index = FindPlace(evt.new_file, vec);
 		}
 		beginInsertRows(QModelIndex(), index, index);
 		{
 			MutexGuard guard = files.guard();
 			files.data.vec.insert(index, evt.new_file);
+			evt.new_file = nullptr;
 			cached_row_count_ = files.data.vec.size();
 		}
 		endInsertRows();
 		break;
 	}
-	case FileEventType::Deleted: {
+	case io::FileEventType::Deleted: {
 		beginRemoveRows(QModelIndex(), evt.index, evt.index);
 		{
 			MutexGuard guard = files.guard();
@@ -643,7 +665,7 @@ void TableModel::InotifyEvent(gui::FileEvent evt)
 		endRemoveRows();
 		break;
 	}
-	case FileEventType::Renamed: {
+	case io::FileEventType::Renamed: {
 		UpdateSingleRow(evt.index);
 		break;
 	}

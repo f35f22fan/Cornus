@@ -33,6 +33,7 @@ public:
 	void CopyBits(File *rhs) {
 		bits_ = rhs->bits_;
 	}
+	
 	QString build_full_path() const;
 	FileCache& cache() { return cache_; }
 	void ClearCache();

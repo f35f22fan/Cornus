@@ -145,7 +145,7 @@ QWidget* OpenOrderPane::CreateAddingCustomItem()
 	ba.set_msg_id(io::Message::SendAllDesktopFiles);
 	const int fd = io::socket::Client();
 	CHECK_TRUE_NULL((fd != -1));
-	CHECK_TRUE_NULL(ba.Send(fd, false));
+	CHECK_TRUE_NULL(ba.Send(fd, CloseSocket::No));
 	
 	ba.Clear();
 	CHECK_TRUE_NULL(ba.Receive(fd));
@@ -388,9 +388,7 @@ void OpenOrderPane::Save()
 		}
 	}
 	
-	CHECK_TRUE_VOID((io::WriteToFile(full_path, ba.data(), ba.size(), io::PostWrite::FSync)
-		== io::Err::Ok));
-	//mtl_info("%s", qPrintable(full_path));
+	CHECK_TRUE_VOID((io::WriteToFile(full_path, ba.data(), ba.size(), io::PostWrite::FSync) == 0));
 }
 
 void OpenOrderPane::TableSelectionChanged()

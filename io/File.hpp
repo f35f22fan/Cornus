@@ -178,7 +178,7 @@ private:
 	io::FileBits bits_ = FileBits::Empty;
 	FileType type_ = FileType::Unknown;
 	
-	friend io::Err io::ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff);
+	friend int io::ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff);
 	friend class cornus::gui::TableModel;
 };
 

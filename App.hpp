@@ -91,6 +91,7 @@ public:
 	gui::ToolBar *toolbar() const { return toolbar_; }
 	
 	void ViewChanged();
+	HashInfo WaitForRootDaemon();
 	
 public Q_SLOTS:
 	void MediaFileChanged();
@@ -165,6 +166,7 @@ private:
 	Media *media_ = nullptr;
 	QTabWidget *tab_widget_ = nullptr;
 	cornus::GuiBits gui_bits_ = {};
+	HashInfo root_hash_ = {};
 	
 	/* tabs' inotify threads keep running for a while after tabs get deleted,
 	and they (the threads) need to keep accessing tab's files & mutexes which

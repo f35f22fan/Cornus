@@ -178,9 +178,20 @@ void Table::ActionPaste()
 		io_op = io::Message::Move;
 	}
 	
-	auto *ba = new ByteArray();
-	ba->set_msg_id(io_op);
 	QString to_dir = app_->tab()->current_dir();
+	bool needs_root;
+	const char *socket_path = io::QuerySocketFor(to_dir, needs_root);
+	HashInfo hash_info;
+	if (needs_root)
+	{
+		hash_info = app_->WaitForRootDaemon();
+	}
+	
+	auto *ba = new ByteArray();
+	if (hash_info.valid()) {
+		ba->add_u64(hash_info.num);
+	}
+	ba->set_msg_id(io_op);
 	ba->add_string(to_dir);
 	QVector<QString> names;
 	for (const auto &next: clipboard.file_paths)
@@ -191,7 +202,7 @@ void Table::ActionPaste()
 	}
 	
 	model_->SelectFilenamesLater(names, SameDir::Yes);
-	io::socket::SendAsync(ba);
+	io::socket::SendAsync(ba, socket_path);
 	
 	if (clipboard.action == ClipboardAction::Cut) {
 		/// Not using qclipboard->clear() because it doesn't work:
@@ -420,15 +431,6 @@ void Table::dropEvent(QDropEvent *evt)
 {
 	mouse_down_ = false;
 	if (evt->mimeData()->hasUrls()) {
-		QVector<io::File*> *files_vec = new QVector<io::File*>();
-		
-		for (const QUrl &url: evt->mimeData()->urls())
-		{
-			io::File *file = io::FileFromPath(url.path());
-			if (file != nullptr)
-				files_vec->append(file);
-		}
-		
 		io::File *to_dir = nullptr;
 		{
 			auto &files = *app_->files(tab_->files_id());
@@ -438,17 +440,24 @@ void Table::dropEvent(QDropEvent *evt)
 				to_dir = to_dir->Clone();
 			} else {
 				/// Otherwise drop onto current directory:
-				to_dir = io::FileFromPath(files.data.processed_dir_path);
+				to_dir = io::FileFromPath(tab_->current_dir());
 			}
 		}
 		
-		if (to_dir == nullptr) {
-			for (auto *next: *files_vec)
-				delete next;
-			delete files_vec;
-			return;
+		if (to_dir != nullptr)
+		{
+			AutoDelete ad(to_dir);
+			QVector<io::File*> *files_vec = new QVector<io::File*>();
+			
+			for (const QUrl &url: evt->mimeData()->urls())
+			{
+				io::File *file = io::FileFromPath(url.path());
+				if (file != nullptr)
+					files_vec->append(file);
+			}
+			
+			ExecuteDrop(files_vec, to_dir, evt->proposedAction(), evt->possibleActions());
 		}
-		ExecuteDrop(files_vec, to_dir, evt->proposedAction(), evt->possibleActions());
 	}
 	
 	ClearDndAnimation(drop_coord_);
@@ -460,18 +469,32 @@ void Table::ExecuteDrop(QVector<io::File*> *files_vec,
 	Qt::DropActions possible_actions)
 {
 	CHECK_PTR_VOID(files_vec);
+	const QString to_dir_path = to_dir->build_full_path();
+	bool needs_root;
+	const char *socket_path = io::QuerySocketFor(to_dir_path, needs_root);
+	HashInfo hash_info;
+	if (needs_root)
+	{
+		hash_info = app_->WaitForRootDaemon();
+	}
+	
 	io::Message io_operation = io::MessageFor(drop_action)
 		| io::MessageForMany(possible_actions);
 	//mtl_info("flags: %u", u32(io_operation));
 	auto *ba = new ByteArray();
+	
+	if (hash_info.valid()) {
+		ba->add_u64(hash_info.num);
+	}
+	
 	ba->set_msg_id(io_operation);
-	ba->add_string(to_dir->build_full_path());
+	ba->add_string(to_dir_path);
 	
 	for (io::File *next: *files_vec) {
 		ba->add_string(next->build_full_path());
 	}
 	
-	io::socket::SendAsync(ba);
+	io::socket::SendAsync(ba, socket_path);
 }
 
 io::File* Table::GetFileAt(const int row)
@@ -1168,7 +1191,7 @@ bool Table::ReloadOpenWith()
 	send_ba.set_msg_id(io::Message::SendOpenWithList);
 	send_ba.add_string(open_with_.mime);
 	
-	if (!send_ba.Send(fd, false))
+	if (!send_ba.Send(fd, CloseSocket::No))
 		return false;
 	
 	ByteArray receive_ba;
@@ -1675,7 +1698,9 @@ void Table::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos
 	}
 	
 	if (selected_count == 0) {
-		if (io::DirExists(tab_->CurrentDirTrashPath())){
+		QString current_trash_dir = tab_->CurrentDirTrashPath();
+//mtl_printq(current_trash_dir);
+		if (io::DirExists(current_trash_dir)){
 			menu->addSeparator();
 			if (undo_delete_menu_ == nullptr)
 			{

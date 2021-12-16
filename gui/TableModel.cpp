@@ -476,18 +476,25 @@ void TableModel::DeleteSelectedFiles(const ShiftPressed sp)
 		ba->add_string(next);
 	}
 	
-	io::socket::SendAsync(ba);
+	QString dir_path = io::GetParentDirPath(paths[0]).toString();
+	bool needs_root;
+	const char *socket_path = io::QuerySocketFor(dir_path, needs_root);
+	HashInfo hash_info;
+	if (needs_root)
+	{
+		hash_info = app_->WaitForRootDaemon();
+		if (hash_info.valid()) {
+			ba->prepend_u64(hash_info.num);
+		}
+	}
+	
+	io::socket::SendAsync(ba, socket_path);
 }
 
 QModelIndex
 TableModel::index(int row, int column, const QModelIndex &parent) const
 {
 	return createIndex(row, column);
-}
-
-int TableModel::rowCount(const QModelIndex &parent) const
-{
-	return cached_row_count_;
 }
 
 int TableModel::columnCount(const QModelIndex &parent) const

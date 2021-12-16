@@ -137,7 +137,7 @@ struct TaskProgress {
 class Task {
 public:
 	~Task();
-	static Task* From(cornus::ByteArray &ba);
+	static Task* From(cornus::ByteArray &ba, const HasSecret hs);
 	
 	TaskData& data() { return data_; }
 	TaskProgress& progress() { return progress_; }

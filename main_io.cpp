@@ -142,12 +142,11 @@ void* ProcessRequest(void *ptr)
 	
 	close(fd);
 	ba.to(0);
-	auto *task = cornus::io::Task::From(ba);
+	auto *task = cornus::io::Task::From(ba, HasSecret::No);
 	if (task != nullptr)
 	{
 		QMetaObject::invokeMethod(tasks_win, "add",
 			ConnectionType, Q_ARG(cornus::io::Task*, task));
-		task->StartIO();
 	}
 	
 	return nullptr;
@@ -160,7 +159,8 @@ void* ListenTh(void *args)
 	io::ServerLife &life = daemon->life();
 	
 	int daemon_sock_fd = cornus::io::socket::Daemon(cornus::SocketPath);
-	if (daemon_sock_fd == -1) {
+	if (daemon_sock_fd == -1)
+	{
 		mtl_info("Another cornus_io is running. Exiting.");
 		exit(0);
 	}

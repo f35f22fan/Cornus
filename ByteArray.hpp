@@ -25,7 +25,7 @@ public:
 	
 	void alloc(const isize n);
 	
-	void add(const char *n, const isize size);
+	void add(const char *p, const isize size);
 	void add_i8(const i8 n);
 	void add_u8(const u8 n);
 	void add_i16(const i16 n);
@@ -37,6 +37,7 @@ public:
 	void add_f32(const float n);
 	void add_f64(const double n);
 	void add_string(const QString &s);
+	isize at() const { return at_; }
 	void Clear();
 	char *data() const { return data_; }
 	const char *constData() const { return data_; }
@@ -59,14 +60,18 @@ public:
 	QString next_string();
 	
 	isize alloc_size() const { return size_; }
-	isize at() const { return at_; }
+	
+	// Prepend() doesn't change the at_ position.
+	void Prepend(const char *p, const isize size);
+	void prepend_u64(const u64 n);
+	
 	isize size() const { return size_; }
 	isize heap_size() const { return heap_size_; }
 	void size(isize n) { size_ = n; } // called from inside io::ReadFile(..);
 	void make_sure(const isize more_bytes, const bool exact_size = false);
 	inline void to(isize n) { at_ = n; }
 	bool Receive(int fd, const CloseSocket cs = CloseSocket::Yes);
-	bool Send(int fd, bool close_socket = true) const;
+	bool Send(int fd, const CloseSocket cs = CloseSocket::Yes) const;
 	void set_msg_id(const cornus::io::Message msg_id);
 	QString toString() const { return QString::fromLocal8Bit(data_, size_); }
 

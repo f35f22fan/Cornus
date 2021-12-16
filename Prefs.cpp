@@ -138,7 +138,7 @@ void Prefs::Save() const
 	buf.add_i32(sz.width());
 	buf.add_i32(sz.height());
 	
-	if (io::WriteToFile(full_path, buf.data(), buf.size()) != io::Err::Ok) {
+	if (io::WriteToFile(full_path, buf.data(), buf.size()) != 0) {
 		mtl_trace("Failed to save bookmarks");
 	}
 }

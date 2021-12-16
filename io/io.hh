@@ -308,7 +308,7 @@ FileExists(const QString &path, FileType *file_type = nullptr) {
 }
 
 io::File*
-FileFromPath(const QString &full_path, io::Err *ret_error = nullptr);
+FileFromPath(const QString &full_path, int *ret_error = nullptr);
 
 const char*
 FileTypeToString(const FileType t);
@@ -346,11 +346,8 @@ int /// lists files and folders, returns 0 on success
 ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 	FilterFunc ff = nullptr);
 
-io::Err
-ListFiles(FilesData &data, Files *ptr, FilterFunc ff = nullptr);
-
-io::Err
-MapPosixError(int e);
+// returns 0 on success, errno on error
+int ListFiles(FilesData &data, Files *ptr, FilterFunc ff = nullptr);
 
 inline FileType
 MapPosixTypeToLocal(const mode_t mode) {
@@ -373,8 +370,9 @@ void PasteLinks(const QVector<QString> &full_paths, QVector<QString> &filenames,
 void PasteRelativeLinks(const QVector<QString> &full_paths,
 	QVector<QString> &filenames, QString target_dir, QString *err);
 
-void
-ProcessMime(QString &mime);
+void ProcessMime(QString &mime);
+
+const char* QuerySocketFor(const QString &dir_path, bool &needs_root);
 
 bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	const PrintErrors print_errors = PrintErrors::Yes,
@@ -389,7 +387,7 @@ bool ReloadMeta(io::File &file, struct statx &stx, QString *dir_path = nullptr);
 bool RemoveXAttr(const QString &full_path, const QString &xattr_name);
 
 bool SameFiles(const QString &path1, const QString &path2,
-	io::Err *ret_error = nullptr);
+	int *ret_error = nullptr);
 
 bool sd_nvme(const QString &name);
 bool valid_dev_path(const QString &name);
@@ -404,7 +402,8 @@ bool SortFiles(File *a, File *b);
 isize TryReadFile(const QString &full_path, char *buf,
 	const i64 how_much, ExecInfo *info = nullptr);
 
-Err WriteToFile(const QString &full_path, const char *data, const i64 size,
+// returns 0 on error, otherwise errno
+int WriteToFile(const QString &full_path, const char *data, const i64 size,
 	const PostWrite post_write = PostWrite::DoNothing,
 	mode_t *custom_mode = nullptr);
 

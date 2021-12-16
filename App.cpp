@@ -27,6 +27,7 @@
 #include "io/File.hpp"
 #include "io/socket.hh"
 #include "gui/actions.hxx"
+#include "gui/ConfirmDialog.hpp"
 #include "gui/Location.hpp"
 #include "gui/SearchPane.hpp"
 #include "gui/sidepane.hh"
@@ -77,47 +78,6 @@
 
 namespace cornus {
 
-void* AutoLoadServerIfNeeded(void *arg)
-{
-	pthread_detach(pthread_self());
-	ByteArray ba;
-	ba.set_msg_id(io::Message::CheckAlive);
-	
-	if (io::socket::SendSync(ba)) {
-		return nullptr;
-	}
-	
-	QString excl_file_path = QDir::homePath()
-		+ QLatin1String("/.cornus_check_online_excl_");
-	auto excl_ba = excl_file_path.toLocal8Bit();
-	int fd = open(excl_ba.data(), O_EXCL | O_CREAT, 0x777);
-	
-	if (fd == -1) {
-		mtl_info("Some app already trying to start cornus_io");
-		return nullptr;
-	}
-	
-///	mtl_info("Starting io server..");
-	QString server_dir_path = QCoreApplication::applicationDirPath();
-	QString server_full_path = server_dir_path + QLatin1String("/cornus_io");
-	
-	QStringList arguments;
-	QProcess::startDetached(server_full_path, arguments, server_dir_path);
-///	mtl_info("done");
-	int sec = 0;
-	for (;sec < 7; sec++) {
-		if (io::socket::SendSync(ba))
-			break;
-		sleep(1);
-	}
-///	mtl_info("Removing excl file after %d sec of waiting", sec);
-	int status = remove(excl_ba.data());
-	if (status != 0)
-		mtl_status(errno);
-	
-	return nullptr;
-}
-
 void MountAdded(GVolumeMonitor *monitor, GMount *mount, gpointer user_data)
 {
 	char *name = g_mount_get_name(mount);
@@ -167,9 +127,7 @@ App::App()
 	if (status != 0)
 		mtl_status(status);
 	
-	status = pthread_create(&th, NULL, AutoLoadServerIfNeeded, this);
-	if (status != 0)
-		mtl_status(status);
+	io::socket::AutoLoadRegularIODaemon();
 	
 	setWindowIcon(QIcon(cornus::AppIconPath));
 	prefs_ = new Prefs(this);
@@ -1068,7 +1026,7 @@ void App::OpenWithDefaultApp(const QString &full_path) const
 	ba.add_string(full_path);
 	int fd = io::socket::Client();
 	CHECK_TRUE_VOID((fd != -1));
-	CHECK_TRUE_VOID(ba.Send(fd, false));
+	CHECK_TRUE_VOID(ba.Send(fd, CloseSocket::No));
 	ba.Clear();
 	CHECK_TRUE_VOID(ba.Receive(fd));
 	CHECK_TRUE_VOID((!ba.is_empty()));
@@ -1530,7 +1488,7 @@ void App::SaveBookmarks()
 		tree_data_.bookmarks_changed_by_me = true;
 		tree_data_.Unlock();
 	}
-	if (io::WriteToFile(full_path, buf.data(), buf.size()) != io::Err::Ok) {
+	if (io::WriteToFile(full_path, buf.data(), buf.size()) != 0) {
 		mtl_trace("Failed to save bookmarks");
 	}
 }
@@ -1695,6 +1653,105 @@ void App::ToggleExecBitOfSelectedFiles()
 void App::ViewChanged()
 {
 	mtl_tbd();
+}
+
+HashInfo App::WaitForRootDaemon()
+{
+	QHash<IOAction, QString> options;
+	options.insert(IOAction::AutoRenameAll, tr("Auto rename"));
+	options.insert(IOAction::SkipAll, tr("Skip"));
+	options.insert(IOAction::OverwriteAll, tr("Overwrite"));
+	
+	QString password;
+	gui::ConfirmDialog dialog(this, options, IOAction::AutoRenameAll, password);
+	dialog.setWindowTitle(tr("Password required"));
+	dialog.SetComboLabel(tr("Existing files:"));
+	dialog.SetMessage(tr("This operation requires root privileges"));
+	int status = dialog.exec();
+	if (status != QDialog::Accepted)
+	{
+		mtl_trace("Return value not Dialog::Accepted, exiting");
+		return {};
+	}
+	
+	const QString pass = dialog.input_text().trimmed();
+mtl_printq(pass);
+	const u64 secret = QRandomGenerator::global()->generate64();
+	const QByteArray secret_ba = QByteArray::number(qulonglong(secret));
+	const QByteArray hash_ba = QCryptographicHash::hash(secret_ba, QCryptographicHash::Md5);
+	const QString hash_str = QString(hash_ba.toHex());
+mtl_info("hash(%d):%s of %lu", hash_str.size(), qPrintable(hash_str), secret);
+	const char *socket_p = cornus::RootSocketPath;
+	ByteArray check_alive_ba;
+	if (root_hash_.valid())
+	{
+		check_alive_ba.add_u64(root_hash_.num);
+		check_alive_ba.set_msg_id(io::Message::CheckAlive);
+		
+		if (io::socket::SendSync(check_alive_ba, socket_p)) {
+			mtl_trace("Already launched");
+			return root_hash_;
+		}
+	} else {
+		check_alive_ba.add_u64(secret);
+		check_alive_ba.set_msg_id(io::Message::CheckAlive);
+	}
+	
+	const QString fn = QLatin1String("/.cornus_check_root_online_excl_");
+	QString excl_file_path = QDir::homePath() + fn;
+	auto excl_ba = excl_file_path.toLocal8Bit();
+	int fd = open(excl_ba.data(), O_EXCL | O_CREAT, 0x777);
+	
+	const QString daemon_dir_path = QCoreApplication::applicationDirPath();
+	const QString app_to_execute = daemon_dir_path + QLatin1String("/cornus_r");
+	
+	if (fd == -1) {
+		mtl_info("Some app already trying to start %s : %s",
+			qPrintable(app_to_execute), socket_p + 1);
+		return {};
+	}
+	
+// pkexec env DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY /path/to/exe
+// pkexec env DISPLAY=:0 XAUTHORITY=/run/user/1000/gdm/Xauthority dolphin
+	QProcess *process = new QProcess();
+	process->setProgram(QLatin1String("sudo"));
+	QStringList args;
+	args << QLatin1String("-S");
+	args << app_to_execute;
+	args << hash_str;
+	process->setArguments(args);
+	
+	process->start();
+	if (process->waitForStarted())
+	{
+		QByteArray pass_ba = pass.toLocal8Bit();
+		mtl_info("pass_ba: \"%s\"", pass_ba.data());
+		process->write(pass_ba);
+		process->waitForBytesWritten();
+		process->closeWriteChannel();
+	} else {
+		mtl_trace("process.waitForStarted() failed");
+	}
+
+	bool launched = false;
+	
+	// wait till daemon is started:
+	for (int i = 0; i < 100; i++)
+	{
+		if (io::socket::SendSync(check_alive_ba, socket_p))
+		{
+			launched = true;
+			root_hash_ = HashInfo {.num = secret, .hash_str = hash_str};
+			break;
+		}
+		usleep(100 * 1000); // 100ms
+	}
+
+	status = remove(excl_ba.data());
+	if (status != 0)
+		mtl_status(errno);
+	
+	return launched ? root_hash_ : HashInfo();
 }
 
 }

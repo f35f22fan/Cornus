@@ -16,8 +16,7 @@ bool AddTrashNameToGitignore(const QString &new_path)
 		+ trash::basename_regex();
 	QString new_data = contents.toString() + trash_line;
 	auto ba = new_data.toLocal8Bit();
-	auto ret = io::WriteToFile(new_path, ba.data(), ba.size());
-	return (ret == io::Err::Ok);
+	return (io::WriteToFile(new_path, ba.data(), ba.size()) == 0);
 }
 
 const QString& basename()

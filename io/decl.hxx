@@ -188,15 +188,6 @@ struct SortingOrder {
 	bool ascending = true;
 };
 
-enum class Err : u8 {
-	Ok = 0,
-	Access, // permission denied
-	Perm, // operation not permitted
-	IO, // I/O error
-	CircularSymlink,
-	Other
-};
-
 enum class FileType : u8 {
 	Unknown = 0,
 	Regular,

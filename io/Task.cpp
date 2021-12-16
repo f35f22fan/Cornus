@@ -259,8 +259,7 @@ void Task::CopyRegularFile(const QString &from_path, const QString &new_dir_path
 	CopyXAttr(input_fd, output_fd);
 }
 
-void
-Task::CopyXAttr(const int input_fd, const int output_fd)
+void Task::CopyXAttr(const int input_fd, const int output_fd)
 {
 	isize buflen = flistxattr(input_fd, NULL, 0);
 	if (buflen == 0)
@@ -377,8 +376,11 @@ void Task::DeleteFiles() {
 		DeleteFile(path, stx_);
 }
 
-Task* Task::From(cornus::ByteArray &ba)
+Task* Task::From(cornus::ByteArray &ba, const HasSecret hs)
 {
+	if (hs == HasSecret::Yes)
+		ba.next_u64();
+	
 	auto *task = new Task();
 	task->ops_ = ba.next_u32();
 	
@@ -492,7 +494,8 @@ mtl_info("Just copy");
 
 bool Task::TryAtomicMove()
 {
-	for (QString &path: file_paths_) {
+	for (QString &path: file_paths_)
+	{
 		io::File *file = io::FileFromPath(path);
 		if (file == nullptr)
 			return false;

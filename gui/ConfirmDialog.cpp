@@ -1,0 +1,105 @@
+#include "ConfirmDialog.hpp"
+
+#include "../App.hpp"
+
+#include <QAbstractButton>
+#include <QDialogButtonBox>
+#include <QFormLayout>
+#include <QLineEdit>
+#include <QPushButton>
+
+namespace cornus::gui {
+
+ConfirmDialog::ConfirmDialog(App *app, const QHash<IOAction, QString> &h,
+	const IOAction default_action, QString &password)
+: QDialog(app), app_(app), password_(password)
+{
+	Q_UNUSED(app_);
+	Q_UNUSED(password_);
+	CreateGui(h, default_action);
+	adjustSize();
+	lineedit_->setFocus();
+}
+
+ConfirmDialog::~ConfirmDialog()
+{
+	
+}
+
+void ConfirmDialog::ButtonClicked(QAbstractButton *btn)
+{
+	if (btn == button_box_->button(QDialogButtonBox::Ok)) {
+		
+	}
+}
+
+void ConfirmDialog::CreateGui(const QHash<IOAction, QString> &h,
+	const IOAction default_action)
+{
+	setModal(true);
+	QBoxLayout *vert_layout = new QBoxLayout(QBoxLayout::TopToBottom);
+	setLayout(vert_layout);
+	msg_label_ = new QLabel();
+	vert_layout->addWidget(msg_label_, 0, Qt::AlignHCenter);
+	QFormLayout *form = new QFormLayout();
+	vert_layout->addLayout(form);
+	
+	{
+		lineedit_ = new QLineEdit();
+		lineedit_->setEchoMode(QLineEdit::Password);
+		QLabel *pass_label = new QLabel(tr("Password:"));
+		pass_label->setBuddy(lineedit_);
+		form->addRow(pass_label, lineedit_);
+	}
+	
+	if (!h.isEmpty())
+	{
+		combo_label_ = new QLabel();
+		cb_ = new QComboBox();
+		combo_label_->setBuddy(cb_);
+		
+		QHashIterator it(h);
+		while (it.hasNext())
+		{
+			it.next();
+			auto key = static_cast<IOActionType>(it.key());
+			cb_->addItem(it.value(), key);
+		}
+		
+		if (default_action != IOAction::None)
+		{
+			const auto as_num = static_cast<IOActionType>(default_action);
+			int index = cb_->findData(as_num);
+			if (index != -1)
+				cb_->setCurrentIndex(index);
+		}
+		
+		form->addRow(combo_label_, cb_);
+	}
+	
+	button_box_ = new QDialogButtonBox (QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	vert_layout->addWidget(button_box_, 0, Qt::AlignHCenter);
+	QPushButton *ok_btn = button_box_->button(QDialogButtonBox::Ok);
+	connect(ok_btn, &QPushButton::clicked, this, &QDialog::accept);
+	QPushButton *cancel_btn = button_box_->button(QDialogButtonBox::Cancel);
+	connect(cancel_btn, &QPushButton::clicked, this, &QDialog::reject);
+	connect(button_box_, &QDialogButtonBox::clicked, this, &ConfirmDialog::ButtonClicked);
+	
+}
+
+QString ConfirmDialog::input_text() const
+{
+	return lineedit_->text();
+}
+
+void ConfirmDialog::SetComboLabel(const QString &s)
+{
+	combo_label_->setText(s);
+}
+
+void ConfirmDialog::SetMessage(const QString &s)
+{
+	msg_label_->setText(s);
+}
+
+}

@@ -2,6 +2,7 @@
 
 #include "types.hxx"
 #include <sys/stat.h>
+#include <QHash>
 #include <QString>
 #include <QVector>
 #include <QMetaType> /// Q_DECLARE_METATYPE()
@@ -20,7 +21,33 @@ class Prefs;
 class TreeItems;
 
 const QString AppIconPath = QLatin1String(":/cornus.mas.png");
-const char *const SocketPath = "\0cornus_socket";
+static const char *const SocketPath = "\0cornus_socket";
+static const char *const RootSocketPath = "\0cornus_socket_root";
+
+using IOActionType = i8;
+enum class IOAction: IOActionType {
+	None,
+	AutoRenameAll,
+	SkipAll,
+	OverwriteAll,
+};
+
+inline uint qHash(IOAction key, uint seed)
+{
+	return ::qHash(static_cast<IOActionType>(key), seed);
+}
+
+struct HashInfo {
+	u64 num = 0;
+	QString hash_str;
+	
+	bool valid() const { return !hash_str.isEmpty(); }
+};
+
+enum class HasSecret: i8 {
+	Yes,
+	No
+};
 
 enum class NamesAreLowerCase: i8 {
 	Yes,

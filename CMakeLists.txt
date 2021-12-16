@@ -54,6 +54,7 @@ set(cornus_src_files main.cpp
     gui/actions.hxx
     gui/AttrsDialog.cpp gui/AttrsDialog.hpp
     gui/CompleterModel.cpp gui/CompleterModel.hpp
+    gui/ConfirmDialog.cpp gui/ConfirmDialog.hpp
     gui/CountFolder.cpp gui/CountFolder.hpp
     gui/decl.hxx
     gui/Hiliter.cpp gui/Hiliter.hpp
@@ -159,6 +160,7 @@ set(cornus_r_src_files main_r.cpp
     io/File.cpp io/File.hpp
     io/io.cc io/io.hh
     io/socket.cc io/socket.hh
+    io/Task.cpp io/Task.hpp
 )
 
 foreach(f IN LISTS cornus_r_src_files)

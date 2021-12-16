@@ -428,7 +428,7 @@ void Delete(io::File *file)
 		io::Files files;
 		files.data.processed_dir_path = file->build_full_path() + '/';
 		files.data.show_hidden_files(true);
-		CHECK_TRUE_VOID((ListFiles(files.data, &files) == io::Err::Ok));
+		CHECK_TRUE_VOID((ListFiles(files.data, &files) == 0));
 		
 		for (io::File *next: files.data.vec) {
 			if (next->is_dir())
@@ -582,7 +582,7 @@ bool FileExistsCstr(const char *path, FileType *file_type)
 }
 
 io::File*
-FileFromPath(const QString &full_path, io::Err *ret_error)
+FileFromPath(const QString &full_path, int *ret_error)
 {
 	struct statx stx;
 	const auto flags = AT_SYMLINK_NOFOLLOW;
@@ -593,8 +593,7 @@ FileFromPath(const QString &full_path, io::Err *ret_error)
 		int index = full_path.lastIndexOf('/');
 		if (index == -1) {
 			if (ret_error != nullptr)
-				*ret_error = io::Err::Other;
-			mtl_trace();
+				*ret_error = EINVAL;
 			return nullptr;
 		}
 		dir_path = full_path.mid(0, index + 1);
@@ -608,7 +607,7 @@ FileFromPath(const QString &full_path, io::Err *ret_error)
 	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
 		mtl_warn("statx(): %s", strerror(errno));
 		if (ret_error != nullptr)
-			*ret_error = MapPosixError(errno);
+			*ret_error = errno;
 		return nullptr;
 	}
 	
@@ -966,22 +965,18 @@ int ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 	return 0;
 }
 
-Err ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
+int ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 {
 	if (!data.unprocessed_dir_path.isEmpty()) {
 		if (!ExpandLinksInDirPath(data.unprocessed_dir_path, data.processed_dir_path))
-		{
-			mtl_trace();
-			return io::Err::Other;
-		}
+			return EINVAL;
 	}
 	
 	auto dir_path_ba = data.processed_dir_path.toLocal8Bit();
 	DIR *dp = opendir(dir_path_ba.data());
 	
-	if (dp == NULL) {
-		return MapPosixError(errno);
-	}
+	if (dp == NULL)
+		return errno;
 	
 	const bool hide_hidden_files = !data.show_hidden_files();
 	struct dirent *entry;
@@ -1013,18 +1008,7 @@ Err ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 	closedir(dp);
 	std::sort(data.vec.begin(), data.vec.end(), cornus::io::SortFiles);
 	
-	return Err::Ok;
-}
-
-Err MapPosixError(int e)
-{
-	using io::Err;
-	
-	switch (e) {
-	case EACCES: return Err::Access;
-	case EIO: return Err::IO;
-	default: return Err::Other;
-	}
+	return 0;
 }
 
 QString NewNamePattern(const QString &filename, i32 &next)
@@ -1125,6 +1109,19 @@ void ProcessMime(QString &mime)
 	if (mime.startsWith("text/"))
 		mime = PlainText;
 	
+}
+
+const char* QuerySocketFor(const QString &dir_path, bool &needs_root)
+{
+	auto ba = dir_path.toLocal8Bit();
+	int ok = access(ba.data(), W_OK);
+	if (ok != 0) { // not allowed
+		needs_root = true;
+		return cornus::RootSocketPath;
+	}
+	
+	needs_root = false;
+	return cornus::SocketPath;
 }
 
 bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_dir)
@@ -1436,17 +1433,17 @@ bool RemoveXAttr(const QString &full_path, const QString &xattr_name)
 	return status == 0;
 }
 
-bool SameFiles(const QString &path1, const QString &path2, io::Err *ret_error)
+bool SameFiles(const QString &path1, const QString &path2, int *ret_error)
 {
 	struct statx stx;
 	auto ba = path1.toLocal8Bit();
 	const auto flags = AT_SYMLINK_NOFOLLOW;
 	const auto fields = STATX_INO;
 	
-	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
+	if (statx(0, ba.data(), flags, fields, &stx) != 0)
+	{
 		if (ret_error != nullptr)
-			*ret_error = MapPosixError(errno);
-		mtl_trace();
+			*ret_error = errno;
 		return false;
 	}
 	
@@ -1455,12 +1452,12 @@ bool SameFiles(const QString &path1, const QString &path2, io::Err *ret_error)
 	
 	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
 		if (ret_error != nullptr)
-			*ret_error = MapPosixError(errno);
+			*ret_error = errno;
 		return false;
 	}
 	
 	if (ret_error != nullptr)
-		*ret_error = io::Err::Ok;
+		*ret_error = 0;
 	
 	auto id2 = FileID::NewStx(stx);
 	return id1 == id2;
@@ -1612,7 +1609,7 @@ isize TryReadFile(const QString &full_path, char *buf, const i64 how_much,
 	return ret;
 }
 
-io::Err WriteToFile(const QString &full_path, const char *data, const i64 size,
+int WriteToFile(const QString &full_path, const char *data, const i64 size,
 	const PostWrite post_write, mode_t *custom_mode)
 {
 	auto path = full_path.toLocal8Bit();
@@ -1620,7 +1617,7 @@ io::Err WriteToFile(const QString &full_path, const char *data, const i64 size,
 		(custom_mode == nullptr) ? io::FilePermissions : *custom_mode);
 	
 	if (fd == -1)
-		return MapPosixError(errno);
+		return errno;
 	
 	i64 written = 0;
 	i64 ret;
@@ -1632,7 +1629,7 @@ io::Err WriteToFile(const QString &full_path, const char *data, const i64 size,
 		if (ret == -1) {
 			if (errno == EAGAIN)
 				continue;
-			io::Err e = MapPosixError(errno);
+			const int e = errno;
 			close(fd);
 			return e;
 		}
@@ -1648,7 +1645,7 @@ io::Err WriteToFile(const QString &full_path, const char *data, const i64 size,
 	
 	close(fd);
 	
-	return Err::Ok;
+	return 0;
 }
 
 } // cornus::io::

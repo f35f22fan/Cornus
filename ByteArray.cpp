@@ -38,10 +38,10 @@ void ByteArray::Clear() {
 	size_ = heap_size_ = at_ = 0;
 }
 
-void ByteArray::add(const char *n, const isize size)
+void ByteArray::add(const char *p, const isize size)
 {
 	make_sure(size);
-	memcpy(data_ + at_, n, size);
+	memcpy(data_ + at_, p, size);
 	at_ += size;
 	size_ += size;
 }
@@ -204,6 +204,25 @@ QString ByteArray::next_string()
 	return s;
 }
 
+void ByteArray::prepend_u64(const u64 n)
+{
+	Prepend(reinterpret_cast<const char*>(&n), sizeof n);
+}
+
+void ByteArray::Prepend(const char *p, const isize size)
+{
+	make_sure(size);
+	
+	char *new_heap = (char*) malloc(heap_size_);
+	CHECK_PTR_VOID(new_heap);
+	memcpy(new_heap, p, size);
+	memcpy(new_heap + size, data_, size_);
+	
+	delete[] data_;
+	data_ = new_heap;
+	size_ += size;
+}
+
 bool ByteArray::Receive(int fd,  const CloseSocket close_socket)
 {
 	isize total_bytes;
@@ -239,7 +258,7 @@ bool ByteArray::Receive(int fd,  const CloseSocket close_socket)
 	return size_ == total_bytes;
 }
 
-bool ByteArray::Send(int fd, bool close_socket) const
+bool ByteArray::Send(int fd, const CloseSocket cs) const
 {
 	if (fd == -1)
 		return false;
@@ -248,7 +267,7 @@ bool ByteArray::Send(int fd, bool close_socket) const
 		so_far = write(fd, (char*)&size_, sizeof(size_));
 		
 		if (so_far != sizeof(size_)) {
-			if (close_socket)
+			if (cs == CloseSocket::Yes)
 				::close(fd);
 			return false;
 		}
@@ -265,7 +284,7 @@ bool ByteArray::Send(int fd, bool close_socket) const
 				continue;
 			
 			mtl_status(errno);
-			if (close_socket)
+			if (cs == CloseSocket::Yes)
 				::close(fd);
 			
 			return false;
@@ -276,7 +295,8 @@ bool ByteArray::Send(int fd, bool close_socket) const
 		so_far += count;
 	}
 	
-	if (close_socket) {
+	if (cs == CloseSocket::Yes)
+	{
 		int status = ::close(fd);
 		if (status != 0)
 			mtl_status(errno);

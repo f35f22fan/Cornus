@@ -36,6 +36,8 @@ TasksWin::add(io::Task *task)
 		layout_->addWidget(task_gui);
 		adjustSize();
 	}
+	
+	task->StartIO();
 }
 
 void

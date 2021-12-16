@@ -102,7 +102,7 @@ void* GoToTh(void *p)
 		new_data->unprocessed_dir_path = params->dir_path.path;
 	//new_data->scroll_to_and_select = params->scroll_to_and_select;
 
-	if (io::ListFiles(*new_data, &view_files) != io::Err::Ok) {
+	if (io::ListFiles(*new_data, &view_files) != 0) {
 		delete params;
 		delete new_data;
 		return nullptr;

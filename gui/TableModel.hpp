@@ -31,7 +31,9 @@ public:
 	app() const { return app_; }
 	
 	void DeleteSelectedFiles(const ShiftPressed sp);
-	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+	int rowCount(const QModelIndex &parent = QModelIndex()) const override {
+		return cached_row_count_;
+	}
 	int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 	
 	QVariant

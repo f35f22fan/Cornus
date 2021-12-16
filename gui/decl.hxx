@@ -16,6 +16,7 @@ class File;
 namespace cornus::gui {
 class AttrsDialog;
 class CompleterModel;
+class ConfirmDialog;
 class CountFolder;
 class Hiliter;
 class IconView;

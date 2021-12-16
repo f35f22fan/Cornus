@@ -147,6 +147,8 @@ public:
 	io::MessageType ops() const { return ops_; }
 	void StartIO();
 	
+	void SetDefaultAction(const IOAction action);
+	
 private:
 	NO_ASSIGN_COPY_MOVE(Task);
 	Task();

@@ -2,6 +2,7 @@
 #include <QCryptographicHash>
 
 #include "ByteArray.hpp"
+#include "decl.hxx"
 #include "err.hpp"
 #include "str.hxx"
 #include "io/io.hh"
@@ -11,7 +12,8 @@ namespace cornus {
 
 struct Args {
 	cornus::ByteArray ba;
-	int client_fd;
+	int client_fd = -1;
+	IOAction default_action = IOAction::None;
 };
 
 bool CheckSecret(const u64 n, const QString &real_hash_str)
@@ -28,13 +30,14 @@ void* ProcessRequest(void *p)
 	Args *args = (Args*)p;
 	close(args->client_fd);
 	io::Task *task = io::Task::From(args->ba, HasSecret::Yes);
+	task->SetDefaultAction(args->default_action);
 	task->StartIO();
 	delete task;
 	delete args;
 	return nullptr;
 }
 
-void Listen(const QString &hash_str)
+void Listen(const QString &hash_str, const IOAction io_action)
 {
 	int daemon_sock_fd = cornus::io::socket::Daemon(cornus::RootSocketPath);
 	if (daemon_sock_fd == -1) {
@@ -84,6 +87,7 @@ void Listen(const QString &hash_str)
 		
 		args->client_fd = client_fd;
 		args->ba.to(0);
+		args->default_action = io_action;
 		int status = pthread_create(&th, NULL, cornus::ProcessRequest, args);
 		if (status != 0) {
 			mtl_status(status);
@@ -111,13 +115,17 @@ int main(int argc, char *argv[])
 {
 	QCoreApplication app(argc, argv);
 	
-	if (argc <= 1) {
+	if (argc <= 2) {
 		cornus::PrintHelp(argv[0]);
 		return 0;
 	}
 	
 	const QString hash_str = argv[1];
-	cornus::Listen(hash_str);
+	const QString action_str = argv[2];
+	bool ok;
+	int action_i = action_str.toInt(&ok);
+	if (ok)
+		cornus::Listen(hash_str, static_cast<cornus::IOAction>(action_i));
 	
 	return 0;
 }

@@ -29,8 +29,15 @@ ConfirmDialog::~ConfirmDialog()
 void ConfirmDialog::ButtonClicked(QAbstractButton *btn)
 {
 	if (btn == button_box_->button(QDialogButtonBox::Ok)) {
-		
+		mtl_tbd();
+	} else {
+		mtl_tbd();
 	}
+}
+
+QVariant ConfirmDialog::combo_value() const
+{
+	return cb_->currentData();
 }
 
 void ConfirmDialog::CreateGui(const QHash<IOAction, QString> &h,

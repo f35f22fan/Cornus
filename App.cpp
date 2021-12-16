@@ -1675,12 +1675,12 @@ HashInfo App::WaitForRootDaemon()
 	}
 	
 	const QString pass = dialog.input_text().trimmed();
-mtl_printq(pass);
+	const IOActionType io_action = static_cast<IOActionType>(dialog.combo_value().toInt());
 	const u64 secret = QRandomGenerator::global()->generate64();
 	const QByteArray secret_ba = QByteArray::number(qulonglong(secret));
 	const QByteArray hash_ba = QCryptographicHash::hash(secret_ba, QCryptographicHash::Md5);
 	const QString hash_str = QString(hash_ba.toHex());
-mtl_info("hash(%d):%s of %lu", hash_str.size(), qPrintable(hash_str), secret);
+mtl_info("hash(%d): %s of %lu", hash_str.size(), qPrintable(hash_str), secret);
 	const char *socket_p = cornus::RootSocketPath;
 	ByteArray check_alive_ba;
 	if (root_hash_.valid())
@@ -1719,6 +1719,7 @@ mtl_info("hash(%d):%s of %lu", hash_str.size(), qPrintable(hash_str), secret);
 	args << QLatin1String("-S");
 	args << app_to_execute;
 	args << hash_str;
+	args << QString::number(io_action);
 	process->setArguments(args);
 	
 	process->start();

@@ -425,6 +425,12 @@ void Task::MoveToTrash()
 	}
 }
 
+void Task::SetDefaultAction(const IOAction action)
+{
+	mtl_tbd();
+	
+}
+
 void Task::StartIO()
 {
 	data_.ChangeState(TaskState::Continue);

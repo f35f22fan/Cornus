@@ -26,6 +26,7 @@ public:
 	
 	void SetMessage(const QString &s);
 	void SetComboLabel(const QString &s);
+	QVariant combo_value() const;
 	QString input_text() const;
 	
 private:

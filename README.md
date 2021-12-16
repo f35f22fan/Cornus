@@ -2,8 +2,13 @@
 
 ##### Requirements: Linux 5.5+, Qt 5.15.2+
 ---
-Building on Ubuntu:
-* sudo apt-get install qt5-default mkvtoolnix libdbus-c++-dev libudev-dev libudisks2-dev libdconf-dev cmake git ark libmtp-dev liburing-dev
+Building on Ubuntu, install Qt5 (used to be called qt5-default):
+* sudo apt-get install qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools
+
+Then the other dependencies:
+* sudo apt-get install mkvtoolnix libdbus-c++-dev libudev-dev libudisks2-dev libdconf-dev cmake git ark libmtp-dev liburing-dev
+
+And build it:
 * mkdir build && cd build
 * cmake ..
 * make -j4

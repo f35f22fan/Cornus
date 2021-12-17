@@ -46,7 +46,6 @@ void Listen(const QString &hash_str, const IOAction io_action)
 	}
 	
 	pthread_t th;
-	
 	int failed_count = 0;
 	// secret_num=u64, msg_type=u32
 	const isize min_size = sizeof(u64) + sizeof(u32);
@@ -115,7 +114,7 @@ int main(int argc, char *argv[])
 {
 	QCoreApplication app(argc, argv);
 	
-	if (argc <= 2) {
+	if (argc <= 1) {
 		cornus::PrintHelp(argv[0]);
 		return 0;
 	}

@@ -21,13 +21,12 @@ namespace cornus::gui {
 class ConfirmDialog: public QDialog {
 public:
 	ConfirmDialog(App *app, const QHash<IOAction, QString> &h,
-		const IOAction default_action, QString &password);
+		const IOAction default_action);
 	virtual ~ConfirmDialog();
 	
 	void SetMessage(const QString &s);
 	void SetComboLabel(const QString &s);
 	QVariant combo_value() const;
-	QString input_text() const;
 	
 private:
 	NO_ASSIGN_COPY_MOVE(ConfirmDialog);
@@ -40,8 +39,6 @@ private:
 	QLabel *msg_label_ = nullptr;
 	QLabel *combo_label_ = nullptr;
 	QDialogButtonBox *button_box_ = nullptr;
-	QString &password_;
-	QLineEdit *lineedit_ = nullptr;
 };
 
 

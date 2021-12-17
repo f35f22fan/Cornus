@@ -11,20 +11,16 @@
 namespace cornus::gui {
 
 ConfirmDialog::ConfirmDialog(App *app, const QHash<IOAction, QString> &h,
-	const IOAction default_action, QString &password)
-: QDialog(app), app_(app), password_(password)
+	const IOAction default_action)
+: QDialog(app), app_(app)
 {
 	Q_UNUSED(app_);
-	Q_UNUSED(password_);
 	CreateGui(h, default_action);
 	adjustSize();
-	lineedit_->setFocus();
 }
 
 ConfirmDialog::~ConfirmDialog()
-{
-	
-}
+{}
 
 void ConfirmDialog::ButtonClicked(QAbstractButton *btn)
 {
@@ -50,14 +46,6 @@ void ConfirmDialog::CreateGui(const QHash<IOAction, QString> &h,
 	vert_layout->addWidget(msg_label_, 0, Qt::AlignHCenter);
 	QFormLayout *form = new QFormLayout();
 	vert_layout->addLayout(form);
-	
-	{
-		lineedit_ = new QLineEdit();
-		lineedit_->setEchoMode(QLineEdit::Password);
-		QLabel *pass_label = new QLabel(tr("Password:"));
-		pass_label->setBuddy(lineedit_);
-		form->addRow(pass_label, lineedit_);
-	}
 	
 	if (!h.isEmpty())
 	{
@@ -92,11 +80,6 @@ void ConfirmDialog::CreateGui(const QHash<IOAction, QString> &h,
 	connect(cancel_btn, &QPushButton::clicked, this, &QDialog::reject);
 	connect(button_box_, &QDialogButtonBox::clicked, this, &ConfirmDialog::ButtonClicked);
 	
-}
-
-QString ConfirmDialog::input_text() const
-{
-	return lineedit_->text();
 }
 
 void ConfirmDialog::SetComboLabel(const QString &s)

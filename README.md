@@ -13,8 +13,13 @@ And build it:
 * cmake ..
 * make -j4
 
-The file browser executable is "cornus", "cornus_io" is the IO daemon that is started automatically when needed.
+The file browser executable is "cornus", "cornus_io" is the IO daemon that is started automatically when needed, "cornus_r" is for privileged I/O.
 To have a desktop launcher for this app - update the file at export/cornus_mas.desktop (specifically its "Icon" and "Exec" fields) according to where you have the "cornus" executable and copy this file to your desktop folder.
+
+##### Install:
+You can use Cornus as is, no need to install it. However, Cornus can also perform root (privileged) I/O when needed, you can enable this feature in 2 simple steps:
+* Update exec.path from the file export/org.kde.cornus.policy to the corresponding value.
+* Copy this file to /usr/share/polkit-1/actions/
 
 ##### Major TODO items:
 * Implement MTP to deal with Android devices

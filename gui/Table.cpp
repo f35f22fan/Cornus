@@ -188,7 +188,8 @@ void Table::ActionPaste()
 	}
 	
 	auto *ba = new ByteArray();
-	if (hash_info.valid()) {
+	if (hash_info.valid())
+	{
 		ba->add_u64(hash_info.num);
 	}
 	ba->set_msg_id(io_op);
@@ -203,8 +204,8 @@ void Table::ActionPaste()
 	
 	model_->SelectFilenamesLater(names, SameDir::Yes);
 	io::socket::SendAsync(ba, socket_path);
-	
-	if (clipboard.action == ClipboardAction::Cut) {
+	if (clipboard.action == ClipboardAction::Cut)
+	{
 		/// Not using qclipboard->clear() because it doesn't work:
 		QApplication::clipboard()->setMimeData(new QMimeData());
 	}

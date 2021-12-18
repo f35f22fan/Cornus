@@ -85,13 +85,12 @@ void Task::CopyFiles()
 
 void Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 {
-	int last_slash_index = file_path.lastIndexOf('/');
-	if (last_slash_index == -1) {
+	const QStringRef file_name = io::GetFileNameOfFullPath(file_path);
+	if (file_name.isEmpty())
+	{
 		data_.ChangeState(TaskState::Error);
 		return;
 	}
-	
-	const QStringRef file_name = file_path.midRef(last_slash_index + 1);
 	/// PROGRESS>>
 	progress_.SetDetails(file_name.toString());
 	/// PROGRESS<<
@@ -100,7 +99,8 @@ void Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 	const auto fields = STATX_SIZE | STATX_MODE;
 	auto file_ba = file_path.toLocal8Bit();
 	
-	if (statx(0, file_ba.data(), flags, fields, &stx_) != 0) {
+	if (statx(0, file_ba.data(), flags, fields, &stx_) != 0)
+	{
 		mtl_warn("statx(): %s: %s", strerror(errno), file_ba.data());
 		data_.ChangeState(TaskState::Error);
 		return;
@@ -114,8 +114,8 @@ void Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 	if (!new_dir_path.endsWith('/'))
 		new_dir_path.append('/');
 	
-	if (S_ISDIR(mode)) {
-		
+	if (S_ISDIR(mode))
+	{
 		QVector<QString> names;
 		if (io::ListFileNames(file_path, names) != 0) {
 			data_.ChangeState(TaskState::Error);
@@ -203,7 +203,8 @@ void Task::CopyRegularFile(const QString &from_path, const QString &new_dir_path
 	while (so_far < file_size)
 	{
 		isize count = copy_file_range(input_fd, &in_off, output_fd, &out_off, chunk, 0);
-		if (count == -1) {
+		if (count == -1)
+		{
 			if (errno == EAGAIN)
 				continue;
 			
@@ -427,8 +428,24 @@ void Task::MoveToTrash()
 
 void Task::SetDefaultAction(const IOAction action)
 {
-	mtl_tbd();
-	
+	auto &answer = data_.task_question_.file_exists_answer;
+	switch (action)
+	{
+	case IOAction::AutoRenameAll: {
+		answer = FileExistsAnswer::AutoRenameAll;
+		break;
+	}
+	case IOAction::OverwriteAll: {
+		answer = FileExistsAnswer::OverwriteAll;
+		break;
+	}
+	case IOAction::SkipAll: {
+		answer = FileExistsAnswer::SkipAll;
+		break;
+	}
+	default: break;
+	}
+
 }
 
 void Task::StartIO()

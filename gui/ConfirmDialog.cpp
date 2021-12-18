@@ -25,15 +25,13 @@ ConfirmDialog::~ConfirmDialog()
 void ConfirmDialog::ButtonClicked(QAbstractButton *btn)
 {
 	if (btn == button_box_->button(QDialogButtonBox::Ok)) {
-		mtl_tbd();
 	} else {
-		mtl_tbd();
 	}
 }
 
 QVariant ConfirmDialog::combo_value() const
 {
-	return cb_->currentData();
+	return (cb_ == nullptr) ? QVariant(int(IOAction::None)) : cb_->currentData();
 }
 
 void ConfirmDialog::CreateGui(const QHash<IOAction, QString> &h,
@@ -79,12 +77,12 @@ void ConfirmDialog::CreateGui(const QHash<IOAction, QString> &h,
 	QPushButton *cancel_btn = button_box_->button(QDialogButtonBox::Cancel);
 	connect(cancel_btn, &QPushButton::clicked, this, &QDialog::reject);
 	connect(button_box_, &QDialogButtonBox::clicked, this, &ConfirmDialog::ButtonClicked);
-	
 }
 
 void ConfirmDialog::SetComboLabel(const QString &s)
 {
-	combo_label_->setText(s);
+	if (combo_label_ != nullptr)
+		combo_label_->setText(s);
 }
 
 void ConfirmDialog::SetMessage(const QString &s)

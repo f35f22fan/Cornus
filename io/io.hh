@@ -66,6 +66,9 @@ enum class Message: MessageType {
 	DeleteFiles,
 	EmptyTrashRecursively,
 	MoveToTrash,
+	PasteLinks,
+	PasteRelativeLinks,
+	RenameFile,
 	
 	Copy = 1u << 29, // copies files
 	DontTryAtomicMove = 1u << 30, // moves with rename()
@@ -366,9 +369,10 @@ MapPosixTypeToLocal(const mode_t mode) {
 QString
 NewNamePattern(const QString &filename, i32 &next);
 
-void PasteLinks(const QVector<QString> &full_paths, QVector<QString> &filenames, QString target_dir, QString *err);
-void PasteRelativeLinks(const QVector<QString> &full_paths,
-	QVector<QString> &filenames, QString target_dir, QString *err);
+void PasteLinks(const QVector<QString> &full_paths,
+	QString target_dir, QVector<QString> *filenames, QString *err = nullptr);
+void PasteRelativeLinks(const QVector<QString> &full_paths, QString target_dir,
+	QVector<QString> *filenames, QString *err = nullptr);
 
 void ProcessMime(QString &mime);
 

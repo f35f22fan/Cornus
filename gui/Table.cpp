@@ -184,11 +184,12 @@ void Table::ActionPaste()
 	HashInfo hash_info;
 	if (needs_root)
 	{
-		hash_info = app_->WaitForRootDaemon();
+		hash_info = app_->WaitForRootDaemon(CanOverwrite::Yes);
+		CHECK_TRUE_VOID(hash_info.valid());
 	}
 	
 	auto *ba = new ByteArray();
-	if (hash_info.valid())
+	if (needs_root)
 	{
 		ba->add_u64(hash_info.num);
 	}
@@ -216,25 +217,55 @@ void Table::ActionPasteLinks(const LinkType link)
 	const Clipboard &clipboard = app_->clipboard();
 	QString err;
 	QVector<QString> names;
-	if (link == LinkType::Absolute)
-		io::PasteLinks(clipboard.file_paths, names, app_->tab()->current_dir(), &err);
-	else if (link == LinkType::Relative)
-		io::PasteRelativeLinks(clipboard.file_paths, names, app_->tab()->current_dir(), &err);
-	else {
-		mtl_trace();
-		return;
+	QString to_dir_path = app_->tab()->current_dir();
+	
+	bool needs_root;
+	const char *socket_path = io::QuerySocketFor(to_dir_path, needs_root);
+	HashInfo hash_info;
+	if (needs_root)
+	{
+		hash_info = app_->WaitForRootDaemon(CanOverwrite::Yes);
+		CHECK_TRUE_VOID(hash_info.valid());
+		
+		auto *ba = new ByteArray();
+		ba->add_u64(hash_info.num);
+		const auto msg = (link == LinkType::Absolute) ? io::Message::PasteLinks
+			: io::Message::PasteRelativeLinks;
+		ba->set_msg_id(msg);
+		ba->add_string(to_dir_path);
+		
+		for (const auto &next: clipboard.file_paths)
+		{
+			ba->add_string(next);
+			QStringRef s = io::GetFileNameOfFullPath(next);
+			
+			if (!s.isEmpty())
+				names.append(s.toString());
+		}
+		
+		io::socket::SendAsync(ba, socket_path);
+	} else {
+		if (link == LinkType::Absolute)
+			io::PasteLinks(clipboard.file_paths, to_dir_path, &names, &err);
+		else if (link == LinkType::Relative)
+			io::PasteRelativeLinks(clipboard.file_paths, to_dir_path, &names, &err);
+		else {
+			mtl_trace();
+			return;
+		}
+		
+		if (clipboard.action == ClipboardAction::Cut)
+		{
+			/// Not using qclipboard->clear() because it doesn't work:
+			QApplication::clipboard()->setMimeData(new QMimeData());
+		}
+		
+		if (!err.isEmpty()) {
+			app_->TellUser(tr("Paste Link Error: ") + err);
+		}
 	}
 	
 	model_->SelectFilenamesLater(names, SameDir::Yes);
-	if (clipboard.action == ClipboardAction::Cut)
-	{
-		/// Not using qclipboard->clear() because it doesn't work:
-		QApplication::clipboard()->setMimeData(new QMimeData());
-	}
-	
-	if (!err.isEmpty()) {
-		app_->TellUser(tr("Paste Link Error: ") + err);
-	}
 }
 
 bool Table::AnyArchive(const QVector<QString> &extensions) const
@@ -476,15 +507,15 @@ void Table::ExecuteDrop(QVector<io::File*> *files_vec,
 	HashInfo hash_info;
 	if (needs_root)
 	{
-		hash_info = app_->WaitForRootDaemon();
+		hash_info = app_->WaitForRootDaemon(CanOverwrite::Yes);
+		CHECK_TRUE_VOID(hash_info.valid());
 	}
 	
 	io::Message io_operation = io::MessageFor(drop_action)
 		| io::MessageForMany(possible_actions);
-	//mtl_info("flags: %u", u32(io_operation));
 	auto *ba = new ByteArray();
 	
-	if (hash_info.valid()) {
+	if (needs_root) {
 		ba->add_u64(hash_info.num);
 	}
 	

@@ -1410,7 +1410,7 @@ void App::RenameSelectedFile()
 	if (!ok)
 		return;
 	
-	QString value = le->text().trimmed();
+	QString value = le->text();
 	if (value.isEmpty())
 		return;
 	
@@ -1420,12 +1420,27 @@ void App::RenameSelectedFile()
 	if (old_path == new_path)
 		return;
 	
-	tab->table_model()->SelectFilenamesLater({value});
-	
-	if (rename(old_path.data(), new_path.data()) != 0) {
+	bool needs_root;
+	const char *socket_path = io::QuerySocketFor(file->dir_path(), needs_root);
+	HashInfo hash_info;
+	if (needs_root)
+	{
+		hash_info = WaitForRootDaemon(CanOverwrite::No);
+		CHECK_TRUE_VOID(hash_info.valid());
+		
+		auto *ba = new ByteArray();
+		ba->add_u64(hash_info.num);
+		const auto msg =  io::Message::RenameFile;
+		ba->set_msg_id(msg);
+		ba->add_string(old_path);
+		ba->add_string(new_path);
+		io::socket::SendAsync(ba, socket_path);
+	} else if (::rename(old_path.data(), new_path.data()) != 0) {
 		QString err = QString("Failed: ") + strerror(errno);
 		QMessageBox::warning(this, "Failed", err);
 	}
+	
+	tab->table_model()->SelectFilenamesLater({value});
 }
 
 void App::RunExecutable(const QString &full_path, const ExecInfo &info)
@@ -1655,17 +1670,21 @@ void App::ViewChanged()
 	mtl_tbd();
 }
 
-HashInfo App::WaitForRootDaemon()
+HashInfo App::WaitForRootDaemon(const CanOverwrite co)
 {
 	QHash<IOAction, QString> options;
-	options.insert(IOAction::AutoRenameAll, tr("Auto rename"));
-	options.insert(IOAction::SkipAll, tr("Skip"));
-	options.insert(IOAction::OverwriteAll, tr("Overwrite"));
+	if (co == CanOverwrite::Yes)
+	{
+		options.insert(IOAction::AutoRenameAll, tr("Auto rename"));
+		options.insert(IOAction::SkipAll, tr("Skip"));
+		options.insert(IOAction::OverwriteAll, tr("Overwrite"));
+	}
 	
 	gui::ConfirmDialog dialog(this, options, IOAction::AutoRenameAll);
 	dialog.setWindowTitle(tr("Password required"));
-	dialog.SetComboLabel(tr("Existing files:"));
-	dialog.SetMessage(tr("This operation requires root privileges"));
+	if (co == CanOverwrite::Yes)
+		dialog.SetComboLabel(tr("Existing files:"));
+	dialog.SetMessage(tr("Root password required, continue?"));
 	int status = dialog.exec();
 	if (status != QDialog::Accepted)
 		return {};
@@ -1691,11 +1710,28 @@ HashInfo App::WaitForRootDaemon()
 	args << hash_str;
 	args << QString::number(io_action);
 	process->setArguments(args);
-	
 	process->start();
+
+	/*const int result = process->exitCode();
+mtl_trace("%ld, result: %d", time(NULL), result);
+const int DismissedAuthorization = 126;
+	const int AuthorizationDeclined = 127;
+	if (result == DismissedAuthorization || result == AuthorizationDeclined)
+	{
+//		pkexec: Upon successful completion, the return value is the
+//		return value of PROGRAM. If the calling process is not authorized
+//		or an authorization could not be obtained through authentication
+//		or an error occured, pkexec exits with a return value of 127.
+//		If the authorization could not be obtained because the user
+//		dismissed the authentication dialog, pkexec exits with a
+//		return value of 126.
+		
+mtl_trace("dismissed");
+		return {};
+	} */
 	bool launched = false;
 	// wait till daemon is started:
-	for (int i = 0; i < 50; i++)
+	for (int i = 0; i < 40; i++)
 	{
 		if (io::socket::SendSync(check_alive_ba, socket_p))
 		{

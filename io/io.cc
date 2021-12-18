@@ -1029,7 +1029,7 @@ QString NewNamePattern(const QString &filename, i32 &next)
 }
 
 void PasteLinks(const QVector<QString> &full_paths,
-	QVector<QString> &filenames, QString target_dir, QString *error)
+	QString target_dir, QVector<QString> *filenames, QString *error)
 {
 	if (!target_dir.endsWith('/'))
 		target_dir.append('/');
@@ -1040,7 +1040,9 @@ void PasteLinks(const QVector<QString> &full_paths,
 		if (filename.isEmpty())
 			continue;
 		
-		filenames.append(filename);
+		if (filenames)
+			filenames->append(filename);
+		
 		auto target_path_ba = in_full_path.toLocal8Bit();
 		i32 next = 0;
 		while (true)
@@ -1062,8 +1064,8 @@ void PasteLinks(const QVector<QString> &full_paths,
 	}
 }
 
-void PasteRelativeLinks(const QVector<QString> &full_paths, QVector<QString> &filenames, QString target_dir,
-	QString *error)
+void PasteRelativeLinks(const QVector<QString> &full_paths,
+	QString target_dir, QVector<QString> *filenames, QString *error)
 {
 	if (!target_dir.endsWith('/'))
 		target_dir.append('/');
@@ -1075,7 +1077,9 @@ void PasteRelativeLinks(const QVector<QString> &full_paths, QVector<QString> &fi
 			mtl_trace();
 			continue;
 		}
-		filenames.append(filename);
+		if (filenames)
+			filenames->append(filename);
+		
 		QString target = in_full_path;
 		if (target.startsWith(target_dir)) {
 			target = target.mid(target_dir.size());
@@ -1114,14 +1118,8 @@ void ProcessMime(QString &mime)
 const char* QuerySocketFor(const QString &dir_path, bool &needs_root)
 {
 	auto ba = dir_path.toLocal8Bit();
-	int ok = access(ba.data(), W_OK);
-	if (ok != 0) { // not allowed
-		needs_root = true;
-		return cornus::RootSocketPath;
-	}
-	
-	needs_root = false;
-	return cornus::SocketPath;
+	needs_root = (access(ba.data(), W_OK) != 0);
+	return needs_root ? cornus::RootSocketPath : cornus::SocketPath;
 }
 
 bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_dir)

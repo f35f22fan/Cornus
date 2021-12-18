@@ -91,7 +91,7 @@ public:
 	gui::ToolBar *toolbar() const { return toolbar_; }
 	
 	void ViewChanged();
-	HashInfo WaitForRootDaemon();
+	HashInfo WaitForRootDaemon(const CanOverwrite co);
 	
 public Q_SLOTS:
 	void MediaFileChanged();

@@ -29,10 +29,37 @@ void* ProcessRequest(void *p)
 	pthread_detach(pthread_self());
 	Args *args = (Args*)p;
 	close(args->client_fd);
-	io::Task *task = io::Task::From(args->ba, HasSecret::Yes);
-	task->SetDefaultAction(args->default_action);
-	task->StartIO();
-	delete task;
+	
+	auto &ba = args->ba;
+	ba.to(0);
+	ba.next_u64(); // skip secret num
+	const auto msg = ba.next_u32() & ~(7u << 29);
+	const bool paste_links = (msg == (io::MessageType)io::Message::PasteLinks);
+	if (paste_links || (msg == (io::MessageType)io::Message::PasteRelativeLinks))
+	{
+		QString to_dir_path = ba.next_string();
+		QVector<QString> paths;
+		while (ba.has_more()) {
+			paths.append(ba.next_string());
+		}
+		
+		if (paste_links) {
+			io::PasteLinks(paths, to_dir_path, nullptr);
+		} else {
+			io::PasteRelativeLinks(paths, to_dir_path, nullptr);
+		}
+	} else if (msg == (io::MessageType)io::Message::RenameFile) {
+		const auto old_path = ba.next_string().toLocal8Bit();
+		const auto new_path = ba.next_string().toLocal8Bit();
+		::rename(old_path.data(), new_path.data());
+	} else {
+		ba.to(0);
+		io::Task *task = io::Task::From(args->ba, HasSecret::Yes);
+		task->SetDefaultAction(args->default_action);
+		task->StartIO();
+		delete task;
+	}
+	
 	delete args;
 	return nullptr;
 }
@@ -85,7 +112,6 @@ void Listen(const QString &hash_str, const IOAction io_action)
 		}
 		
 		args->client_fd = client_fd;
-		args->ba.to(0);
 		args->default_action = io_action;
 		int status = pthread_create(&th, NULL, cornus::ProcessRequest, args);
 		if (status != 0) {

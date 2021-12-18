@@ -469,12 +469,6 @@ void TableModel::DeleteSelectedFiles(const ShiftPressed sp)
 	
 	const auto msg_id = (sp == ShiftPressed::Yes) ? io::Message::DeleteFiles
 		: io::Message::MoveToTrash;
-	ByteArray *ba = new ByteArray();
-	ba->set_msg_id(msg_id);
-	for (auto &next: paths)
-	{
-		ba->add_string(next);
-	}
 	
 	QString dir_path = io::GetParentDirPath(paths[0]).toString();
 	bool needs_root;
@@ -482,10 +476,18 @@ void TableModel::DeleteSelectedFiles(const ShiftPressed sp)
 	HashInfo hash_info;
 	if (needs_root)
 	{
-		hash_info = app_->WaitForRootDaemon();
-		if (hash_info.valid()) {
-			ba->prepend_u64(hash_info.num);
-		}
+		hash_info = app_->WaitForRootDaemon(CanOverwrite::No);
+		CHECK_TRUE_VOID(hash_info.valid());
+	}
+	
+	ByteArray *ba = new ByteArray();
+	if (needs_root)
+		ba->add_u64(hash_info.num);
+	
+	ba->set_msg_id(msg_id);
+	for (auto &next: paths)
+	{
+		ba->add_string(next);
 	}
 	
 	io::socket::SendAsync(ba, socket_path);

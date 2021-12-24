@@ -5,19 +5,34 @@
 #include "../err.hpp"
 #include "../io/io.hh"
 
-QT_FORWARD_DECLARE_CLASS(QScrollArea)
+QT_BEGIN_NAMESPACE
+class QScrollBar;
+QT_END_NAMESPACE
+
 #include <QWidget>
 
 namespace cornus::gui {
 
+enum class DrawBorder: i8 {
+	Yes,
+	No
+};
+
 struct IconDim {
-	int per_row = -1;
-	int size = -1;
-	int gap = -1;
-	int max_w = -1;
-	int max_icon_h = -1;
-	int in_between = -1;
+	double total_h = 0;
+	double w = 0;
+	double w_and_gaps = 0;
+	double cell_and_gap = 0;
+	double h = 0;
+	double h_and_gaps = 0;
+	double rh = 0;
+	double gap = 0;
+	double two_gaps = 0;
 	int row_count = -1;
+	int per_row = -1;
+	int text_y = -1;
+	int str_h = -1;
+	int text_rows = -1;
 };
 
 struct Last {
@@ -27,14 +42,15 @@ struct Last {
 
 class IconView : public QWidget {
 public:
-	IconView(App *app, Table *table, QScrollArea *sa);
+	IconView(App *app, Tab *tab, QScrollBar *vs);
 	virtual ~IconView();
 	
-	io::Files& view_files();
+	QSize minimumSize() const { return size(); }
+	QSize maximumSize() const { return size(); }
+	QSize size() const;
+	virtual QSize sizeHint() const override { return size(); }
 	
-	QSize minimumSize() const;
-	QSize maximumSize() const;
-	virtual QSize sizeHint() const override;
+	void FilesChanged(const Repaint r, const int file_index);
 	
 protected:
 	virtual void mouseDoubleClickEvent(QMouseEvent *evt) override;
@@ -43,16 +59,23 @@ protected:
 	virtual void mouseReleaseEvent(QMouseEvent *evt) override;
 	virtual void wheelEvent(QWheelEvent *evt) override;
 	virtual void paintEvent(QPaintEvent *ev) override;
+	virtual void resizeEvent(QResizeEvent *ev) override;
 
 private:
 	NO_ASSIGN_COPY_MOVE(IconView);
 	
+	void ComputeProportions(IconDim &dim) const;
+	DrawBorder DrawPixmap(const QPixmap &pixmap, QPainter &painter,
+		double x, double y, const double text_h);
+	void UpdateRange();
+	
 	App *app_ = nullptr;
-	Table *table_ = nullptr;
+	Tab *tab_ = nullptr;
 	float zoom_ = 1.0f;
 	Last last_ = {};
-	IconDim icon_dim_ = {};
-	QScrollArea *scroll_area_ = nullptr;
+	mutable IconDim icon_dim_ = {};
+	QScrollBar *vs_ = nullptr;
+	bool pending_update_ = false;
 };
 
 

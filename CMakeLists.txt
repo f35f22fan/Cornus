@@ -25,6 +25,8 @@ pkg_search_module(MTP REQUIRED libmtp)
 pkg_search_module(UDISKS REQUIRED udisks2)
 pkg_search_module(UDEV REQUIRED libudev)
 pkg_search_module(URING REQUIRED liburing)
+pkg_search_module(POLKIT REQUIRED polkit-gobject-1)
+pkg_search_module(POLKIT_AGENT REQUIRED polkit-agent-1)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -100,12 +102,11 @@ endforeach()
 set (cornus_exe "cornus")
 add_executable(${cornus_exe} ${cornus_src_files} resources/resources.qrc)
 target_include_directories(${cornus_exe} PRIVATE ${MTP_INCLUDE_DIRS}
-    ${URING_INCLUDE_DIRS}
-    ${UDISKS_INCLUDE_DIRS} ${UDEV_INCLUDE_DIRS}) # ${DCONF_INCLUDE_DIRS}
+    ${URING_INCLUDE_DIRS} ${UDISKS_INCLUDE_DIRS} ${UDEV_INCLUDE_DIRS}
+    ${POLKIT_INCLUDE_DIRS} ${POLKIT_AGENT_INCLUDE_DIRS}) # ${DCONF_INCLUDE_DIRS}
 target_link_libraries(${cornus_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
     ${MTP_LDFLAGS} ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS}
-    ${URING_LDFLAGS}
-    pthread) # ${DCONF_LDFLAGS}
+    ${URING_LDFLAGS} ${POLKIT_LDFLAGS} ${POLKIT_AGENT_LDFLAGS} pthread) # ${DCONF_LDFLAGS}
 
 set(cornus_io_src_files main_io.cpp
     AutoDelete.hh

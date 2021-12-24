@@ -17,7 +17,6 @@
 #include <QDateTime>
 #include <QDir>
 #include <QMessageBox>
-#include <QScrollArea>
 #include <QScrollBar>
 
 namespace cornus {
@@ -169,15 +168,24 @@ void Tab::CreateGui()
 	table_->setContentsMargins(0, 0, 0, 0);
 	table_->ApplyPrefs();
 	
-	stack_ = new QStackedWidget();
-	details_view_index_ = stack_->addWidget(table_);
-	icon_scroll_area_ = new QScrollArea();
-	icon_view_ = new IconView(app_, table_, icon_scroll_area_);
-	icon_scroll_area_->setWidget(icon_view_);
+	viewmode_stack_ = new QStackedWidget();
+	details_view_index_ = viewmode_stack_->addWidget(table_);
 	
-	icons_view_index_ = stack_->addWidget(icon_scroll_area_);
-	
-	layout->addWidget(stack_);
+	{
+		QWidget *w = new QWidget();
+		QBoxLayout *row = new QBoxLayout(QBoxLayout::LeftToRight);
+		w->setLayout(row);
+		QScrollBar *vs = new QScrollBar(Qt::Vertical);
+		icon_view_ = new IconView(app_, this, vs);
+		row->addWidget(icon_view_);
+		row->addWidget(vs);
+		icons_view_index_ = viewmode_stack_->addWidget(w);
+		
+		connect(vs, &QScrollBar::valueChanged, [=](int value) {
+			icon_view_->update();
+		});
+	}
+	layout->addWidget(viewmode_stack_);
 }
 
 QString Tab::CurrentDirTrashPath()
@@ -188,6 +196,18 @@ QString Tab::CurrentDirTrashPath()
 	full_path.append(trash::name());
 	
 	return full_path;
+}
+
+void Tab::FilesChanged(const Repaint r, const int row)
+{
+	// File changes are monitored only in TableModel.cpp which represents
+	// the detailed view, which is why the detailed view uses
+	// this method to inform the icon view of changes.
+	auto *p = icon_view();
+	if (p != nullptr)
+	{
+		p->FilesChanged(r, row);
+	}
 }
 
 void Tab::GoBack() {
@@ -458,6 +478,11 @@ void Tab::PopulateUndoDelete(QMenu *menu)
 	}
 }
 
+void Tab::resizeEvent(QResizeEvent *ev)
+{
+	QWidget::resizeEvent(ev);
+}
+
 void Tab::SetTitle(const QString &s)
 {
 	title_ = s;
@@ -478,11 +503,11 @@ void Tab::SetViewMode(const ViewMode mode)
 	
 	switch (view_mode_) {
 	case ViewMode::Details: {
-		stack_->setCurrentIndex(details_view_index_);
+		viewmode_stack_->setCurrentIndex(details_view_index_);
 		break;
 	}
 	case ViewMode::Icons: {
-		stack_->setCurrentIndex(icons_view_index_);
+		viewmode_stack_->setCurrentIndex(icons_view_index_);
 		break;
 	}
 	default: {
@@ -631,6 +656,9 @@ void Tab::UndeleteFiles(const QMap<i64, QVector<trash::Names>> &items)
 		}
 	}
 }
+
+io::Files&
+Tab::view_files() { return *app_->files(files_id()); }
 
 bool Tab::ViewIsAt(const QString &dir_path) const
 {

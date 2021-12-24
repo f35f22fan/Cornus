@@ -24,6 +24,11 @@ const QString AppIconPath = QLatin1String(":/cornus.mas.png");
 static const char *const SocketPath = "\0cornus_socket";
 static const char *const RootSocketPath = "\0cornus_socket_root";
 
+enum class Repaint: i8 {
+	IfViewIsCurrent,
+	No,
+};
+
 enum class CanOverwrite: i8 {
 	Yes,
 	No

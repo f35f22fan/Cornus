@@ -31,9 +31,7 @@ public:
 	app() const { return app_; }
 	
 	void DeleteSelectedFiles(const ShiftPressed sp);
-	int rowCount(const QModelIndex &parent = QModelIndex()) const override {
-		return cached_row_count_;
-	}
+	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
 	int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 	
 	QVariant
@@ -92,7 +90,6 @@ private:
 	
 	mutable QString cached_free_space_;
 	int tried_to_scroll_to_count_ = 0;
-	int cached_row_count_ = 0;
 };
 
 

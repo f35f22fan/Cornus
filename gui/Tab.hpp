@@ -41,6 +41,7 @@ public:
 	const QString& current_dir() const { return current_dir_; }
 	QString CurrentDirTrashPath();
 	i64 files_id() const { return files_id_; }
+	void FilesChanged(const Repaint r, const int row = -1);
 	
 	void GoBack();
 	void GoForward();
@@ -57,7 +58,6 @@ public:
 	io::Notify& notify() { return notify_; }
 	
 	void PopulateUndoDelete(QMenu *menu);
-	
 	void ShutdownLastInotifyThread();
 	
 	gui::Table* table() const { return table_; }
@@ -67,11 +67,16 @@ public:
 	ViewMode view_mode() const { return view_mode_; }
 	void SetViewMode(const ViewMode mode);
 	
+	io::Files& view_files();
+	
 	const QString& title() const { return title_; }
 	void SetTitle(const QString &s);
 	
 public Q_SLOTS:
 	void GoToFinish(cornus::io::FilesData *new_data);
+	
+protected:
+	virtual void resizeEvent(QResizeEvent *ev) override;
 	
 private:
 	void Init();
@@ -87,12 +92,11 @@ private:
 	QString title_;
 	QString current_dir_;
 	
-	QStackedWidget *stack_ = nullptr;
+	QStackedWidget *viewmode_stack_ = nullptr;
 	int details_view_index_ = -1, icons_view_index_ = -1;
 	
 	ViewMode view_mode_ = ViewMode::Details;
 	gui::IconView *icon_view_ = nullptr;
-	QScrollArea *icon_scroll_area_ = nullptr;
 };
 
 }}

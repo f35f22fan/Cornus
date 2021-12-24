@@ -455,7 +455,7 @@ void TableModel::DeleteSelectedFiles(const ShiftPressed sp)
 {
 	QVector<QString> paths;
 	{
-		io::Files &files = *app_->files(tab_->files_id());
+		io::Files &files = tab_->view_files();
 		MutexGuard guard = files.guard();
 		
 		for (io::File *next: files.data.vec) {
@@ -557,7 +557,7 @@ QVariant TableModel::headerData(int section_i, Qt::Orientation orientation, int 
 void TableModel::InotifyBatchFinished()
 {
 	QVector<int> indices;
-	auto &files = *app_->files(tab_->files_id());
+	auto &files = tab_->view_files();
 	{
 		MutexGuard guard = files.guard();
 		auto &select_list = files.data.filenames_to_select;
@@ -618,7 +618,7 @@ mtl_info("==> New Batch ==>>");
 
 void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 {
-	auto &files = *app_->files(tab_->files_id());
+	auto &files = tab_->view_files();
 	{
 		MutexGuard guard = files.guard();
 		if (evt.dir_id != files.data.dir_id) {
@@ -628,12 +628,14 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 		}
 	}
 	
-	switch (evt.type) {
+	switch (evt.type)
+	{
 	case io::FileEventType::Modified: {
 #ifdef CORNUS_DEBUG_INOTIFY
 		mtl_info("MODIFIED");
 #endif
 		UpdateSingleRow(evt.index);
+		tab_->FilesChanged(Repaint::IfViewIsCurrent, evt.index);
 		break;
 	}
 	case io::FileEventType::Created: {
@@ -654,6 +656,7 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 					delete next;
 					vec[i] = evt.new_file;
 					evt.new_file = nullptr;
+					tab_->FilesChanged(Repaint::IfViewIsCurrent, i);
 					return;
 				}
 			}
@@ -665,9 +668,10 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 			MutexGuard guard = files.guard();
 			files.data.vec.insert(index, evt.new_file);
 			evt.new_file = nullptr;
-			cached_row_count_ = files.data.vec.size();
+			tab_->view_files().cached_files_count = files.data.vec.size();
 		}
 		endInsertRows();
+		tab_->FilesChanged(Repaint::IfViewIsCurrent, index);
 		break;
 	}
 	case io::FileEventType::Deleted: {
@@ -680,9 +684,10 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 #endif
 			delete file_to_delete;
 			files.data.vec.remove(evt.index);
-			cached_row_count_ = files.data.vec.size();
+			tab_->view_files().cached_files_count = files.data.vec.size();
 		}
 		endRemoveRows();
+		tab_->FilesChanged(Repaint::IfViewIsCurrent);
 		break;
 	}
 	case io::FileEventType::Renamed: {
@@ -694,12 +699,12 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 			
 			if (real_index >= 0) {
 				beginRemoveRows(QModelIndex(), real_index, real_index);
-				
 				endRemoveRows();
 			}
 		}
 		
 		UpdateSingleRow(evt.index);
+		tab_->FilesChanged(Repaint::IfViewIsCurrent, evt.index);
 		break;
 	}
 	default: {
@@ -710,7 +715,7 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 
 bool TableModel::InsertRows(const i32 at, const QVector<cornus::io::File*> &files_to_add)
 {
-	io::Files &files = *app_->files(tab_->files_id());
+	io::Files &files = tab_->view_files();
 	{
 		MutexGuard guard = files.guard();
 		
@@ -729,7 +734,7 @@ bool TableModel::InsertRows(const i32 at, const QVector<cornus::io::File*> &file
 			auto *song = files_to_add[i];
 			files.data.vec.insert(at + i, song);
 		}
-		cached_row_count_ = files.data.vec.size();
+		tab_->view_files().cached_files_count = files.data.vec.size();
 	}
 	endInsertRows();
 	
@@ -744,7 +749,7 @@ bool TableModel::removeRows(int row, int count, const QModelIndex &parent)
 	CHECK_TRUE((count == 1));
 	const int first = row;
 	const int last = row + count - 1;
-	io::Files &files = *app_->files(tab_->files_id());
+	io::Files &files = tab_->view_files();
 	
 	beginRemoveRows(QModelIndex(), first, last);
 	{
@@ -757,16 +762,21 @@ bool TableModel::removeRows(int row, int count, const QModelIndex &parent)
 			vec.erase(vec.begin() + index);
 			delete item;
 		}
-		cached_row_count_ = vec.size();
+		tab_->view_files().cached_files_count = vec.size();
 	}
 	
 	endRemoveRows();
 	return true;
 }
 
+int TableModel::rowCount(const QModelIndex &parent) const
+{
+	return tab_->view_files().cached_files_count;
+}
+
 void TableModel::SelectFilenamesLater(const QVector<QString> &v, const SameDir sd)
 {
-	io::Files &files = *app_->files(tab_->files_id());
+	io::Files &files = tab_->view_files();
 	MutexGuard guard = files.guard();
 	auto dir_to_skip = (sd == SameDir::Yes) ? -1 : files.data.dir_id;
 	files.data.skip_dir_id = dir_to_skip;
@@ -777,7 +787,7 @@ void TableModel::SelectFilenamesLater(const QVector<QString> &v, const SameDir s
 
 void TableModel::SwitchTo(io::FilesData *new_data)
 {
-	io::Files &files = *app_->files(tab_->files_id());
+	io::Files &files = tab_->view_files();
 	int prev_count, new_count;
 	{
 		MutexGuard guard = files.guard();
@@ -792,7 +802,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 			delete file;
 		files.data.vec.clear();
 		tab_->table()->ClearMouseOver();
-		cached_row_count_ = files.data.vec.size();
+		files.cached_files_count = files.data.vec.size();
 	}
 	endRemoveRows();
 	
@@ -807,7 +817,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 		files.data.show_hidden_files(new_data->show_hidden_files());
 		files.data.vec = new_data->vec;
 		new_data->vec.clear();
-		cached_row_count_ = files.data.vec.size();
+		files.cached_files_count = files.data.vec.size();
 	}
 	endInsertRows();
 	
@@ -822,6 +832,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 	UpdateIndices(indices);
 	UpdateHeaderNameColumn();
 	InotifyBatchFinished();
+	tab_->FilesChanged(Repaint::IfViewIsCurrent);
 	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, cornus::gui::WatchDir, args);

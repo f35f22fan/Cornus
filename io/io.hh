@@ -191,6 +191,10 @@ struct Files {
 	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 	FilesData data = {};
 	
+	// ==> only used in gui thread
+	int cached_files_count = -1;
+	// <== only used in gui thread
+	
 	inline void Broadcast() {
 		int status = pthread_cond_broadcast(&cond);
 		if (status != 0)

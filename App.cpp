@@ -73,6 +73,8 @@
 #include <QUrl>
 
 #include <glib.h>
+#include <polkit/polkit.h>
+//#include <polkitagent/polkitagent.h>
 
 #include "io/uring.hh"
 
@@ -109,6 +111,12 @@ void MountRemoved(GVolumeMonitor *monitor, GMount *mount, gpointer user_data)
 	
 	App *app = (App*)user_data;
 	app->tree_model()->MountEvent(path_str, QString(), PartitionEventType::Unmount);
+}
+
+void TestPolkit(App *app)
+{
+	//PolkitIdentity *identity = polkit_unix_user_new (getuid());
+	//PolkitAgentSession *session = polkit_agent_session_new(identity);
 }
 
 App::App()
@@ -162,6 +170,8 @@ App::App()
 	ReadMTP();
 /// enables receiving ordinary mouse events (when mouse is not down)
 //	setMouseTracking(true);
+	
+//	TestPolkit(this);
 	
 	if (false) {
 		pthread_t th;

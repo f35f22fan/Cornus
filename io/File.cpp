@@ -128,6 +128,8 @@ File* File::NewFolder(const QString &dir_path, const QString &name)
 
 void File::ReadExtension()
 {
+	// Must be lower case because other things like image type
+	// detection rely on a lower case filename extension.
 	const auto &str = name_.lower;
 	int index = str.lastIndexOf('.');
 	
@@ -147,6 +149,13 @@ void File::ReadLinkTarget()
 	if (link_target_ != nullptr)
 		delete link_target_;
 	link_target_ = target;
+}
+
+bool File::ShouldTryLoadingThumbnail()
+{
+	if (!is_regular() || cache_.tried_loading_thumbnail)
+		return false;
+	return (cache_.thumbnail == nullptr);
 }
 
 QString File::SizeToString() const

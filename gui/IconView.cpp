@@ -9,6 +9,7 @@
 
 #include <QFontMetrics>
 #include <QHBoxLayout>
+#include <QImageReader>
 #include <QPaintEvent>
 #include <QPainter>
 #include <QScrollBar>
@@ -59,12 +60,48 @@ void IconView::ComputeProportions(IconDim &dim) const
 	dim.total_h = dim.rh * dim.row_count;
 }
 
-DrawBorder IconView::DrawPixmap(const QPixmap &pixmap,
-	QPainter &painter, double x, double y, const double text_h)
+DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
+	double x, double y, const double text_h, const int file_index)
 {
 	const auto &cell = icon_dim_;
 	const int max_img_h = cell.h_and_gaps - text_h;
 	const int max_img_w = cell.w_and_gaps;
+	QPixmap pixmap;
+	static const auto formats = QImageReader::supportedImageFormats();
+	if (file->ShouldTryLoadingThumbnail())
+	{
+		file->cache().tried_loading_thumbnail = true;
+		auto ext = file->cache().ext.toLocal8Bit();
+		if (!ext.isEmpty() && formats.contains(ext))
+		{
+			/// invoke thumbnail loading thread
+			// then in App::ThumbnailArrived(): file->thumbnail(thumb);
+			
+			ThumbLoaderArgs *arg = new ThumbLoaderArgs();
+			arg->app = app_;
+			arg->full_path = file->build_full_path();
+			arg->filename = file->name();
+			arg->ext = ext;
+			arg->tab_id = tab_->id();
+			auto &files = tab_->view_files();
+			// files is already locked by the calling method
+			arg->dir_id = files.data.dir_id;
+			arg->icon_w = max_img_w;
+			arg->icon_h = max_img_h;
+			
+			app_->SubmitThumbLoaderWork(arg);
+		}
+	}
+	
+	if (file->thumbnail() != nullptr) {
+		pixmap = QPixmap::fromImage(file->thumbnail()->img);
+	} else {
+		QIcon *icon = app_->GetFileIcon(file);
+		if (icon == nullptr)
+			return DrawBorder::No;
+		
+		pixmap = file->cache().icon->pixmap(256, 256);
+	}
 	const double pw = pixmap.width();
 	const double ph = pixmap.height();
 	double used_w, used_h;
@@ -187,17 +224,11 @@ void IconView::paintEvent(QPaintEvent *ev)
 				painter.fillRect(cell_r, c);
 			}
 			
-			DrawBorder draw_border = DrawBorder::No;
-			QIcon *icon = app_->GetFileIcon(file);
-			if (icon != nullptr)
-			{
-				QPixmap pixmap = file->cache().icon->pixmap(256, 256);
-				draw_border = DrawPixmap(pixmap, painter, x, y, text_h);
-			}
+			DrawBorder draw_border = DrawThumbnail(file, painter, x, y, text_h, file_index);
 			
 			const float text_y = y + cell.text_y;
 			QRectF text_space(x, text_y, cell.w_and_gaps, text_h);
-			painter.fillRect(text_space, QColor(255, 255, 100));
+			//painter.fillRect(text_space, QColor(255, 255, 100));
 			painter.drawText(text_space, file->name(), text_options);
 			
 			if (draw_border == DrawBorder::Yes)
@@ -210,6 +241,11 @@ void IconView::paintEvent(QPaintEvent *ev)
 		if (file_index >= file_count)
 			break;
 	}
+}
+
+void IconView::RepaintLater(const int file_index)
+{
+	
 }
 
 void IconView::resizeEvent(QResizeEvent *ev)

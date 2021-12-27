@@ -7,6 +7,7 @@
 #include <QString>
 
 #include "../gui/decl.hxx"
+#include "../decl.hxx"
 
 namespace cornus::io {
 class AutoRemoveWatch;
@@ -15,6 +16,16 @@ class DirStream;
 class File;
 class Notify;
 class Task;
+
+struct Thumbnail {
+	QImage img;
+	QString filename;
+	i64 time_generated = -1;
+	TabId tab_id = -1;
+	DirId dir_id = -1;
+	int w = -1;
+	int h = -1;
+};
 
 struct DevNum {
 	i32 major;
@@ -149,7 +160,7 @@ struct FileID {
 	u32 dev_major; // ID of device containing file
 	u32 dev_minor;
 	
-	inline static FileID New(const struct stat &st) {
+	inline static FileID FromStat(const struct stat &st) {
 		return io::FileID {
 			.inode_number = st.st_ino,
 			.dev_major = gnu_dev_major(st.st_dev),
@@ -157,7 +168,7 @@ struct FileID {
 		};
 	}
 	
-	inline static FileID NewStx(const struct statx &stx) {
+	inline static FileID FromStx(const struct statx &stx) {
 		return io::FileID {
 			.inode_number = stx.stx_ino,
 			.dev_major = stx.stx_dev_major,
@@ -222,3 +233,5 @@ struct LinkTarget {
 };
 
 } /// namespace
+
+Q_DECLARE_METATYPE(cornus::io::Thumbnail*);

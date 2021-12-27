@@ -17,15 +17,123 @@
 #include <QMainWindow>
 #include <QMap>
 #include <QMenu>
+#include <QMetaType> /// Q_DECLARE_METATYPE()
 #include <QMimeDatabase>
 #include <QSplitter>
 #include <QStackedWidget>
 
 #include <libmtp.h>
 
-QT_FORWARD_DECLARE_CLASS(QTabWidget);
+QT_BEGIN_NAMESPACE
+class QTabWidget;
+QT_END_NAMESPACE
 
 namespace cornus {
+
+struct ThumbLoaderArgs {
+	App *app = nullptr;
+	QString full_path;
+	QString filename;
+	QByteArray ext;
+	TabId tab_id = -1;
+	DirId dir_id = -1;
+	int icon_w = -1;
+	int icon_h = -1;
+};
+
+struct GlobalThumbLoaderData;
+
+struct ThumbLoaderData {
+	GlobalThumbLoaderData *global_data = nullptr;
+	ThumbLoaderArgs *new_work = nullptr;
+	mutable pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+	mutable pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+	bool wait_for_work = true;
+	bool thread_exited = false;
+	
+	bool Lock() {
+		const int status = pthread_mutex_lock(&mutex);
+		if (status != 0)
+			mtl_status(status);
+		return status == 0;
+	}
+	
+	bool TryLock() {
+		const int status = pthread_mutex_trylock(&mutex);
+		return status == 0;
+	}
+	
+	void Unlock() {
+		const int status = pthread_mutex_unlock(&mutex);
+		if (status != 0)
+			mtl_status(status);
+	}
+	
+	MutexGuard guard() const {
+		return MutexGuard(&mutex);
+	}
+	
+	bool Broadcast() {
+		return (pthread_cond_broadcast(&cond) == 0);
+	}
+	
+	int CondWait() {
+		const int status = pthread_cond_wait(&cond, &mutex);
+		if (status != 0)
+			mtl_status(status);
+		return status;
+	}
+	
+	bool Signal() {
+		return (pthread_cond_signal(&cond) == 0);
+	}
+};
+
+struct GlobalThumbLoaderData {
+	QVector<ThumbLoaderData*> threads;
+	QVector<ThumbLoaderArgs*> work_queue;
+	mutable pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+	mutable pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+	
+	bool Lock() {
+		const int status = pthread_mutex_lock(&mutex);
+		if (status != 0)
+			mtl_status(status);
+		return status == 0;
+	}
+	
+	bool TryLock() {
+		const int status = pthread_mutex_trylock(&mutex);
+		if (status != 0)
+			mtl_status(status);
+		return status == 0;
+	}
+	
+	void Unlock() {
+		const int status = pthread_mutex_unlock(&mutex);
+		if (status != 0)
+			mtl_status(status);
+	}
+	
+	MutexGuard guard() const {
+		return MutexGuard(&mutex);
+	}
+	
+	bool Broadcast() {
+		return (pthread_cond_broadcast(&cond) == 0);
+	}
+	
+	int CondWait() {
+		const int status = pthread_cond_wait(&cond, &mutex);
+		if (status != 0)
+			mtl_status(status);
+		return status;
+	}
+	
+	bool Signal() {
+		return (pthread_cond_signal(&cond) == 0);
+	}
+};
 
 class App : public QMainWindow {
 	Q_OBJECT
@@ -34,6 +142,7 @@ public:
 	virtual ~App();
 	
 	void AskCreateNewFile(io::File *file, const QString &title);
+	int AvailableCpuCores() const;
 	const Clipboard& clipboard() { return clipboard_; }
 	i32 current_dir_id() const;
 	void DeleteFilesById(const i64 id);
@@ -77,7 +186,10 @@ public:
 	void SelectCurrentTab();
 	bool ShowInputDialog(const gui::InputDialogParams &params, QString &ret_val);
 	
+	void SubmitThumbLoaderWork(ThumbLoaderArgs *new_work);
+	
 	gui::Tab* tab() const; // returns current tab
+	gui::Tab* tab(const TabId id, int *ret_index = nullptr);
 	QTabWidget* tab_widget() const { return tab_widget_; }
 	
 	gui::TreeModel* tree_model() const { return tree_model_; }
@@ -95,6 +207,7 @@ public:
 	
 public Q_SLOTS:
 	void MediaFileChanged();
+	void ThumbnailArrived(cornus::io::Thumbnail *p);
 	
 protected:
 	bool event(QEvent *event) override;
@@ -168,6 +281,8 @@ private:
 	cornus::GuiBits gui_bits_ = {};
 	HashInfo root_hash_ = {};
 	
+	GlobalThumbLoaderData global_thumb_loader_data_ = {};
+	
 	/* tabs' inotify threads keep running for a while after tabs get deleted,
 	and they (the threads) need to keep accessing tab's files & mutexes which
 	otherwise get deleted with the tabs, hence keep them here and
@@ -180,3 +295,5 @@ private:
 	friend class cornus::gui::Table;
 };
 }
+
+Q_DECLARE_METATYPE(cornus::ThumbLoaderArgs*);

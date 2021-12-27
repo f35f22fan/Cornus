@@ -138,7 +138,7 @@ void* GoToTh(void *p)
 
 namespace gui {
 
-Tab::Tab(App *app) : app_(app)
+Tab::Tab(App *app, const TabId tab_id) : app_(app), id_(tab_id)
 {
 	Init();
 }

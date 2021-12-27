@@ -33,13 +33,14 @@ namespace gui {
 class Tab: public QWidget {
 	Q_OBJECT
 public:
-	Tab(App *app);
+	Tab(App *app, const TabId tab_id);
 	virtual ~Tab();
 	
 	App* app() const { return app_; }
 	void CreateGui();
 	const QString& current_dir() const { return current_dir_; }
 	QString CurrentDirTrashPath();
+	TabId id() const { return id_; }
 	i64 files_id() const { return files_id_; }
 	void FilesChanged(const Repaint r, const int row = -1);
 	
@@ -89,6 +90,7 @@ private:
 	gui::Table *table_ = nullptr; // owned by QMainWindow
 	gui::TableModel *table_model_ = nullptr; // owned by table_
 	i64 files_id_ = -1;
+	TabId id_ = -1;
 	QString title_;
 	QString current_dir_;
 	

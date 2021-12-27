@@ -652,7 +652,7 @@ void FillInStx(io::File &file, const struct statx &stx, const QString *name)
 	file.mode(stx.stx_mode);
 	file.size(stx.stx_size);
 	file.type(MapPosixTypeToLocal(stx.stx_mode));
-	file.id(io::FileID::NewStx(stx));
+	file.id(io::FileID::FromStx(stx));
 	file.time_created(stx.stx_btime);
 	file.time_modified(stx.stx_mtime);
 }
@@ -1139,7 +1139,7 @@ bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &par
 		return false;
 	}
 	
-	FileID file_id = FileID::New(st);
+	FileID file_id = FileID::FromStat(st);
 	if (link_target.chain_ids_.contains(file_id)) {
 		link_target.cycles *= -1;
 		return false;
@@ -1276,8 +1276,8 @@ bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	auto path = full_path.toLocal8Bit();
 	const auto flags = 0;// this function must follow symlinks
 	const auto fields = STATX_MODE | STATX_SIZE;
-	
-	if (statx(0, path.data(), flags, fields, &stx) != 0) {
+	if (statx(0, path.data(), flags, fields, &stx) != 0)
+	{
 		if (print_errors == PrintErrors::Yes)
 			mtl_warn("statx(): %s: \"%s\"", strerror(errno), path.data());
 		return false;
@@ -1445,7 +1445,7 @@ bool SameFiles(const QString &path1, const QString &path2, int *ret_error)
 		return false;
 	}
 	
-	auto id1 = FileID::NewStx(stx);
+	auto id1 = FileID::FromStx(stx);
 	ba = path2.toLocal8Bit();
 	
 	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
@@ -1457,7 +1457,7 @@ bool SameFiles(const QString &path1, const QString &path2, int *ret_error)
 	if (ret_error != nullptr)
 		*ret_error = 0;
 	
-	auto id2 = FileID::NewStx(stx);
+	auto id2 = FileID::FromStx(stx);
 	return id1 == id2;
 }
 

@@ -149,7 +149,7 @@ struct FilesData {
 	 way to not allow the hash to grow uncontrollably by keeping
 	 garbage.
 	*/
-	i32 skip_dir_id = -1; // to not start selection prematurely
+	DirId skip_dir_id = -1; // to not start selection prematurely
 	QHash<QString, i16> filenames_to_select;// <filename, counter>
 	bool should_skip_selecting() const { return dir_id == skip_dir_id; }
 	
@@ -157,7 +157,7 @@ struct FilesData {
 	QString unprocessed_dir_path;
 	QString scroll_to_and_select;
 	SortingOrder sorting_order;
-	i32 dir_id = 0;/// for inotify/epoll
+	DirId dir_id = 0;/// for inotify/epoll
 	u16 bits_ = 0;
 	cornus::Action action = Action::None;
 	

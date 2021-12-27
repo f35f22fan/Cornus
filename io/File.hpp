@@ -17,6 +17,8 @@ struct FileCache {
 	QStringRef ext = QStringRef();
 	QIcon *icon = nullptr;
 	media::ShortData *short_data = nullptr;
+	Thumbnail *thumbnail = nullptr;
+	bool tried_loading_thumbnail = false;
 };
 
 class File {
@@ -143,6 +145,11 @@ public:
 	
 	i64 size() const { return size_; }
 	void size(const i64 n) { size_ = n; }
+	
+	bool ShouldTryLoadingThumbnail();
+	
+	Thumbnail* thumbnail() const { return cache_.thumbnail; }
+	void thumbnail(Thumbnail *p) { cache_.thumbnail = p; }
 	
 	const struct statx_timestamp&
 	time_created() const { return time_created_; }

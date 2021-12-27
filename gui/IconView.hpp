@@ -52,6 +52,8 @@ public:
 	
 	void FilesChanged(const Repaint r, const int file_index);
 	
+	void RepaintLater(const int file_index);
+	
 protected:
 	virtual void mouseDoubleClickEvent(QMouseEvent *evt) override;
 	virtual void mouseMoveEvent(QMouseEvent *evt) override;
@@ -65,8 +67,8 @@ private:
 	NO_ASSIGN_COPY_MOVE(IconView);
 	
 	void ComputeProportions(IconDim &dim) const;
-	DrawBorder DrawPixmap(const QPixmap &pixmap, QPainter &painter,
-		double x, double y, const double text_h);
+	DrawBorder DrawThumbnail(io::File *file, QPainter &painter,
+		double x, double y, const double text_h, const int file_index);
 	void UpdateRange();
 	
 	App *app_ = nullptr;
@@ -76,6 +78,8 @@ private:
 	mutable IconDim icon_dim_ = {};
 	QScrollBar *vs_ = nullptr;
 	bool pending_update_ = false;
+	
+	
 };
 
 

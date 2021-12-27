@@ -28,6 +28,7 @@
 #include "io/socket.hh"
 #include "gui/actions.hxx"
 #include "gui/ConfirmDialog.hpp"
+#include "gui/IconView.hpp"
 #include "gui/Location.hpp"
 #include "gui/SearchPane.hpp"
 #include "gui/sidepane.hh"
@@ -58,6 +59,7 @@
 #include <QFormLayout>
 #include <QGuiApplication>
 #include <QIcon>
+#include <QImageReader>
 #include <QInputDialog>
 #include <QLabel>
 #include <QMessageBox>
@@ -119,6 +121,153 @@ void TestPolkit(App *app)
 	//PolkitAgentSession *session = polkit_agent_session_new(identity);
 }
 
+io::Thumbnail* LoadThumbnail(const QString &full_path, const QString &filename,
+	const QByteArray &ext, const int icon_w, const int icon_h,
+	const TabId tab_id, const DirId dir_id)
+{
+	QImageReader reader = QImageReader(full_path, ext);
+	reader.setScaledSize(QSize(icon_w, icon_h));
+	auto *thumbnail = new io::Thumbnail();
+	thumbnail->img = reader.read();
+	if (thumbnail->img.isNull())
+	{
+		delete thumbnail;
+		return nullptr;
+	}
+	
+	thumbnail->filename = filename;
+	thumbnail->time_generated = time(NULL);
+	thumbnail->w = icon_w;
+	thumbnail->h = icon_h;
+	thumbnail->tab_id = tab_id;
+	thumbnail->dir_id = dir_id;
+	
+	return thumbnail;
+}
+
+void* ThumbnailLoader (void *args)
+{
+	pthread_detach(pthread_self());
+	cornus::ThumbLoaderData *th_data = (cornus::ThumbLoaderData*) args;
+	CHECK_TRUE_NULL(th_data->Lock());
+	
+	while (th_data->wait_for_work)
+	{
+		if (th_data->new_work == nullptr)
+		{
+			int status = th_data->CondWait();
+			if (status != 0)
+			{
+				mtl_status(status);
+				break;
+			}
+		}
+		
+		ThumbLoaderArgs *new_work = th_data->new_work;
+		if (new_work == nullptr)
+			continue;
+		
+		th_data->Unlock();
+		io::Thumbnail *thumbnail = LoadThumbnail(new_work->full_path,
+			new_work->filename, new_work->ext, new_work->icon_w, new_work->icon_h,
+			new_work->tab_id, new_work->dir_id);
+		th_data->Lock();
+		
+		if (thumbnail == nullptr)
+			continue;
+		
+		if (!th_data->wait_for_work) {
+			mtl_info("data->wait_for_work is false!");
+			break;
+		}
+		
+		App *app = new_work->app;
+		delete new_work;
+		th_data->new_work = nullptr;
+		if (th_data->wait_for_work)
+		{
+			QMetaObject::invokeMethod(app, "ThumbnailArrived",
+				Q_ARG(cornus::io::Thumbnail*, thumbnail));
+		} else {
+			delete thumbnail;
+			break;
+		}
+		
+		{ // signal that the thread is waiting for new work
+			th_data->Unlock();
+			if (th_data->global_data->TryLock())
+			{
+				th_data->global_data->Signal();
+				th_data->global_data->Unlock();
+			}
+			th_data->Lock();
+		}
+	}
+	
+	{ // signal that the thread exited
+		th_data->thread_exited = true;
+		th_data->Unlock();
+		th_data->global_data->Lock();
+		th_data->global_data->Signal();
+		th_data->global_data->Unlock();
+		th_data->Lock();
+	}
+	
+	return nullptr;
+}
+
+void* GlobalThumbLoadMonitor(void *args)
+{
+	pthread_detach(pthread_self());
+	GlobalThumbLoaderData *global_data = (GlobalThumbLoaderData*)args;
+	CHECK_TRUE_NULL(global_data->Lock());
+	
+	while (!global_data->threads.isEmpty())
+	{
+		auto &work_queue = global_data->work_queue;
+		if (work_queue.isEmpty())
+		{
+			int status = global_data->CondWait();
+			if (status != 0)
+			{
+				mtl_status(status);
+				break;
+			}
+		}
+		
+		if (work_queue.isEmpty())
+			continue;
+		
+		int th_index = -1;
+		for (ThumbLoaderData *th_data: global_data->threads)
+		{
+			th_index++;
+mtl_info("Iteration %d", th_index);
+			if (!th_data->TryLock()) // IT IS LOCKED!
+				continue;
+mtl_info("PAST LOCK");
+			if (th_data->new_work != nullptr)
+			{
+				th_data->Unlock();
+				continue;
+			}
+			const int index = work_queue.size() - 1;
+			{
+				th_data->new_work = work_queue[index];
+				th_data->Signal(); // signal that new work is available
+				th_data->Unlock();
+			}
+			work_queue.remove(index);
+			
+			if (work_queue.isEmpty())
+				break;
+		}
+	}
+	
+	global_data->Unlock();
+	return nullptr;
+}
+
 App::App()
 {
 	qRegisterMetaType<cornus::io::File*>();
@@ -128,6 +277,7 @@ App::App()
 	qRegisterMetaType<cornus::io::CountRecursiveInfo*>();
 	qRegisterMetaType<QVector<cornus::gui::TreeItem*>>();
 	qDBusRegisterMetaType<QMap<QString, QVariant>>();
+	qRegisterMetaType<cornus::io::Thumbnail*>();
 	media_ = new Media();
 	
 	pthread_t th;
@@ -183,6 +333,36 @@ App::App()
 
 App::~App()
 {
+	global_thumb_loader_data_.Lock();
+	for (ThumbLoaderData *th_data: global_thumb_loader_data_.threads)
+	{
+		// Terminate thumb loading threads if any
+		th_data->Lock();
+		th_data->wait_for_work = false;
+		th_data->Signal();
+		th_data->Unlock();
+	}
+	
+	while (!global_thumb_loader_data_.threads.isEmpty())
+	{
+		// wait for threads termination
+		global_thumb_loader_data_.CondWait();
+		auto &vec = global_thumb_loader_data_.threads;
+		for (int i = vec.size() - 1; i >= 0; i--)
+		{
+			ThumbLoaderData *item = vec[i];
+			item->Lock();
+			const bool exited = item->thread_exited;
+			item->Unlock();
+			if (exited)
+			{
+				delete item;
+				vec.remove(i);
+			}
+		}
+	}
+	global_thumb_loader_data_.Unlock();
+	
 	QHashIterator<QString, QIcon*> i(icon_set_);
 	while (i.hasNext()) {
 		i.next();
@@ -350,6 +530,19 @@ void App::AskCreateNewFile(io::File *file, const QString &title)
 	} else {
 		::close(fd);
 	}
+}
+
+int App::AvailableCpuCores() const
+{
+	// Caching available cores because according to the documentation
+	// each sysconf() call opens and parses files in /sys. It's unclear
+	// whether QThread::idealThreadCount() caches the result.
+	static int available_cores_ = -1;
+	
+	if (available_cores_ == -1)
+		available_cores_ = sysconf(_SC_NPROCESSORS_ONLN);
+	
+	return available_cores_;
 }
 
 void App::ClipboardChanged(QClipboard::Mode mode)
@@ -999,7 +1192,8 @@ void App::MediaFileChanged()
 
 gui::Tab* App::OpenNewTab(const cornus::FirstTime ft)
 {
-	gui::Tab *tab = new gui::Tab(this);
+	static TabId tab_id = 0;
+	gui::Tab *tab = new gui::Tab(this, ++tab_id);
 	tab_widget_->addTab(tab, QString());
 	if (ft == FirstTime::Yes) {
 		tab->GoToInitialDir();
@@ -1600,9 +1794,61 @@ bool App::ShowInputDialog(const gui::InputDialogParams &params,
 	return ok;
 }
 
+void App::SubmitThumbLoaderWork(ThumbLoaderArgs *new_work)
+{
+	auto global_guard = global_thumb_loader_data_.guard();
+	if (global_thumb_loader_data_.threads.isEmpty())
+	{
+		pthread_t th;
+		const int max_thread_count = AvailableCpuCores();
+		int status;
+		for (int i = 0; i < max_thread_count; i++)
+		{
+			ThumbLoaderData *thread_data = new ThumbLoaderData();
+			thread_data->global_data = &global_thumb_loader_data_;
+			global_thumb_loader_data_.threads.append(thread_data);
+			status = pthread_create(&th, NULL, ThumbnailLoader, thread_data);
+			if (status != 0)
+			{
+				delete new_work;
+				delete thread_data;
+				global_thumb_loader_data_.threads.removeLast();
+				mtl_status(status);
+				return;
+			}
+		}
+		
+		status = pthread_create(&th, NULL, GlobalThumbLoadMonitor, &global_thumb_loader_data_);
+		if (status != 0)
+			mtl_status(status);
+	}
+	
+	global_thumb_loader_data_.work_queue.append(new_work);
+//	mtl_info("APPEND, work queue size is %d, file: %s", global_thumb_loader_data_.work_queue.size(),
+//		qPrintable(p->filename));
+	global_thumb_loader_data_.Broadcast();
+}
+
 gui::Tab* App::tab() const
 {
 	return (gui::Tab*) tab_widget_->currentWidget();
+}
+
+gui::Tab* App::tab(const TabId id, int *ret_index)
+{
+	const int count = tab_widget_->count();
+	for (int i = 0; i < count; i++)
+	{
+		auto *next = (gui::Tab*) tab_widget_->widget(i);
+		if (next->id() == id)
+		{
+			if (ret_index)
+				*ret_index = i;
+			return next;
+		}
+	}
+	
+	return nullptr;
 }
 
 void App::TabSelected(const int index)
@@ -1652,6 +1898,37 @@ void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 		}
 		return;
 	}
+}
+
+void App::ThumbnailArrived(cornus::io::Thumbnail *p)
+{
+	mtl_info("THUMBNAIL ARRIVED %s", qPrintable(p->filename));
+	gui::Tab *tab = this->tab(p->tab_id);
+	if (tab == nullptr || tab->icon_view() == nullptr)
+	{
+		delete p;
+		mtl_trace();
+	}
+	
+	int file_index = -1;
+	auto &files = tab->view_files();
+	{
+		files.Lock();
+		for (io::File *file: files.data.vec)
+		{
+			file_index++;
+			if (file->name() != p->filename)
+				continue;
+			
+			file->thumbnail(p);
+			files.Unlock();
+			tab->icon_view()->RepaintLater(file_index);
+			return;
+		}
+		files.Unlock();
+	}
+	
+	delete p;
 }
 
 void App::ToggleExecBitOfSelectedFiles()

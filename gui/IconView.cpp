@@ -13,6 +13,7 @@
 #include <QPaintEvent>
 #include <QPainter>
 #include <QScrollBar>
+#include <QTimer>
 
 #include <algorithm>
 
@@ -171,6 +172,8 @@ void IconView::mouseReleaseEvent(QMouseEvent *evt)
 
 void IconView::paintEvent(QPaintEvent *ev)
 {
+	last_repaint_.Continue(Reset::Yes);
+	
 	static bool first_time = true;
 	if (first_time || pending_update_)
 	{
@@ -244,9 +247,22 @@ void IconView::paintEvent(QPaintEvent *ev)
 	}
 }
 
+void IconView::DelayedRepaint()
+{
+	const i64 last_repaint_ms = last_repaint_.elapsed_ms();
+	const i64 remaining_ms = delay_repaint_ms_ - last_repaint_ms;
+	
+	if (remaining_ms > 0) {
+		QTimer::singleShot(remaining_ms, this, &IconView::DelayedRepaint);
+	} else {
+		update();
+	}
+}
+
 void IconView::RepaintLater(const int file_index)
 {
-	
+	//repaint_indices_.append(file_index);
+	QTimer::singleShot(delay_repaint_ms_, this, &IconView::DelayedRepaint);
 }
 
 void IconView::resizeEvent(QResizeEvent *ev)

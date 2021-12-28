@@ -7,12 +7,17 @@
 
 namespace cornus {
 
+enum class Reset: i8 {
+	Yes,
+	No
+};
+
 class ElapsedTimer {
 public:
 	ElapsedTimer();
 	~ElapsedTimer();
 	
-	void Continue();
+	void Continue(const cornus::Reset r = Reset::No);
 	void Pause();
 	
 	i64 elapsed_mc();

@@ -4,12 +4,16 @@
 #include "../decl.hxx"
 #include "../err.hpp"
 #include "../io/io.hh"
+#include "../ElapsedTimer.hpp"
 
 QT_BEGIN_NAMESPACE
 class QScrollBar;
 QT_END_NAMESPACE
 
 #include <QWidget>
+
+#include <chrono>
+using namespace std::chrono;
 
 namespace cornus::gui {
 
@@ -68,6 +72,7 @@ private:
 	NO_ASSIGN_COPY_MOVE(IconView);
 	
 	void ComputeProportions(IconDim &dim) const;
+	void DelayedRepaint();
 	DrawBorder DrawThumbnail(io::File *file, QPainter &painter,
 		double x, double y);
 	void UpdateScrollRange();
@@ -79,8 +84,9 @@ private:
 	mutable IconDim icon_dim_ = {};
 	QScrollBar *vs_ = nullptr;
 	bool pending_update_ = false;
-	
-	
+	QVector<int> repaint_indices_;
+	ElapsedTimer last_repaint_;
+	const i64 delay_repaint_ms_ = 500;
 };
 
 

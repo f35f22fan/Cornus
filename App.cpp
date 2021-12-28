@@ -145,6 +145,8 @@ io::Thumbnail* LoadThumbnail(const QString &full_path, const u64 &file_id,
 	return thumbnail;
 }
 
+const bool DebugThumbnailExit = false;
+
 void* ThumbnailLoader (void *args)
 {
 	pthread_detach(pthread_self());
@@ -203,6 +205,7 @@ void* ThumbnailLoader (void *args)
 			th_data->Lock();
 		}
 	}
+	const u64 t = static_cast<u64>(pthread_self());
 	th_data->thread_exited = true;
 	auto *global_data = th_data->global_data;
 	th_data->Unlock();
@@ -211,9 +214,15 @@ void* ThumbnailLoader (void *args)
 	{
 		global_data->Broadcast();
 		global_data->Unlock();
+		if (DebugThumbnailExit)
+			mtl_trace("%ld", t);
 	} else {
 		global_data->Broadcast();
+		if (DebugThumbnailExit)
+			mtl_trace("%ld", t);
 	}
+	if (DebugThumbnailExit)
+		mtl_trace("%ld EXIT", t);
 	
 	return nullptr;
 }
@@ -337,13 +346,17 @@ App::~App()
 	int global_index = 0;
 	for (ThumbLoaderData *th_data: global_thumb_loader_data_.threads)
 	{
-		mtl_info("Terminating thread %d", global_index++);
+		if (DebugThumbnailExit)
+			mtl_info("Terminating thread %d", global_index++);
 		// Terminate thumb loading threads if any
 		th_data->Lock();
 		th_data->wait_for_work = false;
 		th_data->Broadcast();
 		th_data->Unlock();
 	}
+	
+	struct timespec till;
+	const long ms = 50 * 1000 * 1000;
 	
 	while (!global_thumb_loader_data_.threads.isEmpty())
 	{
@@ -356,13 +369,22 @@ App::~App()
 			item->Unlock();
 			if (exited)
 			{
+				if (DebugThumbnailExit)
+					mtl_info("Deleted thread at %d", i);
 				delete item;
 				vec.remove(i);
 			}
 		}
 		
+		if (DebugThumbnailExit)
+			mtl_trace();
+		
+		clock_gettime(CLOCK_MONOTONIC, &till);
+		till.tv_nsec += ms;
 		// wait for threads termination
-		global_thumb_loader_data_.CondWait();
+		global_thumb_loader_data_.CondTimedWait(&till);
+		if (DebugThumbnailExit)
+			mtl_trace();
 	}
 	global_thumb_loader_data_.Unlock();
 

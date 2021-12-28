@@ -128,6 +128,10 @@ struct GlobalThumbLoaderData {
 		return status;
 	}
 	
+	int CondTimedWait(const struct timespec *ts) const {
+		return pthread_cond_timedwait(&cond, &mutex, ts);
+	}
+	
 	bool Signal() const {
 		return (pthread_cond_signal(&cond) == 0);
 	}

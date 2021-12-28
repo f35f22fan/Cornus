@@ -13,11 +13,14 @@ inline i64 GetDiffMc(const timespec &end, const timespec &start) {
 	return (end.tv_sec - start.tv_sec) * 1000000L + (end.tv_nsec - start.tv_nsec) / 1000L;
 }
 
-void ElapsedTimer::Continue()
+void ElapsedTimer::Continue(const cornus::Reset r)
 {
-	int status = clock_gettime(clock_type_, &start_);
+	if (r == Reset::Yes)
+		worked_time_ = 0;
+	
+	const int status = clock_gettime(clock_type_, &start_);
 	if (status != 0)
-		printf("%s", strerror(errno));
+		mtl_status(errno);
 }
 
 i64 ElapsedTimer::elapsed_mc()
@@ -29,17 +32,18 @@ i64 ElapsedTimer::elapsed_mc()
 	struct timespec now;
 	int status = clock_gettime(clock_type_, &now);
 	if (status != 0)
-		printf("%s", strerror(errno));
+		mtl_status(errno);
 	
 	const i64 extra = GetDiffMc(now, start_);
 	return worked_time_ + extra;
 }
 
-void ElapsedTimer::Pause() {
+void ElapsedTimer::Pause()
+{
 	struct timespec now;
-	int status = clock_gettime(clock_type_, &now);
+	const int status = clock_gettime(clock_type_, &now);
 	if (status != 0)
-		printf("%s", strerror(errno));
+		mtl_status(errno);
 	
 	worked_time_ += GetDiffMs(now, start_);
 	start_ = {};

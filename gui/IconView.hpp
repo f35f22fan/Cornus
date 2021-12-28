@@ -32,6 +32,7 @@ struct IconDim {
 	int per_row = -1;
 	int text_y = -1;
 	int str_h = -1;
+	int text_h = -1;
 	int text_rows = -1;
 };
 
@@ -68,8 +69,8 @@ private:
 	
 	void ComputeProportions(IconDim &dim) const;
 	DrawBorder DrawThumbnail(io::File *file, QPainter &painter,
-		double x, double y, const double text_h, const int file_index);
-	void UpdateRange();
+		double x, double y);
+	void UpdateScrollRange();
 	
 	App *app_ = nullptr;
 	Tab *tab_ = nullptr;

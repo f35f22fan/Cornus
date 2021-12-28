@@ -22,8 +22,8 @@ You can use Cornus as is, no need to install it. However, Cornus can also perfor
 * Copy this file to /usr/share/polkit-1/actions/
 
 ##### Major TODO items:
-* Implement MTP to deal with Android devices
-* Implement Icons View mode.
+* Icons View mode (currently in development)
+* MTP to deal with Android devices
 
 ##### Application Shortcuts:
 * Ctrl+T => Open a new tab

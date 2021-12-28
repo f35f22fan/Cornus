@@ -1000,9 +1000,11 @@ int ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 		file->name(name);
 
 		if (ReloadMeta(*file, stx, &data.processed_dir_path))
+		{
 			data.vec.append(file);
-		else
+		} else {
 			delete file;
+		}
 	}
 	
 	closedir(dp);

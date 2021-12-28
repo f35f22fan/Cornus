@@ -33,10 +33,10 @@ namespace cornus {
 struct ThumbLoaderArgs {
 	App *app = nullptr;
 	QString full_path;
-	QString filename;
 	QByteArray ext;
 	TabId tab_id = -1;
 	DirId dir_id = -1;
+	u64 file_id = 0;
 	int icon_w = -1;
 	int icon_h = -1;
 };
@@ -51,19 +51,20 @@ struct ThumbLoaderData {
 	bool wait_for_work = true;
 	bool thread_exited = false;
 	
-	bool Lock() {
+	bool Lock() const {
 		const int status = pthread_mutex_lock(&mutex);
-		if (status != 0)
+		if (status != 0) {
+			printf("ThumbLoaderData::Lock() failed!\n");
 			mtl_status(status);
+		}
 		return status == 0;
 	}
 	
-	bool TryLock() {
-		const int status = pthread_mutex_trylock(&mutex);
-		return status == 0;
+	bool TryLock() const {
+		return (pthread_mutex_trylock(&mutex) == 0);
 	}
 	
-	void Unlock() {
+	void Unlock() const {
 		const int status = pthread_mutex_unlock(&mutex);
 		if (status != 0)
 			mtl_status(status);
@@ -77,7 +78,7 @@ struct ThumbLoaderData {
 		return (pthread_cond_broadcast(&cond) == 0);
 	}
 	
-	int CondWait() {
+	int CondWait() const {
 		const int status = pthread_cond_wait(&cond, &mutex);
 		if (status != 0)
 			mtl_status(status);
@@ -95,21 +96,18 @@ struct GlobalThumbLoaderData {
 	mutable pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 	mutable pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 	
-	bool Lock() {
+	bool Lock() const {
 		const int status = pthread_mutex_lock(&mutex);
 		if (status != 0)
 			mtl_status(status);
 		return status == 0;
 	}
 	
-	bool TryLock() {
-		const int status = pthread_mutex_trylock(&mutex);
-		if (status != 0)
-			mtl_status(status);
-		return status == 0;
+	bool TryLock() const {
+		return (pthread_mutex_trylock(&mutex) == 0);
 	}
 	
-	void Unlock() {
+	void Unlock() const {
 		const int status = pthread_mutex_unlock(&mutex);
 		if (status != 0)
 			mtl_status(status);
@@ -123,14 +121,14 @@ struct GlobalThumbLoaderData {
 		return (pthread_cond_broadcast(&cond) == 0);
 	}
 	
-	int CondWait() {
+	int CondWait() const {
 		const int status = pthread_cond_wait(&cond, &mutex);
 		if (status != 0)
 			mtl_status(status);
 		return status;
 	}
 	
-	bool Signal() {
+	bool Signal() const {
 		return (pthread_cond_signal(&cond) == 0);
 	}
 };

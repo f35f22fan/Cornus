@@ -140,6 +140,7 @@ public:
 	
 	void id(const FileID d) { id_ = d; }
 	FileID id() const { return id_; }
+	u64 id_num() const { return id_.inode_number; }
 	
 	QString SizeToString() const;
 	

@@ -121,7 +121,7 @@ void TestPolkit(App *app)
 	//PolkitAgentSession *session = polkit_agent_session_new(identity);
 }
 
-io::Thumbnail* LoadThumbnail(const QString &full_path, const QString &filename,
+io::Thumbnail* LoadThumbnail(const QString &full_path, const u64 &file_id,
 	const QByteArray &ext, const int icon_w, const int icon_h,
 	const TabId tab_id, const DirId dir_id)
 {
@@ -135,7 +135,7 @@ io::Thumbnail* LoadThumbnail(const QString &full_path, const QString &filename,
 		return nullptr;
 	}
 	
-	thumbnail->filename = filename;
+	thumbnail->file_id = file_id;
 	thumbnail->time_generated = time(NULL);
 	thumbnail->w = icon_w;
 	thumbnail->h = icon_h;
@@ -155,7 +155,7 @@ void* ThumbnailLoader (void *args)
 	{
 		if (th_data->new_work == nullptr)
 		{
-			int status = th_data->CondWait();
+			const int status = th_data->CondWait();
 			if (status != 0)
 			{
 				mtl_status(status);
@@ -169,8 +169,8 @@ void* ThumbnailLoader (void *args)
 		
 		th_data->Unlock();
 		io::Thumbnail *thumbnail = LoadThumbnail(new_work->full_path,
-			new_work->filename, new_work->ext, new_work->icon_w, new_work->icon_h,
-			new_work->tab_id, new_work->dir_id);
+			new_work->file_id, new_work->ext, new_work->icon_w,
+			new_work->icon_h, new_work->tab_id, new_work->dir_id);
 		th_data->Lock();
 		
 		if (thumbnail == nullptr)
@@ -203,14 +203,16 @@ void* ThumbnailLoader (void *args)
 			th_data->Lock();
 		}
 	}
-	
-	{ // signal that the thread exited
-		th_data->thread_exited = true;
-		th_data->Unlock();
-		th_data->global_data->Lock();
-		th_data->global_data->Signal();
-		th_data->global_data->Unlock();
-		th_data->Lock();
+	th_data->thread_exited = true;
+	auto *global_data = th_data->global_data;
+	th_data->Unlock();
+	// signal that the thread exited
+	if (global_data->Lock())
+	{
+		global_data->Broadcast();
+		global_data->Unlock();
+	} else {
+		global_data->Broadcast();
 	}
 	
 	return nullptr;
@@ -242,10 +244,8 @@ void* GlobalThumbLoadMonitor(void *args)
 		for (ThumbLoaderData *th_data: global_data->threads)
 		{
 			th_index++;
-mtl_info("Iteration %d", th_index);
 			if (!th_data->TryLock()) // IT IS LOCKED!
 				continue;
-mtl_info("PAST LOCK");
 			if (th_data->new_work != nullptr)
 			{
 				th_data->Unlock();
@@ -334,19 +334,19 @@ App::App()
 App::~App()
 {
 	global_thumb_loader_data_.Lock();
+	int global_index = 0;
 	for (ThumbLoaderData *th_data: global_thumb_loader_data_.threads)
 	{
+		mtl_info("Terminating thread %d", global_index++);
 		// Terminate thumb loading threads if any
 		th_data->Lock();
 		th_data->wait_for_work = false;
-		th_data->Signal();
+		th_data->Broadcast();
 		th_data->Unlock();
 	}
 	
 	while (!global_thumb_loader_data_.threads.isEmpty())
 	{
-		// wait for threads termination
-		global_thumb_loader_data_.CondWait();
 		auto &vec = global_thumb_loader_data_.threads;
 		for (int i = vec.size() - 1; i >= 0; i--)
 		{
@@ -360,9 +360,12 @@ App::~App()
 				vec.remove(i);
 			}
 		}
+		
+		// wait for threads termination
+		global_thumb_loader_data_.CondWait();
 	}
 	global_thumb_loader_data_.Unlock();
-	
+
 	QHashIterator<QString, QIcon*> i(icon_set_);
 	while (i.hasNext()) {
 		i.next();
@@ -1902,7 +1905,7 @@ void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 
 void App::ThumbnailArrived(cornus::io::Thumbnail *p)
 {
-	mtl_info("THUMBNAIL ARRIVED %s", qPrintable(p->filename));
+	//mtl_info("THUMBNAIL ARRIVED %s", qPrintable(p->filename));
 	gui::Tab *tab = this->tab(p->tab_id);
 	if (tab == nullptr || tab->icon_view() == nullptr)
 	{
@@ -1917,7 +1920,7 @@ void App::ThumbnailArrived(cornus::io::Thumbnail *p)
 		for (io::File *file: files.data.vec)
 		{
 			file_index++;
-			if (file->name() != p->filename)
+			if (file->id_num() != p->file_id)
 				continue;
 			
 			file->thumbnail(p);

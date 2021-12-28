@@ -32,7 +32,7 @@ void IconView::ComputeProportions(IconDim &dim) const
 {
 	const QString sample_str = QLatin1String("m");
 	const QFontMetrics fm = fontMetrics();
-	QRect br = fm.boundingRect(sample_str);
+	const QRect br = fm.boundingRect(sample_str);
 	const float area_w = this->width();
 	const float w = br.width() * 8;
 	
@@ -46,6 +46,7 @@ void IconView::ComputeProportions(IconDim &dim) const
 	dim.rh = dim.h_and_gaps + dim.gap;
 	dim.text_rows = 3;
 	dim.str_h = br.height();
+	dim.text_h = dim.str_h * dim.text_rows;
 	dim.text_y = dim.h_and_gaps - dim.str_h * dim.text_rows;
 	dim.per_row = (int)area_w / (int)dim.cell_and_gap;
 	
@@ -61,10 +62,10 @@ void IconView::ComputeProportions(IconDim &dim) const
 }
 
 DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
-	double x, double y, const double text_h, const int file_index)
+	double x, double y)
 {
 	const auto &cell = icon_dim_;
-	const int max_img_h = cell.h_and_gaps - text_h;
+	const int max_img_h = cell.h_and_gaps - cell.text_h;
 	const int max_img_w = cell.w_and_gaps;
 	QPixmap pixmap;
 	static const auto formats = QImageReader::supportedImageFormats();
@@ -80,7 +81,7 @@ DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
 			ThumbLoaderArgs *arg = new ThumbLoaderArgs();
 			arg->app = app_;
 			arg->full_path = file->build_full_path();
-			arg->filename = file->name();
+			arg->file_id = file->id_num();
 			arg->ext = ext;
 			arg->tab_id = tab_->id();
 			auto &files = tab_->view_files();
@@ -132,7 +133,7 @@ void IconView::FilesChanged(const Repaint r, const int file_index)
 	const bool is_current = (tab_->view_mode() == ViewMode::Icons);
 	if (r == Repaint::IfViewIsCurrent && is_current)
 	{
-		UpdateRange();
+		UpdateScrollRange();
 		if (file_index != -1) {
 			static bool first_time = true;
 			if (first_time) {
@@ -175,7 +176,7 @@ void IconView::paintEvent(QPaintEvent *ev)
 	{
 		first_time = false;
 		pending_update_ = false;
-		UpdateRange();
+		UpdateScrollRange();
 	}
 	
 	QStyleOptionViewItem option = tab_->table()->view_options();
@@ -203,6 +204,7 @@ void IconView::paintEvent(QPaintEvent *ev)
 	QTextOption text_options;
 	text_options.setAlignment(Qt::AlignHCenter);
 	text_options.setWrapMode(QTextOption::WrapAnywhere);
+	
 	for (double y = y_off; y < y_end; y += cell.rh)
 	{
 		for (double x = 0.0; (x + cell.w_and_gaps) < width; x += cell.cell_and_gap)
@@ -211,7 +213,6 @@ void IconView::paintEvent(QPaintEvent *ev)
 				break;
 			io::File *file = vec[file_index];
 			file_index++;
-			const int text_h = cell.str_h * cell.text_rows;
 			const QRect cell_r(x, y, cell.w_and_gaps, cell.h_and_gaps);
 			bool mouse_over = false;
 			if (file->selected() || mouse_over)
@@ -224,10 +225,10 @@ void IconView::paintEvent(QPaintEvent *ev)
 				painter.fillRect(cell_r, c);
 			}
 			
-			DrawBorder draw_border = DrawThumbnail(file, painter, x, y, text_h, file_index);
+			DrawBorder draw_border = DrawThumbnail(file, painter, x, y);
 			
 			const float text_y = y + cell.text_y;
-			QRectF text_space(x, text_y, cell.w_and_gaps, text_h);
+			QRectF text_space(x, text_y, cell.w_and_gaps, cell.text_h);
 			//painter.fillRect(text_space, QColor(255, 255, 100));
 			painter.drawText(text_space, file->name(), text_options);
 			
@@ -251,7 +252,7 @@ void IconView::RepaintLater(const int file_index)
 void IconView::resizeEvent(QResizeEvent *ev)
 {
 	QWidget::resizeEvent(ev);
-	UpdateRange();
+	UpdateScrollRange();
 }
 
 QSize IconView::size() const
@@ -261,7 +262,7 @@ QSize IconView::size() const
 	return QSize(w, icon_dim_.total_h);
 }
 
-void IconView::UpdateRange()
+void IconView::UpdateScrollRange()
 {
 	ComputeProportions(icon_dim_);
 	auto r = std::max(0.0, icon_dim_.total_h - height());

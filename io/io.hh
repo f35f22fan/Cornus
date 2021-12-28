@@ -158,6 +158,7 @@ struct FilesData {
 	QString scroll_to_and_select;
 	SortingOrder sorting_order;
 	DirId dir_id = 0;/// for inotify/epoll
+	//FileId next_file_id = 0;
 	u16 bits_ = 0;
 	cornus::Action action = Action::None;
 	

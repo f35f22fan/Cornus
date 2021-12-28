@@ -19,7 +19,7 @@ class Task;
 
 struct Thumbnail {
 	QImage img;
-	QString filename;
+	u64 file_id = 0;
 	i64 time_generated = -1;
 	TabId tab_id = -1;
 	DirId dir_id = -1;

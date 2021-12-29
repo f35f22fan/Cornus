@@ -180,10 +180,6 @@ void Tab::CreateGui()
 		row->addWidget(icon_view_);
 		row->addWidget(vs);
 		icons_view_index_ = viewmode_stack_->addWidget(w);
-		
-		connect(vs, &QScrollBar::valueChanged, [=](int value) {
-			icon_view_->update();
-		});
 	}
 	layout->addWidget(viewmode_stack_);
 }
@@ -504,10 +500,18 @@ void Tab::SetViewMode(const ViewMode mode)
 	switch (view_mode_) {
 	case ViewMode::Details: {
 		viewmode_stack_->setCurrentIndex(details_view_index_);
+		if (table_ != nullptr)
+			table_->setFocus(Qt::MouseFocusReason);
+		else
+			mtl_trace();
 		break;
 	}
 	case ViewMode::Icons: {
 		viewmode_stack_->setCurrentIndex(icons_view_index_);
+		if (icon_view_ != nullptr)
+			icon_view_->setFocus(Qt::MouseFocusReason);
+		else
+			mtl_trace();
 		break;
 	}
 	default: {

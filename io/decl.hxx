@@ -17,16 +17,6 @@ class File;
 class Notify;
 class Task;
 
-struct Thumbnail {
-	QImage img;
-	u64 file_id = 0;
-	i64 time_generated = -1;
-	TabId tab_id = -1;
-	DirId dir_id = -1;
-	int w = -1;
-	int h = -1;
-};
-
 struct DevNum {
 	i32 major;
 	i32 minor;
@@ -233,5 +223,3 @@ struct LinkTarget {
 };
 
 } /// namespace
-
-Q_DECLARE_METATYPE(cornus::io::Thumbnail*);

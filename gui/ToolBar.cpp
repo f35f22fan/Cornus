@@ -200,14 +200,17 @@ void ToolBar::ViewChanged()
 
 void ToolBar::AdjustGui(const ViewMode new_mode)
 {
-	if (new_mode == ViewMode::Details) {
-		if (details_view_icon_.isNull()) {
+	if (new_mode == ViewMode::Details)
+	{
+		if (details_view_icon_.isNull())
+		{
 			details_view_icon_ = QIcon::fromTheme(DetailsViewStr);
 		}
 		view_action_->setIcon(details_view_icon_);
 		view_action_->setToolTip(tr("Details View"));
 	} else if (new_mode == ViewMode::Icons) {
-		if (icons_view_icon_.isNull()) {
+		if (icons_view_icon_.isNull())
+		{
 			icons_view_icon_ = QIcon::fromTheme(IconsViewStr);
 		}
 		view_action_->setIcon(icons_view_icon_);

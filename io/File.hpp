@@ -5,6 +5,7 @@
 #include "../err.hpp"
 #include "../media.hxx"
 #include "io.hh"
+#include "../thumbnail.hh"
 
 #include <QIcon>
 #include <QMetaType> /// Q_DECLARE_METATYPE()

@@ -51,6 +51,7 @@ set(cornus_src_files main.cpp
     prefs.cc prefs.hh
     Prefs.cpp Prefs.hpp
     trash.cc trash.hh
+    thumbnail.cc thumbnail.hh
     TreeData.cpp TreeData.hpp
 
     gui/actions.hxx

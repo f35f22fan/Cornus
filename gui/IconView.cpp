@@ -24,6 +24,7 @@ IconView::IconView(App *app, Tab *tab, QScrollBar *vs):
 {
 	Q_UNUSED(app_);
 	Q_UNUSED(zoom_);
+	Init();
 }
 
 IconView::~IconView()
@@ -70,7 +71,7 @@ DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
 	const int max_img_w = cell.w_and_gaps;
 	QPixmap pixmap;
 	static const auto formats = QImageReader::supportedImageFormats();
-	if (file->ShouldTryLoadingThumbnail())
+	if (!vs_->isSliderDown() && file->ShouldTryLoadingThumbnail())
 	{
 		file->cache().tried_loading_thumbnail = true;
 		auto ext = file->cache().ext.toLocal8Bit();
@@ -149,6 +150,55 @@ void IconView::FilesChanged(const Repaint r, const int file_index)
 		pending_update_ = true;
 	}
 }
+
+void IconView::Init()
+{
+	setFocusPolicy(Qt::WheelFocus);
+	/// enables receiving ordinary mouse events (when mouse is not down)
+	setMouseTracking(true);
+	
+	connect(vs_, &QScrollBar::valueChanged, [=](int value) {
+		if (!force_repaint_)
+		{
+			RepaintLater();
+		}
+	});
+	
+	connect(vs_, &QScrollBar::sliderReleased, [=] {
+		update();
+	});
+}
+
+void IconView::keyPressEvent(QKeyEvent *event)
+{
+	const int key = event->key();
+	const auto modifiers = event->modifiers();
+	const bool any_modifiers = (modifiers != Qt::NoModifier);
+	const bool shift = (modifiers & Qt::ShiftModifier);
+	const bool ctrl = (modifiers & Qt::ControlModifier);
+	Q_UNUSED(shift);
+	Q_UNUSED(ctrl);
+	
+	if (!any_modifiers)
+	{
+		if (key == Qt::Key_Down) {
+			Scroll(VDirection::Down, ScrollBy::LineStep);
+		} else if (key == Qt::Key_Up) {
+			Scroll(VDirection::Up, ScrollBy::LineStep);
+		} else if (key == Qt::Key_PageDown) {
+			Scroll(VDirection::Down, ScrollBy::PageStep);
+		} else if (key == Qt::Key_PageUp) {
+			Scroll(VDirection::Up, ScrollBy::PageStep);
+		}
+	}
+}
+
+void IconView::keyReleaseEvent(QKeyEvent *evt)
+{
+	bool shift = evt->modifiers() & Qt::ShiftModifier;
+	Q_UNUSED(shift);
+}
+
 
 void IconView::mouseDoubleClickEvent(QMouseEvent *evt)
 {
@@ -253,22 +303,46 @@ void IconView::DelayedRepaint()
 	const i64 remaining_ms = delay_repaint_ms_ - last_repaint_ms;
 	
 	if (remaining_ms > 0) {
-		QTimer::singleShot(remaining_ms, this, &IconView::DelayedRepaint);
+		const auto ms = (remaining_ms >= delay_repaint_ms_ / 2) ?
+			remaining_ms : delay_repaint_ms_;
+		delayed_repaint_pending_ = true;
+		QTimer::singleShot(ms, this, &IconView::DelayedRepaint);
 	} else {
 		update();
+		delayed_repaint_pending_ = false;
 	}
 }
 
-void IconView::RepaintLater(const int file_index)
+void IconView::RepaintLater()
 {
-	//repaint_indices_.append(file_index);
-	QTimer::singleShot(delay_repaint_ms_, this, &IconView::DelayedRepaint);
+	if (!delayed_repaint_pending_)
+	{
+		delayed_repaint_pending_ = true;
+		QTimer::singleShot(delay_repaint_ms_, this, &IconView::DelayedRepaint);
+	} else {
+//		static int count = 1;
+//		mtl_info("Skipped frame %d", count++);
+	}
 }
 
 void IconView::resizeEvent(QResizeEvent *ev)
 {
-	QWidget::resizeEvent(ev);
 	UpdateScrollRange();
+	RepaintLater();
+}
+
+void IconView::Scroll(const VDirection d, const gui::ScrollBy sb)
+{
+	const auto step = (sb == ScrollBy::LineStep) ? icon_dim_.str_h
+		: scroll_page_step_;
+	const auto val = vs_->value();
+	
+	if (d == VDirection::Down)
+	{
+		vs_->setValue(val + step);
+	} else {
+		vs_->setValue(std::max(0, val - step));
+	}
 }
 
 QSize IconView::size() const
@@ -283,7 +357,8 @@ void IconView::UpdateScrollRange()
 	ComputeProportions(icon_dim_);
 	auto r = std::max(0.0, icon_dim_.total_h - height());
 	vs_->setRange(0, r);
-	vs_->setPageStep(height() / 2);
+	scroll_page_step_ = icon_dim_.rh;
+	vs_->setPageStep(scroll_page_step_);
 }
 
 void IconView::wheelEvent(QWheelEvent *evt)
@@ -294,14 +369,11 @@ void IconView::wheelEvent(QWheelEvent *evt)
 	{
 		app_->prefs().WheelEventFromMainView(zoom);
 	} else {
-		const auto step = icon_dim_.str_h;
-		const auto val = vs_->value();
-		if (y < 0) {
-			vs_->setValue(val + step);
-		} else {
-			vs_->setValue(std::max(0, val - step));
-		}
+		force_repaint_ = true;
+		const auto vert_dir = (y < 0) ? VDirection::Down : VDirection::Up;
+		Scroll(vert_dir, ScrollBy::LineStep);
 		update();
+		force_repaint_ = false;
 	}
 }
 

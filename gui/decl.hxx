@@ -45,6 +45,11 @@ class TreeView;
 
 const int FileNameRelax = 2;
 
+enum class ScrollBy: i8 {
+	LineStep,
+	PageStep,
+};
+
 enum class ViewMode: i8 {
 	None,
 	Details,

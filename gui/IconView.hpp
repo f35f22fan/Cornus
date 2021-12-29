@@ -55,11 +55,15 @@ public:
 	QSize size() const;
 	virtual QSize sizeHint() const override { return size(); }
 	
+	void Scroll(const VDirection d, const ScrollBy sb);
+	
 	void FilesChanged(const Repaint r, const int file_index);
 	
-	void RepaintLater(const int file_index);
+	void RepaintLater();
 	
 protected:
+	virtual void keyPressEvent(QKeyEvent *evt) override;
+	virtual void keyReleaseEvent(QKeyEvent *evt) override;
 	virtual void mouseDoubleClickEvent(QMouseEvent *evt) override;
 	virtual void mouseMoveEvent(QMouseEvent *evt) override;
 	virtual void mousePressEvent(QMouseEvent *evt) override;
@@ -73,8 +77,8 @@ private:
 	
 	void ComputeProportions(IconDim &dim) const;
 	void DelayedRepaint();
-	DrawBorder DrawThumbnail(io::File *file, QPainter &painter,
-		double x, double y);
+	DrawBorder DrawThumbnail(io::File *file, QPainter &painter, double x, double y);
+	void Init();
 	void UpdateScrollRange();
 	
 	App *app_ = nullptr;
@@ -86,7 +90,10 @@ private:
 	bool pending_update_ = false;
 	QVector<int> repaint_indices_;
 	ElapsedTimer last_repaint_;
-	const i64 delay_repaint_ms_ = 500;
+	bool delayed_repaint_pending_ = false;
+	const i64 delay_repaint_ms_ = 100;
+	bool force_repaint_ = false;
+	int scroll_page_step_ = -1;
 };
 
 

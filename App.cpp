@@ -312,10 +312,14 @@ App::App()
 	SetupIconNames();
 	io::InitEnvInfo(desktop_, search_icons_dirs_, xdg_data_dirs_, possible_categories_);
 	CreateGui();
-	if (prefs_->remember_window_size()) {
+	if (prefs_->remember_window_size())
+	{
 		QSize sz = prefs_->window_size();
 		if (sz.width() < 0 || sz.height() < 0)
+		{
+			mtl_trace();
 			sz = QSize(800, 600);
+		}
 		resize(sz);
 	}
 	
@@ -404,6 +408,7 @@ App::~App()
 		tree_data_.Unlock();
 	}
 	{
+		prefs_->Save();
 		/// table_ must be deleted before prefs_ because table_model_ calls 
 		/// into prefs().show_free_partition_space() in TableModel::GetName()
 		delete tab_widget_;
@@ -759,9 +764,8 @@ void App::DeleteTabAt(const int i)
 {
 	auto *tab = tab_widget_->widget(i);
 	const bool do_exit = (tab_widget_->count() == 1);
+	
 	tab_widget_->removeTab(i);
-	if (do_exit)
-		prefs_->Save();
 	delete tab;
 	
 	if (do_exit)

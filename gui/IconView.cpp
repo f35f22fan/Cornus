@@ -77,13 +77,10 @@ DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
 		auto ext = file->cache().ext.toLocal8Bit();
 		if (!ext.isEmpty() && formats.contains(ext))
 		{
-			/// invoke thumbnail loading thread
-			// then in App::ThumbnailArrived(): file->thumbnail(thumb);
-			
 			ThumbLoaderArgs *arg = new ThumbLoaderArgs();
 			arg->app = app_;
 			arg->full_path = file->build_full_path();
-			arg->file_id = file->id_num();
+			arg->file_id = file->id();
 			arg->ext = ext;
 			arg->tab_id = tab_->id();
 			auto &files = tab_->view_files();
@@ -91,8 +88,26 @@ DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
 			arg->dir_id = files.data.dir_id;
 			arg->icon_w = max_img_w;
 			arg->icon_h = max_img_h;
-			
+			//mtl_info("w: %d, h: %d", max_img_w, max_img_h);
 			app_->SubmitThumbLoaderWork(arg);
+		}
+	} else if (file->thumbnail() == nullptr
+		&& file->has_thumbnail_attr()) // && !file->IsThumbnailMarkedFailed())
+	{
+		QImage img = file->CreateThumbnailFromExtAttr();
+		if (!img.isNull())
+		{
+			//mtl_printq(file->name());
+			Thumbnail *p = new Thumbnail();
+			p->img = img;
+			p->w = img.width();
+			p->h = img.height();
+			p->file_id = file->id_num();
+			p->time_generated = time(NULL);
+			p->tab_id = tab_->id();
+			auto &files = tab_->view_files();
+			p->dir_id = files.data.dir_id;
+			file->thumbnail(p);
 		}
 	}
 	
@@ -198,7 +213,6 @@ void IconView::keyReleaseEvent(QKeyEvent *evt)
 	bool shift = evt->modifiers() & Qt::ShiftModifier;
 	Q_UNUSED(shift);
 }
-
 
 void IconView::mouseDoubleClickEvent(QMouseEvent *evt)
 {
@@ -333,8 +347,8 @@ void IconView::resizeEvent(QResizeEvent *ev)
 
 void IconView::Scroll(const VDirection d, const gui::ScrollBy sb)
 {
-	const auto step = (sb == ScrollBy::LineStep) ? icon_dim_.str_h
-		: scroll_page_step_;
+	const auto step = (sb == ScrollBy::LineStep)
+		? icon_dim_.str_h : scroll_page_step_;
 	const auto val = vs_->value();
 	
 	if (d == VDirection::Down)

@@ -56,6 +56,7 @@ public:
 	const OpenWith& open_with() const { return open_with_; }
 	void ProcessAction(const QString &action);
 	bool ReloadOpenWith();
+	void RemoveThumbnailsFromSelectedFiles();
 	void ScrollToRow(int row);
 	void ScrollToAndSelectRow(const int row, const bool deselect_others);
 	void SelectAllFilesNTS(const bool flag, QVector<int> &indices);

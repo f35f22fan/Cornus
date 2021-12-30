@@ -1,6 +1,10 @@
 #include "thumbnail.hh"
 
+#include "ByteArray.hpp"
+
 #include <QImageReader>
+
+#include <zstd.h>
 
 namespace cornus {
 
@@ -10,14 +14,14 @@ Thumbnail* LoadThumbnail(const QString &full_path, const u64 &file_id,
 {
 	QImageReader reader = QImageReader(full_path, ext);
 	reader.setScaledSize(QSize(icon_w, icon_h));
-	auto *thumbnail = new Thumbnail();
-	thumbnail->img = reader.read();
-	if (thumbnail->img.isNull())
+	QImage img = reader.read();
+	if (img.isNull())
 	{
-		delete thumbnail;
+		//mtl_info("Failed: %s", qPrintable(full_path));
 		return nullptr;
 	}
-	
+	auto *thumbnail = new Thumbnail();
+	thumbnail->img = img;
 	thumbnail->file_id = file_id;
 	thumbnail->time_generated = time(NULL);
 	thumbnail->w = icon_w;
@@ -39,7 +43,7 @@ void* GlobalThumbLoadMonitor(void *args)
 		auto &work_queue = global_data->work_queue;
 		if (work_queue.isEmpty())
 		{
-			int status = global_data->CondWait();
+			int status = global_data->CondWaitForWorkQueueChange();
 			if (status != 0)
 			{
 				mtl_status(status);
@@ -50,10 +54,8 @@ void* GlobalThumbLoadMonitor(void *args)
 		if (work_queue.isEmpty())
 			continue;
 		
-		int th_index = -1;
 		for (ThumbLoaderData *th_data: global_data->threads)
 		{
-			th_index++;
 			if (!th_data->TryLock()) // IT IS LOCKED!
 				continue;
 			if (th_data->new_work != nullptr)
@@ -61,13 +63,13 @@ void* GlobalThumbLoadMonitor(void *args)
 				th_data->Unlock();
 				continue;
 			}
-			const int index = work_queue.size() - 1;
+			const int last_one = work_queue.size() - 1;
 			{
-				th_data->new_work = work_queue[index];
+				th_data->new_work = work_queue[last_one];
 				th_data->SignalNewWorkAvailable();
 				th_data->Unlock();
 			}
-			work_queue.remove(index);
+			work_queue.remove(last_one);
 			
 			if (work_queue.isEmpty())
 				break;
@@ -78,4 +80,32 @@ void* GlobalThumbLoadMonitor(void *args)
 	return nullptr;
 }
 
+static void FreeThumbnailMemory(void *data)
+{
+	uchar *m = (uchar*)data;
+	delete[] m;
+}
+
+namespace thumbnail {
+QImage ImageFromByteArray(ByteArray &ba)
+{
+	if (ba.size() <= ThumbnailHeaderSize)
+		return QImage();
+	
+	const int w = ba.next_i32();
+	const int h = ba.next_i32();
+	const int bpl = ba.next_i32();
+	const auto format = static_cast<QImage::Format>(ba.next_i32());
+	ba.to(0);
+	char *src_data = (ba.data() + ThumbnailHeaderSize);
+	const i64 buflen = ba.size() - ThumbnailHeaderSize;
+	
+	const i64 frame_size = ZSTD_getFrameContentSize(src_data, buflen);
+	uchar *frame_buf = new uchar[frame_size];
+	const i64 dec_size = ZSTD_decompress(frame_buf, frame_size, src_data, buflen);
+	Q_UNUSED(dec_size);
+	
+	return QImage(frame_buf, w, h, bpl, format, FreeThumbnailMemory);
+}
+}
 }

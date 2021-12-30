@@ -28,6 +28,13 @@
 
 namespace cornus::io {
 
+struct SaveThumbnail {
+	QString full_path;
+	QImage img;
+	TempDir dir;
+	DiskFileId id;
+};
+
 enum class FileEventType: u8 {
 	None = 0,
 	Modified,
@@ -134,6 +141,7 @@ struct FilesData {
 	static const u16 ShowHiddenFiles = 1u << 0;
 	static const u16 ThreadMustExit = 1u << 1;
 	static const u16 ThreadExited = 1u << 2;
+	static const u16 CanWriteToDir = 1u << 3;
 	
 	FilesData() {}
 	~FilesData();
@@ -161,6 +169,14 @@ struct FilesData {
 	//FileId next_file_id = 0;
 	u16 bits_ = 0;
 	cornus::Action action = Action::None;
+	
+	bool can_write_to_dir() const { return bits_ & CanWriteToDir; }
+	void can_write_to_dir(const bool flag) {
+		if (flag)
+			bits_ |= CanWriteToDir;
+		else
+			bits_ &= ~CanWriteToDir;
+	}
 	
 	bool show_hidden_files() const { return bits_ & ShowHiddenFiles; }
 	void show_hidden_files(const bool flag) {
@@ -243,6 +259,10 @@ Q_DECLARE_METATYPE(cornus::io::FilesData*);
 Q_DECLARE_METATYPE(cornus::io::CountRecursiveInfo*);
 
 namespace cornus::io {
+
+QString BuildTempPathFromID(const DiskFileId &id);
+
+bool CanWriteToDir(const QString &dir_path);
 
 int CompareStrings(const QString &a, const QString &b);
 
@@ -335,6 +355,8 @@ GetFileNameExtension(const QString &name, QStringRef *base_name = nullptr);
 QStringRef
 GetFileNameOfFullPath(const QString &full_path);
 
+QString GetLastingAppTmpDir();
+
 QStringRef
 GetParentDirPath(const QString &full_path);
 
@@ -398,20 +420,22 @@ bool RemoveXAttr(const QString &full_path, const QString &xattr_name);
 bool SameFiles(const QString &path1, const QString &path2,
 	int *ret_error = nullptr);
 
+bool SaveThumbnailToDisk(const SaveThumbnail &item);
+
 bool sd_nvme(const QString &name);
 bool valid_dev_path(const QString &name);
 
 QString SizeToString(const i64 sz, const StringLength len = StringLength::Normal);
 
 bool SetXAttr(const QString &full_path, const QString &xattr_name,
-	const ByteArray &ba);
+	const ByteArray &ba, const PrintErrors = PrintErrors::Yes);
 
 bool SortFiles(File *a, File *b);
 
 isize TryReadFile(const QString &full_path, char *buf,
 	const i64 how_much, ExecInfo *info = nullptr);
 
-// returns 0 on error, otherwise errno
+// returns 0 on success, otherwise errno
 int WriteToFile(const QString &full_path, const char *data, const i64 size,
 	const PostWrite post_write = PostWrite::DoNothing,
 	mode_t *custom_mode = nullptr);

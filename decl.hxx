@@ -28,6 +28,11 @@ using TabId = i64;
 using DirId = i32;
 using FileId = i32;
 
+enum class TempDir: i8 {
+	Yes,
+	No
+};
+
 enum class Repaint: i8 {
 	IfViewIsCurrent,
 	No,

@@ -12,6 +12,14 @@
 
 namespace cornus {
 
+enum class FromTempDir: i8 {
+	Yes,
+	No,
+	Undefined
+};
+
+// header size: width=4 + height=4 + bpl=4 + img_format=4
+const int ThumbnailHeaderSize = 16;
 const bool DebugThumbnailExit = false;
 
 struct Thumbnail {
@@ -22,6 +30,7 @@ struct Thumbnail {
 	DirId dir_id = -1;
 	int w = -1;
 	int h = -1;
+	FromTempDir from_temp = FromTempDir::Undefined;
 };
 
 struct ThumbLoaderArgs {
@@ -30,7 +39,7 @@ struct ThumbLoaderArgs {
 	QByteArray ext;
 	TabId tab_id = -1;
 	DirId dir_id = -1;
-	u64 file_id = 0;
+	io::DiskFileId file_id = {};
 	int icon_w = -1;
 	int icon_h = -1;
 };
@@ -88,7 +97,7 @@ struct GlobalThumbLoaderData {
 	QVector<ThumbLoaderData*> threads;
 	QVector<ThumbLoaderArgs*> work_queue;
 	mutable pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-	mutable pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+	mutable pthread_cond_t new_work_cond = PTHREAD_COND_INITIALIZER;
 	
 	bool Lock() const {
 		const int status = pthread_mutex_lock(&mutex);
@@ -112,31 +121,34 @@ struct GlobalThumbLoaderData {
 	}
 	
 	bool Broadcast() {
-		return (pthread_cond_broadcast(&cond) == 0);
+		return (pthread_cond_broadcast(&new_work_cond) == 0);
 	}
 	
-	int CondWait() const {
-		const int status = pthread_cond_wait(&cond, &mutex);
+	int CondWaitForWorkQueueChange() const {
+		const int status = pthread_cond_wait(&new_work_cond, &mutex);
 		if (status != 0)
 			mtl_status(status);
 		return status;
 	}
 	
 	int CondTimedWait(const struct timespec *ts) const {
-		return pthread_cond_timedwait(&cond, &mutex, ts);
+		return pthread_cond_timedwait(&new_work_cond, &mutex, ts);
 	}
 	
-	bool Signal() const {
-		return (pthread_cond_signal(&cond) == 0);
+	bool SignalWorkQueueChanged() const {
+		return (pthread_cond_signal(&new_work_cond) == 0);
 	}
 };
-
 
 void* GlobalThumbLoadMonitor(void *args);
 
 Thumbnail* LoadThumbnail(const QString &full_path, const u64 &file_id,
 	const QByteArray &ext, const int icon_w, const int icon_h,
 	const TabId tab_id, const DirId dir_id);
+
+namespace thumbnail {
+QImage ImageFromByteArray(ByteArray &ba);
+}
 
 }
 Q_DECLARE_METATYPE(cornus::Thumbnail*);

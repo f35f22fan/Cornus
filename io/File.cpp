@@ -1,8 +1,10 @@
 #include "File.hpp"
 
 #include "../ByteArray.hpp"
+#include "../thumbnail.hh"
 
 #include <cstdio>
+#include <zstd.h>
 
 namespace cornus::io {
 
@@ -85,6 +87,19 @@ bool File::has_exec_bit() const {
 	return mode_ & io::ExecBits;
 }
 
+bool File::IsThumbnailMarkedFailed()
+{
+	ByteArray &ba = ext_attrs_[media::XAttrThumbnail];
+	return ba.size() > ThumbnailHeaderSize;
+}
+
+void File::MarkThumbnailFailed()
+{
+	ByteArray ba;
+	ba.add_i32(-1);
+	ext_attrs_.insert(media::XAttrThumbnail, ba);
+}
+
 media::ShortData*
 File::media_attrs_decoded()
 {
@@ -153,7 +168,7 @@ void File::ReadLinkTarget()
 
 bool File::ShouldTryLoadingThumbnail()
 {
-	if (!is_regular() || cache_.tried_loading_thumbnail)
+	if (!is_regular() || cache_.tried_loading_thumbnail || has_thumbnail_attr())
 		return false;
 	return (cache_.thumbnail == nullptr);
 }
@@ -164,6 +179,12 @@ QString File::SizeToString() const
 		return QString();
 	
 	return io::SizeToString(size_);
+}
+
+QImage File::CreateThumbnailFromExtAttr()
+{
+	ByteArray &ba = ext_attrs_[media::XAttrThumbnail];
+	return cornus::thumbnail::ImageFromByteArray(ba);
 }
 
 }

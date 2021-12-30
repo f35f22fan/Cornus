@@ -80,31 +80,3 @@ Media search: Ctrl + M
 The settings are saved using extended file attributes and take up extemely little space.
 At some point will support search for movie files inside a folder by any given category (actor, director, genre, etc).
 
-
-#### Trash Can Support
-Since the official XDG trash specification is over engineered, slow and doesn't prevent dangling files, Cornus follows a different approach which allows for a very fast, efficient and very simple trash can implementation.
-
-The official XDG trash can spec:
-* mandates creating 2 files per file deleted
-* files can be placed into random partitions which doesn't prevent copying of files.
-* Undeleting files is thus rather I/O expensive since one needs to read *all* files from *all* trash folders, processing them and only then proceeding undeleting files, potentially involving copying (instead of atomic moving).
-
-The Cornus file browser places deleted files in a hidden folder at same location and puts the meta in its title, thus the pros:
-
-* avoids ever copying files
-* no opening/reading/closing of files
-* no 2 files (info file + the file itself) per deleted file.
-* no dangling files (when the user deletes a folder he automatically also deletes its trash if any)
-* listing files to undelete is instant
-* is very easy to group deleted files into batches sorted by deletion time and give the user the option to choose which batch to undelete, a feature implemented (only) by Cornus.
-* no need to sort out which files belong to a folder and which ones don't
-* no filename clashes thus no need to implemenent name clash prevention
-* extremely simple implementation
-
-And one big con:
-* Some users might not want to have a trash folder in the same folder where the files were deleted even if the trash is hidden.
-
-However the latter is somewhat leveraged in cases of git projects because Cornus automatically adds an entry to the <b>global</b> gitignore file thus:
-* a) all git projects will be unaffected by a potentially unwanted hidden folder.
-* b) no need to touch the .gitignore file of any projects
-* c) the user doesn't have to do anything at all.

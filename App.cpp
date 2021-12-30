@@ -15,6 +15,7 @@
 #include <sys/un.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <zstd.h>      // presumes zstd library is installed
 
 #include "App.hpp"
 #include "AutoDelete.hh"
@@ -44,6 +45,7 @@
 #include "prefs.hh"
 #include "Prefs.hpp"
 #include "str.hxx"
+#include "thumbnail.hh"
 
 #include <QApplication>
 #include <QBoxLayout>
@@ -105,13 +107,37 @@ void* ThumbnailLoader (void *args)
 			continue;
 		
 		th_data->Unlock();
-		Thumbnail *thumbnail = LoadThumbnail(new_work->full_path,
-			new_work->file_id, new_work->ext, new_work->icon_w,
-			new_work->icon_h, new_work->tab_id, new_work->dir_id);
+		QString thumb_in_temp_path = io::BuildTempPathFromID(new_work->file_id);
+		ByteArray temp_ba;
+		Thumbnail *thumbnail = nullptr;
+		if (io::ReadFile(thumb_in_temp_path, temp_ba, PrintErrors::No))
+		{
+			//mtl_info("Loaded thumbnail from /var/tmp");
+			QImage img = thumbnail::ImageFromByteArray(temp_ba);
+			
+			thumbnail = new Thumbnail();
+			thumbnail->img = img;
+			thumbnail->file_id = new_work->file_id.inode_number;
+			thumbnail->time_generated = time(NULL);
+			thumbnail->w = img.width();
+			thumbnail->h = img.height();
+			thumbnail->tab_id = new_work->tab_id;
+			thumbnail->dir_id = new_work->dir_id;
+			thumbnail->from_temp = FromTempDir::Yes;
+		} else {
+			thumbnail = LoadThumbnail(new_work->full_path,
+				new_work->file_id.inode_number, new_work->ext, new_work->icon_w,
+				new_work->icon_h, new_work->tab_id, new_work->dir_id);
+			thumbnail->from_temp = FromTempDir::No;
+		}
+		
 		th_data->Lock();
 		
-		if (thumbnail == nullptr)
+		if (thumbnail == nullptr) {
+			th_data->new_work = nullptr;
+			mtl_info("loading thumbnail failed %s", qPrintable(new_work->full_path));
 			continue;
+		}
 		
 		if (!th_data->wait_for_work) {
 			break;
@@ -133,7 +159,7 @@ void* ThumbnailLoader (void *args)
 			th_data->Unlock();
 			if (th_data->global_data->TryLock())
 			{
-				th_data->global_data->Signal();
+				th_data->global_data->SignalWorkQueueChanged();
 				th_data->global_data->Unlock();
 			}
 			th_data->Lock();
@@ -1776,9 +1802,7 @@ void App::SubmitThumbLoaderWork(ThumbLoaderArgs *new_work)
 	}
 	
 	global_thumb_loader_data_.work_queue.append(new_work);
-//	mtl_info("APPEND, work queue size is %d, file: %s", global_thumb_loader_data_.work_queue.size(),
-//		qPrintable(p->filename));
-	global_thumb_loader_data_.Broadcast();
+	global_thumb_loader_data_.SignalWorkQueueChanged();
 }
 
 gui::Tab* App::tab() const
@@ -1852,35 +1876,56 @@ void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 	}
 }
 
-void App::ThumbnailArrived(cornus::Thumbnail *p)
+void App::SaveThumbnail()
 {
-	//mtl_info("THUMBNAIL ARRIVED %s", qPrintable(p->filename));
-	gui::Tab *tab = this->tab(p->tab_id);
+	if (!thumbnails_to_save_.isEmpty())
+		io::SaveThumbnailToDisk(thumbnails_to_save_.takeLast());
+}
+
+void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
+{
+	//mtl_info("THUMBNAIL ARRIVED");
+	gui::Tab *tab = this->tab(thumbnail->tab_id);
 	if (tab == nullptr || tab->icon_view() == nullptr)
 	{
-		delete p;
-		mtl_trace();
+		delete thumbnail;
+		return;
 	}
 	
 	int file_index = -1;
 	auto &files = tab->view_files();
 	{
 		files.Lock();
+		const bool can_write_to_dir = io::CanWriteToDir(files.data.processed_dir_path);
 		for (io::File *file: files.data.vec)
 		{
 			file_index++;
-			if (file->id_num() != p->file_id)
+			if (file->id_num() != thumbnail->file_id)
 				continue;
 			
-			file->thumbnail(p);
+			file->thumbnail(thumbnail);
+			const io::DiskFileId file_id = file->id();
+			QString full_path = file->build_full_path();
 			files.Unlock();
 			tab->icon_view()->RepaintLater();
+			
+			if (thumbnail->from_temp != FromTempDir::Yes)
+			{
+				io::SaveThumbnail st;
+				st.full_path = full_path;
+				st.id = file_id;
+				st.img = thumbnail->img;
+				st.dir = can_write_to_dir ? TempDir::No : TempDir::Yes;
+				thumbnails_to_save_.append(st);
+				
+				QTimer::singleShot(0, this, &App::SaveThumbnail);
+			}
 			return;
 		}
 		files.Unlock();
 	}
 	
-	delete p;
+	delete thumbnail;
 }
 
 void App::ToggleExecBitOfSelectedFiles()

@@ -20,6 +20,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
+#include <zstd.h>
 
 namespace cornus::io {
 
@@ -29,6 +30,22 @@ FilesData::~FilesData()
 		delete next;
 	}
 	vec.clear();
+}
+
+QString BuildTempPathFromID(const DiskFileId &id)
+{
+	QString s = io::GetLastingAppTmpDir();
+	s.append(QString::number(id.dev_major)).append('_');
+	s.append(QString::number(id.dev_minor)).append('_');
+	s.append(QString::number(id.inode_number));
+	
+	return s;
+}
+
+bool CanWriteToDir(const QString &dir_path)
+{
+	auto ba = dir_path.toLocal8Bit();
+	return access(ba.data(), W_OK) == 0;
 }
 
 static int CompareDigits(QStringRef a, QStringRef b)
@@ -652,7 +669,7 @@ void FillInStx(io::File &file, const struct statx &stx, const QString *name)
 	file.mode(stx.stx_mode);
 	file.size(stx.stx_size);
 	file.type(MapPosixTypeToLocal(stx.stx_mode));
-	file.id(io::FileID::FromStx(stx));
+	file.id(io::DiskFileId::FromStx(stx));
 	file.time_created(stx.stx_btime);
 	file.time_modified(stx.stx_mtime);
 }
@@ -770,6 +787,25 @@ GetFileNameOfFullPath(const QString &full_path)
 	}
 	
 	return QStringRef();
+}
+
+QString GetLastingAppTmpDir()
+{
+	static QString s;
+	if (s.isEmpty())
+	{
+		if (!EnsureDir(QLatin1String("/var/tmp/"),
+			QLatin1String("Cornus.Mas"), &s))
+		{
+			mtl_trace();
+			return QString();
+		}
+		
+		if (!s.endsWith('/'))
+			s.append('/');
+	}
+	
+	return s;
 }
 
 QStringRef
@@ -1008,6 +1044,9 @@ int ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 	}
 	
 	closedir(dp);
+	
+	const bool can_write = access(dir_path_ba.data(), W_OK) == 0;
+	data.can_write_to_dir(can_write);
 	std::sort(data.vec.begin(), data.vec.end(), cornus::io::SortFiles);
 	
 	return 0;
@@ -1141,7 +1180,7 @@ bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &par
 		return false;
 	}
 	
-	FileID file_id = FileID::FromStat(st);
+	DiskFileId file_id = DiskFileId::FromStat(st);
 	if (link_target.chain_ids_.contains(file_id)) {
 		link_target.cycles *= -1;
 		return false;
@@ -1447,7 +1486,7 @@ bool SameFiles(const QString &path1, const QString &path2, int *ret_error)
 		return false;
 	}
 	
-	auto id1 = FileID::FromStx(stx);
+	auto id1 = DiskFileId::FromStx(stx);
 	ba = path2.toLocal8Bit();
 	
 	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
@@ -1459,8 +1498,37 @@ bool SameFiles(const QString &path1, const QString &path2, int *ret_error)
 	if (ret_error != nullptr)
 		*ret_error = 0;
 	
-	auto id2 = FileID::FromStx(stx);
+	auto id2 = DiskFileId::FromStx(stx);
 	return id1 == id2;
+}
+
+bool SaveThumbnailToDisk(const SaveThumbnail &item)
+{
+	ByteArray ba;
+	ba.add_i32(item.img.width());
+	ba.add_i32(item.img.height());
+	ba.add_i32(item.img.bytesPerLine());
+	ba.add_i32(static_cast<i32>(item.img.format()));
+	
+	const char *img_buf = (const char*)item.img.constBits();
+	const i64 img_buflen = item.img.sizeInBytes();
+//	ba.add(bits, len);
+//	mtl_info("uncompressed len: %ld", len);
+	
+	const i64 bufsize = ZSTD_compressBound(img_buflen);
+	char *buf = (char*)malloc(bufsize);
+	const i64 compressed_size = ZSTD_compress(buf, bufsize, img_buf, img_buflen, 1);
+	ba.add(buf, compressed_size);
+	free(buf);
+	
+	if (item.dir == TempDir::No) {
+		if (io::SetXAttr(item.full_path, media::XAttrThumbnail, ba, PrintErrors::No))
+			return true;
+	}
+	
+	QString temp_path = io::BuildTempPathFromID(item.id);
+	//mtl_info("Saved to temp: %s", qPrintable(temp_path));
+	return io::WriteToFile(temp_path, ba.data(), ba.size()) == 0;
 }
 
 bool sd_nvme(const QString &name)
@@ -1478,15 +1546,18 @@ bool valid_dev_path(const QString &name)
 }
 
 bool SetXAttr(const QString &full_path, const QString &xattr_name,
-	const ByteArray &ba)
+	const ByteArray &ba, const PrintErrors pe)
 {
 	auto file_path_ba = full_path.toLocal8Bit();
 	auto xattr_name_ba = xattr_name.toLocal8Bit();
 	int status = lsetxattr(file_path_ba.data(), xattr_name_ba.data(),
 		ba.data(), ba.size(), 0);
 	
-	if (status != 0)
-		mtl_warn("lsetxattr on %s: %s", xattr_name_ba.data(), strerror(errno));
+	if (status != 0 && pe == PrintErrors::Yes)
+	{
+		mtl_warn("lsetxattr on %s: %s, FILE: %s", xattr_name_ba.data(),
+			strerror(errno), qPrintable(full_path));
+	}
 	
 	return status == 0;
 }

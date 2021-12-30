@@ -946,6 +946,12 @@ void Table::keyPressEvent(QKeyEvent *event)
 		else if (key == Qt::Key_V) {
 			ActionPaste();
 		}
+		
+		if (shift) {
+			if (key == Qt::Key_T) {
+				RemoveThumbnailsFromSelectedFiles();
+			}
+		}
 	}
 	
 	if (!any_modifiers && key == Qt::Key_Delete) {
@@ -1243,6 +1249,20 @@ bool Table::ReloadOpenWith()
 	}
 	
 	return true;
+}
+
+void Table::RemoveThumbnailsFromSelectedFiles()
+{
+	io::Files &files = *app_->files(tab_->files_id());
+	MutexGuard guard = files.guard();
+	
+	for (io::File *next: files.data.vec)
+	{
+		if (!next->selected() || !next->has_thumbnail_attr())
+			continue;
+		
+		io::RemoveXAttr(next->build_full_path(), media::XAttrThumbnail);
+	}
 }
 
 bool Table::ScrollToAndSelect(QString full_path)

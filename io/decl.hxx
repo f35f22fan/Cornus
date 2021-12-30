@@ -145,21 +145,21 @@ const f64 TiB = GiB * 1024;
 static const mode_t DirPermissions = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH;
 static const mode_t FilePermissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
 
-struct FileID {
+struct DiskFileId {
 	u64 inode_number;
 	u32 dev_major; // ID of device containing file
 	u32 dev_minor;
 	
-	inline static FileID FromStat(const struct stat &st) {
-		return io::FileID {
+	inline static DiskFileId FromStat(const struct stat &st) {
+		return io::DiskFileId {
 			.inode_number = st.st_ino,
 			.dev_major = gnu_dev_major(st.st_dev),
 			.dev_minor = gnu_dev_minor(st.st_dev),
 		};
 	}
 	
-	inline static FileID FromStx(const struct statx &stx) {
-		return io::FileID {
+	inline static DiskFileId FromStx(const struct statx &stx) {
+		return io::DiskFileId {
 			.inode_number = stx.stx_ino,
 			.dev_major = stx.stx_dev_major,
 			.dev_minor = stx.stx_dev_minor,
@@ -167,12 +167,12 @@ struct FileID {
 	}
 	
 	inline bool
-	operator == (const FileID &rhs) const {
+	operator == (const DiskFileId &rhs) const {
 		return Equals(rhs);
 	}
 	
 	inline bool
-	Equals(const FileID &rhs) const {
+	Equals(const DiskFileId &rhs) const {
 		return inode_number == rhs.inode_number &&
 		dev_major == rhs.dev_major && dev_minor == rhs.dev_minor;
 	}
@@ -202,7 +202,7 @@ enum class FileType : u8 {
 
 struct LinkTarget {
 	QString path;
-	QVector<FileID> chain_ids_; // for detecting circular symlinks
+	QVector<DiskFileId> chain_ids_; // for detecting circular symlinks
 	QVector<QString> chain_paths_;
 	mode_t mode = 0;
 	FileType type = FileType::Unknown;

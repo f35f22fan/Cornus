@@ -812,6 +812,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 		MutexGuard guard = files.guard();
 		dir_id = ++files.data.dir_id;
 		files.data.processed_dir_path = new_data->processed_dir_path;
+		files.data.can_write_to_dir(new_data->can_write_to_dir());
 		/// copying sorting order is logically wrong because it overwrites
 		/// the existing one.
 		files.data.show_hidden_files(new_data->show_hidden_files());

@@ -107,7 +107,7 @@ target_include_directories(${cornus_exe} PRIVATE ${MTP_INCLUDE_DIRS}
     ${POLKIT_INCLUDE_DIRS} ${POLKIT_AGENT_INCLUDE_DIRS}) # ${DCONF_INCLUDE_DIRS}
 target_link_libraries(${cornus_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
     ${MTP_LDFLAGS} ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS}
-    ${URING_LDFLAGS} ${POLKIT_LDFLAGS} ${POLKIT_AGENT_LDFLAGS} pthread) # ${DCONF_LDFLAGS}
+    ${URING_LDFLAGS} ${POLKIT_LDFLAGS} ${POLKIT_AGENT_LDFLAGS} pthread zstd) # ${DCONF_LDFLAGS}
 
 set(cornus_io_src_files main_io.cpp
     AutoDelete.hh
@@ -119,6 +119,7 @@ set(cornus_io_src_files main_io.cpp
     MutexGuard.cpp MutexGuard.hpp
     MyDaemon.cpp MyDaemon.hpp
     prefs.cc prefs.hh
+    thumbnail.cc thumbnail.hh
     trash.cc trash.hh
 
     gui/TaskGui.cpp gui/TaskGui.hpp
@@ -147,7 +148,7 @@ target_include_directories(${cornus_io_exe} PRIVATE
     ${UDISKS_INCLUDE_DIRS}) # ${DCONF_INCLUDE_DIRS}
 target_link_libraries(${cornus_io_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
     ${URING_LDFLAGS}
-    ${UDISKS_LDFLAGS} pthread) # ${DCONF_LDFLAGS}
+    ${UDISKS_LDFLAGS} pthread zstd) # ${DCONF_LDFLAGS}
 
 set(cornus_r_src_files main_r.cpp
     AutoDelete.hh
@@ -156,6 +157,7 @@ set(cornus_r_src_files main_r.cpp
     ElapsedTimer.cpp ElapsedTimer.hpp
     err.hpp
     MutexGuard.cpp MutexGuard.hpp
+    thumbnail.cc thumbnail.hh
     trash.cc trash.hh
 
     io/decl.hxx
@@ -174,5 +176,5 @@ endforeach()
 set (cornus_r_exe "cornus_r")
 add_executable(${cornus_r_exe} ${cornus_r_src_files} resources/resources.qrc)
 #target_include_directories(${cornus_r_exe})
-target_link_libraries(${cornus_r_exe} Qt5::Core Qt5::Gui pthread)
+target_link_libraries(${cornus_r_exe} Qt5::Core Qt5::Gui pthread zstd)
 

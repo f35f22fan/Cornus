@@ -49,6 +49,10 @@ public:
 	bool has_ext_attrs() const { return ext_attrs_.size() > 0; }
 	bool has_media_attrs() const { return ext_attrs_.contains(media::XAttrName);}
 	ByteArray media_attrs() const { return ext_attrs_.value(media::XAttrName); }
+	bool has_thumbnail_attr() const { return ext_attrs_.contains(media::XAttrThumbnail); }
+	bool IsThumbnailMarkedFailed();
+	void MarkThumbnailFailed();
+	QImage CreateThumbnailFromExtAttr();
 	media::ShortData* media_attrs_decoded();
 	void ClearXAttrs();
 	void ReadLinkTarget();
@@ -139,8 +143,8 @@ public:
 	io::Files* files() const { return files_; }
 	void files(io::Files *ptr) { files_ = ptr; dp_.clear(); }
 	
-	void id(const FileID d) { id_ = d; }
-	FileID id() const { return id_; }
+	void id(const DiskFileId d) { id_ = d; }
+	DiskFileId id() const { return id_; }
 	u64 id_num() const { return id_.inode_number; }
 	
 	QString SizeToString() const;
@@ -180,7 +184,7 @@ private:
 	QString dp_;
 	i64 size_ = -1;
 	QHash<QString, ByteArray> ext_attrs_;
-	FileID id_ = {};
+	DiskFileId id_ = {};
 	struct statx_timestamp time_created_ = {};
 	struct statx_timestamp time_modified_ = {};
 	mode_t mode_;

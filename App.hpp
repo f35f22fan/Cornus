@@ -103,7 +103,7 @@ public:
 	
 public Q_SLOTS:
 	void MediaFileChanged();
-	void ThumbnailArrived(cornus::Thumbnail *p);
+	void ThumbnailArrived(cornus::Thumbnail *thumbnail);
 	
 protected:
 	bool event(QEvent *event) override;
@@ -133,6 +133,7 @@ private:
 	int ReadMTP();
 	void RegisterShortcuts();
 	void RegisterVolumesListener();
+	void SaveThumbnail();
 	void SetupIconNames();
 	void TabSelected(const int i);
 	
@@ -176,6 +177,7 @@ private:
 	QTabWidget *tab_widget_ = nullptr;
 	cornus::GuiBits gui_bits_ = {};
 	HashInfo root_hash_ = {};
+	QVector<io::SaveThumbnail> thumbnails_to_save_;
 	
 	GlobalThumbLoaderData global_thumb_loader_data_ = {};
 	

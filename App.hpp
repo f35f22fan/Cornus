@@ -62,6 +62,7 @@ public:
 	}
 	
 	void Reload();
+	Hid* hid() const { return hid_; }
 	void HideTextEditor();
 	QColor hover_bg_color() const { return (theme_type_ == ThemeType::Light)
 		? QColor(150, 255, 150) : QColor(0, 80, 0); }
@@ -76,6 +77,7 @@ public:
 	inline ExecInfo QueryExecInfo(io::File &file);
 	ExecInfo QueryExecInfo(const QString &full_path, const QString &ext);
 	QString QueryMimeType(const QString &full_path);
+	void RemoveAllThumbTasksExcept(const DirId dir_id);
 	void RenameSelectedFile();
 	void RunExecutable(const QString &full_path, const ExecInfo &info);
 	void SaveBookmarks();
@@ -83,7 +85,7 @@ public:
 	bool ShowInputDialog(const gui::InputDialogParams &params, QString &ret_val);
 	
 	void SubmitThumbLoaderWork(ThumbLoaderArgs *new_work);
-	
+	void SubmitThumbLoaderBatchFromTab(QVector<ThumbLoaderArgs*> *new_work_vec, const TabId tab_id, const DirId dir_id);
 	gui::Tab* tab() const; // returns current tab
 	gui::Tab* tab(const TabId id, int *ret_index = nullptr);
 	QTabWidget* tab_widget() const { return tab_widget_; }
@@ -126,6 +128,7 @@ private:
 	QIcon* GetFolderIcon();
 	QIcon* GetIconOrLoadExisting(const QString &icon_path);
 	QString GetIconThatStartsWith(const QString &trunc);
+	void InitThumbnailPoolIfNeeded();
 	QIcon *LoadIcon(io::File &file);
 	void LoadIconsFrom(QString dir_path);
 	gui::Tab *OpenNewTab(const cornus::FirstTime ft = FirstTime::No);
@@ -167,6 +170,7 @@ private:
 		QString saved_window_title;
 	};
 	
+	Hid *hid_ = nullptr;
 	Notepad notepad_ = {};
 	Clipboard clipboard_ = {};
 	gui::SearchPane *search_pane_ = nullptr;

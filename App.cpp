@@ -22,6 +22,7 @@
 #include "DesktopFile.hpp"
 #include "ElapsedTimer.hpp"
 #include "ExecInfo.hpp"
+#include "Hid.hpp"
 #include "History.hpp"
 #include "io/disks.hh"
 #include "io/io.hh"
@@ -110,25 +111,37 @@ void* ThumbnailLoader (void *args)
 		QString thumb_in_temp_path = io::BuildTempPathFromID(new_work->file_id);
 		ByteArray temp_ba;
 		Thumbnail *thumbnail = nullptr;
-		if (io::ReadFile(thumb_in_temp_path, temp_ba, PrintErrors::No))
+		const bool has_ext_attr = new_work->ba.size() != 0;
+		if (has_ext_attr || io::ReadFile(thumb_in_temp_path, temp_ba, PrintErrors::No))
 		{
-			//mtl_info("Loaded thumbnail from /var/tmp");
-			QImage img = thumbnail::ImageFromByteArray(temp_ba);
-			
-			thumbnail = new Thumbnail();
-			thumbnail->img = img;
-			thumbnail->file_id = new_work->file_id.inode_number;
-			thumbnail->time_generated = time(NULL);
-			thumbnail->w = img.width();
-			thumbnail->h = img.height();
-			thumbnail->tab_id = new_work->tab_id;
-			thumbnail->dir_id = new_work->dir_id;
-			thumbnail->from_temp = FromTempDir::Yes;
+//			if (has_ext_attr) {
+//				mtl_info("EXT ATTR %s", qPrintable(new_work->full_path));
+//			} else {
+//				mtl_info("TEMP DIR %s", qPrintable(new_work->full_path));
+//			}
+			ByteArray &img_ba = has_ext_attr ? new_work->ba : temp_ba;
+			QImage img = thumbnail::ImageFromByteArray(img_ba);
+			if (!img.isNull())
+			{
+				thumbnail = new Thumbnail();
+				thumbnail->img = img;
+				thumbnail->file_id = new_work->file_id.inode_number;
+				thumbnail->time_generated = time(NULL);
+				thumbnail->w = img.width();
+				thumbnail->h = img.height();
+				thumbnail->tab_id = new_work->tab_id;
+				thumbnail->dir_id = new_work->dir_id;
+				thumbnail->origin = has_ext_attr ? Origin::ExtAttr : Origin::TempDir;
+			}
 		} else {
+			//mtl_info("FROM FILE %s", qPrintable(new_work->full_path));
 			thumbnail = LoadThumbnail(new_work->full_path,
-				new_work->file_id.inode_number, new_work->ext, new_work->icon_w,
-				new_work->icon_h, new_work->tab_id, new_work->dir_id);
-			thumbnail->from_temp = FromTempDir::No;
+				new_work->file_id.inode_number,
+				new_work->ext, new_work->icon_w,
+				new_work->icon_h, new_work->tab_id,
+				new_work->dir_id);
+			if (thumbnail)
+				thumbnail->origin = Origin::DiskFile;
 		}
 		
 		th_data->Lock();
@@ -148,6 +161,9 @@ void* ThumbnailLoader (void *args)
 		th_data->new_work = nullptr;
 		if (th_data->wait_for_work)
 		{
+//			static int k = 0;
+//			i64 th_id = i64(pthread_self());
+//			mtl_info("Thumbnail loaded: %d, thread: %ld", ++k, th_id);
 			QMetaObject::invokeMethod(app, "ThumbnailArrived",
 				Q_ARG(cornus::Thumbnail*, thumbnail));
 		} else {
@@ -165,22 +181,18 @@ void* ThumbnailLoader (void *args)
 			th_data->Lock();
 		}
 	}
+	
 	const u64 t = static_cast<u64>(pthread_self());
 	th_data->thread_exited = true;
+	// after Unlock() th_data might be already deleted, so save a pointer:
 	auto *global_data = th_data->global_data;
 	th_data->Unlock();
+	
 	// signal that the thread exited
-	if (global_data->Lock())
-	{
-		global_data->Broadcast();
+	const bool unlock = global_data->Lock();
+	global_data->Broadcast();
+	if (unlock)
 		global_data->Unlock();
-		if (DebugThumbnailExit)
-			mtl_trace("%ld", t);
-	} else {
-		global_data->Broadcast();
-		if (DebugThumbnailExit)
-			mtl_trace("%ld", t);
-	}
 	if (DebugThumbnailExit)
 		mtl_trace("%ld EXIT", t);
 	
@@ -237,6 +249,7 @@ App::App()
 	qDBusRegisterMetaType<QMap<QString, QVariant>>();
 	qRegisterMetaType<cornus::Thumbnail*>();
 	media_ = new Media();
+	hid_ = new Hid(this);
 	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, gui::sidepane::LoadItems, this);
@@ -244,7 +257,6 @@ App::App()
 		mtl_status(status);
 	
 	io::socket::AutoLoadRegularIODaemon();
-	
 	setWindowIcon(QIcon(cornus::AppIconPath));
 	prefs_ = new Prefs(this);
 	prefs_->Load();
@@ -304,7 +316,7 @@ App::~App()
 		// Terminate thumb loading threads if any
 		th_data->Lock();
 		th_data->wait_for_work = false;
-		th_data->Broadcast();
+		th_data->SignalNewWorkAvailable();
 		th_data->Unlock();
 	}
 	
@@ -1076,6 +1088,35 @@ QColor App::hover_bg_color_gray(const QColor &c) const
 	return n;
 }
 
+void App::InitThumbnailPoolIfNeeded()
+{
+	if (!global_thumb_loader_data_.threads.isEmpty())
+		return;
+	
+	pthread_t th;
+	// leave a thread for other background tasks
+	const int max_thread_count = std::max(1, AvailableCpuCores() - 1);
+	int status;
+	for (int i = 0; i < max_thread_count; i++)
+	{
+		ThumbLoaderData *thread_data = new ThumbLoaderData();
+		thread_data->global_data = &global_thumb_loader_data_;
+		global_thumb_loader_data_.threads.append(thread_data);
+		status = pthread_create(&th, NULL, ThumbnailLoader, thread_data);
+		if (status != 0)
+		{
+			delete thread_data;
+			global_thumb_loader_data_.threads.removeLast();
+			mtl_status(status);
+			return;
+		}
+	}
+	
+	status = pthread_create(&th, NULL, GlobalThumbLoadMonitor, &global_thumb_loader_data_);
+	if (status != 0)
+		mtl_status(status);
+}
+
 void App::LaunchOrOpenDesktopFile(const QString &full_path,
 	const bool has_exec_bit, const RunAction action) const
 {
@@ -1475,7 +1516,7 @@ void App::RegisterShortcuts()
 			QVector<int> indices;
 			auto &view_files = *files(tab->files_id());
 			MutexGuard guard = view_files.guard();
-			tab->table()->SelectAllFilesNTS(true, indices);
+			tab->SelectAllFilesNTS(true, indices);
 			tab->table_model()->UpdateIndices(indices);
 		});
 	}
@@ -1511,6 +1552,29 @@ void App::RegisterVolumesListener()
 
 void App::Reload() {
 	tab()->GoTo(Action::Reload, {tab()->current_dir(), Processed::Yes}, Reload::Yes);
+}
+
+void App::RemoveAllThumbTasksExcept(const DirId dir_id)
+{
+	auto global_guard = global_thumb_loader_data_.guard();
+	auto &work_queue = global_thumb_loader_data_.work_queue;
+	const int count = work_queue.size();
+	int removed_count = 0;
+	for (int i = count - 1; i >= 0; i--)
+	{
+		ThumbLoaderArgs *arg = work_queue[i];
+		if (arg->dir_id != dir_id)
+		{
+			removed_count++;
+			delete arg;
+			work_queue.remove(i);
+		}
+	}
+	
+	if (removed_count > 0) {
+		mtl_info("Removed work items: %d", removed_count);
+		global_thumb_loader_data_.Broadcast();
+	}
 }
 
 void App::RenameSelectedFile()
@@ -1775,34 +1839,56 @@ bool App::ShowInputDialog(const gui::InputDialogParams &params,
 void App::SubmitThumbLoaderWork(ThumbLoaderArgs *new_work)
 {
 	auto global_guard = global_thumb_loader_data_.guard();
-	if (global_thumb_loader_data_.threads.isEmpty())
+	InitThumbnailPoolIfNeeded();
+	global_thumb_loader_data_.work_queue.append(new_work);
+	global_thumb_loader_data_.SignalWorkQueueChanged();
+}
+
+void App::SubmitThumbLoaderBatchFromTab(QVector<ThumbLoaderArgs*> *new_work_vec,
+	const TabId tab_id, const DirId dir_id)
+{
+	if (new_work_vec->isEmpty())
 	{
-		pthread_t th;
-		const int max_thread_count = AvailableCpuCores();
-		int status;
-		for (int i = 0; i < max_thread_count; i++)
+		delete new_work_vec;
+		return;
+	}
+	
+	{
+		auto global_guard = global_thumb_loader_data_.guard();
+		InitThumbnailPoolIfNeeded();
+		auto &work_queue = global_thumb_loader_data_.work_queue;
+		const int count = work_queue.size();
+		int removed_count = 0;
+		for (int i = count - 1; i >= 0; i--)
 		{
-			ThumbLoaderData *thread_data = new ThumbLoaderData();
-			thread_data->global_data = &global_thumb_loader_data_;
-			global_thumb_loader_data_.threads.append(thread_data);
-			status = pthread_create(&th, NULL, ThumbnailLoader, thread_data);
-			if (status != 0)
+			ThumbLoaderArgs *arg = work_queue[i];
+			if (arg->tab_id != tab_id || arg->dir_id != dir_id)
 			{
-				delete new_work;
-				delete thread_data;
-				global_thumb_loader_data_.threads.removeLast();
-				mtl_status(status);
-				return;
+				removed_count++;
+				delete arg;
+				work_queue.remove(i);
 			}
 		}
 		
-		status = pthread_create(&th, NULL, GlobalThumbLoadMonitor, &global_thumb_loader_data_);
-		if (status != 0)
-			mtl_status(status);
+		if (removed_count > 0) {
+			mtl_info("Removed work items: %d", removed_count);
+		}
+		
+		for (int i = new_work_vec->size() - 1; i >= 0; i--)
+		{
+// Iteration happens from last to first on purpose because the user needs
+// the thumbnails to be loaded from top to bottom and since the thumbnails
+// monitor picks from the bottom of the vector queue with vector->takeLast()
+// (because it's more efficient than vector->takeFirst()) one must submit
+// the items from last to first.
+			auto *item = (*new_work_vec)[i];
+			work_queue.append(item);
+		}
+		
+		global_thumb_loader_data_.Broadcast();
 	}
 	
-	global_thumb_loader_data_.work_queue.append(new_work);
-	global_thumb_loader_data_.SignalWorkQueueChanged();
+	delete new_work_vec;
 }
 
 gui::Tab* App::tab() const
@@ -1884,7 +1970,6 @@ void App::SaveThumbnail()
 
 void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 {
-	//mtl_info("THUMBNAIL ARRIVED");
 	gui::Tab *tab = this->tab(thumbnail->tab_id);
 	if (tab == nullptr || tab->icon_view() == nullptr)
 	{
@@ -1892,14 +1977,23 @@ void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 		return;
 	}
 	
-	int file_index = -1;
 	auto &files = tab->view_files();
 	{
 		files.Lock();
+		const DirId dir_id = files.data.dir_id;
+		
+		if (thumbnail->dir_id != dir_id)
+		{
+			files.Unlock();
+			static int wrong_dir = 0;
+			delete thumbnail;
+			mtl_info("Wrong dir, skipped: %d", ++wrong_dir);
+			return;
+		}
+		
 		const bool can_write_to_dir = io::CanWriteToDir(files.data.processed_dir_path);
 		for (io::File *file: files.data.vec)
 		{
-			file_index++;
 			if (file->id_num() != thumbnail->file_id)
 				continue;
 			
@@ -1909,7 +2003,7 @@ void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 			files.Unlock();
 			tab->icon_view()->RepaintLater();
 			
-			if (thumbnail->from_temp != FromTempDir::Yes)
+			if (thumbnail->origin == Origin::DiskFile)
 			{
 				io::SaveThumbnail st;
 				st.full_path = full_path;
@@ -1922,6 +2016,7 @@ void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 			}
 			return;
 		}
+		
 		files.Unlock();
 	}
 	

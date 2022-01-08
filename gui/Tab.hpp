@@ -40,6 +40,7 @@ public:
 	void CreateGui();
 	const QString& current_dir() const { return current_dir_; }
 	QString CurrentDirTrashPath();
+	void DisplayingNewDirectory(const DirId dir_id);
 	TabId id() const { return id_; }
 	i64 files_id() const { return files_id_; }
 	void FilesChanged(const Repaint r, const int row = -1);
@@ -59,6 +60,8 @@ public:
 	io::Notify& notify() { return notify_; }
 	
 	void PopulateUndoDelete(QMenu *menu);
+	void ScrollToFile(const int file_index);
+	void SelectAllFilesNTS(const bool flag, QVector<int> &indices);
 	void ShutdownLastInotifyThread();
 	
 	gui::Table* table() const { return table_; }
@@ -72,6 +75,8 @@ public:
 	
 	const QString& title() const { return title_; }
 	void SetTitle(const QString &s);
+	
+	void UpdateIndices(const QVector<int> &indices);
 	
 public Q_SLOTS:
 	void GoToFinish(cornus::io::FilesData *new_data);

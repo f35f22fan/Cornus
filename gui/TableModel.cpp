@@ -611,8 +611,8 @@ mtl_info("==> New Batch ==>>");
 	}
 	
 	if (!indices.isEmpty()) {
-		UpdateIndices(indices);
-		tab_->table()->ScrollToRow(indices[0]);
+		tab_->UpdateIndices(indices);
+		tab_->ScrollToFile(indices[0]);
 	}
 }
 
@@ -833,7 +833,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 	UpdateIndices(indices);
 	UpdateHeaderNameColumn();
 	InotifyBatchFinished();
-	tab_->FilesChanged(Repaint::IfViewIsCurrent);
+	tab_->DisplayingNewDirectory(dir_id);
 	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, cornus::gui::WatchDir, args);

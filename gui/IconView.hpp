@@ -50,16 +50,35 @@ public:
 	IconView(App *app, Tab *tab, QScrollBar *vs);
 	virtual ~IconView();
 	
+	void DisplayingNewDirectory(const DirId dir_id);
+	
+	int GetRowAtY(const int y, int *y_off = nullptr) const
+	{
+		int row = y / (int)icon_dim_.rh;
+		const int int_off = y % (int)icon_dim_.rh;
+		if (y_off)
+			*y_off = -int_off;
+		
+		if (int_off != 0)
+			row++;
+		
+		return row;
+	}
+	
 	QSize minimumSize() const { return size(); }
 	QSize maximumSize() const { return size(); }
+	void SendLoadingNewThumbnailsBatch();
 	QSize size() const;
 	virtual QSize sizeHint() const override { return size(); }
 	
 	void Scroll(const VDirection d, const ScrollBy sb);
-	
+	void ScrollToAndSelect(const int file_index, const DeselectOthers des);
+	void ScrollToFile(const int file_index);
 	void FilesChanged(const Repaint r, const int file_index);
-	
-	void RepaintLater();
+	bool is_current_view() const;
+	io::File* GetFileAtNTS(const QPoint &pos, const Clone c, int *ret_index = nullptr);
+	void RepaintLater(const int custom_ms = -1);
+	void UpdateIndices(const QVector<int> &indices);
 	
 protected:
 	virtual void keyPressEvent(QKeyEvent *evt) override;
@@ -87,13 +106,13 @@ private:
 	Last last_ = {};
 	mutable IconDim icon_dim_ = {};
 	QScrollBar *vs_ = nullptr;
-	bool pending_update_ = false;
 	QVector<int> repaint_indices_;
 	ElapsedTimer last_repaint_;
 	bool delayed_repaint_pending_ = false;
 	const i64 delay_repaint_ms_ = 100;
-	bool force_repaint_ = false;
+	bool repaint_without_delay_ = false;
 	int scroll_page_step_ = -1;
+	DirId last_submitted_dir_id_ = -1;
 };
 
 

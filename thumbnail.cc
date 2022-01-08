@@ -36,47 +36,31 @@ void* GlobalThumbLoadMonitor(void *args)
 {
 	pthread_detach(pthread_self());
 	GlobalThumbLoaderData *global_data = (GlobalThumbLoaderData*)args;
-	CHECK_TRUE_NULL(global_data->Lock());
+	auto global_guard = global_data->guard();
 	
 	while (!global_data->threads.isEmpty())
 	{
 		auto &work_queue = global_data->work_queue;
-		if (work_queue.isEmpty())
-		{
-			int status = global_data->CondWaitForWorkQueueChange();
-			if (status != 0)
-			{
-				mtl_status(status);
-				break;
-			}
-		}
-		
-		if (work_queue.isEmpty())
-			continue;
-		
 		for (ThumbLoaderData *th_data: global_data->threads)
 		{
-			if (!th_data->TryLock()) // IT IS LOCKED!
-				continue;
-			if (th_data->new_work != nullptr)
-			{
-				th_data->Unlock();
-				continue;
-			}
-			const int last_one = work_queue.size() - 1;
-			{
-				th_data->new_work = work_queue[last_one];
-				th_data->SignalNewWorkAvailable();
-				th_data->Unlock();
-			}
-			work_queue.remove(last_one);
-			
 			if (work_queue.isEmpty())
 				break;
+			auto guard = th_data->guard();
+			if (th_data->new_work != nullptr)
+				continue;
+			
+			th_data->new_work = work_queue.takeLast();
+			th_data->SignalNewWorkAvailable();
+		}
+		
+		int status = global_data->CondWaitForWorkQueueChange();
+		if (status != 0)
+		{
+			mtl_status(status);
+			break;
 		}
 	}
 	
-	global_data->Unlock();
 	return nullptr;
 }
 

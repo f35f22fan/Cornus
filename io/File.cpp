@@ -3,6 +3,8 @@
 #include "../ByteArray.hpp"
 #include "../thumbnail.hh"
 
+#include <QImageReader>
+
 #include <cstdio>
 #include <zstd.h>
 
@@ -90,7 +92,7 @@ bool File::has_exec_bit() const {
 bool File::IsThumbnailMarkedFailed()
 {
 	ByteArray &ba = ext_attrs_[media::XAttrThumbnail];
-	return ba.size() > ThumbnailHeaderSize;
+	return ba.size() <= (ThumbnailHeaderSize + 4);
 }
 
 void File::MarkThumbnailFailed()
@@ -168,9 +170,22 @@ void File::ReadLinkTarget()
 
 bool File::ShouldTryLoadingThumbnail()
 {
-	if (!is_regular() || cache_.tried_loading_thumbnail || has_thumbnail_attr())
+	if (!is_regular() || cache_.tried_loading_thumbnail)
 		return false;
-	return (cache_.thumbnail == nullptr);
+	
+	static const auto formats = QImageReader::supportedImageFormats();
+	if (!formats.contains(cache_.ext.toLocal8Bit()))
+		return false;
+	
+	const bool has_attr = has_thumbnail_attr();
+	
+	if (has_attr && IsThumbnailMarkedFailed())
+		return false;
+	
+	if (cache_.thumbnail == nullptr || has_attr)
+		return true;
+	
+	return false;
 }
 
 QString File::SizeToString() const
@@ -179,12 +194,6 @@ QString File::SizeToString() const
 		return QString();
 	
 	return io::SizeToString(size_);
-}
-
-QImage File::CreateThumbnailFromExtAttr()
-{
-	ByteArray &ba = ext_attrs_[media::XAttrThumbnail];
-	return cornus::thumbnail::ImageFromByteArray(ba);
 }
 
 }

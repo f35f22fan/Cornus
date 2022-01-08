@@ -194,6 +194,12 @@ QString Tab::CurrentDirTrashPath()
 	return full_path;
 }
 
+void Tab::DisplayingNewDirectory(const DirId dir_id)
+{
+	if (icon_view_ != nullptr)
+		icon_view_->DisplayingNewDirectory(dir_id);
+}
+
 void Tab::FilesChanged(const Repaint r, const int row)
 {
 	// File changes are monitored only in TableModel.cpp which represents
@@ -267,7 +273,7 @@ void Tab::GoToFinish(cornus::io::FilesData *new_data)
 		table_->SelectByLowerCase(list, NamesAreLowerCase::Yes);
 	} else if (new_data->scroll_to_and_select.isEmpty()) {
 		if (!got_files_to_select)
-			table_->ScrollToRow(0);
+			ScrollToFile(0);
 	}
 	
 	QString dir_name = QDir(new_data->processed_dir_path).dirName();
@@ -479,6 +485,39 @@ void Tab::resizeEvent(QResizeEvent *ev)
 	QWidget::resizeEvent(ev);
 }
 
+void Tab::ScrollToFile(const int file_index)
+{
+	const ViewMode vm = view_mode();
+	switch (vm) {
+	case ViewMode::Details : {
+		table_->ScrollToFile(file_index);
+		break;
+	}
+	case ViewMode::Icons: {
+		icon_view_->ScrollToFile(file_index);
+		break;
+	}
+	default: {
+		mtl_trace();
+	}
+	}
+}
+
+void Tab::SelectAllFilesNTS(const bool flag, QVector<int> &indices)
+{
+	int i = 0;
+	io::Files &files = view_files();
+	for (auto *file: files.data.vec)
+	{
+		if (file->selected() != flag)
+		{
+			indices.append(i);
+			file->selected(flag);
+		}
+		i++;
+	}
+}
+
 void Tab::SetTitle(const QString &s)
 {
 	title_ = s;
@@ -507,11 +546,10 @@ void Tab::SetViewMode(const ViewMode mode)
 		break;
 	}
 	case ViewMode::Icons: {
+		CHECK_PTR_VOID(icon_view_);
+		icon_view_->SendLoadingNewThumbnailsBatch();
 		viewmode_stack_->setCurrentIndex(icons_view_index_);
-		if (icon_view_ != nullptr)
-			icon_view_->setFocus(Qt::MouseFocusReason);
-		else
-			mtl_trace();
+		icon_view_->setFocus(Qt::MouseFocusReason);
 		break;
 	}
 	default: {
@@ -658,6 +696,24 @@ void Tab::UndeleteFiles(const QMap<i64, QVector<trash::Names>> &items)
 		if (status != 0) {
 			mtl_status(errno);
 		}
+	}
+}
+
+void Tab::UpdateIndices(const QVector<int> &vec)
+{
+	const ViewMode vm = view_mode();
+	switch (vm) {
+	case ViewMode::Details : {
+		table_model_->UpdateIndices(vec);
+		break;
+	}
+	case ViewMode::Icons: {
+		icon_view_->UpdateIndices(vec);
+		break;
+	}
+	default: {
+		mtl_trace();
+	}
 	}
 }
 

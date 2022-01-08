@@ -1,6 +1,7 @@
 #include "SearchPane.hpp"
 
 #include "../App.hpp"
+#include "../Hid.hpp"
 #include "../io/File.hpp"
 #include "Location.hpp"
 #include "../Media.hpp"
@@ -47,7 +48,7 @@ void SearchPane::BeforeExiting()
 	if (select_row_ < 0 || last_dir_id_ != app_->current_dir_id())
 		return;
 	
-	app_->tab()->table()->SelectRowSimple(select_row_, true);
+	app_->hid()->SelectFileByIndex(app_->tab(), select_row_, DeselectOthers::Yes);
 }
 
 bool SearchPane::ContainsAll(const media::ShortData &data)
@@ -318,7 +319,7 @@ void SearchPane::DoSearch(const QString *search_str)
 	}
 	tab->table_model()->UpdateIndices(indices);
 	if (select_row_ != -1)
-		tab->table()->ScrollToRow(select_row_);
+		tab->table()->ScrollToFile(select_row_);
 }
 
 bool SearchPane::eventFilter(QObject  *obj, QEvent * event)
@@ -527,7 +528,7 @@ void SearchPane::ScrollToNext(const Direction dir)
 	tab->table()->model()->UpdateIndices(indices);
 	
 	if (select_row_ != -1)
-		tab->table()->ScrollToRow(select_row_);
+		tab->table()->ScrollToFile(select_row_);
 }
 
 void SearchPane::SetMode(const SearchBy mode)

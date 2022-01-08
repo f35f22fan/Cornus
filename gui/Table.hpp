@@ -4,6 +4,7 @@
 #include "decl.hxx"
 #include "../io/decl.hxx"
 #include "../err.hpp"
+#include "../input.hxx"
 
 #include <QAbstractTableModel>
 #include <QMouseEvent>
@@ -26,6 +27,8 @@ class Table : public QTableView {
 public:
 	Table(TableModel *tm, App *app, Tab *tab);
 	virtual ~Table();
+	
+	input::TriggerOn trigger_policy() const { return trigger_on_; }
 	
 	App* app() const { return app_; }
 	void ApplyPrefs();
@@ -50,6 +53,7 @@ public:
 	int GetRowHeight() const;
 	int GetSelectedFilesCount(QVector<QString> *extensions = nullptr);
 	i32 GetVisibleRowsCount() const;
+	i32 IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file = nullptr);
 	bool mouse_down() const { return mouse_down_; }
 	i32 mouse_over_file_icon_index() const { return mouse_over_file_icon_; }
 	i32 mouse_over_file_name_index() const { return mouse_over_file_name_; }
@@ -57,11 +61,8 @@ public:
 	void ProcessAction(const QString &action);
 	bool ReloadOpenWith();
 	void RemoveThumbnailsFromSelectedFiles();
-	void ScrollToRow(int row);
-	void ScrollToAndSelectRow(const int row, const bool deselect_others);
-	void SelectAllFilesNTS(const bool flag, QVector<int> &indices);
+	void ScrollToFile(int file_index);
 	void SelectByLowerCase(QVector<QString> filenames, const NamesAreLowerCase are_lower);
-	void SelectRowSimple(const int row, const bool deselect_others = false);
 	void ShowVisibleColumnOptions(QPoint pos);
 	void SyncWith(const cornus::Clipboard &cl, QVector<int> &indices);
 	gui::Tab* tab() const { return tab_; }
@@ -107,12 +108,9 @@ private:
 	void HandleKeySelect(const VDirection vdir);
 	void HandleKeyShiftSelect(const VDirection vdir);
 	void HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indices);
-	void HandleMouseSelectionCtrl(const QPoint &pos, QVector<int> &indices);
 	void HandleMouseSelectionShift(const QPoint &pos, QVector<int> &indices);
-	void HandleMouseSelectionNoModif(const QPoint &pos, QVector<int> &indices, bool mouse_pressed);
 	void HiliteFileUnderMouse();
 	i32 IsOnFileIconNTS(const QPoint &local_pos, io::File **ret_file = nullptr);
-	i32 IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file = nullptr);
 	void LaunchFromOpenWithMenu();
 	QPair<int, int> ListSelectedFiles(QList<QUrl> &list);
 	void SelectFileRangeNTS(const int row_start, const int row_end, QVector<int> &indices);
@@ -130,10 +128,7 @@ private:
 	bool mouse_down_ = false;
 	i32 mouse_over_file_name_ = -1;
 	i32 mouse_over_file_icon_ = -1;
-	struct ShiftSelect {
-		int base_row = -1;
-		int head_row = -1;
-	} shift_select_ = {};
+	ShiftSelect shift_select_ = {};
 	
 	struct DragScroll {
 		int by = 1;
@@ -146,6 +141,8 @@ private:
 	OpenWith open_with_ = {};
 	TableHeader *header_ = nullptr;
 	QMenu *undo_delete_menu_ = nullptr;
+	
+	input::TriggerOn trigger_on_ = input::TriggerOn::FileName;
 };
 
 } // cornus::gui::

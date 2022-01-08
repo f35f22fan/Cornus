@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ByteArray.hpp"
 #include "err.hpp"
 #include "decl.hxx"
 #include "io/decl.hxx"
@@ -12,9 +13,10 @@
 
 namespace cornus {
 
-enum class FromTempDir: i8 {
-	Yes,
-	No,
+enum class Origin: i8 {
+	TempDir,
+	ExtAttr,
+	DiskFile,
 	Undefined
 };
 
@@ -30,13 +32,14 @@ struct Thumbnail {
 	DirId dir_id = -1;
 	int w = -1;
 	int h = -1;
-	FromTempDir from_temp = FromTempDir::Undefined;
+	Origin origin = Origin::Undefined;
 };
 
 struct ThumbLoaderArgs {
 	App *app = nullptr;
 	QString full_path;
 	QByteArray ext;
+	ByteArray ba;
 	TabId tab_id = -1;
 	DirId dir_id = -1;
 	io::DiskFileId file_id = {};

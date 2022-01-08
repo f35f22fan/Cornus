@@ -50,9 +50,9 @@ public:
 	bool has_media_attrs() const { return ext_attrs_.contains(media::XAttrName);}
 	ByteArray media_attrs() const { return ext_attrs_.value(media::XAttrName); }
 	bool has_thumbnail_attr() const { return ext_attrs_.contains(media::XAttrThumbnail); }
+	ByteArray thumbnail_attrs() const { return ext_attrs_.value(media::XAttrThumbnail); }
 	bool IsThumbnailMarkedFailed();
 	void MarkThumbnailFailed();
-	QImage CreateThumbnailFromExtAttr();
 	media::ShortData* media_attrs_decoded();
 	void ClearXAttrs();
 	void ReadLinkTarget();

@@ -29,14 +29,20 @@ TextEdit::TextEdit(App *app): app_(app)
 	hiliter_ = new Hiliter(document());
 	
 	QFont font;
-	font.setFamily("Hack");
+	font.setFamily(QLatin1String("Hack"));
 	font.setFixedPitch(true);
 	font.setPointSize(13);
 	setFont(font);
 	
 	QFontMetrics fm(font);
-	const int tab_w = fm.boundingRect(" ").width() * 1;
+	const int tab_w = fm.horizontalAdvance(QChar(' ')) * 4;
 	setTabStopDistance(tab_w);
+	
+	{ // visualize whitespaces
+		QTextOption option = document()->defaultTextOption();
+		option.setFlags(option.flags() | QTextOption::ShowTabsAndSpaces);
+		document()->setDefaultTextOption(option);
+	}
 }
 
 TextEdit::~TextEdit() {

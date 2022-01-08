@@ -45,6 +45,16 @@ class TreeView;
 
 const int FileNameRelax = 2;
 
+enum class DeselectOthers: i8 {
+	Yes,
+	No
+};
+
+struct ShiftSelect {
+	int base_row = -1;
+	int head_row = -1;
+};
+
 enum class ScrollBy: i8 {
 	LineStep,
 	PageStep,

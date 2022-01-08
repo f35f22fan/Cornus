@@ -6,7 +6,7 @@ Building on Ubuntu, install Qt5 (used to be called qt5-default):
 * sudo apt-get install qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools
 
 Then the other dependencies:
-* sudo apt-get install mkvtoolnix libdbus-c++-dev libudev-dev libudisks2-dev libdconf-dev cmake git ark libmtp-dev liburing-dev
+* sudo apt-get install mkvtoolnix libdbus-c++-dev libudev-dev libudisks2-dev libdconf-dev cmake git ark libzstd-dev libmtp-dev liburing-dev
 
 And build it:
 * mkdir build && cd build
@@ -39,6 +39,7 @@ You can use Cornus as is, no need to install it. However, Cornus can also perfor
 * D => Display contents of selected file
 * Ctrl+F => Search for file by name (then hit Enter to search forward or Ctrl+Enter for backwards)
 * Ctrl+M => Search by (movie) file's metadata (see bottom of page)
+* Ctrl+Shift+U => Remove thumbnail from selected files' extended attributes
 
 ---
 ### Screenshot with dark theme:
@@ -70,13 +71,4 @@ or:<br/>
 * You can easily set your own icons for files of different types by dropping an icon into the "file_icons" folder with the proper extension as its name, browse the folder "file_icons" to see what I mean, probably located at "/usr/share/cornus/file_icons".
 * "cornus_io" is the I/O daemon that is started automatically, keep it in the same folder as "cornus".
 * File icons are loaded from "$HOME/.config/CornusMas/file_icons", then from "/usr/share/cornus/file_icons", the icons from the former folder are used if both folders contain files with equal names.
-* Supports marking movie files rip quality, codec, resolution, actors, etc.
-For this first go to the settings menu -> "Media Database" and fill in with the actors, directors etc you might ever care about. Then you can apply any of these to any movie by selecting the movie file and pressing "m", the end result:
-#### Movie Dialog Screenshot:
-
-![](resources/movie_file_attributes.webp)
-
-Media search: Ctrl + M
-The settings are saved using extended file attributes and take up extemely little space.
-At some point will support search for movie files inside a folder by any given category (actor, director, genre, etc).
 

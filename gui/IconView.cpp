@@ -1,6 +1,7 @@
 #include "IconView.hpp"
 
 #include "../App.hpp"
+#include "../Hid.hpp"
 #include "../io/File.hpp"
 #include "../Prefs.hpp"
 #include "RestorePainter.hpp"
@@ -16,6 +17,7 @@
 #include <QTimer>
 
 #include <algorithm>
+#include <cmath>
 
 namespace cornus::gui {
 
@@ -63,6 +65,22 @@ void IconView::ComputeProportions(IconDim &dim) const
 	dim.total_h = dim.rh * dim.row_count;
 }
 
+void IconView::DelayedRepaint()
+{
+	const i64 last_repaint_ms = last_repaint_.elapsed_ms();
+	const i64 remaining_ms = delay_repaint_ms_ - last_repaint_ms;
+	
+	if (remaining_ms > 0) {
+		const auto ms = (remaining_ms >= delay_repaint_ms_ / 2) ?
+			remaining_ms : delay_repaint_ms_;
+		delayed_repaint_pending_ = true;
+		QTimer::singleShot(ms, this, &IconView::DelayedRepaint);
+	} else {
+		update();
+		delayed_repaint_pending_ = false;
+	}
+}
+
 DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
 	double x, double y)
 {
@@ -70,46 +88,6 @@ DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
 	const int max_img_h = cell.h_and_gaps - cell.text_h;
 	const int max_img_w = cell.w_and_gaps;
 	QPixmap pixmap;
-	static const auto formats = QImageReader::supportedImageFormats();
-	if (!vs_->isSliderDown() && file->ShouldTryLoadingThumbnail())
-	{
-		file->cache().tried_loading_thumbnail = true;
-		auto ext = file->cache().ext.toLocal8Bit();
-		if (!ext.isEmpty() && formats.contains(ext))
-		{
-			ThumbLoaderArgs *arg = new ThumbLoaderArgs();
-			arg->app = app_;
-			arg->full_path = file->build_full_path();
-			arg->file_id = file->id();
-			arg->ext = ext;
-			arg->tab_id = tab_->id();
-			auto &files = tab_->view_files();
-			// files is already locked by the calling method
-			arg->dir_id = files.data.dir_id;
-			arg->icon_w = max_img_w;
-			arg->icon_h = max_img_h;
-			//mtl_info("w: %d, h: %d", max_img_w, max_img_h);
-			app_->SubmitThumbLoaderWork(arg);
-		}
-	} else if (file->thumbnail() == nullptr
-		&& file->has_thumbnail_attr()) // && !file->IsThumbnailMarkedFailed())
-	{
-		QImage img = file->CreateThumbnailFromExtAttr();
-		if (!img.isNull())
-		{
-			//mtl_printq(file->name());
-			Thumbnail *p = new Thumbnail();
-			p->img = img;
-			p->w = img.width();
-			p->h = img.height();
-			p->file_id = file->id_num();
-			p->time_generated = time(NULL);
-			p->tab_id = tab_->id();
-			auto &files = tab_->view_files();
-			p->dir_id = files.data.dir_id;
-			file->thumbnail(p);
-		}
-	}
 	
 	if (file->thumbnail() != nullptr) {
 		pixmap = QPixmap::fromImage(file->thumbnail()->img);
@@ -118,7 +96,7 @@ DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
 		if (icon == nullptr)
 			return DrawBorder::No;
 		
-		pixmap = file->cache().icon->pixmap(256, 256);
+		pixmap = file->cache().icon->pixmap(128, 128);
 	}
 	const double pw = pixmap.width();
 	const double ph = pixmap.height();
@@ -140,29 +118,28 @@ DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
 	auto area_img = used_w * used_h;
 	auto area_avail = max_img_w * max_img_h;
 	const auto area_img_ratio = area_avail / area_img;
-//	mtl_info("ratio %.1f, used %.1f/%.1f, avail: %d/%d", area_img_ratio,
-//		used_w, used_h, max_img_w, max_img_h);
 	return (area_img_ratio > 1.45) ? DrawBorder::Yes : DrawBorder::No;
+}
+
+void IconView::DisplayingNewDirectory(const DirId dir_id)
+{
+	if (last_submitted_dir_id_ == dir_id)
+		return;
+	app_->RemoveAllThumbTasksExcept(dir_id);
+	SendLoadingNewThumbnailsBatch();
+	last_submitted_dir_id_ = dir_id;
+	UpdateScrollRange();
+	vs_->setValue(0);
 }
 
 void IconView::FilesChanged(const Repaint r, const int file_index)
 {
-	const bool is_current = (tab_->view_mode() == ViewMode::Icons);
-	if (r == Repaint::IfViewIsCurrent && is_current)
+	if (r == Repaint::IfViewIsCurrent && is_current_view())
 	{
 		UpdateScrollRange();
-		if (file_index != -1) {
-			static bool first_time = true;
-			if (first_time) {
-				first_time = false;
-				mtl_tbd();
-			}
-			update();
-		} else {
-			update();
-		}
+		update();
 	} else {
-		pending_update_ = true;
+		RepaintLater();
 	}
 }
 
@@ -173,15 +150,42 @@ void IconView::Init()
 	setMouseTracking(true);
 	
 	connect(vs_, &QScrollBar::valueChanged, [=](int value) {
-		if (!force_repaint_)
-		{
+		if (repaint_without_delay_)
+			update();
+		else
 			RepaintLater();
-		}
 	});
 	
 	connect(vs_, &QScrollBar::sliderReleased, [=] {
 		update();
 	});
+}
+
+bool IconView::is_current_view() const
+{
+	return tab_->view_mode() == ViewMode::Icons;
+}
+
+io::File* IconView::GetFileAtNTS(const QPoint &pos, const Clone c, int *ret_index)
+{
+	const int y = pos.y() + vs_->value();
+	int y_off;
+	const int row = std::max(0, GetRowAtY(y, &y_off) - 1);
+	const int x = pos.x();
+	const int wide = icon_dim_.cell_and_gap;
+	const int x_index = x / wide;
+	
+	const int file_index = row * icon_dim_.per_row + x_index;
+	auto &files = tab_->view_files();
+	if (file_index < 0 || file_index >= files.data.vec.size())
+		return nullptr;
+	
+	if (ret_index)
+		*ret_index = file_index;
+	
+	io::File *f = files.data.vec[file_index];
+	
+	return (c == Clone::Yes) ? f->Clone() : f;
 }
 
 void IconView::keyPressEvent(QKeyEvent *event)
@@ -216,7 +220,14 @@ void IconView::keyReleaseEvent(QKeyEvent *evt)
 
 void IconView::mouseDoubleClickEvent(QMouseEvent *evt)
 {
-	
+	QVector<int> indices;
+	int row;
+	io::File *file = GetFileAtNTS(evt->pos(), Clone::Yes, &row);
+	if (file) {
+		app_->FileDoubleClicked(file, Column::FileName);
+		indices.append(row);
+		UpdateIndices(indices);
+	}
 }
 
 void IconView::mouseMoveEvent(QMouseEvent *evt)
@@ -226,7 +237,20 @@ void IconView::mouseMoveEvent(QMouseEvent *evt)
 
 void IconView::mousePressEvent(QMouseEvent *evt)
 {
+	const auto modif = evt->modifiers();
+	const bool ctrl = modif & Qt::ControlModifier;
+	//const bool shift = modif & Qt::ShiftModifier;
+	//const bool right_click = evt->button() == Qt::RightButton;
+	const bool left_click = evt->button() == Qt::LeftButton;
+	QVector<int> indices;
 	
+	if (left_click) {
+		if (ctrl) {
+			app_->hid()->HandleMouseSelectionCtrl(tab_, evt->pos(), &indices);
+		}
+	}
+	
+	UpdateIndices(indices);
 }
 
 void IconView::mouseReleaseEvent(QMouseEvent *evt)
@@ -239,10 +263,9 @@ void IconView::paintEvent(QPaintEvent *ev)
 	last_repaint_.Continue(Reset::Yes);
 	
 	static bool first_time = true;
-	if (first_time || pending_update_)
+	if (first_time)
 	{
 		first_time = false;
-		pending_update_ = false;
 		UpdateScrollRange();
 	}
 	
@@ -264,8 +287,6 @@ void IconView::paintEvent(QPaintEvent *ev)
 		cell.cell_and_gap : this->width();
 	
 	io::Files &files = tab_->view_files();
-	auto guard = files.guard();
-	auto &vec = files.data.vec;
 	const int file_count = files.cached_files_count;
 	int file_index = at_row * cell.per_row;
 	QTextOption text_options;
@@ -278,26 +299,33 @@ void IconView::paintEvent(QPaintEvent *ev)
 		{
 			if (file_index >= file_count)
 				break;
-			io::File *file = vec[file_index];
-			file_index++;
+			
+			QString file_name;
 			const QRect cell_r(x, y, cell.w_and_gaps, cell.h_and_gaps);
-			bool mouse_over = false;
-			if (file->selected() || mouse_over)
+			bool mouse_over = false, file_selected = false;
+			DrawBorder draw_border = DrawBorder::No;
 			{
-				QColor c = option.palette.highlight().color();
-				if (mouse_over && !file->selected()) {
-					c = app_->hover_bg_color_gray(c);
+				auto guard = files.guard();
+				io::File *file = files.data.vec[file_index++];
+				file_name = file->name();
+				file_selected = file->selected();
+				if (file_selected || mouse_over)
+				{
+					QColor c = option.palette.highlight().color();
+					if (mouse_over && !file->selected()) {
+						c = app_->hover_bg_color_gray(c);
+					}
+					
+					painter.fillRect(cell_r, c);
 				}
 				
-				painter.fillRect(cell_r, c);
+				draw_border = DrawThumbnail(file, painter, x, y);
 			}
-			
-			DrawBorder draw_border = DrawThumbnail(file, painter, x, y);
 			
 			const float text_y = y + cell.text_y;
 			QRectF text_space(x, text_y, cell.w_and_gaps, cell.text_h);
 			//painter.fillRect(text_space, QColor(255, 255, 100));
-			painter.drawText(text_space, file->name(), text_options);
+			painter.drawText(text_space, file_name, text_options);
 			
 			if (draw_border == DrawBorder::Yes)
 			{
@@ -311,44 +339,26 @@ void IconView::paintEvent(QPaintEvent *ev)
 	}
 }
 
-void IconView::DelayedRepaint()
-{
-	const i64 last_repaint_ms = last_repaint_.elapsed_ms();
-	const i64 remaining_ms = delay_repaint_ms_ - last_repaint_ms;
-	
-	if (remaining_ms > 0) {
-		const auto ms = (remaining_ms >= delay_repaint_ms_ / 2) ?
-			remaining_ms : delay_repaint_ms_;
-		delayed_repaint_pending_ = true;
-		QTimer::singleShot(ms, this, &IconView::DelayedRepaint);
-	} else {
-		update();
-		delayed_repaint_pending_ = false;
-	}
-}
-
-void IconView::RepaintLater()
+void IconView::RepaintLater(const int custom_ms)
 {
 	if (!delayed_repaint_pending_)
 	{
 		delayed_repaint_pending_ = true;
-		QTimer::singleShot(delay_repaint_ms_, this, &IconView::DelayedRepaint);
-	} else {
-//		static int count = 1;
-//		mtl_info("Skipped frame %d", count++);
+		const auto ms = (custom_ms != -1) ? custom_ms : delay_repaint_ms_;
+		QTimer::singleShot(ms, this, &IconView::DelayedRepaint);
 	}
 }
 
 void IconView::resizeEvent(QResizeEvent *ev)
 {
 	UpdateScrollRange();
-	RepaintLater();
+	update();
 }
 
 void IconView::Scroll(const VDirection d, const gui::ScrollBy sb)
 {
-	const auto step = (sb == ScrollBy::LineStep)
-		? icon_dim_.str_h : scroll_page_step_;
+	const int step = (sb == ScrollBy::LineStep)
+		? icon_dim_.rh/2 : scroll_page_step_;
 	const auto val = vs_->value();
 	
 	if (d == VDirection::Down)
@@ -359,11 +369,76 @@ void IconView::Scroll(const VDirection d, const gui::ScrollBy sb)
 	}
 }
 
+void IconView::ScrollToAndSelect(const int file_index, const DeselectOthers des)
+{
+	ScrollToFile(file_index);
+	app_->hid()->SelectFileByIndex(tab_, file_index, des);
+}
+
+void IconView::ScrollToFile(const int file_index)
+{
+	if (icon_dim_.per_row <= 0)
+		ComputeProportions(icon_dim_);
+	
+	int row = file_index / icon_dim_.per_row;
+	if (file_index % icon_dim_.per_row)
+		row++;
+	const int scroll_y = row * icon_dim_.rh;
+	vs_->setValue(scroll_y);
+}
+
+void IconView::SendLoadingNewThumbnailsBatch()
+{
+	auto &files = tab_->view_files();
+	files.Lock();
+	const DirId dir_id = files.data.dir_id;
+	files.Unlock();
+	
+	if (dir_id == last_submitted_dir_id_)
+		return;
+	
+	ComputeProportions(icon_dim_);
+	const auto &cell = icon_dim_; // to make sure I don't change any value
+	const int max_img_h = cell.h_and_gaps - cell.text_h;
+	const int max_img_w = cell.w_and_gaps;
+	
+	QVector<ThumbLoaderArgs*> *work_stack = new QVector<ThumbLoaderArgs*>();
+	{
+		auto guard = files.guard();
+		for (io::File *file: files.data.vec)
+		{
+			if (!file->ShouldTryLoadingThumbnail())
+				continue;
+			
+			file->cache().tried_loading_thumbnail = true;
+			ThumbLoaderArgs *arg = new ThumbLoaderArgs();
+			arg->app = app_;
+			arg->ba = file->thumbnail_attrs();
+			arg->full_path = file->build_full_path();
+			arg->file_id = file->id();
+			arg->ext = file->cache().ext.toLocal8Bit();
+			arg->tab_id = tab_->id();
+			arg->dir_id = dir_id;
+			arg->icon_w = max_img_w;
+			arg->icon_h = max_img_h;
+			//mtl_info("w: %d, h: %d", max_img_w, max_img_h);
+			work_stack->append(arg);
+		}
+	}
+	
+	app_->SubmitThumbLoaderBatchFromTab(work_stack, tab_->id(), dir_id);
+}
+
 QSize IconView::size() const
 {
 	ComputeProportions(icon_dim_);
 	int w = parentWidget()->size().width();
 	return QSize(w, icon_dim_.total_h);
+}
+
+void IconView::UpdateIndices(const QVector<int> &indices)
+{
+	update();
 }
 
 void IconView::UpdateScrollRange()
@@ -383,11 +458,10 @@ void IconView::wheelEvent(QWheelEvent *evt)
 	{
 		app_->prefs().WheelEventFromMainView(zoom);
 	} else {
-		force_repaint_ = true;
+		repaint_without_delay_ = true;
 		const auto vert_dir = (y < 0) ? VDirection::Down : VDirection::Up;
 		Scroll(vert_dir, ScrollBy::LineStep);
-		update();
-		force_repaint_ = false;
+		repaint_without_delay_ = false;
 	}
 }
 

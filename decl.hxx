@@ -13,6 +13,7 @@ class ByteArray;
 class DesktopFile;
 class ElapsedTimer;
 class ExecInfo;
+class Hid;
 class History;
 class Media;
 class MutexGuard;

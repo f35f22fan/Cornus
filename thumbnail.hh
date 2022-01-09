@@ -146,7 +146,7 @@ struct GlobalThumbLoaderData {
 void* GlobalThumbLoadMonitor(void *args);
 
 Thumbnail* LoadThumbnail(const QString &full_path, const u64 &file_id,
-	const QByteArray &ext, const int icon_w, const int icon_h,
+	const QByteArray &ext, const int max_img_w, const int max_img_h,
 	const TabId tab_id, const DirId dir_id);
 
 namespace thumbnail {

@@ -9,23 +9,49 @@
 namespace cornus {
 
 Thumbnail* LoadThumbnail(const QString &full_path, const u64 &file_id,
-	const QByteArray &ext, const int icon_w, const int icon_h,
+	const QByteArray &ext, const int max_img_w, const int max_img_h,
 	const TabId tab_id, const DirId dir_id)
 {
 	QImageReader reader = QImageReader(full_path, ext);
-	reader.setScaledSize(QSize(icon_w, icon_h));
+	auto sz = reader.size();
+	if (sz.isEmpty())
+	{
+	//	mtl_printq(full_path);
+		sz = QSize(max_img_w, max_img_h);
+	}
+	
+	const double pw = sz.width();
+	const double ph = sz.height();
+	double used_w, used_h;
+	if (pw > max_img_w || ph > max_img_h)
+	{
+		double w_ratio = pw / max_img_w;
+		double h_ratio = ph / max_img_h;
+		const double ratio = std::max(w_ratio, h_ratio);
+		used_w = pw / ratio;
+		used_h = ph / ratio;
+	} else {
+		used_w = pw;
+		used_h = ph;
+	}
+	
+	reader.setScaledSize(QSize(used_w, used_h));
+	
 	QImage img = reader.read();
 	if (img.isNull())
 	{
-		//mtl_info("Failed: %s", qPrintable(full_path));
 		return nullptr;
 	}
+	
+//	mtl_info("%s max: %d/%d, loaded: %d/%d", qPrintable(full_path),
+//		max_img_w, max_img_h, img.width(), img.height());
+	
 	auto *thumbnail = new Thumbnail();
 	thumbnail->img = img;
 	thumbnail->file_id = file_id;
 	thumbnail->time_generated = time(NULL);
-	thumbnail->w = icon_w;
-	thumbnail->h = icon_h;
+	thumbnail->w = (int)used_w;
+	thumbnail->h = (int)used_h;
 	thumbnail->tab_id = tab_id;
 	thumbnail->dir_id = dir_id;
 	

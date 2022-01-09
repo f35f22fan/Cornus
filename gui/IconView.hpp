@@ -65,6 +65,7 @@ public:
 		return row;
 	}
 	
+	void SetAsCurrentView(const NewState ns);
 	QSize minimumSize() const { return size(); }
 	QSize maximumSize() const { return size(); }
 	void SendLoadingNewThumbnailsBatch();
@@ -112,7 +113,8 @@ private:
 	const i64 delay_repaint_ms_ = 100;
 	bool repaint_without_delay_ = false;
 	int scroll_page_step_ = -1;
-	DirId last_submitted_dir_id_ = -1;
+	DirId last_cancelled_except_ = -1;
+	DirId last_thumbnail_submission_for_ = -1;
 };
 
 

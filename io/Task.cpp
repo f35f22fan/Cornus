@@ -317,8 +317,8 @@ void Task::CopyXAttr(const int input_fd, const int output_fd)
 		if (status != 0)
 		{
 			 /// usually fails on "security.capabilities"
-			if (errno != EPERM)
-				mtl_status(errno);
+//			if (errno != EPERM)
+//				mtl_status(errno);
 		}
 		
 		/// Forward to next attribute key.

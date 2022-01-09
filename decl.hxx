@@ -29,6 +29,11 @@ using TabId = i64;
 using DirId = i32;
 using FileId = i32;
 
+enum class NewState: i8 {
+	Set,
+	AboutToSet,
+};
+
 enum class TempDir: i8 {
 	Yes,
 	No

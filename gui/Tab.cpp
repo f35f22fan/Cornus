@@ -539,17 +539,16 @@ void Tab::SetViewMode(const ViewMode mode)
 	switch (view_mode_) {
 	case ViewMode::Details: {
 		viewmode_stack_->setCurrentIndex(details_view_index_);
-		if (table_ != nullptr)
-			table_->setFocus(Qt::MouseFocusReason);
-		else
-			mtl_trace();
+		CHECK_PTR_VOID(table_);
+		table_->setFocus(Qt::MouseFocusReason);
 		break;
 	}
 	case ViewMode::Icons: {
 		CHECK_PTR_VOID(icon_view_);
-		icon_view_->SendLoadingNewThumbnailsBatch();
+		icon_view_->SetAsCurrentView(NewState::AboutToSet);
 		viewmode_stack_->setCurrentIndex(icons_view_index_);
 		icon_view_->setFocus(Qt::MouseFocusReason);
+		icon_view_->SetAsCurrentView(NewState::Set);
 		break;
 	}
 	default: {

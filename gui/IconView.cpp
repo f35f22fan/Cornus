@@ -101,17 +101,24 @@ DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
 	const double pw = pixmap.width();
 	const double ph = pixmap.height();
 	double used_w, used_h;
-	if (pw > max_img_w || ph > max_img_h)
-	{
-		double w_ratio = pw / max_img_w;
-		double h_ratio = ph / max_img_h;
-		const double ratio = std::max(w_ratio, h_ratio);
-		used_w = pw / ratio;
-		used_h = ph / ratio;
+	if (int(pw) > max_img_w || int(ph) > max_img_h)
+	{ // this happens when it's not a thumbnail but just a file icon.
+		if (pw > max_img_w || ph > max_img_h)
+		{
+			double w_ratio = pw / max_img_w;
+			double h_ratio = ph / max_img_h;
+			const double ratio = std::max(w_ratio, h_ratio);
+			used_w = pw / ratio;
+			used_h = ph / ratio;
+		} else {
+			used_w = pw;
+			used_h = ph;
+		}
 	} else {
 		used_w = pw;
 		used_h = ph;
 	}
+	
 	double img_x = x + (max_img_w - used_w) / 2;
 	painter.drawPixmap(img_x, y, used_w, used_h, pixmap);
 	
@@ -123,13 +130,20 @@ DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
 
 void IconView::DisplayingNewDirectory(const DirId dir_id)
 {
-	if (last_submitted_dir_id_ == dir_id)
+	if (last_thumbnail_submission_for_ == dir_id)
 		return;
-	app_->RemoveAllThumbTasksExcept(dir_id);
-	SendLoadingNewThumbnailsBatch();
-	last_submitted_dir_id_ = dir_id;
-	UpdateScrollRange();
-	vs_->setValue(0);
+	
+	if (last_cancelled_except_ != dir_id)
+	{
+		last_cancelled_except_ = dir_id;
+		app_->RemoveAllThumbTasksExcept(dir_id);
+	}
+	
+	if (is_current_view()) {
+		SendLoadingNewThumbnailsBatch();
+		UpdateScrollRange();
+		vs_->setValue(0);
+	}
 }
 
 void IconView::FilesChanged(const Repaint r, const int file_index)
@@ -394,9 +408,10 @@ void IconView::SendLoadingNewThumbnailsBatch()
 	const DirId dir_id = files.data.dir_id;
 	files.Unlock();
 	
-	if (dir_id == last_submitted_dir_id_)
+	if (dir_id == last_thumbnail_submission_for_)
 		return;
 	
+	last_thumbnail_submission_for_ = dir_id;
 	ComputeProportions(icon_dim_);
 	const auto &cell = icon_dim_; // to make sure I don't change any value
 	const int max_img_h = cell.h_and_gaps - cell.text_h;
@@ -427,6 +442,17 @@ void IconView::SendLoadingNewThumbnailsBatch()
 	}
 	
 	app_->SubmitThumbLoaderBatchFromTab(work_stack, tab_->id(), dir_id);
+}
+
+void IconView::SetAsCurrentView(const NewState ns)
+{
+	if (ns == NewState::AboutToSet)
+	{
+		UpdateScrollRange();
+		SendLoadingNewThumbnailsBatch();
+	} else if (ns == NewState::Set) {
+		//SendLoadingNewThumbnailsBatch();
+	}
 }
 
 QSize IconView::size() const

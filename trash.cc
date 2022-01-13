@@ -11,7 +11,7 @@ namespace cornus::trash {
 bool AddTrashNameToGitignore(const QString &new_path)
 {
 	ByteArray contents;
-	CHECK_TRUE(io::ReadFile(new_path, contents));
+	RET_IF(io::ReadFile(new_path, contents), false, false);
 	const QString trash_line = QLatin1String("\n")
 		+ trash::basename_regex();
 	QString new_data = contents.toString() + trash_line;
@@ -40,10 +40,13 @@ QString CreateGlobalGitignore()
 	params << QLatin1String("config") << QLatin1String("--global")
 	<< QLatin1String("core.excludesfile") << new_path;
 	git.start(QLatin1String("git"), params);
-	CHECK_TRUE_QSTR(git.waitForStarted());
-	CHECK_TRUE_QSTR(git.waitForFinished());
-	CHECK_TRUE_QSTR(io::EnsureRegularFile(new_path));
-	CHECK_TRUE_QSTR(AddTrashNameToGitignore(new_path));
+	
+	if (!git.waitForStarted() || !git.waitForFinished() ||
+		!io::EnsureRegularFile(new_path) || !AddTrashNameToGitignore(new_path))
+	{
+		mtl_trace();
+		return QString();
+	}
 	
 	return new_path;
 }
@@ -86,7 +89,7 @@ const QString& gitignore_global_path(const QString *override_data)
 bool ListItems(const QString &dir_path, QMap<i64, QVector<Names> > &hash)
 {
 	QVector<QString> names;
-	CHECK_TRUE((io::ListFileNames(dir_path, names) == 0));
+	RET_IF(io::ListFileNames(dir_path, names), false, false);
 	
 	for (auto &name: names)
 	{
@@ -125,10 +128,13 @@ QString ReadGitignoreGlobal()
 	params << QLatin1String("config") << QLatin1String("--get")
 		<< QLatin1String("core.excludesfile");
 	git.start(QLatin1String("git"), params);
-	CHECK_TRUE_QSTR(git.waitForStarted());
-	CHECK_TRUE_QSTR(git.waitForFinished());
+	if (!git.waitForStarted() || !git.waitForFinished())
+	{
+		mtl_trace();
+		return QString();
+	}
 	QByteArray result = git.readAll().trimmed();
-	return result;
+	return QString(result);
 }
 
 }

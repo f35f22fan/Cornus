@@ -61,7 +61,7 @@ bool TextEdit::Display(io::File *cloned_file)
 	const i64 MAX = 1024 * 1024; // 1 MiB
 	full_path_ = cloned_file->build_full_path();
 	ByteArray buf;
-	CHECK_TRUE(io::ReadFile(full_path_, buf, PrintErrors::Yes, MAX));
+	RET_IF(io::ReadFile(full_path_, buf, PrintErrors::Yes, MAX), false, false);
 	
 	hilite_mode_ = GetHiliteMode(buf, cloned_file);
 	hiliter_->SwitchTo(hilite_mode_);

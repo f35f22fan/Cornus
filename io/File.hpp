@@ -114,10 +114,17 @@ public:
 		toggle_flag(AllActions & ~FileBits::ActionPaste, false);
 	}
 	
-	bool selected() const { return (bits_ & FileBits::Selected) != FileBits::Empty; }
-	void selected(const bool add) {
-		toggle_flag(FileBits::Selected, add);
+	bool is_selected() const { return (bits_ & FileBits::Selected) != FileBits::Empty; }
+	void set_selected(const bool yes) {
+		toggle_flag(FileBits::Selected, yes);
 	}
+	cornus::Selected selected() const
+	{
+		return is_selected() ? Selected::Yes : Selected::No;
+	}
+	void selected(const Selected flag) { set_selected(flag == Selected::Yes); }
+	void toggle_selected() { set_selected(!is_selected()); }
+	
 	
 	bool selected_by_search() const { return (bits_ & FileBits::SelectedBySearch) != FileBits::Empty; }
 	void selected_by_search(const bool add) { toggle_flag(FileBits::SelectedBySearch, add); }

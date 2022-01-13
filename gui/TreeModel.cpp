@@ -75,10 +75,10 @@ void TreeModel::DeleteSelectedBookmark()
 	QModelIndex root_index;
 	{
 		TreeItem *root = data.GetBookmarksRoot();
-		CHECK_PTR_VOID(root);
+		VOID_RET_IF(root, nullptr);
 		QModelIndex child_index;
 		TreeItem *item = view_->GetSelectedBookmark(&child_index);
-		CHECK_PTR_VOID(item);
+		VOID_RET_IF(item, nullptr);
 		root_index = createIndex(root->Row(), 0, root);
 		const int at = child_index.row();
 		{
@@ -96,9 +96,13 @@ void TreeModel::DeviceEvent(const Device device, const DeviceAction action,
 {
 	TreeData &data = app_->tree_data();
 	struct udev *udev = udev_new();
-	CHECK_PTR_VOID(udev);
+	VOID_RET_IF(udev, nullptr);
 	UdevAutoUnref auto_unref(udev);
-	CHECK_TRUE_VOID(((action == DeviceAction::Added) || (action == DeviceAction::Removed)));
+	if (action != DeviceAction::Added && action != DeviceAction::Removed)
+	{
+		mtl_trace();
+		return;
+	}
 	
 	if (device == Device::Disk)
 	{
@@ -106,7 +110,7 @@ void TreeModel::DeviceEvent(const Device device, const DeviceAction action,
 		{
 			auto sys_path_ba = sys_path.toLocal8Bit();
 			struct udev_device *device = udev_device_new_from_syspath(udev, sys_path_ba.data());
-			CHECK_PTR_VOID(device);
+			VOID_RET_IF(device, nullptr);
 			UdevDeviceAutoUnref auto_unref_device(device);
 			
 			const int at = data.roots.size();
@@ -138,12 +142,12 @@ void TreeModel::DeviceEvent(const Device device, const DeviceAction action,
 		return;
 	}
 	
-	CHECK_TRUE_VOID((device == Device::Partition));
+	VOID_RET_IF_NOT(device, Device::Partition);
 	
 	if (action == DeviceAction::Added) {
 		auto sys_path_ba = sys_path.toLocal8Bit();
 		struct udev_device *device = udev_device_new_from_syspath(udev, sys_path_ba.data());
-		CHECK_PTR_VOID(device);
+		VOID_RET_IF(device, nullptr);
 		UdevDeviceAutoUnref auto_unref_device(device);
 		TreeItem *child = TreeItem::FromDevice(device, nullptr);
 		InsertPartition(child);
@@ -161,7 +165,7 @@ void TreeModel::DeviceEvent(const Device device, const DeviceAction action,
 				{
 					TreeItem *child = vec[i];
 					PartitionInfo *info = child->partition_info();
-					CHECK_PTR_VOID(info);
+					VOID_RET_IF(info, nullptr);
 					if (info->dev_path == dev_path)
 					{
 						auto parent_index = createIndex(root->Row(), 0, root);
@@ -216,7 +220,7 @@ bool TreeModel::FinishDropOperation(QVector<io::File*> *files_vec,
 		return false;
 	
 	TreeItem *bookmarks_root = data.GetBookmarksRoot();
-	CHECK_PTR(bookmarks_root);
+	RET_IF(bookmarks_root, nullptr, false);
 	QModelIndex root_index = createIndex(bookmarks_root->Row(), 0, bookmarks_root);
 	
 	const int count = files_vec->size();
@@ -333,7 +337,7 @@ bool TreeModel::InsertBookmarkAt(const i32 at, TreeItem *item)
 {
 	TreeData &data = app_->tree_data();
 	TreeItem *bookmarks_root = data.GetBookmarksRoot();
-	CHECK_PTR(bookmarks_root);
+	RET_IF(bookmarks_root, nullptr, false);
 	auto first = at;
 	auto last = at;
 	beginInsertRows(QModelIndex(), first, last);
@@ -382,29 +386,27 @@ void TreeModel::InsertBookmarks(const QVector<cornus::gui::TreeItem*> &bookmarks
 	TreeData &data = app_->tree_data();
 	int root_row;
 	TreeItem *root = data.GetBookmarksRoot(&root_row);
-	CHECK_PTR_VOID(root);
+	VOID_RET_IF(root, nullptr);
+	auto first = 0;
+	auto last = first + bookmarks.size() - 1;
+	auto root_index = createIndex(root_row, 0, root);
+	beginInsertRows(root_index, first, last);
 	{
-		auto first = 0;
-		auto last = first + bookmarks.size() - 1;
-		auto root_index = createIndex(root_row, 0, root);
-		beginInsertRows(root_index, first, last);
-		{
-			for (auto *item: bookmarks) {
-				root->AppendChild(item);
-			}
+		for (auto *item: bookmarks) {
+			root->AppendChild(item);
 		}
-		endInsertRows();
 	}
+	endInsertRows();
 }
 
 bool TreeModel::InsertPartition(TreeItem *item)
 {
-	CHECK_TRUE(item->is_partition());
+	RET_IF(item->is_partition(), false, false);
 	PartitionInfo *info = item->partition_info();
 	int root_row = -1;
 	int first = -1;
 	TreeItem *root = GetRootTS(info->disk_info, &root_row);
-	CHECK_PTR(root);
+	RET_IF(root, nullptr, false);
 	{
 		first = -1;
 		const int count = root->child_count();
@@ -521,7 +523,7 @@ void TreeModel::MountEvent(const QString &path, const QString &fs_uuid,
 
 void TreeModel::MoveBookmarks(QStringList str_list, const QPoint &pos)
 {
-	CHECK_TRUE_VOID((str_list.size() == 2));
+	VOID_RET_IF_NOT(str_list.size(), 2);
 	QModelIndex target;
 	int drop_at = GetDropLocation(pos, target);
 	if (drop_at == -1)
@@ -534,7 +536,7 @@ void TreeModel::MoveBookmarks(QStringList str_list, const QPoint &pos)
 	int source_at = -1;
 	int root_row = -1;
 	TreeItem *bkm_root = data.GetBookmarksRoot(&root_row);
-	CHECK_PTR_VOID(bkm_root);
+	VOID_RET_IF(bkm_root, nullptr);
 	QModelIndex bkm_root_index = createIndex(root_row, 0, bkm_root);
 	auto &vec = bkm_root->children();
 	
@@ -548,7 +550,7 @@ void TreeModel::MoveBookmarks(QStringList str_list, const QPoint &pos)
 		}
 	}
 	
-	CHECK_PTR_VOID(source_item);
+	VOID_RET_IF(source_item, nullptr);
 	
 	beginRemoveRows(bkm_root_index, source_at, source_at);
 	{

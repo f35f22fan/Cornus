@@ -24,6 +24,128 @@
 
 namespace cornus::io {
 
+io::File* Files::GetFileAtIndex_Lock(const int index)
+{
+	MutexGuard guard = this->guard();
+	auto &vec = data.vec;
+	if (index < 0 | index >= vec.size())
+		return nullptr;
+	
+	return vec[index]->Clone();
+}
+
+int Files::GetFirstSelectedFile_Lock(io::File **ret_cloned_file)
+{
+	MutexGuard guard = this->guard();
+	
+	int i = 0;
+	for (io::File *file: data.vec) {
+		if (file->is_selected()) {
+			if (ret_cloned_file != nullptr)
+				*ret_cloned_file = file->Clone();
+			return i;
+		}
+		i++;
+	}
+	
+	return -1;
+}
+
+QString Files::GetFirstSelectedFileFullPath_Lock(QString *ext)
+{
+	MutexGuard guard = this->guard();
+	
+	for (io::File *file: data.vec) {
+		if (file->is_selected()) {
+			if (ext != nullptr)
+				*ext = file->cache().ext.toString().toLower();
+			return file->build_full_path();
+		}
+	}
+	
+	return QString();
+}
+
+int Files::GetSelectedFilesCount_Lock(QVector<QString> *extensions)
+{
+	MutexGuard guard = this->guard();
+	int selected_count = 0;
+	
+	for (io::File *next: data.vec)
+	{
+		if (next->is_selected())
+		{
+			selected_count++;
+			if ((extensions != nullptr) && next->is_regular())
+			{
+				extensions->append(next->cache().ext.toString());
+			}
+		}
+	}
+	
+	return selected_count;
+}
+
+QPair<int, int> Files::ListSelectedFiles_Lock(QList<QUrl> &list)
+{
+	MutexGuard guard = this->guard();
+	int num_files = 0;
+	int num_dirs = 0;
+	
+	for (io::File *next: data.vec)
+	{
+		if (next->is_selected())
+		{
+			if (next->is_dir())
+				num_dirs++;
+			else
+				num_files++;
+			const QString s = next->build_full_path();
+			list.append(QUrl::fromLocalFile(s));
+		}
+	}
+	
+	return QPair(num_dirs, num_files);
+}
+
+void Files::SelectAllFiles_NoLock(const Selected flag, QVector<int> &indices)
+{
+	int i = -1;
+	for (io::File *file: data.vec)
+	{
+		i++;
+		if (file->selected() != flag)
+		{
+			indices.append(i);
+			file->selected(flag);
+		}
+	}
+}
+
+void Files::SelectFileRange_NoLock(const int row1, const int row2, QVector<int> &indices)
+{
+	QVector<io::File*> &vec = data.vec;
+	
+	if (row1 < 0 || row1 >= vec.size() || row2 < 0 || row2 >= vec.size()) {
+///		mtl_warn("row1: %d, row2: %d", row1, row2);
+		return;
+	}
+	
+	int row_start = row1;
+	int row_end = row2;
+	if (row_start > row_end)
+	{
+		row_start = row2;
+		row_end = row1;
+	}
+	
+	for (int i = row_start; i <= row_end; i++)
+	{
+		vec[i]->set_selected(true);
+		indices.append(i);
+	}
+}
+
 FilesData::~FilesData()
 {
 	for (auto *next: vec) {
@@ -445,7 +567,7 @@ void Delete(io::File *file)
 		io::Files files;
 		files.data.processed_dir_path = file->build_full_path() + '/';
 		files.data.show_hidden_files(true);
-		CHECK_TRUE_VOID((ListFiles(files.data, &files) == 0));
+		VOID_RET_IF(ListFiles(files.data, &files), 0);
 		
 		for (io::File *next: files.data.vec) {
 			if (next->is_dir())
@@ -512,7 +634,7 @@ bool EnsureRegularFile(const QString &full_path)
 		if (t == FileType::Regular) {
 			return true;
 		}
-		CHECK_TRUE((remove(ba.data()) == 0));
+		RET_IF_NOT(remove(ba.data()), 0, false);
 	}
 	const auto OverwriteFlags = O_CREAT | O_LARGEFILE;
 	int output_fd = ::open(ba.data(), OverwriteFlags, 0644);
@@ -577,7 +699,7 @@ bool FileContentsContains(const QString &full_path,
 	const QString &searched_str)
 {
 	ByteArray buf;
-	CHECK_TRUE(io::ReadFile(full_path, buf, PrintErrors::Yes));
+	RET_IF(io::ReadFile(full_path, buf, PrintErrors::Yes), false, false);
 	
 	QString s = buf.toString();
 	return s.contains(searched_str);
@@ -968,7 +1090,7 @@ int ListDirNames(QString dir_path, QVector<QString> &vec, const ListDirOption op
 	return 0;
 }
 
-int ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
+bool ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 	FilterFunc ff)
 {
 	struct dirent *entry;
@@ -976,7 +1098,7 @@ int ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 	DIR *dp = opendir(dir_path_ba.data());
 	
 	if (dp == NULL)
-		return errno;
+		return false;
 	
 	QString dir_path = full_dir_path;
 	
@@ -998,7 +1120,7 @@ int ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 	
 	closedir(dp);
 	
-	return 0;
+	return true;
 }
 
 int ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
@@ -1285,7 +1407,7 @@ bool ReadLinkSimple(const char *file_path, QString &result)
 		bufsize = PATH_MAX + 1;
 	
 	char *buf = (char*)malloc(bufsize);
-	CHECK_PTR(buf);
+	RET_IF(buf, nullptr, false);
 	auto nbytes = readlink(file_path, buf, bufsize);
 	
 	if (nbytes == -1) {
@@ -1388,12 +1510,12 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 	
 	/// Allocate the buffer.
 	char *buf = new char[buflen];
-	CHECK_PTR_VOID(buf);
+	VOID_RET_IF(buf, nullptr);
 	
 	AutoDeleteArr ad(buf);
 	/// Copy the list of attribute keys to the buffer.
 	buflen = llistxattr(full_path.data(), buf, buflen);
-	CHECK_TRUE_VOID((buflen != -1));
+	VOID_RET_IF(buflen, -1);
 	
 	/** Loop over the list of zero terminated strings with the
 		attribute keys. Use the remaining buffer length to determine

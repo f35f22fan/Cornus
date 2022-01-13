@@ -22,7 +22,7 @@ bool DirItem::ReadLinkTarget(QString &result, const Expand expand)
 	result = stream->dir_path() + target;
 	if (expand == Expand::Yes) {
 		QString s = result;
-		CHECK_TRUE(io::ExpandLinksInDirPath(s, result, AppendSlash::No));
+		RET_IF(io::ExpandLinksInDirPath(s, result, AppendSlash::No), false, false);
 	}
 	return true;
 }
@@ -32,7 +32,7 @@ DirStream::DirStream(QString dir_path, const Expand expand)
 	dir_item_.stream = this;
 	
 	if (expand == Expand::Yes) {
-		CHECK_TRUE_VOID(io::ExpandLinksInDirPath(dir_path, dir_path_));
+		VOID_RET_IF(io::ExpandLinksInDirPath(dir_path, dir_path_), false);
 	} else {
 		dir_path_ = dir_path;
 	}

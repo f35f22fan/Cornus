@@ -166,9 +166,7 @@ bool CountFolder::Init(const QString &dir_path)
 	}
 	
 	name_ = io::GetFileNameOfFullPath(full_path_).toString();
-	CHECK_TRUE((!name_.isEmpty()));
-
-	return true;
+	return !name_.isEmpty();
 }
 
 void CountFolder::UpdateInfo(cornus::io::CountRecursiveInfo *info,

@@ -65,10 +65,10 @@ void Prefs::Load()
 	const QString full_path = prefs::QueryAppConfigPath() + '/'
 		+ prefs::PrefsFileName + QString::number(prefs::PrefsFormatVersion);
 	ByteArray buf;
-	CHECK_TRUE_VOID(io::ReadFile(full_path, buf));
+	VOID_RET_IF(io::ReadFile(full_path, buf), false);
 	
 	u16 version = buf.next_u16();
-	CHECK_TRUE_VOID((version == prefs::PrefsFormatVersion));
+	VOID_RET_IF_NOT(version, prefs::PrefsFormatVersion);
 	table_size_.pixels = buf.next_i16();
 	table_size_.points = buf.next_i16();
 	const i8 col_start = buf.next_i8();
@@ -91,7 +91,7 @@ void Prefs::Save() const
 {
 	QString parent_dir = prefs::QueryAppConfigPath();
 	parent_dir.append('/');
-	CHECK_TRUE_VOID(!parent_dir.isEmpty());
+	VOID_RET_IF(parent_dir.isEmpty(), true);
 	const QString full_path = parent_dir + prefs::PrefsFileName 
 		+ QString::number(prefs::PrefsFormatVersion);
 	const QByteArray path_ba = full_path.toLocal8Bit();

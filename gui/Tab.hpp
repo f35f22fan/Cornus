@@ -43,8 +43,7 @@ public:
 	void DisplayingNewDirectory(const DirId dir_id);
 	TabId id() const { return id_; }
 	i64 files_id() const { return files_id_; }
-	void FilesChanged(const Repaint r, const int row = -1);
-	
+	void FilesChanged(const FileCountChanged fcc, const int row = -1);
 	void GoBack();
 	void GoForward();
 	void GoHome();
@@ -61,7 +60,6 @@ public:
 	
 	void PopulateUndoDelete(QMenu *menu);
 	void ScrollToFile(const int file_index);
-	void SelectAllFilesNTS(const bool flag, QVector<int> &indices);
 	void ShutdownLastInotifyThread();
 	
 	gui::Table* table() const { return table_; }

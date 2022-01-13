@@ -214,7 +214,7 @@ void ByteArray::Prepend(const char *p, const isize size)
 	make_sure(size);
 	
 	char *new_heap = (char*) malloc(heap_size_);
-	CHECK_PTR_VOID(new_heap);
+	VOID_RET_IF(new_heap, nullptr);
 	memcpy(new_heap, p, size);
 	memcpy(new_heap + size, data_, size_);
 	

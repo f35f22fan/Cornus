@@ -29,6 +29,21 @@ using TabId = i64;
 using DirId = i32;
 using FileId = i32;
 
+enum class DeselectOthers: i8 {
+	Yes,
+	No
+};
+
+enum class Selected: i8 {
+	Yes,
+	No
+};
+
+enum class FileCountChanged: i8 {
+	Yes,
+	No
+};
+
 enum class NewState: i8 {
 	Set,
 	AboutToSet,

@@ -75,10 +75,11 @@ public:
 	void Scroll(const VDirection d, const ScrollBy sb);
 	void ScrollToAndSelect(const int file_index, const DeselectOthers des);
 	void ScrollToFile(const int file_index);
-	void FilesChanged(const Repaint r, const int file_index);
+	void FilesChanged(const FileCountChanged fcc, const int file_index);
 	bool is_current_view() const;
-	io::File* GetFileAtNTS(const QPoint &pos, const Clone c, int *ret_index = nullptr);
+	io::File* GetFileAt_NoLock(const QPoint &pos, const Clone c, int *ret_index = nullptr);
 	void RepaintLater(const int custom_ms = -1);
+	ShiftSelect* shift_select() { return &shift_select_; }
 	void UpdateIndices(const QVector<int> &indices);
 	
 protected:
@@ -115,6 +116,12 @@ private:
 	int scroll_page_step_ = -1;
 	DirId last_cancelled_except_ = -1;
 	DirId last_thumbnail_submission_for_ = -1;
+	ShiftSelect shift_select_ = {};
+	
+	bool mouse_down_ = false;
+	QPoint drop_coord_ = {-1, -1};
+	QPoint drag_start_pos_ = {-1, -1};
+	QPoint mouse_pos_ = {-1, -1};
 };
 
 

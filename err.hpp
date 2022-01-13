@@ -69,129 +69,55 @@
 #define NO_MOVE(TypeName) \
 	TypeName(TypeName&&) = delete;
 
-#define RET_IF_EQUAL(x, y) {\
-	if (x == y) {\
+#define RET_IF(lhs, rhs, ret) {\
+	if ((lhs == rhs)) {\
 		mtl_trace();\
-		return false;\
+		return ret;\
 	}\
 }
 
-#define RET_IF_EQUAL_VOID(x, y) {\
-	if (x == y) {\
+#define RET_IF_NOT(lhs, rhs, ret) {\
+	if ((lhs != rhs)) {\
+		mtl_trace();\
+		return ret;\
+	}\
+}
+
+#define ret_if(lhs, rhs, ret) {\
+	if ((lhs == rhs)) {\
+		return ret;\
+	}\
+}
+
+#define ret_if_not(lhs, rhs, ret) {\
+	if ((lhs != rhs)) {\
+		return ret;\
+	}\
+}
+
+#define VOID_RET_IF(lhs, rhs) {\
+	if ((lhs == rhs)) {\
 		mtl_trace();\
 		return;\
 	}\
 }
 
-#define RET_IF_EQUAL_NULL(x, y) {\
-	if (x == y) {\
-		mtl_trace();\
-		return nullptr;\
+#define void_ret_if(lhs, rhs) {\
+	if ((lhs == rhs)) {\
+		return;\
 	}\
 }
 
-#define CHECK_EQUAL(x, y) {\
-	if (x != y) {\
-		mtl_trace();\
-		return false;\
-	}\
-}
-
-#define CHECK_EQUAL_VOID(x, y) {\
-	if (x != y) {\
+#define VOID_RET_IF_NOT(lhs, rhs) {\
+	if ((lhs != rhs)) {\
 		mtl_trace();\
 		return;\
 	}\
 }
 
-#define CHECK_EQUAL_NULL(x, y) {\
-	if (x != y) {\
-		mtl_trace();\
-		return nullptr;\
-	}\
-}
-
-#define CHECK_TRUE(x) {\
-	if (!x) {\
-		mtl_trace();\
-		return false;\
-	}\
-}
-
-#define CHECK_TRUE_NULL(x) {\
-	if (!x) {\
-		mtl_trace();\
-		return nullptr;\
-	}\
-}
-
-#define CHECK_TRUE_VOID(x) {\
-	if (!x) {\
-		mtl_trace();\
+#define void_ret_if_not(lhs, rhs) {\
+	if ((lhs != rhs)) {\
 		return;\
-	}\
-}
-
-#define CHECK_TRUE_QSTR(x) {\
-	if (!x) {\
-		mtl_trace();\
-		return QString();\
-	}\
-}
-
-#define CHECK_PTR(x) {\
-	if (x == nullptr) {\
-		mtl_trace();\
-		return false;\
-	}\
-}
-
-#define CHECK_PTR_VOID(x) {\
-	if (x == nullptr) {\
-		mtl_trace();\
-		return;\
-	}\
-}
-
-#define CHECK_PTR_NULL(x) {\
-	if (x == nullptr) {\
-		mtl_trace();\
-		return nullptr;\
-	}\
-}
-
-#define CHECK_VK(x) {\
-	if (x != VK_SUCCESS) {\
-		mtl_trace();\
-		return false;\
-	}\
-}
-
-#define CHECK_VK_HANDLE(x) {\
-	if (x != VK_SUCCESS) {\
-		mtl_trace();\
-		return VK_NULL_HANDLE;\
-	}\
-}
-
-#define CHECK_HANDLE(x) {\
-	if (x == VK_NULL_HANDLE) {\
-		mtl_trace();\
-		return false;\
-	}\
-}
-
-#define CHECK_VK_VOID(x) {\
-	if (x != VK_SUCCESS) {\
-		mtl_trace();\
-		return;\
-	}\
-}
-
-#define CHECK_VK_CNT(x) {\
-	if (x != VK_SUCCESS) {\
-		mtl_trace();\
-		continue;\
 	}\
 }
 

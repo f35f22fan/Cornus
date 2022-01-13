@@ -41,19 +41,15 @@ public:
 	int IsOnFileName(const QPoint &pos);
 	TableModel* model() const { return model_; }
 	const QPoint& drop_coord() const { return drop_coord_; }
-	io::File* GetFileAtNTS(const QPoint &pos, const Clone clone, int *ret_file_index = nullptr);
-	io::File* GetFileAt(const int row); /// returns cloned file
+	io::File* GetFileAt_NoLock(const QPoint &pos, const Clone clone, int *ret_file_index = nullptr);
 	void GetSelectedArchives(QVector<QString> &urls);
 	/// returns row index & cloned file if on file name, otherwise -1
 	int GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file, QString *full_path = nullptr);
-	int GetFirstSelectedFile(io::File **ret_cloned_file);
 	void GetSelectedFileNames(QVector<QString> &names,
 		const StringCase str_case = StringCase::AsIs);
-	QString GetFirstSelectedFileFullPath(QString *ext);
 	int GetRowHeight() const;
-	int GetSelectedFilesCount(QVector<QString> *extensions = nullptr);
 	i32 GetVisibleRowsCount() const;
-	i32 IsOnFileNameStringNTS(const QPoint &local_pos, io::File **ret_file = nullptr);
+	i32 IsOnFileName_NoLock(const QPoint &local_pos, io::File **ret_file = nullptr);
 	bool mouse_down() const { return mouse_down_; }
 	i32 mouse_over_file_icon_index() const { return mouse_over_file_icon_; }
 	i32 mouse_over_file_name_index() const { return mouse_over_file_name_; }
@@ -63,6 +59,7 @@ public:
 	void RemoveThumbnailsFromSelectedFiles();
 	void ScrollToFile(int file_index);
 	void SelectByLowerCase(QVector<QString> filenames, const NamesAreLowerCase are_lower);
+	ShiftSelect* shift_select() { return &shift_select_; }
 	void ShowVisibleColumnOptions(QPoint pos);
 	void SyncWith(const cornus::Clipboard &cl, QVector<int> &indices);
 	gui::Tab* tab() const { return tab_; }
@@ -88,7 +85,6 @@ protected:
 	virtual void wheelEvent(QWheelEvent *event) override;
 	virtual void paintEvent(QPaintEvent *evt) override;
 	
-	
 private:
 	NO_ASSIGN_COPY_MOVE(Table);
 	
@@ -108,13 +104,9 @@ private:
 	void HandleKeySelect(const VDirection vdir);
 	void HandleKeyShiftSelect(const VDirection vdir);
 	void HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indices);
-	void HandleMouseSelectionShift(const QPoint &pos, QVector<int> &indices);
 	void HiliteFileUnderMouse();
-	i32 IsOnFileIconNTS(const QPoint &local_pos, io::File **ret_file = nullptr);
+	i32 IsOnFileIcon_NoLock(const QPoint &local_pos, io::File **ret_file = nullptr);
 	void LaunchFromOpenWithMenu();
-	QPair<int, int> ListSelectedFiles(QList<QUrl> &list);
-	void SelectFileRangeNTS(const int row_start, const int row_end, QVector<int> &indices);
-	int SelectNextRow(const int relative_offset, const bool deselect_all_others, QVector<int> &indices); // returns newly selected row
 	void SetCustomResizePolicy();
 	void ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos);
 	void SortingChanged(int logical, Qt::SortOrder order);

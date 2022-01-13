@@ -109,7 +109,7 @@ void OpenOrderPane::AskAddCustomExecutable()
 	}
 	
 	DesktopFile *p = DesktopFile::JustExePath(full_path);
-	CHECK_PTR_VOID(p);
+	VOID_RET_IF(p, nullptr);
 	model_->AppendItem(p);
 }
 
@@ -144,15 +144,18 @@ QWidget* OpenOrderPane::CreateAddingCustomItem()
 	ByteArray ba;
 	ba.set_msg_id(io::Message::SendAllDesktopFiles);
 	const int fd = io::socket::Client();
-	CHECK_TRUE_NULL((fd != -1));
-	CHECK_TRUE_NULL(ba.Send(fd, CloseSocket::No));
+	if (fd == -1 || !ba.Send(fd, CloseSocket::No))
+	{
+		mtl_trace();
+		return nullptr;
+	}
 	
 	ba.Clear();
-	CHECK_TRUE_NULL(ba.Receive(fd));
+	RET_IF(ba.Receive(fd), false, nullptr);
 	
 	while (ba.has_more()) {
 		DesktopFile *p = DesktopFile::From(ba);
-		CHECK_TRUE_NULL((p != nullptr));
+		ret_if(p, nullptr, nullptr);
 		all_desktop_files_.append(p);
 	}
 	
@@ -388,7 +391,7 @@ void OpenOrderPane::Save()
 		}
 	}
 	
-	CHECK_TRUE_VOID((io::WriteToFile(full_path, ba.data(), ba.size(), io::PostWrite::FSync) == 0));
+	VOID_RET_IF(io::WriteToFile(full_path, ba.data(), ba.size(), io::PostWrite::FSync), 0);
 }
 
 void OpenOrderPane::TableSelectionChanged()

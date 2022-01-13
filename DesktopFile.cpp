@@ -473,7 +473,7 @@ bool DesktopFile::Init(const QString &full_path,
 	name_ = ref.mid(0, index).toString();
 	
 	ByteArray ba;
-	CHECK_TRUE(io::ReadFile(full_path, ba));
+	RET_IF(io::ReadFile(full_path, ba), false, false);
 	
 	QString text = QString::fromLocal8Bit(ba.data(), ba.size());
 	QVector<QStringRef> list = text.splitRef('\n', Qt::SkipEmptyParts);
@@ -487,7 +487,7 @@ bool DesktopFile::Init(const QString &full_path,
 		
 		if (line.startsWith('[')) {
 			int end = line.lastIndexOf(']');
-			CHECK_TRUE((end != -1));
+			RET_IF(end, -1, false);
 			QStringRef name = line.mid(1, end - 1);
 			group = new desktopfile::Group(name.toString());
 			if (main_group_ == nullptr && name == MainGroupName)
@@ -496,7 +496,7 @@ bool DesktopFile::Init(const QString &full_path,
 			continue;
 		}
 		
-		CHECK_PTR(group);
+		RET_IF(group, nullptr, false);
 		group->ParseLine(line, possible_categories);
 		groups_.insert(group->name(), group);
 	}

@@ -146,13 +146,14 @@ void IconView::DisplayingNewDirectory(const DirId dir_id)
 	}
 }
 
-void IconView::FilesChanged(const Repaint r, const int file_index)
+void IconView::FilesChanged(const FileCountChanged fcc, const int file_index)
 {
-	if (r == Repaint::IfViewIsCurrent && is_current_view())
+	if (is_current_view())
 	{
-		UpdateScrollRange();
-		update();
-	} else {
+		if (fcc == FileCountChanged::Yes)
+		{
+			UpdateScrollRange();
+		}
 		RepaintLater();
 	}
 }
@@ -180,7 +181,7 @@ bool IconView::is_current_view() const
 	return tab_->view_mode() == ViewMode::Icons;
 }
 
-io::File* IconView::GetFileAtNTS(const QPoint &pos, const Clone c, int *ret_index)
+io::File* IconView::GetFileAt_NoLock(const QPoint &pos, const Clone c, int *ret_index)
 {
 	const int y = pos.y() + vs_->value();
 	int y_off;
@@ -236,7 +237,7 @@ void IconView::mouseDoubleClickEvent(QMouseEvent *evt)
 {
 	QVector<int> indices;
 	int row;
-	io::File *file = GetFileAtNTS(evt->pos(), Clone::Yes, &row);
+	io::File *file = GetFileAt_NoLock(evt->pos(), Clone::Yes, &row);
 	if (file) {
 		app_->FileDoubleClicked(file, Column::FileName);
 		indices.append(row);
@@ -251,17 +252,38 @@ void IconView::mouseMoveEvent(QMouseEvent *evt)
 
 void IconView::mousePressEvent(QMouseEvent *evt)
 {
+	mouse_down_ = true;
+	
 	const auto modif = evt->modifiers();
 	const bool ctrl = modif & Qt::ControlModifier;
-	//const bool shift = modif & Qt::ShiftModifier;
-	//const bool right_click = evt->button() == Qt::RightButton;
+	const bool shift = modif & Qt::ShiftModifier;
+	const bool right_click = evt->button() == Qt::RightButton;
 	const bool left_click = evt->button() == Qt::LeftButton;
 	QVector<int> indices;
 	
-	if (left_click) {
+	if (left_click)
+	{
 		if (ctrl) {
 			app_->hid()->HandleMouseSelectionCtrl(tab_, evt->pos(), &indices);
+		} else if (shift) {
+			app_->hid()->HandleMouseSelectionShift(tab_, evt->pos(), indices);
+		} else {
+			app_->hid()->HandleMouseSelectionNoModif(tab_, evt->pos(),
+				indices, true, &shift_select_);
 		}
+	}
+	
+	if (left_click) {
+		drag_start_pos_ = evt->pos();
+	} else {
+		drag_start_pos_ = {-1, -1};
+	}
+	
+	if (right_click)
+	{
+		mtl_tbd();
+//		HandleMouseRightClickSelection(evt->pos(), indices);
+//		ShowRightClickMenu(evt->globalPos(), evt->pos());
 	}
 	
 	UpdateIndices(indices);
@@ -269,7 +291,38 @@ void IconView::mousePressEvent(QMouseEvent *evt)
 
 void IconView::mouseReleaseEvent(QMouseEvent *evt)
 {
+	drag_start_pos_ = {-1, -1};
+	mouse_down_ = false;
 	
+	QVector<int> indices;
+	const bool ctrl = evt->modifiers() & Qt::ControlModifier;
+	const bool shift = evt->modifiers() & Qt::ShiftModifier;
+	
+	if (!ctrl && !shift)
+	{
+		app_->hid()->HandleMouseSelectionNoModif(tab_,
+			evt->pos(), indices, false, &shift_select_);
+	}
+	
+	UpdateIndices(indices);
+	
+	if (evt->button() == Qt::LeftButton) {
+		const i32 col = (i32)Column::FileName;//columnAt(evt->pos().x());
+		if (col == i32(Column::Icon))
+		{
+			io::Files &files = *app_->files(tab_->files_id());
+			io::File *cloned_file = nullptr;
+			int file_index = -1;
+			{
+				MutexGuard guard = files.guard();
+				cloned_file = GetFileAt_NoLock(evt->pos(), Clone::Yes, &file_index);
+			}
+			if (cloned_file) {
+				app_->hid()->SelectFileByIndex(tab_, file_index, DeselectOthers::Yes);
+				app_->FileDoubleClicked(cloned_file, Column::Icon);
+			}
+		}
+	}
 }
 
 void IconView::paintEvent(QPaintEvent *ev)
@@ -316,17 +369,16 @@ void IconView::paintEvent(QPaintEvent *ev)
 			
 			QString file_name;
 			const QRect cell_r(x, y, cell.w_and_gaps, cell.h_and_gaps);
-			bool mouse_over = false, file_selected = false;
+			bool mouse_over = false;
 			DrawBorder draw_border = DrawBorder::No;
 			{
 				auto guard = files.guard();
 				io::File *file = files.data.vec[file_index++];
 				file_name = file->name();
-				file_selected = file->selected();
-				if (file_selected || mouse_over)
+				if (mouse_over || file->is_selected())
 				{
 					QColor c = option.palette.highlight().color();
-					if (mouse_over && !file->selected()) {
+					if (mouse_over && !file->is_selected()) {
 						c = app_->hover_bg_color_gray(c);
 					}
 					

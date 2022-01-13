@@ -13,6 +13,9 @@ public:
 	Hid(App *app);
 	virtual ~Hid();
 	
+	void HandleMouseSelectionShift(gui::Tab *tab, const QPoint &pos,
+		QVector<int> &indices);
+	
 	void HandleMouseSelectionCtrl(gui::Tab *tab, const QPoint &pos,
 		QVector<int> *indices);
 	
@@ -20,7 +23,7 @@ public:
 		QVector<int> &indices, bool mouse_pressed,
 		gui::ShiftSelect *shift_select = nullptr);
 	
-	void SelectFileByIndex(gui::Tab *tab, const int file_index, const gui::DeselectOthers des);
+	void SelectFileByIndex(gui::Tab *tab, const int file_index, const DeselectOthers des);
 	
 private:
 	NO_ASSIGN_COPY_MOVE(Hid);

@@ -122,7 +122,7 @@ void SendDeleteEvent(TableModel *model, cornus::io::Files *files,
 		Find(files->data.vec, name, &index);
 	}
 	
-	CHECK_TRUE_VOID((index != -1));
+	VOID_RET_IF(index, -1);
 	
 	io::FileEvent evt = {};
 	evt.dir_id = dir_id;
@@ -140,9 +140,9 @@ void SendModifiedEvent(TableModel *model, cornus::io::Files *files,
 	{
 		MutexGuard guard = files->guard();
 		found = Find(files->data.vec, name, &index);
-		CHECK_PTR_VOID(found);
+		VOID_RET_IF(found, nullptr);
 		struct statx stx;
-		CHECK_TRUE_VOID(io::ReloadMeta(*found, stx));
+		VOID_RET_IF(io::ReloadMeta(*found, stx), false);
 	}
 	
 	io::FileEvent evt = {};
@@ -326,7 +326,7 @@ void ReinterpretRenames(QVector<RenameData> &rename_vec,
 void* WatchDir(void *void_args)
 {
 	pthread_detach(pthread_self());
-	CHECK_PTR_NULL(void_args);
+	RET_IF(void_args, nullptr, nullptr);
 	
 	WatchArgs *args = (WatchArgs*)void_args;
 	TableModel *model = args->table_model;
@@ -459,7 +459,7 @@ void TableModel::DeleteSelectedFiles(const ShiftPressed sp)
 		MutexGuard guard = files.guard();
 		
 		for (io::File *next: files.data.vec) {
-			if (next->selected())
+			if (next->is_selected())
 				paths.append(next->build_full_path());
 		}
 	}
@@ -477,7 +477,7 @@ void TableModel::DeleteSelectedFiles(const ShiftPressed sp)
 	if (needs_root)
 	{
 		hash_info = app_->WaitForRootDaemon(CanOverwrite::No);
-		CHECK_TRUE_VOID(hash_info.valid());
+		VOID_RET_IF(hash_info.valid(), false);
 	}
 	
 	ByteArray *ba = new ByteArray();
@@ -581,7 +581,7 @@ mtl_info("==> New Batch ==>>");
 				io::File *file = files_vec[i];
 				if (file->name() == name) {
 					indices.append(i);
-					file->selected(true);
+					file->set_selected(true);
 //					mtl_info("Found! %s, index: %d, file_count: %d",
 //						qPrintable(file->name()), i, files_count);
 #ifdef CORNUS_DEBUG_INOTIFY_BATCH
@@ -635,7 +635,7 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 		mtl_info("MODIFIED");
 #endif
 		UpdateSingleRow(evt.index);
-		tab_->FilesChanged(Repaint::IfViewIsCurrent, evt.index);
+		tab_->FilesChanged(FileCountChanged::No, evt.index);
 		break;
 	}
 	case io::FileEventType::Created: {
@@ -656,7 +656,7 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 					delete next;
 					vec[i] = evt.new_file;
 					evt.new_file = nullptr;
-					tab_->FilesChanged(Repaint::IfViewIsCurrent, i);
+					tab_->FilesChanged(FileCountChanged::No, i);
 					return;
 				}
 			}
@@ -671,7 +671,7 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 			tab_->view_files().cached_files_count = files.data.vec.size();
 		}
 		endInsertRows();
-		tab_->FilesChanged(Repaint::IfViewIsCurrent, index);
+		tab_->FilesChanged(FileCountChanged::Yes, index);
 		break;
 	}
 	case io::FileEventType::Deleted: {
@@ -687,7 +687,7 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 			tab_->view_files().cached_files_count = files.data.vec.size();
 		}
 		endRemoveRows();
-		tab_->FilesChanged(Repaint::IfViewIsCurrent);
+		tab_->FilesChanged(FileCountChanged::Yes);
 		break;
 	}
 	case io::FileEventType::Renamed: {
@@ -704,7 +704,7 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 		}
 		
 		UpdateSingleRow(evt.index);
-		tab_->FilesChanged(Repaint::IfViewIsCurrent, evt.index);
+		tab_->FilesChanged(FileCountChanged::No, evt.index);
 		break;
 	}
 	default: {
@@ -746,7 +746,6 @@ bool TableModel::removeRows(int row, int count, const QModelIndex &parent)
 	if (count <= 0)
 		return false;
 	
-	CHECK_TRUE((count == 1));
 	const int first = row;
 	const int last = row + count - 1;
 	io::Files &files = tab_->view_files();

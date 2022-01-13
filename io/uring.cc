@@ -143,7 +143,7 @@ void* DoTest(void *params)
 	auto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE | IN_DELETE_SELF
 		| IN_MOVE_SELF | IN_CLOSE_WRITE | IN_MOVE;
 	int inotify_fd = inotify_init();
-	CHECK_TRUE_NULL((inotify_fd != -1));
+	RET_IF(inotify_fd, -1, NULL);
 	AutoCloseFd notify_autoclose(inotify_fd);
 	int watch_fd = inotify_add_watch(inotify_fd, path, event_types);
 	
@@ -154,7 +154,7 @@ void* DoTest(void *params)
 	
 	struct io_uring ring;
 	io_uring_queue_init(kQueueDepth, &ring, 0);
-	CHECK_TRUE_NULL(submit_inotify(inotify_fd, &ring));
+	RET_IF(submit_inotify(inotify_fd, &ring), false, nullptr);
 	monitor_file(&ring);
 	io_uring_queue_exit(&ring); // clean-up function
 	if (watch_fd != -1) {

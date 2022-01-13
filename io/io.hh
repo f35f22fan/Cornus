@@ -25,6 +25,7 @@
 #include <QMimeData>
 #include <QStringRef>
 #include <QVector>
+#include <QUrl>
 
 namespace cornus::io {
 
@@ -242,6 +243,21 @@ struct Files {
 	inline int CondWait() {
 		return pthread_cond_wait(&cond, &mutex);
 	}
+
+	// returns cloned file
+	io::File* GetFileAtIndex_Lock(const int index);
+	
+	int GetFirstSelectedFile_Lock(io::File **ret_cloned_file);
+	
+	QString GetFirstSelectedFileFullPath_Lock(QString *ext);
+	
+	int GetSelectedFilesCount_Lock(QVector<QString> *extensions = nullptr);
+	
+	QPair<int, int> ListSelectedFiles_Lock(QList<QUrl> &list);
+	
+	void SelectAllFiles_NoLock(const Selected flag, QVector<int> &indices);
+	
+	void SelectFileRange_NoLock(const int row1, const int row2, QVector<int> &indices);
 };
 
 struct CountRecursiveInfo {
@@ -372,8 +388,7 @@ inline bool IsNearlyEqual(double x, double y);
 int ListDirNames(QString dir_path, QVector<QString> &vec,
 	const ListDirOption option = ListDirOption::IncludeLinksToDirs);
 
-int /// lists files and folders, returns 0 on success
-ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
+bool ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 	FilterFunc ff = nullptr);
 
 // returns 0 on success, errno on error

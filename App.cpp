@@ -89,7 +89,7 @@ void* ThumbnailLoader (void *args)
 {
 	pthread_detach(pthread_self());
 	cornus::ThumbLoaderData *th_data = (cornus::ThumbLoaderData*) args;
-	CHECK_TRUE_NULL(th_data->Lock());
+	RET_IF(th_data->Lock(), false, NULL);
 	
 	while (th_data->wait_for_work)
 	{
@@ -745,8 +745,9 @@ void App::DetectThemeType()
 
 void App::DisplayFileContents(const int row, io::File *cloned_file)
 {
-	if (cloned_file == nullptr) {
-		cloned_file = tab()->table()->GetFileAt(row);
+	if (cloned_file == nullptr)
+	{
+		cloned_file = tab()->view_files().GetFileAtIndex_Lock(row);
 		if (cloned_file == nullptr)
 			return;
 	}
@@ -759,7 +760,7 @@ void App::DisplayFileContents(const int row, io::File *cloned_file)
 	notepad_.saved_window_title = windowTitle();
 	if (notepad_.editor->Display(cloned_file))
 	{
-		setWindowTitle(tr("Press Esc to exit or Ctrl+S to save and exit"));
+		setWindowTitle(tr("Esc=>exit, Ctrl+S=>save & exit"));
 		toolbar_->setVisible(false);
 		notepad_.stack->setCurrentIndex(notepad_.editor_index);
 		tab()->table()->ClearMouseOver();
@@ -772,7 +773,7 @@ void App::DisplaySymlinkInfo(io::File &file)
 		file.ReadLinkTarget();
 	
 	io::LinkTarget *t = file.link_target();
-	CHECK_PTR_VOID(t);
+	VOID_RET_IF(t, nullptr);
 	
 	QDialog dialog(this);
 	dialog.setWindowTitle("Symlink path chain");
@@ -817,7 +818,7 @@ void App::DisplaySymlinkInfo(io::File &file)
 void App::EditSelectedMovieTitle()
 {
 	QString ext;
-	QString full_path = tab()->table()->GetFirstSelectedFileFullPath(&ext);
+	QString full_path = tab()->view_files().GetFirstSelectedFileFullPath_Lock(&ext);
 	if (full_path.isEmpty())
 		return;
 	
@@ -982,7 +983,7 @@ QIcon* App::GetDefaultIcon()
 {
 	if (icon_cache_.unknown == nullptr) {
 		QString full_path = GetIconThatStartsWith(QLatin1String("text"));
-		CHECK_TRUE_NULL((!full_path.isEmpty()));
+		RET_IF(full_path.isEmpty(), true, nullptr);
 		icon_cache_.unknown = GetIconOrLoadExisting(full_path);
 	}
 	return icon_cache_.unknown;
@@ -1143,7 +1144,7 @@ QIcon* App::LoadIcon(io::File &file)
 	if (file.is_dir_or_so()) {
 		if (icon_cache_.folder == nullptr) {
 			QString full_path = GetIconThatStartsWith(QLatin1String("special_folder"));
-			CHECK_TRUE_NULL((!full_path.isEmpty()));
+			RET_IF(full_path.isEmpty(), true, nullptr);
 			icon_cache_.folder = GetIconOrLoadExisting(full_path);
 		}
 		
@@ -1159,7 +1160,7 @@ QIcon* App::LoadIcon(io::File &file)
 		{
 			if (icon_cache_.lib == nullptr) {
 				QString full_path = GetIconThatStartsWith(QLatin1String("special_sharedlib"));
-				CHECK_TRUE_NULL((!full_path.isEmpty()));
+				RET_IF(full_path.isEmpty(), true, nullptr);
 				icon_cache_.lib = GetIconOrLoadExisting(full_path);
 			}
 			return icon_cache_.lib;
@@ -1176,7 +1177,7 @@ QIcon* App::LoadIcon(io::File &file)
 	
 	if (ext.startsWith(QLatin1String("blend"))) {
 		QString full_path = GetIconThatStartsWith(QLatin1String("special_blender"));
-		CHECK_TRUE_NULL((!full_path.isEmpty()));
+		RET_IF(full_path.isEmpty(), true, nullptr);
 		return GetIconOrLoadExisting(full_path);
 	}
 	
@@ -1185,11 +1186,9 @@ QIcon* App::LoadIcon(io::File &file)
 
 void App::LoadIconsFrom(QString dir_path)
 {
-///	mtl_info("Loading icons from: %s", qPrintable(dir_path));
 	QVector<QString> available_names;
-	if (io::ListFileNames(dir_path, available_names) != 0) {
-		mtl_trace();
-	}
+	if (!io::ListFileNames(dir_path, available_names))
+		return;
 	
 	if (!dir_path.endsWith('/'))
 		dir_path.append('/');
@@ -1248,14 +1247,14 @@ void App::OpenWithDefaultApp(const QString &full_path) const
 	ba.set_msg_id(io::Message::SendDefaultDesktopFileForFullPath);
 	ba.add_string(full_path);
 	int fd = io::socket::Client();
-	CHECK_TRUE_VOID((fd != -1));
-	CHECK_TRUE_VOID(ba.Send(fd, CloseSocket::No));
+	VOID_RET_IF(fd, -1);
+	VOID_RET_IF(ba.Send(fd, CloseSocket::No), false);
 	ba.Clear();
-	CHECK_TRUE_VOID(ba.Receive(fd));
-	CHECK_TRUE_VOID((!ba.is_empty()));
+	VOID_RET_IF(ba.Receive(fd), false);
+	VOID_RET_IF(ba.is_empty(), true);
 	
 	DesktopFile *p = DesktopFile::From(ba);
-	CHECK_PTR_VOID(p);
+	VOID_RET_IF(p, nullptr);
 	p->Launch(full_path, tab()->current_dir());
 	delete p;
 }
@@ -1514,9 +1513,9 @@ void App::RegisterShortcuts()
 			gui::Tab *tab = this->tab();
 			tab->GrabFocus();
 			QVector<int> indices;
-			auto &view_files = *files(tab->files_id());
+			auto &view_files = tab->view_files();
 			MutexGuard guard = view_files.guard();
-			tab->SelectAllFilesNTS(true, indices);
+			view_files.SelectAllFiles_NoLock(Selected::Yes, indices);
 			tab->table_model()->UpdateIndices(indices);
 		});
 	}
@@ -1581,7 +1580,8 @@ void App::RenameSelectedFile()
 {
 	io::File *file = nullptr;
 	gui::Tab *tab = this->tab();
-	if (tab->table()->GetFirstSelectedFile(&file) == -1)
+	auto &files = tab->view_files();
+	if (files.GetFirstSelectedFile_Lock(&file) == -1)
 		return;
 	
 	AutoDelete ad(file);
@@ -1672,7 +1672,7 @@ void App::RenameSelectedFile()
 	if (needs_root)
 	{
 		hash_info = WaitForRootDaemon(CanOverwrite::No);
-		CHECK_TRUE_VOID(hash_info.valid());
+		VOID_RET_IF(hash_info.valid(), false);
 		
 		auto *ba = new ByteArray();
 		ba->add_u64(hash_info.num);
@@ -1707,7 +1707,7 @@ void App::SaveBookmarks()
 {
 	QVector<gui::TreeItem*> item_vec;
 	gui::TreeItem *bkm_root = tree_data_.GetBookmarksRoot();
-	CHECK_PTR_VOID(bkm_root);
+	VOID_RET_IF(bkm_root, nullptr);
 	for (gui::TreeItem *next: bkm_root->children())
 	{
 		item_vec.append(next->Clone());
@@ -2028,8 +2028,9 @@ void App::ToggleExecBitOfSelectedFiles()
 	auto &view_files = *files(tab()->files_id());
 	MutexGuard guard = view_files.guard();
 	const auto ExecBits = S_IXUSR | S_IXGRP | S_IXOTH;
-	for (io::File *next: view_files.data.vec) {
-		if (next->selected()) {
+	for (io::File *next: view_files.data.vec)
+	{
+		if (next->is_selected()) {
 			mode_t mode = next->mode();
 			if (mode & ExecBits)
 				mode &= ~ExecBits;

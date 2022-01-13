@@ -200,15 +200,15 @@ void Tab::DisplayingNewDirectory(const DirId dir_id)
 		icon_view_->DisplayingNewDirectory(dir_id);
 }
 
-void Tab::FilesChanged(const Repaint r, const int row)
+void Tab::FilesChanged(const FileCountChanged fcc, const int row)
 {
 	// File changes are monitored only in TableModel.cpp which represents
 	// the detailed view, which is why the detailed view uses
 	// this method to inform the icon view of changes.
-	auto *p = icon_view();
-	if (p != nullptr)
+	auto *iv = icon_view();
+	if (iv != nullptr)
 	{
-		p->FilesChanged(r, row);
+		iv->FilesChanged(fcc, row);
 	}
 }
 
@@ -383,14 +383,14 @@ void Tab::GoToAndSelect(const QString full_path)
 {
 	QFileInfo info(full_path);
 	QDir parent = info.dir();
-	CHECK_TRUE_VOID(parent.exists());
+	VOID_RET_IF(parent.exists(), false);
 	QString parent_dir = parent.absolutePath();
 	const QString name = io::GetFileNameOfFullPath(full_path).toString();
 	const SameDir same_dir = io::SameFiles(parent_dir, current_dir_) ? SameDir::Yes : SameDir::No;
 	table_->model()->SelectFilenamesLater({name}, same_dir);
 	
 	if (same_dir == SameDir::No) {
-		CHECK_TRUE_VOID(GoTo(Action::To, {parent_dir, Processed::No}, Reload::No));
+		VOID_RET_IF(GoTo(Action::To, {parent_dir, Processed::No}, Reload::No), false);
 	}
 }
 
@@ -429,7 +429,7 @@ void Tab::PopulateUndoDelete(QMenu *menu)
 {
 	menu->clear();
 	QMap<i64, QVector<trash::Names>> all_items;
-	CHECK_TRUE_VOID(trash::ListItems(CurrentDirTrashPath(), all_items));
+	VOID_RET_IF(trash::ListItems(CurrentDirTrashPath(), all_items), false);
 	
 	if (all_items.isEmpty())
 		return;
@@ -503,21 +503,6 @@ void Tab::ScrollToFile(const int file_index)
 	}
 }
 
-void Tab::SelectAllFilesNTS(const bool flag, QVector<int> &indices)
-{
-	int i = 0;
-	io::Files &files = view_files();
-	for (auto *file: files.data.vec)
-	{
-		if (file->selected() != flag)
-		{
-			indices.append(i);
-			file->selected(flag);
-		}
-		i++;
-	}
-}
-
 void Tab::SetTitle(const QString &s)
 {
 	title_ = s;
@@ -539,12 +524,12 @@ void Tab::SetViewMode(const ViewMode mode)
 	switch (view_mode_) {
 	case ViewMode::Details: {
 		viewmode_stack_->setCurrentIndex(details_view_index_);
-		CHECK_PTR_VOID(table_);
+		VOID_RET_IF(table_, nullptr);
 		table_->setFocus(Qt::MouseFocusReason);
 		break;
 	}
 	case ViewMode::Icons: {
-		CHECK_PTR_VOID(icon_view_);
+		VOID_RET_IF(icon_view_, nullptr);
 		icon_view_->SetAsCurrentView(NewState::AboutToSet);
 		viewmode_stack_->setCurrentIndex(icons_view_index_);
 		icon_view_->setFocus(Qt::MouseFocusReason);
@@ -560,7 +545,7 @@ void Tab::SetViewMode(const ViewMode mode)
 void Tab::ShutdownLastInotifyThread()
 {
 	io::Files *p = app_->files(files_id_);
-	CHECK_PTR_VOID(p);
+	VOID_RET_IF(p, nullptr);
 	auto &files = *p;
 	files.Lock();
 #ifdef CORNUS_WAITED_FOR_WIDGETS

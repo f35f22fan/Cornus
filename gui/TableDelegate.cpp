@@ -59,7 +59,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	sel_rect.setWidth(actual_wide);
 	const bool mouse_over = table_->mouse_over_file_name_index() == row;
 	
-	if (mouse_over || paint_as_selected || file->selected() || file->selected_by_search()) {
+	if (mouse_over || paint_as_selected || file->is_selected() || file->selected_by_search()) {
 		QColor c;
 		if (file->selected_by_search()) {
 			if (file->selected_by_search_active())
@@ -68,7 +68,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 				c = QColor(10, 255, 10);
 		} else {
 			c = option.palette.highlight().color();
-			if (mouse_over && !file->selected()) {
+			if (mouse_over && !file->is_selected()) {
 				c = app_->hover_bg_color_gray(c);
 			}
 		}

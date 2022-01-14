@@ -77,6 +77,38 @@ void File::ClearCache()
 	}
 }
 
+void File::CountDirFiles1Level()
+{
+	if (!is_dir_or_so())
+		return;
+	
+	QByteArray ba;
+	if (is_dir())
+	{
+		ba = build_full_path().toLocal8Bit();
+	} else {
+		ba = link_target_->path.toLocal8Bit();
+	}
+	
+	//mtl_info("%s", ba.data());
+	DIR *dp = opendir(ba.data());
+	
+	if (dp == NULL)
+	{
+		dir_file_count_1_level_ = -1;
+		return;// errno;
+	}
+	
+	int n = 0;
+	while (readdir(dp))
+	{
+		n++;
+	}
+	
+	closedir(dp);
+	dir_file_count_1_level_ = std::max(0, n - 2);
+}
+
 int File::Delete() {
 	auto ba = build_full_path().toLocal8Bit();
 	return remove(ba.data());
@@ -190,10 +222,14 @@ bool File::ShouldTryLoadingThumbnail()
 
 QString File::SizeToString() const
 {
-	if (is_dir_or_so())
+	if (!is_dir_or_so())
+		return io::SizeToString(size_);
+	
+	if (dir_file_count_1_level_ <= 0)
 		return QString();
 	
-	return io::SizeToString(size_);
+	const QString s = QString::number(dir_file_count_1_level_);
+	return QChar('(') + s + QChar(')');
 }
 
 }

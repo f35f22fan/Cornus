@@ -143,6 +143,7 @@ struct FilesData {
 	static const u16 ThreadMustExit = 1u << 1;
 	static const u16 ThreadExited = 1u << 2;
 	static const u16 CanWriteToDir = 1u << 3;
+	static const u16 CountDirFiles1Level = 1u << 4;
 	
 	FilesData() {}
 	~FilesData();
@@ -177,6 +178,14 @@ struct FilesData {
 			bits_ |= CanWriteToDir;
 		else
 			bits_ &= ~CanWriteToDir;
+	}
+	
+	bool count_dir_files_1_level() const { return bits_ & CountDirFiles1Level; }
+	void count_dir_files_1_level(const bool flag) {
+		if (flag)
+			bits_ |= CountDirFiles1Level;
+		else
+			bits_ &= ~CountDirFiles1Level;
 	}
 	
 	bool show_hidden_files() const { return bits_ & ShowHiddenFiles; }
@@ -255,8 +264,9 @@ struct Files {
 	
 	QPair<int, int> ListSelectedFiles_Lock(QList<QUrl> &list);
 	
+	void RemoveThumbnailsFromSelectedFiles();
 	void SelectAllFiles_NoLock(const Selected flag, QVector<int> &indices);
-	
+	void SelectFilenamesLater(const QVector<QString> &names, const SameDir sd = SameDir::No);
 	void SelectFileRange_NoLock(const int row1, const int row2, QVector<int> &indices);
 };
 

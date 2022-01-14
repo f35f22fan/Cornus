@@ -12,9 +12,21 @@
 #include <QTabBar>
 #include <QStackedWidget>
 
-QT_FORWARD_DECLARE_CLASS(QScrollArea)
+QT_BEGIN_NAMESPACE
+class QScrollArea;
+class QScrollBar;
+QT_END_NAMESPACE
 
 namespace cornus {
+
+struct OpenWith {
+	QString full_path;
+	QString mime;
+	QVector<DesktopFile*> show_vec;
+	QVector<DesktopFile*> hide_vec;
+	
+	void Clear();
+};
 
 struct DirPath {
 	QString path;
@@ -36,14 +48,24 @@ public:
 	Tab(App *app, const TabId tab_id);
 	virtual ~Tab();
 	
+	void ActionCopy(QVector<int> *indices);
+	void ActionCut(QVector<int> *indices);
+	void ActionPaste();
+	void ActionPasteLinks(const LinkType link);
 	App* app() const { return app_; }
 	void CreateGui();
 	const QString& current_dir() const { return current_dir_; }
 	QString CurrentDirTrashPath();
+	void DeleteSelectedFiles(const ShiftPressed sp);
 	void DisplayingNewDirectory(const DirId dir_id);
+	void DragEnterEvent(QDragEnterEvent *evt);
+	void DropEvent(QDropEvent *evt);
+	void ExecuteDrop(QVector<io::File *> *files_vec, io::File *to_dir,
+		Qt::DropAction drop_action, Qt::DropActions possible_actions);
 	TabId id() const { return id_; }
 	i64 files_id() const { return files_id_; }
 	void FilesChanged(const FileCountChanged fcc, const int row = -1);
+	void GetSelectedArchives(QVector<QString> &urls);
 	void GoBack();
 	void GoForward();
 	void GoHome();
@@ -52,15 +74,18 @@ public:
 	void GoToSimple(const QString &full_path);
 	void GoUp();
 	void GoToInitialDir();
-	
 	void GrabFocus();
+	void HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indices);
 	History* history() const { return history_; }
 	gui::IconView* icon_view() const { return icon_view_; }
+	void KeyPressEvent(QKeyEvent *evt, QVector<int> &indices);
 	io::Notify& notify() { return notify_; }
-	
+	const OpenWith& open_with() const { return open_with_; }
 	void PopulateUndoDelete(QMenu *menu);
+	bool ReloadOpenWith();
 	void ScrollToFile(const int file_index);
 	void ShutdownLastInotifyThread();
+	void StartDragOperation();
 	
 	gui::Table* table() const { return table_; }
 	gui::TableModel* table_model() const { return table_model_; }
@@ -68,7 +93,8 @@ public:
 	bool ViewIsAt(const QString &dir_path) const;
 	ViewMode view_mode() const { return view_mode_; }
 	void SetViewMode(const ViewMode mode);
-	
+	void ShowRightClickMenu(const QPoint &global_pos,
+		const QPoint &local_pos, QVector<int> *indices);
 	io::Files& view_files();
 	
 	const QString& title() const { return title_; }
@@ -83,8 +109,19 @@ protected:
 	virtual void resizeEvent(QResizeEvent *ev) override;
 	
 private:
+	void AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path);
+	bool AnyArchive(const QVector<QString> &extensions) const;
+	bool CreateMimeWithSelectedFiles(const ClipboardAction action,
+		QVector<int> &indices, QStringList &list);
+	QVector<QAction*>
+	CreateOpenWithList(const QString &full_path);
+	/// returns row index & cloned file if on file name, otherwise -1
+	int GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file, QString *full_path = nullptr);
 	void Init();
+	void LaunchFromOpenWithMenu();
+	void ProcessAction(const QString &action);
 	void UndeleteFiles(const QMap<i64, QVector<cornus::trash::Names> > &items);
+	QScrollBar* ViewScrollBar() const;
 	
 	App *app_ = nullptr;
 	History *history_ = nullptr;
@@ -102,6 +139,9 @@ private:
 	
 	ViewMode view_mode_ = ViewMode::Details;
 	gui::IconView *icon_view_ = nullptr;
+	
+	QMenu *undo_delete_menu_ = nullptr;
+	OpenWith open_with_ = {};
 };
 
 }}

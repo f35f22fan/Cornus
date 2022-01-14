@@ -15,11 +15,6 @@
 
 namespace cornus::gui {
 
-enum class SameDir: i8 {
-	Yes,
-	No
-};
-
 class TableModel: public QAbstractTableModel
 {
 	Q_OBJECT
@@ -30,7 +25,6 @@ public:
 	cornus::App*
 	app() const { return app_; }
 	
-	void DeleteSelectedFiles(const ShiftPressed sp);
 	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
 	int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 	
@@ -61,7 +55,6 @@ public:
 		return true;
 	}
 	
-	void SelectFilenamesLater(const QVector<QString> &v, const SameDir sd = SameDir::No);
 	void SwitchTo(io::FilesData *new_data);
 	gui::Tab* tab() const { return tab_; }
 	void UpdateIndices(const QVector<int> &indices);
@@ -69,7 +62,7 @@ public:
 	void UpdateSingleRow(int row) {
 		UpdateRange(row, Column::Icon, row, Column(i8(Column::Count) - 1));
 	}
-	void UpdateRowRange(int row_start, int row_end) {
+	void UpdateFileIndexRange(int row_start, int row_end) {
 		UpdateRange(row_start, Column::Icon, row_end,
 			Column(i8(Column::Count) - 1));
 	}

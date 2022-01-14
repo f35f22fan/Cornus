@@ -8,6 +8,7 @@
 #include "Tab.hpp"
 #include "Table.hpp"
 
+#include <QApplication>
 #include <QFontMetrics>
 #include <QHBoxLayout>
 #include <QImageReader>
@@ -31,6 +32,29 @@ IconView::IconView(App *app, Tab *tab, QScrollBar *vs):
 
 IconView::~IconView()
 {}
+
+void IconView::ClearDndAnimation(const QPoint &drop_coord)
+{
+	// repaint() or update() don't work because
+	// the window is not raised when dragging an item
+	// on top of the table and the repaint
+	// requests are ignored. Repaint using a hack:
+	int row = GetRowAtY(drop_coord.y());
+	
+	if (row != -1) {
+		int start = row;
+		if (row > 0)
+			start--;
+		const int end = row + 1;
+		UpdateFileIndexRange(start, end);
+	}
+}
+
+void IconView::ClearMouseOver()
+{
+	mouse_pos_ = {-1, -1};
+	mouse_over_file_ = -1;
+}
 
 void IconView::ComputeProportions(IconDim &dim) const
 {
@@ -79,6 +103,40 @@ void IconView::DelayedRepaint()
 		update();
 		delayed_repaint_pending_ = false;
 	}
+}
+
+void IconView::dragEnterEvent(QDragEnterEvent *evt)
+{
+	tab_->DragEnterEvent(evt);
+}
+
+void IconView::dragLeaveEvent(QDragLeaveEvent *evt)
+{
+	ClearDndAnimation(drop_coord_);
+	drop_coord_ = {-1, -1};
+}
+
+void IconView::dragMoveEvent(QDragMoveEvent *evt)
+{
+	drop_coord_ = evt->pos();
+	ClearDndAnimation(drop_coord_);
+	int h = size().height();
+	const int y = drop_coord_.y();
+	const int rh = icon_dim_.rh;
+	
+	if (y >= (h - rh))
+	{
+		mtl_warn("this logic doesn't work with IconView");
+		Scroll(VDirection::Down, ScrollBy::LineStep);
+	}
+}
+
+void IconView::dropEvent(QDropEvent *evt)
+{
+	mouse_down_ = false;
+	tab_->DropEvent(evt);
+	ClearDndAnimation(drop_coord_);
+	drop_coord_ = {-1, -1};
 }
 
 DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
@@ -158,12 +216,24 @@ void IconView::FilesChanged(const FileCountChanged fcc, const int file_index)
 	}
 }
 
+void IconView::HiliteFileUnderMouse()
+{
+	{
+		io::Files &files = tab_->view_files();
+		MutexGuard guard = files.guard();
+		GetFileAt_NoLock(mouse_pos_, Clone::No, &mouse_over_file_);
+	}
+	
+	if (mouse_over_file_ != -1)
+		UpdateIndex(mouse_over_file_);
+}
+
 void IconView::Init()
 {
 	setFocusPolicy(Qt::WheelFocus);
-	/// enables receiving ordinary mouse events (when mouse is not down)
-	setMouseTracking(true);
 	
+	// enables receiving ordinary mouse events (when mouse is not down)
+	setMouseTracking(true);
 	connect(vs_, &QScrollBar::valueChanged, [=](int value) {
 		if (repaint_without_delay_)
 			update();
@@ -193,7 +263,11 @@ io::File* IconView::GetFileAt_NoLock(const QPoint &pos, const Clone c, int *ret_
 	const int file_index = row * icon_dim_.per_row + x_index;
 	auto &files = tab_->view_files();
 	if (file_index < 0 || file_index >= files.data.vec.size())
+	{
+		if (ret_index)
+			*ret_index = -1;
 		return nullptr;
+	}
 	
 	if (ret_index)
 		*ret_index = file_index;
@@ -233,6 +307,12 @@ void IconView::keyReleaseEvent(QKeyEvent *evt)
 	Q_UNUSED(shift);
 }
 
+void IconView::leaveEvent(QEvent *evt)
+{
+	ClearMouseOver();
+	UpdateIndex(mouse_over_file_);
+}
+
 void IconView::mouseDoubleClickEvent(QMouseEvent *evt)
 {
 	QVector<int> indices;
@@ -247,7 +327,17 @@ void IconView::mouseDoubleClickEvent(QMouseEvent *evt)
 
 void IconView::mouseMoveEvent(QMouseEvent *evt)
 {
+	mouse_pos_ = evt->pos();
+	HiliteFileUnderMouse();
 	
+	if (mouse_down_ && (drag_start_pos_.x() >= 0 || drag_start_pos_.y() >= 0)) {
+		auto diff = (mouse_pos_ - drag_start_pos_).manhattanLength();
+		if (diff >= QApplication::startDragDistance())
+		{
+			drag_start_pos_ = {-1, -1};
+			tab_->StartDragOperation();
+		}
+	}
 }
 
 void IconView::mousePressEvent(QMouseEvent *evt)
@@ -282,8 +372,8 @@ void IconView::mousePressEvent(QMouseEvent *evt)
 	if (right_click)
 	{
 		mtl_tbd();
-//		HandleMouseRightClickSelection(evt->pos(), indices);
-//		ShowRightClickMenu(evt->globalPos(), evt->pos());
+		tab_->HandleMouseRightClickSelection(evt->pos(), indices);
+		tab_->ShowRightClickMenu(evt->globalPos(), evt->pos(), &indices);
 	}
 	
 	UpdateIndices(indices);
@@ -367,9 +457,9 @@ void IconView::paintEvent(QPaintEvent *ev)
 			if (file_index >= file_count)
 				break;
 			
+			const bool mouse_over = (mouse_over_file_ == file_index);
 			QString file_name;
 			const QRect cell_r(x, y, cell.w_and_gaps, cell.h_and_gaps);
-			bool mouse_over = false;
 			DrawBorder draw_border = DrawBorder::No;
 			{
 				auto guard = files.guard();
@@ -514,7 +604,21 @@ QSize IconView::size() const
 	return QSize(w, icon_dim_.total_h);
 }
 
+void IconView::UpdateIndex(const int file_index)
+{
+	auto &files = tab_->view_files();
+	if (file_index < 0 || file_index >= files.cached_files_count)
+		return;
+	
+	update();
+}
+
 void IconView::UpdateIndices(const QVector<int> &indices)
+{
+	update();
+}
+
+void IconView::UpdateFileIndexRange(const int start, const int end)
 {
 	update();
 }

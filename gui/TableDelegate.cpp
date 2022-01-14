@@ -18,6 +18,8 @@
 
 namespace cornus::gui {
 
+const Qt::Alignment AlignCenterMiddle = Qt::AlignCenter | Qt::AlignVCenter;
+
 void ClipboardIcons::init_if_needed() {
 	if (!cut.isNull())
 		return;
@@ -215,7 +217,15 @@ TableDelegate::DrawSize(QPainter *painter, io::File *file,
 	const QRect &text_rect) const
 {
 	QString text = file->SizeToString();
-	painter->drawText(text_rect, text_alignment_, text);
+	const auto a = file->is_dir_or_so() ? AlignCenterMiddle : text_alignment_;
+	
+	if (file->is_dir_or_so())
+	{
+		QBrush brush = option.palette.brush(QPalette::PlaceholderText);
+		QPen pen(brush.color());
+		painter->setPen(pen);
+	}
+	painter->drawText(text_rect, a, text);
 }
 
 void

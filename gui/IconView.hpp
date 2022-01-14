@@ -56,7 +56,7 @@ public:
 	{
 		int row = y / (int)icon_dim_.rh;
 		const int int_off = y % (int)icon_dim_.rh;
-		if (y_off)
+		if (y_off != nullptr)
 			*y_off = -int_off;
 		
 		if (int_off != 0)
@@ -65,6 +65,7 @@ public:
 		return row;
 	}
 	
+	void HiliteFileUnderMouse();
 	void SetAsCurrentView(const NewState ns);
 	QSize minimumSize() const { return size(); }
 	QSize maximumSize() const { return size(); }
@@ -80,11 +81,21 @@ public:
 	io::File* GetFileAt_NoLock(const QPoint &pos, const Clone c, int *ret_index = nullptr);
 	void RepaintLater(const int custom_ms = -1);
 	ShiftSelect* shift_select() { return &shift_select_; }
+	void UpdateIndex(const int file_index);
+	void UpdateFileIndexRange(const int start, const int end);
 	void UpdateIndices(const QVector<int> &indices);
 	
+	QScrollBar* scrollbar() const { return vs_; }
+	
 protected:
+	virtual void dragEnterEvent(QDragEnterEvent *evt) override;
+	virtual void dragLeaveEvent(QDragLeaveEvent *evt) override;
+	virtual void dragMoveEvent(QDragMoveEvent *evt) override;
+	virtual void dropEvent(QDropEvent *event) override;
+
 	virtual void keyPressEvent(QKeyEvent *evt) override;
 	virtual void keyReleaseEvent(QKeyEvent *evt) override;
+	virtual void leaveEvent(QEvent *evt) override;
 	virtual void mouseDoubleClickEvent(QMouseEvent *evt) override;
 	virtual void mouseMoveEvent(QMouseEvent *evt) override;
 	virtual void mousePressEvent(QMouseEvent *evt) override;
@@ -96,6 +107,8 @@ protected:
 private:
 	NO_ASSIGN_COPY_MOVE(IconView);
 	
+	void ClearDndAnimation(const QPoint &drop_coord);
+	void ClearMouseOver();
 	void ComputeProportions(IconDim &dim) const;
 	void DelayedRepaint();
 	DrawBorder DrawThumbnail(io::File *file, QPainter &painter, double x, double y);
@@ -122,6 +135,7 @@ private:
 	QPoint drop_coord_ = {-1, -1};
 	QPoint drag_start_pos_ = {-1, -1};
 	QPoint mouse_pos_ = {-1, -1};
+	int mouse_over_file_ = -1;
 };
 
 

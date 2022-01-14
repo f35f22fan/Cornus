@@ -500,7 +500,7 @@ void App::AskCreateNewFile(io::File *file, const QString &title)
 	file->name(value);
 	const QString new_path = file->build_full_path();
 	auto path_ba = new_path.toLocal8Bit();
-	tab()->table_model()->SelectFilenamesLater({file->name()}, gui::SameDir::Yes);
+	tab()->view_files().SelectFilenamesLater({file->name()}, SameDir::Yes);
 	int fd;
 	
 	if (file->is_dir()) {
@@ -686,7 +686,7 @@ QMenu* App::CreateNewMenu()
 			action->setIcon(*icon);
 		
 		connect(action, &QAction::triggered, [=] {
-			tab()->table_model()->SelectFilenamesLater({name}, gui::SameDir::Yes);
+			tab()->view_files().SelectFilenamesLater({name}, SameDir::Yes);
 			io::CopyFileFromTo(from_full_path, dir_path);
 		});
 		menu->addAction(action);
@@ -894,7 +894,7 @@ void App::ExtractAskDestFolder()
 void App::ExtractTo(const QString &to_dir)
 {
 	QVector<QString> urls;
-	tab()->table()->GetSelectedArchives(urls);
+	tab()->GetSelectedArchives(urls);
 	if (urls.isEmpty())
 		return;
 	
@@ -1485,7 +1485,7 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
 		connect(shortcut, &QShortcut::activated, [=] {
-			tab()->table_model()->DeleteSelectedFiles(ShiftPressed::Yes);
+			tab()->DeleteSelectedFiles(ShiftPressed::Yes);
 		});
 	}
 	{
@@ -1686,7 +1686,7 @@ void App::RenameSelectedFile()
 		QMessageBox::warning(this, "Failed", err);
 	}
 	
-	tab->table_model()->SelectFilenamesLater({value});
+	tab->view_files().SelectFilenamesLater({value});
 }
 
 void App::RunExecutable(const QString &full_path, const ExecInfo &info)

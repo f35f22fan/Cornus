@@ -263,7 +263,7 @@ void OpenOrderPane::CreateGui()
 	QBoxLayout *layout = new QBoxLayout(QBoxLayout::TopToBottom);
 	setLayout(layout);
 	
-	const OpenWith& open_with = tab_->table()->open_with();
+	const OpenWith& open_with = tab_->open_with();
 	mime_ = app_->QueryMimeType(open_with.full_path);
 	layout->addWidget(CreateAddingCustomItem());
 	{
@@ -275,6 +275,7 @@ void OpenOrderPane::CreateGui()
 		model_ = new OpenOrderModel(app_, this);
 		table_ = new OpenOrderTable(app_, model_);
 		model_->table(table_);
+		mtl_warn("TBD: handle icon_view_ as well.");
 		connect(table_->selectionModel(), &QItemSelectionModel::selectionChanged,
 			this, &OpenOrderPane::TableSelectionChanged);
 		
@@ -317,7 +318,7 @@ void OpenOrderPane::MoveItem(const Direction d)
 void OpenOrderPane::QueryData()
 {
 	ClearData();
-	const OpenWith& open_with = tab_->table()->open_with();
+	const OpenWith& open_with = tab_->open_with();
 	QVector<DesktopFile*> show_vec;
 	for (DesktopFile *next: open_with.show_vec) {
 		open_with_original_vec_.append(next->Clone());
@@ -360,7 +361,7 @@ void OpenOrderPane::RestoreDefaults()
 	auto full_path = GetFullFilePathForMime(mime_);
 	auto ba = full_path.toLocal8Bit();
 	remove(ba.data()); // don't return on error, QueryData must be executed.
-	tab_->table()->ReloadOpenWith(); // to clear cache
+	tab_->ReloadOpenWith(); // to clear cache
 	QueryData();
 	adjustSize();
 }

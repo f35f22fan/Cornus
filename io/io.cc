@@ -108,6 +108,19 @@ QPair<int, int> Files::ListSelectedFiles_Lock(QList<QUrl> &list)
 	return QPair(num_dirs, num_files);
 }
 
+void Files::RemoveThumbnailsFromSelectedFiles()
+{
+	MutexGuard guard = this->guard();
+	
+	for (io::File *next: data.vec)
+	{
+		if (!next->is_selected() || !next->has_thumbnail_attr())
+			continue;
+		
+		io::RemoveXAttr(next->build_full_path(), media::XAttrThumbnail);
+	}
+}
+
 void Files::SelectAllFiles_NoLock(const Selected flag, QVector<int> &indices)
 {
 	int i = -1;
@@ -119,6 +132,17 @@ void Files::SelectAllFiles_NoLock(const Selected flag, QVector<int> &indices)
 			indices.append(i);
 			file->selected(flag);
 		}
+	}
+}
+
+void Files::SelectFilenamesLater(const QVector<QString> &names, const SameDir sd)
+{
+	MutexGuard guard = this->guard();
+	auto dir_to_skip = (sd == SameDir::Yes) ? -1 : data.dir_id;
+	data.skip_dir_id = dir_to_skip;
+	for (const auto &name: names)
+	{
+		data.filenames_to_select.insert(name, 0);
 	}
 }
 
@@ -1130,6 +1154,11 @@ int ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 			return EINVAL;
 	}
 	
+	{ // this line is needed for file->CountDirFiles1Level()
+		// to work properly, it's called later in this function.
+		ptr->data.processed_dir_path = data.processed_dir_path;
+	}
+	
 	auto dir_path_ba = data.processed_dir_path.toLocal8Bit();
 	DIR *dp = opendir(dir_path_ba.data());
 	
@@ -1160,6 +1189,8 @@ int ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 		if (ReloadMeta(*file, stx, &data.processed_dir_path))
 		{
 			data.vec.append(file);
+			if (file->is_dir_or_so())
+				file->CountDirFiles1Level();
 		} else {
 			delete file;
 		}

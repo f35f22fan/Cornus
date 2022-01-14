@@ -451,48 +451,6 @@ TableModel::TableModel(cornus::App *app, gui::Tab *tab): app_(app), tab_(tab)
 
 TableModel::~TableModel() {}
 
-void TableModel::DeleteSelectedFiles(const ShiftPressed sp)
-{
-	QVector<QString> paths;
-	{
-		io::Files &files = tab_->view_files();
-		MutexGuard guard = files.guard();
-		
-		for (io::File *next: files.data.vec) {
-			if (next->is_selected())
-				paths.append(next->build_full_path());
-		}
-	}
-	
-	if (paths.isEmpty())
-		return;
-	
-	const auto msg_id = (sp == ShiftPressed::Yes) ? io::Message::DeleteFiles
-		: io::Message::MoveToTrash;
-	
-	QString dir_path = io::GetParentDirPath(paths[0]).toString();
-	bool needs_root;
-	const char *socket_path = io::QuerySocketFor(dir_path, needs_root);
-	HashInfo hash_info;
-	if (needs_root)
-	{
-		hash_info = app_->WaitForRootDaemon(CanOverwrite::No);
-		VOID_RET_IF(hash_info.valid(), false);
-	}
-	
-	ByteArray *ba = new ByteArray();
-	if (needs_root)
-		ba->add_u64(hash_info.num);
-	
-	ba->set_msg_id(msg_id);
-	for (auto &next: paths)
-	{
-		ba->add_string(next);
-	}
-	
-	io::socket::SendAsync(ba, socket_path);
-}
-
 QModelIndex
 TableModel::index(int row, int column, const QModelIndex &parent) const
 {
@@ -763,25 +721,14 @@ bool TableModel::removeRows(int row, int count, const QModelIndex &parent)
 		}
 		tab_->view_files().cached_files_count = vec.size();
 	}
-	
 	endRemoveRows();
+	
 	return true;
 }
 
 int TableModel::rowCount(const QModelIndex &parent) const
 {
 	return tab_->view_files().cached_files_count;
-}
-
-void TableModel::SelectFilenamesLater(const QVector<QString> &v, const SameDir sd)
-{
-	io::Files &files = tab_->view_files();
-	MutexGuard guard = files.guard();
-	auto dir_to_skip = (sd == SameDir::Yes) ? -1 : files.data.dir_id;
-	files.data.skip_dir_id = dir_to_skip;
-	for (const auto &s: v) {
-		files.data.filenames_to_select.insert(s, 0);
-	}
 }
 
 void TableModel::SwitchTo(io::FilesData *new_data)
@@ -815,6 +762,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 		/// copying sorting order is logically wrong because it overwrites
 		/// the existing one.
 		files.data.show_hidden_files(new_data->show_hidden_files());
+		files.data.count_dir_files_1_level(new_data->count_dir_files_1_level());
 		files.data.vec = new_data->vec;
 		new_data->vec.clear();
 		files.cached_files_count = files.data.vec.size();
@@ -871,7 +819,7 @@ void TableModel::UpdateIndices(const QVector<int> &indices)
 //			max, min, count_per_page);
 		UpdateVisibleArea();
 	} else {
-		UpdateRowRange(min, max);
+		UpdateFileIndexRange(min, max);
 	}
 }
 
@@ -897,7 +845,7 @@ void TableModel::UpdateVisibleArea()
 	gui::Table *table = tab_->table();
 	int row_start = table->verticalScrollBar()->value() / table->GetRowHeight();
 	int count_per_page = table->GetVisibleRowsCount();
-	UpdateRowRange(row_start, row_start + count_per_page);
+	UpdateFileIndexRange(row_start, row_start + count_per_page);
 }
 
 void TableModel::UpdateHeaderNameColumn()

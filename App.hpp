@@ -37,9 +37,11 @@ public:
 	App();
 	virtual ~App();
 	
+	void ArchiveTo(const QString &target_dir_path, const QString &ext);
 	void AskCreateNewFile(io::File *file, const QString &title);
 	int AvailableCpuCores() const;
 	const Clipboard& clipboard() { return clipboard_; }
+	QMenu* CreateNewMenu();
 	i32 current_dir_id() const;
 	void DeleteFilesById(const i64 id);
 	Category desktop() const { return desktop_; }
@@ -71,6 +73,7 @@ public:
 	gui::Location* location() { return location_; }
 	QSplitter* main_splitter() const { return main_splitter_; }
 	Media* media() const { return media_; }
+	gui::Tab *OpenNewTab(const cornus::FirstTime ft = FirstTime::No);
 	void OpenTerminal();
 	const QHash<QString, Category>& possible_categories() const { return possible_categories_; }
 	Prefs& prefs() { return *prefs_; }
@@ -114,10 +117,8 @@ private:
 	NO_ASSIGN_COPY_MOVE(App);
 	
 	void ArchiveAskDestArchivePath(const QString &ext);
-	void ArchiveTo(const QString &target_dir_path, const QString &ext);
 	void ClipboardChanged(QClipboard::Mode mode);
 	void CreateFilesViewPane();
-	QMenu* CreateNewMenu();
 	void CreateGui();
 	void CreateSidePane();
 	void DeleteTabAt(const int i);
@@ -131,7 +132,6 @@ private:
 	void InitThumbnailPoolIfNeeded();
 	QIcon *LoadIcon(io::File &file);
 	void LoadIconsFrom(QString dir_path);
-	gui::Tab *OpenNewTab(const cornus::FirstTime ft = FirstTime::No);
 	void OpenWithDefaultApp(const QString &full_path) const;
 	int ReadMTP();
 	void RegisterShortcuts();
@@ -194,6 +194,7 @@ private:
 	i64 next_files_id_ = 0;
 	// <== end
 	
-	friend class cornus::gui::Table;
+//	friend class cornus::gui::Table;
+//	friend class cornus::gui::Tab;
 };
 }

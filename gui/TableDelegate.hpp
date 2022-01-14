@@ -50,6 +50,7 @@ private:
 	gui::Table *table_ = nullptr;
 	gui::Tab *tab_ = nullptr;
 	Qt::Alignment text_alignment_ = Qt::AlignLeft | Qt::AlignVCenter;
+	
 	mutable int min_name_w_ = -1;
 	mutable ClipboardIcons clipboard_icons_ = {};
 };

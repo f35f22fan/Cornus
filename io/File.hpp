@@ -175,6 +175,9 @@ public:
 	void type(const FileType t) { type_ = t; }
 	FileType type() const { return type_; }
 	
+	void CountDirFiles1Level();
+	int dir_file_count_1_level() const { return dir_file_count_1_level_; }
+	
 private:
 	NO_ASSIGN_COPY_MOVE(File);
 	
@@ -195,6 +198,7 @@ private:
 	struct statx_timestamp time_created_ = {};
 	struct statx_timestamp time_modified_ = {};
 	mode_t mode_;
+	int dir_file_count_1_level_ = -1;
 	io::FileBits bits_ = FileBits::Empty;
 	FileType type_ = FileType::Unknown;
 	

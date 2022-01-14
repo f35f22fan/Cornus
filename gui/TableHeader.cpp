@@ -76,7 +76,7 @@ void TableHeader::dropEvent(QDropEvent *evt)
 		}
 		
 		if (to_dir != nullptr) {
-			table_->ExecuteDrop(files_vec, to_dir, evt->proposedAction(), evt->possibleActions());
+			table_->tab()->ExecuteDrop(files_vec, to_dir, evt->proposedAction(), evt->possibleActions());
 		} else {
 			for (auto *next: *files_vec)
 				delete next;

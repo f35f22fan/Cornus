@@ -1,25 +1,62 @@
 #include "Tab.hpp"
 
+#include "actions.hxx"
 #include "../App.hpp"
+#include "AttrsDialog.hpp"
 #include "../AutoDelete.hh"
+#include "CountFolder.hpp"
+#include "../DesktopFile.hpp"
+#include "../ExecInfo.hpp"
+#include "../Hid.hpp"
 #include "../Prefs.hpp"
 #include "../History.hpp"
 #include "IconView.hpp"
 #include "../io/File.hpp"
 #include "Location.hpp"
+#include "OpenOrderPane.hpp"
+#include "../str.hxx"
 #include "Table.hpp"
 #include "TableModel.hpp"
 #include "TreeView.hpp"
 
 #include <QAction>
+#include <QApplication>
 #include <QBoxLayout>
-#include <QCoreApplication>
 #include <QDateTime>
+#include <QDBusConnection>
+#include <QDBusMessage>
 #include <QDir>
+#include <QDrag>
 #include <QMessageBox>
+#include <QMimeData>
+#include <QPainter>
 #include <QScrollBar>
+#include <QUrl>
 
 namespace cornus {
+
+const QVector<QString> ArchiveExtensions = {
+	QLatin1String("zip"), QLatin1String("xz"), QLatin1String("gz"),
+	QLatin1String("odt"), QLatin1String("ods"), QLatin1String("rar"),
+	QLatin1String("7z"), QLatin1String("tar"), QLatin1String("iso"),
+	QLatin1String("bz2"), QLatin1String("lz"), QLatin1String("lz4"),
+	QLatin1String("lzma"), QLatin1String("lzo"), QLatin1String("z"),
+	QLatin1String("jar"), QLatin1String("zst"), QLatin1String("dmg")
+};
+
+void OpenWith::Clear()
+{
+	for (auto *next: show_vec) {
+		delete next;
+	}
+	
+	for (auto *next: hide_vec) {
+		delete next;
+	}
+	
+	show_vec.clear();
+	hide_vec.clear();
+}
 
 void FigureOutSelectPath(QString &select_path, QString &go_to_path)
 {
@@ -136,6 +173,16 @@ void* GoToTh(void *p)
 	return nullptr;
 }
 
+bool SendURLsClipboard(const QStringList &list, io::Message msg_id) {
+	auto ba = new ByteArray();
+	ba->set_msg_id(msg_id);
+	for (const auto &next: list)
+	{
+		ba->add_string(next);
+	}
+	return io::socket::SendAsync(ba);
+}
+
 namespace gui {
 
 Tab::Tab(App *app, const TabId tab_id) : app_(app), id_(tab_id)
@@ -153,6 +200,158 @@ Tab::~Tab()
 	delete history_;
 	history_ = nullptr;
 	app_->DeleteFilesById(files_id_);
+	
+	open_with_.Clear();
+	delete undo_delete_menu_;
+	undo_delete_menu_ = nullptr;
+}
+
+void Tab::ActionCopy(QVector<int> *indices)
+{
+	VOID_RET_IF(indices, nullptr);
+	QStringList list;
+	VOID_RET_IF(CreateMimeWithSelectedFiles(ClipboardAction::Copy, *indices, list), false);
+	VOID_RET_IF(SendURLsClipboard(list, io::Message::CopyToClipboard), false);
+}
+
+void Tab::ActionCut(QVector<int> *indices)
+{
+	VOID_RET_IF(indices, nullptr);
+	QStringList list;
+	if (!CreateMimeWithSelectedFiles(ClipboardAction::Cut, *indices, list))
+		return;
+	
+	SendURLsClipboard(list, io::Message::CutToClipboard);
+}
+
+void Tab::ActionPaste()
+{
+	const Clipboard &clipboard = app_->clipboard();
+	
+	io::Message io_op = io::Message::None;
+	if (clipboard.action == ClipboardAction::Copy) {
+		io_op = io::Message::Copy;
+		io_op |= io::Message::DontTryAtomicMove;
+	} else {
+		io_op = io::Message::Move;
+	}
+	
+	QString to_dir = app_->tab()->current_dir();
+	bool needs_root;
+	const char *socket_path = io::QuerySocketFor(to_dir, needs_root);
+	HashInfo hash_info;
+	if (needs_root)
+	{
+		hash_info = app_->WaitForRootDaemon(CanOverwrite::Yes);
+		VOID_RET_IF(hash_info.valid(), false);
+	}
+	
+	auto *ba = new ByteArray();
+	if (needs_root)
+	{
+		ba->add_u64(hash_info.num);
+	}
+	ba->set_msg_id(io_op);
+	ba->add_string(to_dir);
+	QVector<QString> names;
+	for (const auto &next: clipboard.file_paths)
+	{
+		QString filename = io::GetFileNameOfFullPath(next).toString();
+		names.append(filename);
+		ba->add_string(next);
+	}
+	
+	view_files().SelectFilenamesLater(names, SameDir::Yes);
+	io::socket::SendAsync(ba, socket_path);
+	if (clipboard.action == ClipboardAction::Cut)
+	{
+		/// Not using qclipboard->clear() because it doesn't work:
+		QApplication::clipboard()->setMimeData(new QMimeData());
+	}
+}
+
+void Tab::ActionPasteLinks(const LinkType link)
+{
+	const Clipboard &clipboard = app_->clipboard();
+	QString err;
+	QVector<QString> names;
+	QString to_dir_path = app_->tab()->current_dir();
+	
+	bool needs_root;
+	const char *socket_path = io::QuerySocketFor(to_dir_path, needs_root);
+	HashInfo hash_info;
+	if (needs_root)
+	{
+		hash_info = app_->WaitForRootDaemon(CanOverwrite::Yes);
+		VOID_RET_IF(hash_info.valid(), false);
+		
+		auto *ba = new ByteArray();
+		ba->add_u64(hash_info.num);
+		const auto msg = (link == LinkType::Absolute) ? io::Message::PasteLinks
+			: io::Message::PasteRelativeLinks;
+		ba->set_msg_id(msg);
+		ba->add_string(to_dir_path);
+		
+		for (const auto &next: clipboard.file_paths)
+		{
+			ba->add_string(next);
+			QStringRef s = io::GetFileNameOfFullPath(next);
+			
+			if (!s.isEmpty())
+				names.append(s.toString());
+		}
+		
+		io::socket::SendAsync(ba, socket_path);
+	} else {
+		if (link == LinkType::Absolute)
+			io::PasteLinks(clipboard.file_paths, to_dir_path, &names, &err);
+		else if (link == LinkType::Relative)
+			io::PasteRelativeLinks(clipboard.file_paths, to_dir_path, &names, &err);
+		else {
+			mtl_trace();
+			return;
+		}
+		
+		if (clipboard.action == ClipboardAction::Cut)
+		{
+			/// Not using qclipboard->clear() because it doesn't work:
+			QApplication::clipboard()->setMimeData(new QMimeData());
+		}
+		
+		if (!err.isEmpty()) {
+			app_->TellUser(tr("Paste Link Error: ") + err);
+		}
+	}
+	
+	view_files().SelectFilenamesLater(names, SameDir::Yes);
+}
+
+bool Tab::AnyArchive(const QVector<QString> &extensions) const
+{
+	for (auto &next: ArchiveExtensions) {
+		if (extensions.contains(next))
+			return true;
+	}
+	
+	return false;
+}
+
+void Tab::AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path)
+{
+	QVector<QAction*> open_with_list = CreateOpenWithList(full_path);
+	auto *open_with_menu = new QMenu(tr("Open &With"));
+	
+	for (auto &next: open_with_list) {
+		open_with_menu->addAction(next);
+	}
+	
+	open_with_menu->addSeparator();
+	QAction *action = new QAction(tr("Customize..."));
+	connect(action, &QAction::triggered, [=] {
+		OpenOrderPane pane(app_, this);
+	});
+	open_with_menu->addAction(action);
+	main_menu->addMenu(open_with_menu);
 }
 
 void Tab::CreateGui()
@@ -184,6 +383,70 @@ void Tab::CreateGui()
 	layout->addWidget(viewmode_stack_);
 }
 
+bool Tab::CreateMimeWithSelectedFiles(const ClipboardAction action,
+	QVector<int> &indices, QStringList &list)
+{
+	auto &files = view_files();
+	MutexGuard guard = files.guard();
+	
+	io::FileBits flag = io::FileBits::Empty;
+	if (action == ClipboardAction::Cut)
+		flag = io::FileBits::ActionCut;
+	else if (action == ClipboardAction::Copy)
+		flag = io::FileBits::ActionCopy;
+	else if (action == ClipboardAction::Paste)
+		flag = io::FileBits::ActionPaste;
+	else if (action == ClipboardAction::Link)
+		flag = io::FileBits::PasteLink;
+	
+	int i = -1;
+	for (io::File *next: files.data.vec)
+	{
+		i++;
+		
+		if (next->is_selected()) {
+			indices.append(i);
+			next->toggle_flag(flag, true);
+			QString s = next->build_full_path();
+			list.append(QUrl::fromLocalFile(s).toString());
+		} else {
+			if (next->clear_all_actions_if_needed())
+				indices.append(i);
+		}
+	}
+	
+	return true;
+}
+
+QVector<QAction*>
+Tab::CreateOpenWithList(const QString &full_path)
+{
+	open_with_.full_path = full_path;
+	open_with_.mime = app_->QueryMimeType(full_path);
+	ReloadOpenWith();
+	QVector<QAction*> ret;
+	
+	for (DesktopFile *next: open_with_.show_vec)
+	{
+		QString name = next->GetName();
+		QString generic = next->GetGenericName();
+		if (!generic.isEmpty()) {
+			name += QLatin1String(" (") + generic + ')';
+		}
+		
+//		QString priority_str = QString::number((i8)next->priority());
+//		name += " (↑" + priority_str + ")";
+		QAction *action = new QAction(name);
+		QVariant v = QVariant::fromValue((void *) next);
+		action->setData(v);
+		action->setIcon(next->CreateQIcon());
+		connect(action, &QAction::triggered, this, &Tab::LaunchFromOpenWithMenu);
+		ret.append(action);
+	}
+	
+	return ret;
+}
+
 QString Tab::CurrentDirTrashPath()
 {
 	QString full_path = current_dir_;
@@ -194,10 +457,150 @@ QString Tab::CurrentDirTrashPath()
 	return full_path;
 }
 
+void Tab::DeleteSelectedFiles(const ShiftPressed sp)
+{
+	QVector<QString> paths;
+	{
+		io::Files &files = this->view_files();
+		MutexGuard guard = files.guard();
+		
+		for (io::File *next: files.data.vec) {
+			if (next->is_selected())
+				paths.append(next->build_full_path());
+		}
+	}
+	
+	if (paths.isEmpty())
+		return;
+	
+	const auto msg_id = (sp == ShiftPressed::Yes) ? io::Message::DeleteFiles
+		: io::Message::MoveToTrash;
+	
+	QString dir_path = io::GetParentDirPath(paths[0]).toString();
+	bool needs_root;
+	const char *socket_path = io::QuerySocketFor(dir_path, needs_root);
+	HashInfo hash_info;
+	if (needs_root)
+	{
+		hash_info = app_->WaitForRootDaemon(CanOverwrite::No);
+		VOID_RET_IF(hash_info.valid(), false);
+	}
+	
+	ByteArray *ba = new ByteArray();
+	if (needs_root)
+		ba->add_u64(hash_info.num);
+	
+	ba->set_msg_id(msg_id);
+	for (auto &next: paths)
+	{
+		ba->add_string(next);
+	}
+	
+	io::socket::SendAsync(ba, socket_path);
+}
+
 void Tab::DisplayingNewDirectory(const DirId dir_id)
 {
 	if (icon_view_ != nullptr)
 		icon_view_->DisplayingNewDirectory(dir_id);
+}
+
+void Tab::DragEnterEvent(QDragEnterEvent *evt)
+{
+	const QMimeData *md = evt->mimeData();
+	
+	if (md->hasUrls())
+	{
+		evt->acceptProposedAction();
+		return;
+	}
+	
+	const QString dbus_service_key = QLatin1String("application/x-kde-ark-dndextract-service");
+	const QString dbus_path_key = QLatin1String("application/x-kde-ark-dndextract-path");
+	
+	if (md->hasFormat(dbus_path_key) && md->hasFormat(dbus_service_key))
+	{
+		const QString dbus_client = md->data(dbus_service_key);
+		const QString dbus_path = md->data(dbus_path_key);
+		QUrl url = QUrl::fromLocalFile(current_dir());
+		
+		QDBusMessage msg = QDBusMessage::createMethodCall(dbus_client, dbus_path,
+			QLatin1String("org.kde.ark.DndExtract"), QLatin1String("extractSelectedFilesTo"));
+		msg.setArguments({url.toDisplayString(QUrl::PreferLocalFile)});
+		QDBusConnection::sessionBus().call(msg, QDBus::NoBlock);
+	}
+}
+
+void Tab::DropEvent(QDropEvent *evt)
+{
+	if (evt->mimeData()->hasUrls())
+	{
+		io::File *to_dir = nullptr;
+		{
+			auto &files = view_files();
+			MutexGuard guard = files.guard();
+			
+			if (view_mode_ == ViewMode::Details)
+			{
+				if (table_->IsOnFileName_NoLock(evt->pos(), &to_dir) != -1 && to_dir->is_dir_or_so()) {
+					to_dir = to_dir->Clone();
+				}
+			} else if (view_mode_ == ViewMode::Icons) {
+				to_dir = icon_view_->GetFileAt_NoLock(evt->pos(), Clone::No);
+			} else {
+				/// Otherwise drop onto current directory:
+				to_dir = io::FileFromPath(current_dir());
+			}
+		}
+		
+		if (to_dir != nullptr)
+		{
+			AutoDelete ad(to_dir);
+			QVector<io::File*> *files_vec = new QVector<io::File*>();
+			
+			for (const QUrl &url: evt->mimeData()->urls())
+			{
+				io::File *file = io::FileFromPath(url.path());
+				if (file != nullptr)
+					files_vec->append(file);
+			}
+			
+			ExecuteDrop(files_vec, to_dir, evt->proposedAction(), evt->possibleActions());
+		}
+	}
+}
+
+void Tab::ExecuteDrop(QVector<io::File*> *files_vec,
+	io::File *to_dir, Qt::DropAction drop_action,
+	Qt::DropActions possible_actions)
+{
+	VOID_RET_IF(files_vec, nullptr);
+	const QString to_dir_path = to_dir->build_full_path();
+	bool needs_root;
+	const char *socket_path = io::QuerySocketFor(to_dir_path, needs_root);
+	HashInfo hash_info;
+	if (needs_root)
+	{
+		hash_info = app_->WaitForRootDaemon(CanOverwrite::Yes);
+		VOID_RET_IF(hash_info.valid(), false);
+	}
+	
+	io::Message io_operation = io::MessageFor(drop_action)
+		| io::MessageForMany(possible_actions);
+	auto *ba = new ByteArray();
+	
+	if (needs_root) {
+		ba->add_u64(hash_info.num);
+	}
+	
+	ba->set_msg_id(io_operation);
+	ba->add_string(to_dir_path);
+	
+	for (io::File *next: *files_vec) {
+		ba->add_string(next->build_full_path());
+	}
+	
+	io::socket::SendAsync(ba, socket_path);
 }
 
 void Tab::FilesChanged(const FileCountChanged fcc, const int row)
@@ -209,6 +612,48 @@ void Tab::FilesChanged(const FileCountChanged fcc, const int row)
 	if (iv != nullptr)
 	{
 		iv->FilesChanged(fcc, row);
+	}
+}
+
+int Tab::GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file,
+	QString *full_path)
+{
+	io::Files &files = view_files();
+	MutexGuard guard = files.guard();
+
+	io::File *file = nullptr;
+	int file_index;
+	if (view_mode_ == ViewMode::Details) {
+		file_index = table_->IsOnFileName_NoLock(local_pos, &file);
+	} else {
+		file = icon_view_->GetFileAt_NoLock(local_pos, Clone::Yes, &file_index);
+	}
+	
+	if (file_index != -1 && ret_cloned_file != nullptr)
+		*ret_cloned_file = file->Clone();
+	
+	if (full_path != nullptr)
+		*full_path = file->build_full_path();
+
+	return file_index;
+}
+
+void Tab::GetSelectedArchives(QVector<QString> &urls)
+{
+	io::Files &files = view_files();
+	MutexGuard guard = files.guard();
+	
+	for (io::File *next: files.data.vec) {
+		if (!next->is_selected() || !next->is_regular())
+			continue;
+		
+		QString ext = next->cache().ext.toString();
+		if (ext.isEmpty())
+			continue;
+		
+		if (ArchiveExtensions.contains(ext)) {
+			urls.append(QUrl::fromLocalFile(next->build_full_path()).toString());
+		}
 	}
 }
 
@@ -352,7 +797,7 @@ void Tab::GoToInitialDir()
 			QString name = cmds.select;
 			if (name.startsWith('/'))
 				name = io::GetFileNameOfFullPath(name).toString();
-			table_model_->SelectFilenamesLater({name});
+			view_files().SelectFilenamesLater({name});
 			GoTo(Action::To, {QDir::homePath(), Processed::No}, Reload::No);
 			return;
 		}
@@ -360,7 +805,7 @@ void Tab::GoToInitialDir()
 			QString name = cmds.select;
 			if (name.startsWith('/'))
 				name = io::GetFileNameOfFullPath(name).toString();
-			table_model_->SelectFilenamesLater({name});
+			view_files().SelectFilenamesLater({name});
 			GoTo(Action::To, {cmds.go_to_path, Processed::No}, Reload::No);
 		} else {
 			QDir parent_dir(cmds.go_to_path);
@@ -372,7 +817,7 @@ void Tab::GoToInitialDir()
 				return;
 			}
 			QString name = io::GetFileNameOfFullPath(cmds.go_to_path).toString();
-			table_model_->SelectFilenamesLater({name});
+			view_files().SelectFilenamesLater({name});
 			GoTo(Action::To, {parent_dir.absolutePath(), Processed::No}, Reload::No);
 			return;
 		}
@@ -387,7 +832,7 @@ void Tab::GoToAndSelect(const QString full_path)
 	QString parent_dir = parent.absolutePath();
 	const QString name = io::GetFileNameOfFullPath(full_path).toString();
 	const SameDir same_dir = io::SameFiles(parent_dir, current_dir_) ? SameDir::Yes : SameDir::No;
-	table_->model()->SelectFilenamesLater({name}, same_dir);
+	view_files().SelectFilenamesLater({name}, same_dir);
 	
 	if (same_dir == SameDir::No) {
 		VOID_RET_IF(GoTo(Action::To, {parent_dir, Processed::No}, Reload::No), false);
@@ -409,12 +854,44 @@ void Tab::GoUp()
 		return;
 	
 	QString name = io::GetFileNameOfFullPath(current_dir_).toString();
-	table_model_->SelectFilenamesLater({name});
+	view_files().SelectFilenamesLater({name});
 	GoTo(Action::Up, {dir.absolutePath(), Processed::Yes}, Reload::No);
 }
 
 void Tab::GrabFocus() {
 	table_->setFocus();
+}
+
+void Tab::HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indices)
+{
+	io::Files &files = view_files();
+	MutexGuard guard = files.guard();
+	
+	io::File *file = nullptr;
+	ShiftSelect *shift_select = nullptr;
+	int file_index =  -1;
+	if (view_mode_ == ViewMode::Details)
+	{
+		file_index = table_->IsOnFileName_NoLock(pos, &file);
+		shift_select = table_->shift_select();
+	} else if (view_mode_ == ViewMode::Icons) {
+		file = icon_view_->GetFileAt_NoLock(pos, Clone::No, &file_index);
+		shift_select = icon_view_->shift_select();
+	} else {
+		mtl_tbd();
+	}
+	
+	if (file == nullptr) {
+		files.SelectAllFiles_NoLock(Selected::No, indices);
+	} else {
+		if (!file->is_selected()) {
+			files.SelectAllFiles_NoLock(Selected::No, indices);
+			file->set_selected(true);
+			if (shift_select)
+				shift_select->base_row = file_index;
+			indices.append(file_index);
+		}
+	}
 }
 
 void Tab::Init()
@@ -423,6 +900,119 @@ void Tab::Init()
 	files_id_ = app_->GenNextFilesId();
 	history_ = new History(app_);
 	CreateGui();
+}
+
+void Tab::KeyPressEvent(QKeyEvent *evt, QVector<int> &indices)
+{
+	auto  &files = view_files();
+	const int key = evt->key();
+	auto *app = app_;
+	const auto modifiers = evt->modifiers();
+	const bool any_modifiers = (modifiers != Qt::NoModifier);
+	const bool shift = (modifiers & Qt::ShiftModifier);
+	const bool ctrl = (modifiers & Qt::ControlModifier);
+	
+	if (ctrl) {
+		if (key == Qt::Key_C)
+			ActionCopy(&indices);
+		else if (key == Qt::Key_X)
+			ActionCut(&indices);
+		else if (key == Qt::Key_V) {
+			ActionPaste();
+		}
+		
+		if (shift) {
+			if (key == Qt::Key_U) {
+				view_files().RemoveThumbnailsFromSelectedFiles();
+			}
+		}
+	}
+	
+	if (!any_modifiers && key == Qt::Key_Delete) {
+		DeleteSelectedFiles(ShiftPressed::No);
+	} else if (key == Qt::Key_F2) {
+		app_->RenameSelectedFile();
+	} else if (key == Qt::Key_Return) {
+		if (!any_modifiers) {
+			io::File *cloned_file = nullptr;
+			int row = files.GetFirstSelectedFile_Lock(&cloned_file);
+			if (row != -1) {
+				app->FileDoubleClicked(cloned_file, Column::FileName);
+				indices.append(row);
+			}
+		}
+	} else if (key == Qt::Key_Down) {
+		mtl_tbd();
+//		if (shift)
+//			app_->hid()->HandleKeyShiftSelect(VDirection::Down);
+//		else
+//			app_->hid()->HandleKeySelect(VDirection::Down);
+	} else if (key == Qt::Key_Up) {
+		mtl_tbd();
+//		if (shift)
+//			app_->hid()->HandleKeyShiftSelect(VDirection::Up);
+//		else
+//			app_->hid()->HandleKeySelect(VDirection::Up);
+	} else if (key == Qt::Key_D) {
+		if (any_modifiers)
+			return;
+		io::File *cloned_file = nullptr;
+		int row = files.GetFirstSelectedFile_Lock(&cloned_file);
+		if (row != -1)
+			app_->DisplayFileContents(row, cloned_file);
+		else {
+			app_->HideTextEditor();
+		}
+	} else if (key == Qt::Key_Escape) {
+		app_->HideTextEditor();
+	} else if (key == Qt::Key_PageUp) {
+		mtl_tbd();
+//		auto *vs = verticalScrollBar();
+//		const int page = vs->pageStep() - GetRowHeight() * 2;
+//		int new_val = vs->value() - page;
+//		vs->setValue(new_val);
+//		int r = new_val / GetRowHeight();
+//		if (new_val % GetRowHeight() != 0)
+//			r++;
+//		int row = std::max(0, r);
+//		app_->hid()->SelectFileByIndex(tab_, row, DeselectOthers::Yes);
+	} else if (key == Qt::Key_PageDown) {
+		mtl_tbd();
+//		auto *vs = verticalScrollBar();
+//		const int page = vs->pageStep() - GetRowHeight();
+//		int new_val = vs->value() + page;
+//		vs->setValue(new_val);
+//		int new_val2 = new_val + page;
+//		const int rc = model_->rowCount();
+//		int row = std::min(rc - 1, new_val2 / GetRowHeight());
+//		app_->hid()->SelectFileByIndex(tab_, row, DeselectOthers::Yes);
+	} else if (key == Qt::Key_Home) {
+		QScrollBar *vs = ViewScrollBar();
+		VOID_RET_IF(vs, nullptr);
+		vs->setValue(0);
+		app_->hid()->SelectFileByIndex(this, 0, DeselectOthers::Yes);
+	} else if (key == Qt::Key_End) {
+		auto *vs = ViewScrollBar();
+		VOID_RET_IF(vs, nullptr);
+		vs->setValue(vs->maximum());
+		const auto count = view_files().cached_files_count;
+		app_->hid()->SelectFileByIndex(this, count - 1, DeselectOthers::Yes);
+	} else if (key == Qt::Key_M && !any_modifiers) {
+		io::File *cloned_file = nullptr;
+		files.GetFirstSelectedFile_Lock(&cloned_file);
+		if (cloned_file != nullptr)
+			AttrsDialog attrs_d(app_, cloned_file);
+	}
+	
+	UpdateIndices(indices);
+}
+
+void Tab::LaunchFromOpenWithMenu()
+{
+	QAction *act = qobject_cast<QAction *>(sender());
+	QVariant v = act->data();
+	DesktopFile *p = (DesktopFile*) v.value<void *>();
+	p->Launch(open_with_.full_path, current_dir());
 }
 
 void Tab::PopulateUndoDelete(QMenu *menu)
@@ -478,6 +1068,76 @@ void Tab::PopulateUndoDelete(QMenu *menu)
 		});
 		menu->addAction(action);
 	}
+}
+
+void Tab::ProcessAction(const QString &action)
+{
+	App *app = app_;
+	auto &files = this->view_files();
+	
+	if (action == actions::DeleteFiles) {
+		int count = files.GetSelectedFilesCount_Lock();
+		if (count == 0)
+			return;
+		
+		QString question = tr("Delete PERMANENTLY ") + QString::number(count)
+			+ tr(" files?");
+		QMessageBox::StandardButton reply = QMessageBox::question(this,
+			tr("Delete Files"), question, QMessageBox::Yes | QMessageBox::No,
+			QMessageBox::No);
+		
+		if (reply == QMessageBox::Yes)
+			DeleteSelectedFiles(ShiftPressed::Yes);
+	} else if (action == actions::RenameFile) {
+		app->RenameSelectedFile();
+	} else if (action == actions::OpenTerminal) {
+		app->OpenTerminal();
+	} else if (action == actions::RunExecutable) {
+		QString ext;
+		QString full_path = files.GetFirstSelectedFileFullPath_Lock(&ext);
+		if (!full_path.isEmpty()) {
+			ExecInfo info = app->QueryExecInfo(full_path, ext);
+			if (info.is_elf() || info.is_shell_script())
+				app->RunExecutable(full_path, info);
+		}
+	} else if (action == actions::ToggleExecBit) {
+		app->ToggleExecBitOfSelectedFiles();
+	} else if (action == actions::EditMovieTitle) {
+		app->EditSelectedMovieTitle();
+	}
+}
+
+bool Tab::ReloadOpenWith()
+{
+	open_with_.Clear();
+	int fd = io::socket::Client(cornus::SocketPath);
+	if (fd == -1)
+		return false;
+	
+	ByteArray send_ba;
+	send_ba.set_msg_id(io::Message::SendOpenWithList);
+	send_ba.add_string(open_with_.mime);
+	
+	if (!send_ba.Send(fd, CloseSocket::No))
+		return false;
+	
+	ByteArray receive_ba;
+	if (!receive_ba.Receive(fd))
+		return false;
+	
+	while (receive_ba.has_more())
+	{
+		const Present present = (Present)receive_ba.next_i8();
+		DesktopFile *next = DesktopFile::From(receive_ba);
+		if (next != nullptr) {
+			if (present == Present::Yes)
+				open_with_.show_vec.append(next);
+			else
+				open_with_.hide_vec.append(next);
+		}
+	}
+	
+	return true;
 }
 
 void Tab::resizeEvent(QResizeEvent *ev)
@@ -542,6 +1202,284 @@ void Tab::SetViewMode(const ViewMode mode)
 	}
 }
 
+void Tab::ShowRightClickMenu(const QPoint &global_pos,
+	const QPoint &local_pos, QVector<int> *indices)
+{
+	VOID_RET_IF(indices, nullptr);
+	indices->clear();
+	auto &files = view_files();
+	QVector<QString> extensions;
+	const int selected_count = files.GetSelectedFilesCount_Lock(&extensions);
+	QMenu *menu = new QMenu();
+	menu->setAttribute(Qt::WA_DeleteOnClose);
+	
+	const QString current_dir = this->current_dir();
+	QString dir_full_path;
+	QString file_under_mouse_full_path;
+	io::File *file = nullptr;
+	cornus::AutoDelete ad(file);
+	{
+		if (GetFileUnderMouse(local_pos, &file) != -1) {
+			file_under_mouse_full_path = file->build_full_path();
+			if (file->is_dir()) {
+				dir_full_path = file_under_mouse_full_path;
+			}
+		}
+	}
+	
+	if (selected_count == 1 && !file_under_mouse_full_path.isEmpty()) {
+		if (file->cache().ext == str::Desktop)
+		{
+			DesktopFile *df = DesktopFile::FromPath(file_under_mouse_full_path,
+				app_->possible_categories());
+			if (df != nullptr)
+			{
+				{
+					QAction *action = menu->addAction(tr("Run"));
+					connect(action, &QAction::triggered, [=] {
+						app_->LaunchOrOpenDesktopFile(file_under_mouse_full_path,
+							false, RunAction::Run);
+					});
+					action->setIcon(df->CreateQIcon());
+				}
+				{
+					QAction *action = menu->addAction(tr("Open"));
+					connect(action, &QAction::triggered, [=] {
+						app_->LaunchOrOpenDesktopFile(file_under_mouse_full_path,
+							false, RunAction::Open);
+					});
+					action->setIcon(df->CreateQIcon());
+				}
+				delete df;
+			}
+		}
+		AddOpenWithMenuTo(menu, file_under_mouse_full_path);
+	}
+	
+	QMenu *new_menu = app_->CreateNewMenu();
+	menu->addMenu(new_menu);
+	
+	if (selected_count == 0) {
+		{
+			menu->addSeparator();
+			QAction *action = menu->addAction(tr("New Tab"));
+			action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_T));
+			connect(action, &QAction::triggered, [=] {
+				app_->OpenNewTab();
+			});
+			action->setIcon(QIcon::fromTheme(QLatin1String("window-new")));
+		}
+	}
+	
+	if (selected_count > 0)
+	{
+		// cut copy
+		menu->addSeparator();
+		QAction *action = menu->addAction(tr("Cut"));
+		action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_X));
+		connect(action, &QAction::triggered, [=] {
+			ActionCut(indices);
+		});
+		action->setIcon(QIcon::fromTheme(QLatin1String("edit-cut")));
+		
+		action = menu->addAction(tr("Copy"));
+		action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_C));
+		connect(action, &QAction::triggered, [=] {
+			ActionCopy(indices);
+		});
+		action->setIcon(QIcon::fromTheme(QLatin1String("edit-copy")));
+	}
+	
+	const Clipboard &clipboard = app_->clipboard();
+	if (clipboard.has_files())
+	{
+		QString file_count_str = QLatin1String(" (")
+			+ QString::number(clipboard.file_count()) + ')';
+		{ // paste
+			QAction *action = menu->addAction(tr("Paste") + file_count_str);
+			action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_V));
+			connect(action, &QAction::triggered, [this] {
+				ActionPaste();
+			});
+			action->setIcon(QIcon::fromTheme(QLatin1String("edit-paste")));
+		}
+		{
+			QAction *action = menu->addAction(tr("Paste Link") + file_count_str);
+			connect(action, &QAction::triggered, [this] {
+				ActionPasteLinks(LinkType::Absolute);
+			});
+			action->setIcon(QIcon::fromTheme(QLatin1String("edit-paste")));
+		}
+		{
+			QAction *action = menu->addAction(tr("Paste Relative Link") + file_count_str);
+			connect(action, &QAction::triggered, [this] {
+				ActionPasteLinks(LinkType::Relative);
+			});
+			action->setIcon(QIcon::fromTheme(QLatin1String("edit-paste")));
+		}
+		menu->addSeparator();
+	}
+	
+	const QIcon trash_icon = QIcon::fromTheme(QLatin1String("user-trash"));
+	
+	if (selected_count > 0) {
+		{
+			QAction *action = menu->addAction(tr("Move to trash"));
+			action->setShortcut(QKeySequence(Qt::Key_Delete));
+			connect(action, &QAction::triggered, [=] {
+				DeleteSelectedFiles(ShiftPressed::No);
+			});
+			action->setIcon(trash_icon);
+		}
+		{
+			menu->addSeparator();
+			QAction *action = menu->addAction(tr("Delete Permanently"));
+			action->setShortcut(QKeySequence(Qt::SHIFT + Qt::Key_Delete));
+			connect(action, &QAction::triggered, [=] {ProcessAction(actions::DeleteFiles);});
+			action->setIcon(QIcon::fromTheme(QLatin1String("edit-delete")));
+			menu->addSeparator();
+		}
+		
+		{
+			QAction *action = menu->addAction(tr("Rename File"));
+			action->setShortcut(QKeySequence(Qt::Key_F2));
+			connect(action, &QAction::triggered, [=] {ProcessAction(actions::RenameFile);});
+			action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
+		}
+		
+		{
+			QVector<QString> videos = { QLatin1String("mkv"), QLatin1String("webm") };
+			
+			if (videos.contains(file->cache().ext.toString())) {
+				QAction *action = menu->addAction(tr("Edit movie title") + QLatin1String(" [mkvpropedit]"));
+				connect(action, &QAction::triggered, [=] {ProcessAction(actions::EditMovieTitle);});
+				QIcon *icon = app_->GetIcon(file->cache().ext.toString());
+				if (icon != nullptr) {
+					action->setIcon(*icon);
+				}
+			}
+		}
+
+		menu->addSeparator();
+		{
+			QAction *action = menu->addAction(tr("Run Executable"));
+			connect(action, &QAction::triggered, [=] {ProcessAction(actions::RunExecutable);});
+			action->setIcon(QIcon::fromTheme(QLatin1String("system-run")));
+		}
+		{
+			QAction *action = menu->addAction(tr("Toggle Exec Bit"));
+			action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_E));
+			connect(action, &QAction::triggered, [=] {ProcessAction(actions::ToggleExecBit);});
+			action->setIcon(QIcon::fromTheme(QLatin1String("edit-undo")));
+		}
+		menu->addSeparator();
+	}
+	
+	{
+		QAction *action = menu->addAction(tr("Open Terminal"));
+		action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_O));
+		connect(action, &QAction::triggered, [=] {ProcessAction(actions::OpenTerminal);});
+		action->setIcon(QIcon::fromTheme(QLatin1String("utilities-terminal")));
+	}
+	
+	if (AnyArchive(extensions)) {
+		QMenu *extract = new QMenu(tr("Extract"));
+		menu->addSeparator();
+		menu->addMenu(extract);
+		QIcon *icon = app_->GetIcon(QLatin1String("zip"));
+		if (icon != nullptr)
+			extract->setIcon(*icon);
+		menu->addSeparator();
+		
+		{
+			QAction *action = extract->addAction(tr("Here"));
+			connect(action, &QAction::triggered, [=] {
+				app_->ExtractTo(app_->tab()->current_dir());
+			});
+		}
+		
+		{
+			QAction *action = extract->addAction(tr("To..."));
+			connect(action, &QAction::triggered, [=] { app_->ExtractAskDestFolder(); });
+		}
+	}
+	
+	if (selected_count > 0) {
+		QMenu *archive_menu = new QMenu(tr("Archive As"));
+		menu->addSeparator();
+		menu->addMenu(archive_menu);
+		QIcon *icon = app_->GetIcon(QLatin1String("zip"));
+		if (icon != nullptr)
+			archive_menu->setIcon(*icon);
+		menu->addSeparator();
+		
+		QStringList exts = {
+			QLatin1String("tar.gz"), QLatin1String("zip"),
+			QLatin1String("tar.xz"), QLatin1String("tar.zst"),
+			QLatin1String("7z")
+		};
+		
+		for (const auto &ext: exts)
+		{
+			QAction *action = archive_menu->addAction(ext);
+			connect(action, &QAction::triggered, [=] {
+				app_->ArchiveTo(app_->tab()->current_dir(), ext);
+			});
+		}
+	}
+	
+	if (selected_count == 0)
+	{
+		QString current_trash_dir = CurrentDirTrashPath();
+		if (io::DirExists(current_trash_dir)){
+			menu->addSeparator();
+			if (undo_delete_menu_ == nullptr)
+			{
+				undo_delete_menu_ = new QMenu(tr("Undo Delete"));
+				undo_delete_menu_->setIcon(QIcon::fromTheme(QLatin1String("edit-undo")));
+				connect(undo_delete_menu_, &QMenu::aboutToShow, [=]() {
+					PopulateUndoDelete(undo_delete_menu_);
+				});
+			}
+			menu->addMenu(undo_delete_menu_);
+		}
+		
+		{
+			QAction *action = menu->addAction(tr("Empty trash"));
+			connect(action, &QAction::triggered, [=]
+			{
+				QMessageBox::StandardButton reply = QMessageBox::question(this,
+					tr("Please confirm"),
+					tr("Empty trash can?"), QMessageBox::Yes | QMessageBox::No,
+					QMessageBox::No);
+				
+				if (reply == QMessageBox::Yes)
+					trash::EmptyRecursively(current_dir);
+			});
+			action->setIcon(trash_icon);
+		}
+	}
+	
+	QString count_folder = dir_full_path.isEmpty() ? current_dir : dir_full_path;
+	
+	if (count_folder != QLatin1String("/")) {
+		menu->addSeparator();
+		QAction *action = menu->addAction(tr("Folder stats"));
+		
+		connect(action, &QAction::triggered, [=] {
+			gui::CountFolder cf(app_, count_folder);
+		});
+		action->setIcon(QIcon::fromTheme(QLatin1String("emblem-important")));
+	}
+	
+	if (view_mode_ == ViewMode::Details)
+		table_model_->UpdateIndices(*indices);
+	else if (view_mode_ == ViewMode::Icons)
+		icon_view_->UpdateIndices(*indices);
+	
+	menu->popup(global_pos);
+}
+
 void Tab::ShutdownLastInotifyThread()
 {
 	io::Files *p = app_->files(files_id_);
@@ -570,6 +1508,53 @@ void Tab::ShutdownLastInotifyThread()
 	
 	mtl_info("Waited for thread termination: %.1f ms", elapsed);
 #endif
+}
+
+void Tab::StartDragOperation()
+{
+	auto &files = view_files();
+	QMimeData *mimedata = new QMimeData();
+	QList<QUrl> urls;
+	QPair<int, int> files_folders = files.ListSelectedFiles_Lock(urls);
+	if (urls.isEmpty())
+		return;
+	
+	mimedata->setUrls(urls);
+	
+/// Set a pixmap that will be shown alongside the cursor during the operation:
+	
+	const int img_w = 128;
+	const int img_h = img_w / 2;
+	QPixmap pixmap(QSize(img_w, img_h));
+	QPainter painter(&pixmap);
+	
+	QRect r(0, 0, img_w, img_h);
+	painter.fillRect(r, QColor(235, 235, 255));
+	
+	QPen pen(QColor(0, 0, 0));
+	painter.setPen(pen);
+	
+	QString dir_str = QString::number(files_folders.first)
+		+ QString(" folder(s)");
+	QString file_str = QString::number(files_folders.second)
+		+ QString(" file(s)");
+	auto str_rect = fontMetrics().boundingRect(dir_str);
+	
+	auto r2 = r;
+	r2.setY(r2.y() + str_rect.height());
+	
+	painter.drawText(r, Qt::AlignCenter + Qt::AlignVCenter, dir_str, &r);
+	painter.drawText(r2, Qt::AlignCenter + Qt::AlignVCenter, file_str, &r2);
+
+	QDrag *drag = new QDrag(this);
+	drag->setMimeData(mimedata);
+	drag->setPixmap(pixmap);
+	{
+		/** Warning: changing this to:
+		 drag->exec(Qt::CopyAction | Qt::MoveAction);
+		 will break dragging movie files onto the MPV player. */
+		drag->exec(Qt::CopyAction);
+	}
 }
 
 void Tab::UndeleteFiles(const QMap<i64, QVector<trash::Names>> &items)
@@ -641,7 +1626,7 @@ void Tab::UndeleteFiles(const QMap<i64, QVector<trash::Names>> &items)
 			}
 			it++;
 		}
-		table_model_->SelectFilenamesLater(select_vec, SameDir::Yes);
+		view_files().SelectFilenamesLater(select_vec, SameDir::Yes);
 	}
 	
 	{
@@ -718,6 +1703,16 @@ bool Tab::ViewIsAt(const QString &dir_path) const
 	}
 	
 	return io::SameFiles(dir_path, old_dir_path);
+}
+
+QScrollBar* Tab::ViewScrollBar() const
+{
+	if (view_mode_ == ViewMode::Details)
+		return table_->scrollbar();
+	if (view_mode_ == ViewMode::Icons)
+		return icon_view_->scrollbar();
+	mtl_trace();
+	return nullptr;
 }
 
 }} // cornus::gui

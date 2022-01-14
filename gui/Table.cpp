@@ -140,7 +140,7 @@ bool Table::CheckIsOnFileName(io::File *file, const int file_row, const QPoint &
 		return false;
 	
 	QFontMetrics fm = fontMetrics();
-	const int name_w = fm.boundingRect(file->name()).width();
+	const int name_w = fm.horizontalAdvance(file->name());
 	const int absolute_name_end = name_w + columnViewportPosition(col);
 	
 	return (pos.x() < absolute_name_end + FileNameRelax);
@@ -403,7 +403,7 @@ i32 Table::IsOnFileName_NoLock(const QPoint &local_pos, io::File **ret_file)
 	ret_if(file, nullptr, -1);
 	
 	QFontMetrics fm = fontMetrics();
-	int name_w = fm.boundingRect(file->name()).width();
+	int name_w = fm.horizontalAdvance(file->name());
 	if (name_w < delegate_->min_name_w())
 		name_w = delegate_->min_name_w();
 	const int absolute_name_end = name_w + columnViewportPosition(col);
@@ -682,9 +682,9 @@ void Table::SetCustomResizePolicy()
 	QFontMetrics fm = fontMetrics();
 	QString sample_date = QLatin1String("2020-12-01 18:04");
 	
-	const int icon_col_w = fm.boundingRect(QLatin1String("Steam")).width();
-	const int size_col_w = fm.boundingRect(QLatin1String("1023.9 GiB")).width() + 2;
-	const int time_col_w = fm.boundingRect(sample_date).width() + 10;
+	const int icon_col_w = fm.horizontalAdvance(QLatin1String("Steam"));
+	const int size_col_w = fm.horizontalAdvance(QLatin1String("1023.9 GiB")) + 2;
+	const int time_col_w = fm.horizontalAdvance(sample_date) + 10;
 	setColumnWidth(i8(gui::Column::Icon), icon_col_w);
 	setColumnWidth(i8(gui::Column::Size), size_col_w);
 	setColumnWidth(i8(gui::Column::TimeCreated), time_col_w);

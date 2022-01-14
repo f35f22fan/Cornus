@@ -43,10 +43,10 @@ You can use Cornus as is, no need to install it. However, Cornus can also perfor
 
 ---
 ### Screenshot with dark theme:
-![](resources/Screenshot_dark.webp)
+![](resources/Screenshot_dark.png)
 
 ### Screenshot with light theme:
-![](resources/Screenshot_light.webp)
+![](resources/Screenshot_light.png)
 
 
 #### Things you should know:

@@ -43,7 +43,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	const int row, const QStyleOptionViewItem &option,
 	QFontMetrics &fm, const QRect &text_rect) const
 {
-	auto str_rect = fm.boundingRect(file->name());
+	const auto filename_width = fm.horizontalAdvance(file->name());
 	
 	if (!file->is_dir_or_so() && file->has_exec_bit()) {
 		QPen pen(app_->green_color());
@@ -56,7 +56,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	}
 	
 	QRectF sel_rect = option.rect;
-	const int str_wide = str_rect.width() + gui::FileNameRelax * 2;
+	const int str_wide = filename_width + gui::FileNameRelax * 2;
 	const int actual_wide = str_wide < min_name_w_ ? min_name_w_ : str_wide;
 	sel_rect.setWidth(actual_wide);
 	const bool mouse_over = table_->mouse_over_file_name_index() == row;
@@ -128,7 +128,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	}
 	
 	QRect link_data_rect = text_rect;
-	link_data_rect.setX(text_rect.x() + str_rect.width());
+	link_data_rect.setX(text_rect.x() + filename_width);
 	QBrush brush = option.palette.brush(QPalette::PlaceholderText);
 	QPen pen(brush.color());
 	painter->setPen(pen);
@@ -250,7 +250,7 @@ TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 	QFontMetrics fm(option.font);
 	
 	if (min_name_w_ == -1) {
-		min_name_w_ = fm.boundingRect(QLatin1String("w")).width() * 7;
+		min_name_w_ = fm.horizontalAdvance(QLatin1String("w")) * 7;
 	}
 	
 	const Column col = static_cast<Column>(index.column());

@@ -274,12 +274,12 @@ void Task::CopyXAttr(const int input_fd, const int output_fd)
 	
 	/// Allocate the buffer.
 	char *buf = (char*)malloc(buflen);
-	CHECK_PTR_VOID(buf);
+	VOID_RET_IF(buf, nullptr);
 	
 	AutoFree af(buf);
 	/// Copy the list of attribute keys to the buffer.
 	buflen = flistxattr(input_fd, buf, buflen);
-	CHECK_TRUE_VOID((buflen != -1));
+	VOID_RET_IF(buflen, -1);
 	
 	/** Loop over the list of zero terminated strings with the
 		attribute keys. Use the remaining buffer length to determine

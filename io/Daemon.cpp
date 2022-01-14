@@ -167,7 +167,7 @@ void ReadEvent(int inotify_fd, char *buf,
 void* WatchDesktopFileDirs(void *void_args)
 {
 	pthread_detach(pthread_self());
-	CHECK_PTR_NULL(void_args);
+	RET_IF(void_args, NULL, NULL);
 	
 	QScopedPointer<DesktopFileWatchArgs> args((DesktopFileWatchArgs*) void_args);
 	Daemon *server = args->server;
@@ -184,8 +184,9 @@ void* WatchDesktopFileDirs(void *void_args)
 		auto path = next.toLocal8Bit();
 		int wd = inotify_add_watch(notify.fd, path.data(), event_types);
 		
-		if (wd == -1) {
-			mtl_status(errno);
+		if (wd == -1)
+		{
+			mtl_warn("%s: \"%s\"", strerror(errno), path.data());
 			return nullptr;
 		}
 		
@@ -429,7 +430,8 @@ void Daemon::InitTrayIcon()
 
 void Daemon::LoadDesktopFiles()
 {
-	for (const auto &next: xdg_data_dirs_) {
+	for (const auto &next: xdg_data_dirs_)
+	{
 		QString dir = next;
 		if (!dir.endsWith('/'))
 			dir.append('/');
@@ -453,7 +455,7 @@ void Daemon::LoadDesktopFilesFrom(QString dir_path)
 		dir_path.append('/');
 	
 	QVector<QString> names;
-	if (io::ListFileNames(dir_path, names) != 0)
+	if (!io::ListFileNames(dir_path, names))
 		return;
 	
 	watch_desktop_file_dirs_.append(dir_path);
@@ -539,6 +541,9 @@ void Daemon::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 	QVector<DesktopFile*> show_vec;
 	QVector<DesktopFile*> hide_vec;
 	GetDesktopFilesForMime(mime, show_vec, hide_vec);
+//	mtl_info("show_vec: %d, hide_vec: %d", show_vec.size(), hide_vec.size());
+//	const int cnt = desktop_files_.hash.count();
+//	mtl_info("Total: %d", cnt);
 	
 	ByteArray reply;
 	if (!show_vec.isEmpty())

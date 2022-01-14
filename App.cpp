@@ -486,7 +486,7 @@ void App::AskCreateNewFile(io::File *file, const QString &title)
 	}
 	
 	QFontMetrics fm = tab()->table()->fontMetrics();
-	int w = fm.boundingRect(text).width();
+	int w = fm.horizontalAdvance(text);
 	w = std::min(800, std::max(w + 80, 400)); // between 300 and 800
 	dialog.resize(w, 100);
 	bool ok = dialog.exec();
@@ -783,12 +783,11 @@ void App::DisplaySymlinkInfo(io::File &file)
 	QFontMetricsF font_metrics(font);
 	int max_len = 20;
 	
-	for (const QString &next: t->chain_paths_) {
-		QRectF rect = font_metrics.boundingRect(next);
-
-		if (rect.width() > max_len) {
-			max_len = rect.width() + 50;
-		}
+	for (const QString &next: t->chain_paths_)
+	{
+		const auto w = font_metrics.horizontalAdvance(next);
+		if (w > max_len)
+			max_len = w + 50;
 	}
 	
 	// 300 <= width <= 900
@@ -1649,7 +1648,7 @@ void App::RenameSelectedFile()
 	}
 	
 	QFontMetrics fm = tab->table()->fontMetrics();
-	int w = fm.boundingRect(text).width();
+	int w = fm.horizontalAdvance(text);
 	w = std::min(800, std::max(w + 80, 400)); // between 300 and 800
 	dialog.resize(w, 100);
 	bool ok = dialog.exec();

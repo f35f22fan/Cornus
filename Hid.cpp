@@ -17,6 +17,103 @@ Hid::Hid(App *app) : app_(app)
 Hid::~Hid()
 {}
 
+void Hid::HandleKeySelect(gui::Tab *tab, const VDirection vdir)
+{
+	io::Files &files = tab->view_files();
+	const int file_count = files.cached_files_count;
+	gui::ShiftSelect *shift_select = tab->ShiftSelect();
+	VOID_RET_IF(shift_select, nullptr);
+	
+	int old_file_index = old_file_index = files.GetFirstSelectedFile_Lock(nullptr);
+	if (old_file_index == -1)
+		old_file_index = shift_select->base_row;
+	
+	VOID_RET_IF(old_file_index, -1);
+	if (vdir == VDirection::Up && old_file_index == 0)
+		return;
+	
+	if (vdir == VDirection::Down && old_file_index >= file_count - 1)
+		return;
+	
+	int new_file_index = -1;
+	QVector<int> indices;
+	{
+		MutexGuard guard = files.guard();
+		files.SelectAllFiles_NoLock(Selected::No, indices);
+		if (old_file_index == -1)
+		{
+			new_file_index = (vdir == VDirection::Up) ? 0 : file_count - 1;
+			if (new_file_index >= 0)
+			{
+				indices.append(new_file_index);
+				io::File *file = files.data.vec[new_file_index];
+				file->set_selected(true);
+			}
+		} else {
+			new_file_index = old_file_index + ((vdir == VDirection::Up) ? -1 : 1);
+			if (new_file_index >= 0 && new_file_index < file_count)
+			{
+				io::File *file = files.data.vec[old_file_index];
+				file->set_selected(false);
+				files.data.vec[new_file_index]->set_selected(true);
+				indices.append(new_file_index);
+				indices.append(old_file_index);
+				//mtl_info("new_index: %d", new_file_index);
+			}
+		}
+	}
+	
+	if (new_file_index != -1) {
+		tab->ScrollToFile(new_file_index);
+	}
+	
+	tab->UpdateIndices(indices);
+}
+
+
+void Hid::HandleKeyShiftSelect(gui::Tab *tab, const VDirection vdir)
+{
+	auto &files = tab->view_files();
+	int row = files.GetFirstSelectedFile_Lock(nullptr);
+	if (row == -1)
+		return;
+	
+	QVector<int> indices;
+	gui::ShiftSelect *shift_select = tab->ShiftSelect();
+	if (shift_select->head_row == -1)
+		shift_select->head_row = shift_select->base_row;
+	
+	if (shift_select->base_row == -1) {
+		shift_select->base_row = row;
+		shift_select->head_row = row;
+		MutexGuard guard = files.guard();
+		files.data.vec[row]->set_selected(true);
+		indices.append(row);
+	} else {
+		if (vdir == VDirection::Up) {
+			if (shift_select->head_row == 0)
+				return;
+			shift_select->head_row--;
+		} else {
+			const int count = tab->table_model()->rowCount();
+			if (shift_select->head_row == count -1)
+				return;
+			shift_select->head_row++;
+		}
+		{
+			MutexGuard guard = files.guard();
+			files.SelectAllFiles_NoLock(Selected::No, indices);
+			files.SelectFileRange_NoLock(shift_select->base_row, shift_select->head_row, indices);
+		}
+	}
+	
+	if (shift_select->head_row != -1) {
+		tab->ScrollToFile(shift_select->head_row);
+	}
+	
+	tab->UpdateIndices(indices);
+}
+
 void Hid::HandleMouseSelectionShift(gui::Tab *tab, const QPoint &pos,
 	QVector<int> &indices)
 {

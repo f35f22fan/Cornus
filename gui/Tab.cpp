@@ -206,19 +206,17 @@ Tab::~Tab()
 	undo_delete_menu_ = nullptr;
 }
 
-void Tab::ActionCopy(QVector<int> *indices)
+void Tab::ActionCopy()
 {
-	VOID_RET_IF(indices, nullptr);
 	QStringList list;
-	VOID_RET_IF(CreateMimeWithSelectedFiles(ClipboardAction::Copy, *indices, list), false);
+	VOID_RET_IF(CreateMimeWithSelectedFiles(ClipboardAction::Copy, list), false);
 	VOID_RET_IF(SendURLsClipboard(list, io::Message::CopyToClipboard), false);
 }
 
-void Tab::ActionCut(QVector<int> *indices)
+void Tab::ActionCut()
 {
-	VOID_RET_IF(indices, nullptr);
 	QStringList list;
-	if (!CreateMimeWithSelectedFiles(ClipboardAction::Cut, *indices, list))
+	if (!CreateMimeWithSelectedFiles(ClipboardAction::Cut, list))
 		return;
 	
 	SendURLsClipboard(list, io::Message::CutToClipboard);
@@ -384,7 +382,7 @@ void Tab::CreateGui()
 }
 
 bool Tab::CreateMimeWithSelectedFiles(const ClipboardAction action,
-	QVector<int> &indices, QStringList &list)
+	QStringList &list)
 {
 	auto &files = view_files();
 	MutexGuard guard = files.guard();
@@ -399,6 +397,7 @@ bool Tab::CreateMimeWithSelectedFiles(const ClipboardAction action,
 	else if (action == ClipboardAction::Link)
 		flag = io::FileBits::PasteLink;
 	
+	QVector<int> indices;
 	int i = -1;
 	for (io::File *next: files.data.vec)
 	{
@@ -415,6 +414,7 @@ bool Tab::CreateMimeWithSelectedFiles(const ClipboardAction action,
 		}
 	}
 	
+	UpdateIndices(indices);
 	return true;
 }
 
@@ -868,7 +868,7 @@ void Tab::HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indice
 	MutexGuard guard = files.guard();
 	
 	io::File *file = nullptr;
-	ShiftSelect *shift_select = nullptr;
+	gui::ShiftSelect *shift_select = nullptr;
 	int file_index =  -1;
 	if (view_mode_ == ViewMode::Details)
 	{
@@ -902,7 +902,7 @@ void Tab::Init()
 	CreateGui();
 }
 
-void Tab::KeyPressEvent(QKeyEvent *evt, QVector<int> &indices)
+void Tab::KeyPressEvent(QKeyEvent *evt)
 {
 	auto  &files = view_files();
 	const int key = evt->key();
@@ -911,12 +911,13 @@ void Tab::KeyPressEvent(QKeyEvent *evt, QVector<int> &indices)
 	const bool any_modifiers = (modifiers != Qt::NoModifier);
 	const bool shift = (modifiers & Qt::ShiftModifier);
 	const bool ctrl = (modifiers & Qt::ControlModifier);
+	QVector<int> indices;
 	
 	if (ctrl) {
 		if (key == Qt::Key_C)
-			ActionCopy(&indices);
+			ActionCopy();
 		else if (key == Qt::Key_X)
-			ActionCut(&indices);
+			ActionCut();
 		else if (key == Qt::Key_V) {
 			ActionPaste();
 		}
@@ -942,17 +943,15 @@ void Tab::KeyPressEvent(QKeyEvent *evt, QVector<int> &indices)
 			}
 		}
 	} else if (key == Qt::Key_Down) {
-		mtl_tbd();
-//		if (shift)
-//			app_->hid()->HandleKeyShiftSelect(VDirection::Down);
-//		else
-//			app_->hid()->HandleKeySelect(VDirection::Down);
+		if (shift)
+			app_->hid()->HandleKeyShiftSelect(this, VDirection::Down);
+		else
+			app_->hid()->HandleKeySelect(this, VDirection::Down);
 	} else if (key == Qt::Key_Up) {
-		mtl_tbd();
-//		if (shift)
-//			app_->hid()->HandleKeyShiftSelect(VDirection::Up);
-//		else
-//			app_->hid()->HandleKeySelect(VDirection::Up);
+		if (shift)
+			app_->hid()->HandleKeyShiftSelect(this, VDirection::Up);
+		else
+			app_->hid()->HandleKeySelect(this, VDirection::Up);
 	} else if (key == Qt::Key_D) {
 		if (any_modifiers)
 			return;
@@ -966,26 +965,28 @@ void Tab::KeyPressEvent(QKeyEvent *evt, QVector<int> &indices)
 	} else if (key == Qt::Key_Escape) {
 		app_->HideTextEditor();
 	} else if (key == Qt::Key_PageUp) {
-		mtl_tbd();
-//		auto *vs = verticalScrollBar();
-//		const int page = vs->pageStep() - GetRowHeight() * 2;
-//		int new_val = vs->value() - page;
-//		vs->setValue(new_val);
-//		int r = new_val / GetRowHeight();
-//		if (new_val % GetRowHeight() != 0)
-//			r++;
-//		int row = std::max(0, r);
-//		app_->hid()->SelectFileByIndex(tab_, row, DeselectOthers::Yes);
+		auto *vs = ViewScrollBar();
+		VOID_RET_IF(vs, nullptr);
+		const int rh = ViewRowHeight();
+		const int page = vs->pageStep() - rh * 2;
+		const int new_val = vs->value() - page;
+		vs->setValue(new_val);
+		int r = new_val / rh;
+		if (new_val % rh != 0)
+			r++;
+		int row = std::max(0, r);
+		app_->hid()->SelectFileByIndex(this, row, DeselectOthers::Yes);
 	} else if (key == Qt::Key_PageDown) {
-		mtl_tbd();
-//		auto *vs = verticalScrollBar();
-//		const int page = vs->pageStep() - GetRowHeight();
-//		int new_val = vs->value() + page;
-//		vs->setValue(new_val);
-//		int new_val2 = new_val + page;
-//		const int rc = model_->rowCount();
-//		int row = std::min(rc - 1, new_val2 / GetRowHeight());
-//		app_->hid()->SelectFileByIndex(tab_, row, DeselectOthers::Yes);
+		auto *vs = ViewScrollBar();
+		VOID_RET_IF(vs, nullptr);
+		const int rh = ViewRowHeight();
+		const int page = vs->pageStep() - rh;
+		const int new_val = vs->value() + page;
+		vs->setValue(new_val);
+		int new_val2 = new_val + page;
+		const int file_count = files.cached_files_count;
+		int row = std::min(file_count - 1, new_val2 / rh);
+		app_->hid()->SelectFileByIndex(this, row, DeselectOthers::Yes);
 	} else if (key == Qt::Key_Home) {
 		QScrollBar *vs = ViewScrollBar();
 		VOID_RET_IF(vs, nullptr);
@@ -1202,11 +1203,19 @@ void Tab::SetViewMode(const ViewMode mode)
 	}
 }
 
-void Tab::ShowRightClickMenu(const QPoint &global_pos,
-	const QPoint &local_pos, QVector<int> *indices)
+ShiftSelect* Tab::ShiftSelect()
 {
-	VOID_RET_IF(indices, nullptr);
-	indices->clear();
+	switch (view_mode_)
+	{
+	case ViewMode::Details: return table_->shift_select();
+	case ViewMode::Icons: return icon_view_->shift_select();
+	default: return nullptr;
+	}
+}
+
+void Tab::ShowRightClickMenu(const QPoint &global_pos,
+	const QPoint &local_pos)
+{
 	auto &files = view_files();
 	QVector<QString> extensions;
 	const int selected_count = files.GetSelectedFilesCount_Lock(&extensions);
@@ -1278,14 +1287,14 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 		QAction *action = menu->addAction(tr("Cut"));
 		action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_X));
 		connect(action, &QAction::triggered, [=] {
-			ActionCut(indices);
+			ActionCut();
 		});
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-cut")));
 		
 		action = menu->addAction(tr("Copy"));
 		action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_C));
 		connect(action, &QAction::triggered, [=] {
-			ActionCopy(indices);
+			ActionCopy();
 		});
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-copy")));
 	}
@@ -1472,11 +1481,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 		action->setIcon(QIcon::fromTheme(QLatin1String("emblem-important")));
 	}
 	
-	if (view_mode_ == ViewMode::Details)
-		table_model_->UpdateIndices(*indices);
-	else if (view_mode_ == ViewMode::Icons)
-		icon_view_->UpdateIndices(*indices);
-	
+	UpdateView();
 	menu->popup(global_pos);
 }
 
@@ -1670,14 +1675,35 @@ void Tab::UndeleteFiles(const QMap<i64, QVector<trash::Names>> &items)
 
 void Tab::UpdateIndices(const QVector<int> &vec)
 {
-	const ViewMode vm = view_mode();
-	switch (vm) {
+	if (vec.isEmpty())
+		return;
+	
+	switch (view_mode_)
+	{
 	case ViewMode::Details : {
 		table_model_->UpdateIndices(vec);
 		break;
 	}
 	case ViewMode::Icons: {
 		icon_view_->UpdateIndices(vec);
+		break;
+	}
+	default: {
+		mtl_trace();
+	}
+	}
+}
+
+void Tab::UpdateView()
+{
+	switch (view_mode_)
+	{
+	case ViewMode::Details : {
+		table_model_->UpdateVisibleArea();
+		break;
+	}
+	case ViewMode::Icons: {
+		icon_view_->UpdateVisibleArea();
 		break;
 	}
 	default: {
@@ -1707,12 +1733,22 @@ bool Tab::ViewIsAt(const QString &dir_path) const
 
 QScrollBar* Tab::ViewScrollBar() const
 {
-	if (view_mode_ == ViewMode::Details)
-		return table_->scrollbar();
-	if (view_mode_ == ViewMode::Icons)
-		return icon_view_->scrollbar();
-	mtl_trace();
-	return nullptr;
+	switch (view_mode_)
+	{
+	case ViewMode::Details: return table_->scrollbar();
+	case ViewMode::Icons: return icon_view_->scrollbar();
+	default: return nullptr;
+	}
+}
+
+int Tab::ViewRowHeight() const
+{
+	switch (view_mode_)
+	{
+	case ViewMode::Details: return table_->GetRowHeight();
+	case ViewMode::Icons: return icon_view_->GetRowHeight();
+	default: { mtl_trace(); return -1; }
+	}
 }
 
 }} // cornus::gui

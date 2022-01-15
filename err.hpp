@@ -69,6 +69,30 @@
 #define NO_MOVE(TypeName) \
 	TypeName(TypeName&&) = delete;
 
+#define ret_if(lhs, rhs, ret) {\
+	if ((lhs == rhs)) {\
+		return ret;\
+	}\
+}
+
+#define ret_if_not(lhs, rhs, ret) {\
+	if ((lhs != rhs)) {\
+		return ret;\
+	}\
+}
+
+#define void_ret_if(lhs, rhs) {\
+	if ((lhs == rhs)) {\
+		return;\
+	}\
+}
+
+#define void_ret_if_not(lhs, rhs) {\
+	if ((lhs != rhs)) {\
+		return;\
+	}\
+}
+
 #define RET_IF(lhs, rhs, ret) {\
 	if ((lhs == rhs)) {\
 		mtl_trace();\
@@ -83,18 +107,6 @@
 	}\
 }
 
-#define ret_if(lhs, rhs, ret) {\
-	if ((lhs == rhs)) {\
-		return ret;\
-	}\
-}
-
-#define ret_if_not(lhs, rhs, ret) {\
-	if ((lhs != rhs)) {\
-		return ret;\
-	}\
-}
-
 #define VOID_RET_IF(lhs, rhs) {\
 	if ((lhs == rhs)) {\
 		mtl_trace();\
@@ -102,21 +114,9 @@
 	}\
 }
 
-#define void_ret_if(lhs, rhs) {\
-	if ((lhs == rhs)) {\
-		return;\
-	}\
-}
-
 #define VOID_RET_IF_NOT(lhs, rhs) {\
 	if ((lhs != rhs)) {\
 		mtl_trace();\
-		return;\
-	}\
-}
-
-#define void_ret_if_not(lhs, rhs) {\
-	if ((lhs != rhs)) {\
 		return;\
 	}\
 }

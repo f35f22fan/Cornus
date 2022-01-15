@@ -255,99 +255,6 @@ i32 Table::GetVisibleRowsCount() const
 	return (height() - horizontalHeader()->height()) / GetRowHeight();
 }
 
-void Table::HandleKeySelect(const VDirection vdir)
-{
-	io::Files &files = tab_->view_files();
-	int row = shift_select_.base_row;
-	if (row == -1)
-		row = files.GetFirstSelectedFile_Lock(nullptr);
-	
-	if (row == 0 && vdir == VDirection::Up)
-		return;
-	
-	if (vdir == VDirection::Down && row == model_->rowCount() - 1)
-		return;
-	
-	int scroll_to_row = -1;
-	QVector<int> indices;
-	{
-		MutexGuard guard(&files.mutex);
-		files.SelectAllFiles_NoLock(Selected::No, indices);
-		const int count = files.data.vec.size();
-		if (row == -1) {
-			int select_index = (vdir == VDirection::Up) ? 0 : count - 1;
-			if (select_index >= 0) {
-				indices.append(select_index);
-				io::File *file = files.data.vec[select_index];
-				file->set_selected(true);
-				scroll_to_row = select_index;
-			}
-		} else {
-			int new_select = row + ((vdir == VDirection::Up) ? -1 : 1);
-			
-			if (new_select >= 0 && new_select < count) {
-				io::File *file = files.data.vec[row];
-				file->set_selected(false);
-				files.data.vec[new_select]->set_selected(true);
-				indices.append(new_select);
-				indices.append(row);
-				scroll_to_row = new_select;
-			}
-		}
-	}
-	
-	model_->UpdateIndices(indices);
-	
-	if (scroll_to_row != -1) {
-		ScrollToFile(scroll_to_row);
-	}
-}
-
-void Table::HandleKeyShiftSelect(const VDirection vdir)
-{
-	auto &files = tab_->view_files();
-	int row = files.GetFirstSelectedFile_Lock(nullptr);
-	if (row == -1)
-		return;
-	
-	QVector<int> indices;
-	
-	if (shift_select_.head_row == -1)
-		shift_select_.head_row = shift_select_.base_row;
-	
-	if (shift_select_.base_row == -1) {
-		shift_select_.base_row = row;
-		shift_select_.head_row = row;
-		MutexGuard guard = files.guard();
-		files.data.vec[row]->set_selected(true);
-		indices.append(row);
-	} else {
-		if (vdir == VDirection::Up) {
-			if (shift_select_.head_row == 0)
-				return;
-			shift_select_.head_row--;
-		} else {
-			const int count = model_->rowCount();
-			if (shift_select_.head_row == count -1)
-				return;
-			shift_select_.head_row++;
-		}
-		{
-			MutexGuard guard = files.guard();
-			files.SelectAllFiles_NoLock(Selected::No, indices);
-			files.SelectFileRange_NoLock(shift_select_.base_row, shift_select_.head_row, indices);
-		}
-	}
-	
-	model_->UpdateIndices(indices);
-	
-	if (shift_select_.head_row != -1) {
-		QModelIndex index = model()->index(shift_select_.head_row, 0, QModelIndex());
-		scrollTo(index);
-		///ScrollToRow(shift_select_.head_row);
-	}
-}
-
 void Table::HiliteFileUnderMouse()
 {
 	QVector<int> indices;
@@ -419,7 +326,7 @@ i32 Table::IsOnFileName_NoLock(const QPoint &local_pos, io::File **ret_file)
 
 void Table::keyPressEvent(QKeyEvent *evt)
 {
-	tab_->KeyPressEvent(evt, indices_);
+	tab_->KeyPressEvent(evt);
 }
 
 void Table::keyReleaseEvent(QKeyEvent *evt) {
@@ -509,7 +416,7 @@ void Table::mousePressEvent(QMouseEvent *evt)
 	
 	if (right_click) {
 		tab_->HandleMouseRightClickSelection(evt->pos(), indices);
-		tab_->ShowRightClickMenu(evt->globalPos(), evt->pos(), &indices);
+		tab_->ShowRightClickMenu(evt->globalPos(), evt->pos());
 	}
 	
 	model_->UpdateIndices(indices);

@@ -48,8 +48,8 @@ public:
 	Tab(App *app, const TabId tab_id);
 	virtual ~Tab();
 	
-	void ActionCopy(QVector<int> *indices);
-	void ActionCut(QVector<int> *indices);
+	void ActionCopy();
+	void ActionCut();
 	void ActionPaste();
 	void ActionPasteLinks(const LinkType link);
 	App* app() const { return app_; }
@@ -78,7 +78,7 @@ public:
 	void HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indices);
 	History* history() const { return history_; }
 	gui::IconView* icon_view() const { return icon_view_; }
-	void KeyPressEvent(QKeyEvent *evt, QVector<int> &indices);
+	void KeyPressEvent(QKeyEvent *evt);
 	io::Notify& notify() { return notify_; }
 	const OpenWith& open_with() const { return open_with_; }
 	void PopulateUndoDelete(QMenu *menu);
@@ -93,14 +93,16 @@ public:
 	bool ViewIsAt(const QString &dir_path) const;
 	ViewMode view_mode() const { return view_mode_; }
 	void SetViewMode(const ViewMode mode);
+	gui::ShiftSelect* ShiftSelect();
 	void ShowRightClickMenu(const QPoint &global_pos,
-		const QPoint &local_pos, QVector<int> *indices);
+		const QPoint &local_pos);
 	io::Files& view_files();
 	
 	const QString& title() const { return title_; }
 	void SetTitle(const QString &s);
 	
 	void UpdateIndices(const QVector<int> &indices);
+	void UpdateView();
 	
 public Q_SLOTS:
 	void GoToFinish(cornus::io::FilesData *new_data);
@@ -111,8 +113,7 @@ protected:
 private:
 	void AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path);
 	bool AnyArchive(const QVector<QString> &extensions) const;
-	bool CreateMimeWithSelectedFiles(const ClipboardAction action,
-		QVector<int> &indices, QStringList &list);
+	bool CreateMimeWithSelectedFiles(const ClipboardAction action, QStringList &list);
 	QVector<QAction*>
 	CreateOpenWithList(const QString &full_path);
 	/// returns row index & cloned file if on file name, otherwise -1
@@ -122,6 +123,7 @@ private:
 	void ProcessAction(const QString &action);
 	void UndeleteFiles(const QMap<i64, QVector<cornus::trash::Names> > &items);
 	QScrollBar* ViewScrollBar() const;
+	int ViewRowHeight() const;
 	
 	App *app_ = nullptr;
 	History *history_ = nullptr;

@@ -277,28 +277,29 @@ io::File* IconView::GetFileAt_NoLock(const QPoint &pos, const Clone c, int *ret_
 	return (c == Clone::Yes) ? f->Clone() : f;
 }
 
-void IconView::keyPressEvent(QKeyEvent *event)
+void IconView::keyPressEvent(QKeyEvent *evt)
 {
-	const int key = event->key();
-	const auto modifiers = event->modifiers();
-	const bool any_modifiers = (modifiers != Qt::NoModifier);
-	const bool shift = (modifiers & Qt::ShiftModifier);
-	const bool ctrl = (modifiers & Qt::ControlModifier);
-	Q_UNUSED(shift);
-	Q_UNUSED(ctrl);
+	tab_->KeyPressEvent(evt);
+//	const int key = event->key();
+//	const auto modifiers = event->modifiers();
+//	const bool any_modifiers = (modifiers != Qt::NoModifier);
+//	const bool shift = (modifiers & Qt::ShiftModifier);
+//	const bool ctrl = (modifiers & Qt::ControlModifier);
+//	Q_UNUSED(shift);
+//	Q_UNUSED(ctrl);
 	
-	if (!any_modifiers)
-	{
-		if (key == Qt::Key_Down) {
-			Scroll(VDirection::Down, ScrollBy::LineStep);
-		} else if (key == Qt::Key_Up) {
-			Scroll(VDirection::Up, ScrollBy::LineStep);
-		} else if (key == Qt::Key_PageDown) {
-			Scroll(VDirection::Down, ScrollBy::PageStep);
-		} else if (key == Qt::Key_PageUp) {
-			Scroll(VDirection::Up, ScrollBy::PageStep);
-		}
-	}
+//	if (!any_modifiers)
+//	{
+//		if (key == Qt::Key_Down) {
+//			Scroll(VDirection::Down, ScrollBy::LineStep);
+//		} else if (key == Qt::Key_Up) {
+//			Scroll(VDirection::Up, ScrollBy::LineStep);
+//		} else if (key == Qt::Key_PageDown) {
+//			Scroll(VDirection::Down, ScrollBy::PageStep);
+//		} else if (key == Qt::Key_PageUp) {
+//			Scroll(VDirection::Up, ScrollBy::PageStep);
+//		}
+//	}
 }
 
 void IconView::keyReleaseEvent(QKeyEvent *evt)
@@ -371,9 +372,8 @@ void IconView::mousePressEvent(QMouseEvent *evt)
 	
 	if (right_click)
 	{
-		mtl_tbd();
 		tab_->HandleMouseRightClickSelection(evt->pos(), indices);
-		tab_->ShowRightClickMenu(evt->globalPos(), evt->pos(), &indices);
+		tab_->ShowRightClickMenu(evt->globalPos(), evt->pos());
 	}
 	
 	UpdateIndices(indices);

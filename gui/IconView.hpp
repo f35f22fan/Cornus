@@ -64,7 +64,7 @@ public:
 		
 		return row;
 	}
-	
+	int GetRowHeight() const { return icon_dim_.rh; }
 	void HiliteFileUnderMouse();
 	void SetAsCurrentView(const NewState ns);
 	QSize minimumSize() const { return size(); }
@@ -84,7 +84,7 @@ public:
 	void UpdateIndex(const int file_index);
 	void UpdateFileIndexRange(const int start, const int end);
 	void UpdateIndices(const QVector<int> &indices);
-	
+	void UpdateVisibleArea() { update(); }
 	QScrollBar* scrollbar() const { return vs_; }
 	
 protected:
@@ -121,7 +121,6 @@ private:
 	Last last_ = {};
 	mutable IconDim icon_dim_ = {};
 	QScrollBar *vs_ = nullptr;
-	QVector<int> repaint_indices_;
 	ElapsedTimer last_repaint_;
 	bool delayed_repaint_pending_ = false;
 	const i64 delay_repaint_ms_ = 100;

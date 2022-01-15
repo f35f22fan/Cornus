@@ -72,8 +72,6 @@ private:
 	NO_ASSIGN_COPY_MOVE(Table);
 	
 	void ClearDndAnimation(const QPoint &drop_coord);
-	void HandleKeySelect(const VDirection vdir);
-	void HandleKeyShiftSelect(const VDirection vdir);
 	void HiliteFileUnderMouse();
 	i32 IsOnFileIcon_NoLock(const QPoint &local_pos, io::File **ret_file = nullptr);
 	void SetCustomResizePolicy();
@@ -96,7 +94,6 @@ private:
 	QPoint drop_coord_ = {-1, -1};
 	QPoint drag_start_pos_ = {-1, -1};
 	QPoint mouse_pos_ = {-1, -1};
-	QVector<int> indices_;
 	TableHeader *header_ = nullptr;
 	
 	input::TriggerOn trigger_on_ = input::TriggerOn::FileName;

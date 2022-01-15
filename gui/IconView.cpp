@@ -18,7 +18,6 @@
 #include <QTimer>
 
 #include <algorithm>
-#include <cmath>
 
 namespace cornus::gui {
 
@@ -61,8 +60,8 @@ void IconView::ComputeProportions(IconDim &dim) const
 	const QString sample_str = QLatin1String("m");
 	const QFontMetrics fm = fontMetrics();
 	const QRect br = fm.boundingRect(sample_str);
-	const float area_w = this->width();
-	const float w = br.width() * 8;
+	const double area_w = this->width();
+	const double w = br.width() * 6;
 	
 	dim.gap = w / 16;
 	dim.two_gaps = dim.gap * 2;
@@ -76,7 +75,7 @@ void IconView::ComputeProportions(IconDim &dim) const
 	dim.str_h = br.height();
 	dim.text_h = dim.str_h * dim.text_rows;
 	dim.text_y = dim.h_and_gaps - dim.str_h * dim.text_rows;
-	dim.per_row = (int)area_w / (int)dim.cell_and_gap;
+	dim.per_row = (int)(area_w + dim.gap) / (int)dim.cell_and_gap;
 	
 	if (dim.per_row == 0)
 		dim.per_row = 1;
@@ -127,7 +126,7 @@ void IconView::dragMoveEvent(QDragMoveEvent *evt)
 	if (y >= (h - rh))
 	{
 		mtl_warn("this logic doesn't work with IconView");
-		Scroll(VDirection::Down, ScrollBy::LineStep);
+		ScrollByWheel(VDirection::Down, ScrollBy::LineStep);
 	}
 }
 
@@ -254,13 +253,13 @@ bool IconView::is_current_view() const
 io::File* IconView::GetFileAt_NoLock(const QPoint &pos, const Clone c, int *ret_index)
 {
 	const int y = pos.y() + vs_->value();
-	int y_off;
-	const int row = std::max(0, GetRowAtY(y, &y_off) - 1);
+	double y_off;
+	const int row_index = std::max(0, GetRowAtY(y, &y_off) - 1);
 	const int x = pos.x();
 	const int wide = icon_dim_.cell_and_gap;
 	const int x_index = x / wide;
 	
-	const int file_index = row * icon_dim_.per_row + x_index;
+	const int file_index = row_index * icon_dim_.per_row + x_index;
 	auto &files = tab_->view_files();
 	if (file_index < 0 || file_index >= files.data.vec.size())
 	{
@@ -280,26 +279,6 @@ io::File* IconView::GetFileAt_NoLock(const QPoint &pos, const Clone c, int *ret_
 void IconView::keyPressEvent(QKeyEvent *evt)
 {
 	tab_->KeyPressEvent(evt);
-//	const int key = event->key();
-//	const auto modifiers = event->modifiers();
-//	const bool any_modifiers = (modifiers != Qt::NoModifier);
-//	const bool shift = (modifiers & Qt::ShiftModifier);
-//	const bool ctrl = (modifiers & Qt::ControlModifier);
-//	Q_UNUSED(shift);
-//	Q_UNUSED(ctrl);
-	
-//	if (!any_modifiers)
-//	{
-//		if (key == Qt::Key_Down) {
-//			Scroll(VDirection::Down, ScrollBy::LineStep);
-//		} else if (key == Qt::Key_Up) {
-//			Scroll(VDirection::Up, ScrollBy::LineStep);
-//		} else if (key == Qt::Key_PageDown) {
-//			Scroll(VDirection::Down, ScrollBy::PageStep);
-//		} else if (key == Qt::Key_PageUp) {
-//			Scroll(VDirection::Up, ScrollBy::PageStep);
-//		}
-//	}
 }
 
 void IconView::keyReleaseEvent(QKeyEvent *evt)
@@ -415,6 +394,29 @@ void IconView::mouseReleaseEvent(QMouseEvent *evt)
 	}
 }
 
+int IconView::CellIndexInNextRow(const int file_index, const VDirection vdir)
+{
+	const int file_count = tab_->view_files().cached_files_count;
+	
+	if (file_index == -1)
+		return (vdir == VDirection::Up) ? 0 : file_count - 1;
+	
+	const IconDim &cell = icon_dim_;
+	int next;
+	if (vdir == VDirection::Up)
+	{
+		next = file_index - cell.per_row;
+		if (next < 0)
+			next = file_index;
+	} else {
+		next = file_index + cell.per_row;
+		if (next >= file_count)
+			next = file_index;
+	}
+	
+	return next;
+}
+
 void IconView::paintEvent(QPaintEvent *ev)
 {
 	last_repaint_.Continue(Reset::Yes);
@@ -436,10 +438,10 @@ void IconView::paintEvent(QPaintEvent *ev)
 	
 	const double scroll_y = vs_->value();
 	const auto &cell = icon_dim_; // to make sure I don't change any value
-	const int at_row = (int)scroll_y / (int)cell.rh;
-	const int int_off = (int)scroll_y % (int)cell.rh;
+	const int at_row = scroll_y / cell.rh;
+	const double int_off = std::fmod(scroll_y, cell.rh);
 	const double y_off = -int_off;
-	const double y_end = std::abs(y_off) + height();
+	const double y_end = int_off + height();
 	const double width = (this->width() < cell.cell_and_gap) ?
 		cell.cell_and_gap : this->width();
 	
@@ -511,7 +513,7 @@ void IconView::resizeEvent(QResizeEvent *ev)
 	update();
 }
 
-void IconView::Scroll(const VDirection d, const gui::ScrollBy sb)
+void IconView::ScrollByWheel(const VDirection d, const gui::ScrollBy sb)
 {
 	const int step = (sb == ScrollBy::LineStep)
 		? icon_dim_.rh/2 : scroll_page_step_;
@@ -536,11 +538,32 @@ void IconView::ScrollToFile(const int file_index)
 	if (icon_dim_.per_row <= 0)
 		ComputeProportions(icon_dim_);
 	
-	int row = file_index / icon_dim_.per_row;
-	if (file_index % icon_dim_.per_row)
-		row++;
-	const int scroll_y = row * icon_dim_.rh;
-	vs_->setValue(scroll_y);
+	const IconDim &cell = icon_dim_;
+	const int curr_y = vs_->value();
+	const int file_row = file_index / cell.per_row;
+	const double file_y = double(file_row) * cell.rh;
+	const double view_h = height();
+	
+	const bool is_fully_visible = (file_y >= curr_y) &&
+		(file_y <= curr_y + view_h - cell.rh);
+	
+	if (is_fully_visible) {
+//		static int k = 0;
+//		mtl_info("Fully visible %d", k++);
+		return;
+	}
+	
+	int new_val = -1;
+	if (file_y < curr_y) {
+		new_val = file_y;
+		//mtl_info("File was above: %d, new_row: %d", (int)file_y, file_row);
+	} else {
+		new_val = file_y - (view_h - cell.rh);
+		//mtl_info("File was below: %d, new_row: %d", (int)file_y, file_row);
+	}
+	
+	if (new_val != -1)
+		vs_->setValue(new_val);
 }
 
 void IconView::SendLoadingNewThumbnailsBatch()
@@ -642,7 +665,7 @@ void IconView::wheelEvent(QWheelEvent *evt)
 	} else {
 		repaint_without_delay_ = true;
 		const auto vert_dir = (y < 0) ? VDirection::Down : VDirection::Up;
-		Scroll(vert_dir, ScrollBy::LineStep);
+		ScrollByWheel(vert_dir, ScrollBy::LineStep);
 		repaint_without_delay_ = false;
 	}
 }

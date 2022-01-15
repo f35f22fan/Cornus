@@ -13,9 +13,9 @@ public:
 	Hid(App *app);
 	virtual ~Hid();
 	
-	void HandleKeySelect(gui::Tab *tab, const VDirection vdir);
+	void HandleKeySelect(gui::Tab *tab, const VDirection vdir, const int key);
 	
-	void HandleKeyShiftSelect(gui::Tab *tab, const VDirection vdir);
+	void HandleKeyShiftSelect(gui::Tab *tab, const VDirection vdir, const int key);
 	
 	void HandleMouseSelectionShift(gui::Tab *tab, const QPoint &pos,
 		QVector<int> &indices);

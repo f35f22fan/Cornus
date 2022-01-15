@@ -6,6 +6,8 @@
 #include "../io/io.hh"
 #include "../ElapsedTimer.hpp"
 
+#include <cmath>
+
 QT_BEGIN_NAMESPACE
 class QScrollBar;
 QT_END_NAMESPACE
@@ -32,12 +34,12 @@ struct IconDim {
 	double rh = 0;
 	double gap = 0;
 	double two_gaps = 0;
-	int row_count = -1;
-	int per_row = -1;
-	int text_y = -1;
-	int str_h = -1;
-	int text_h = -1;
+	double text_y = -1;
+	double str_h = -1;
+	double text_h = -1;
+	int per_row = 1;
 	int text_rows = -1;
+	int row_count = -1;
 };
 
 struct Last {
@@ -52,14 +54,14 @@ public:
 	
 	void DisplayingNewDirectory(const DirId dir_id);
 	
-	int GetRowAtY(const int y, int *y_off = nullptr) const
+	int GetRowAtY(const int y, double *y_off = nullptr) const
 	{
-		int row = y / (int)icon_dim_.rh;
-		const int int_off = y % (int)icon_dim_.rh;
+		int row = double(y) / icon_dim_.rh;
+		const double d_off = std::fmod(double(y), icon_dim_.rh);
 		if (y_off != nullptr)
-			*y_off = -int_off;
+			*y_off = -d_off;
 		
-		if (int_off != 0)
+		if (d_off >= 0.1)
 			row++;
 		
 		return row;
@@ -69,11 +71,12 @@ public:
 	void SetAsCurrentView(const NewState ns);
 	QSize minimumSize() const { return size(); }
 	QSize maximumSize() const { return size(); }
+	int CellIndexInNextRow(const int file_index, const VDirection vdir);
 	void SendLoadingNewThumbnailsBatch();
 	QSize size() const;
 	virtual QSize sizeHint() const override { return size(); }
 	
-	void Scroll(const VDirection d, const ScrollBy sb);
+	void ScrollByWheel(const VDirection d, const ScrollBy sb);
 	void ScrollToAndSelect(const int file_index, const DeselectOthers des);
 	void ScrollToFile(const int file_index);
 	void FilesChanged(const FileCountChanged fcc, const int file_index);

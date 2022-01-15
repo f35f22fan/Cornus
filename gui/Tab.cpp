@@ -942,16 +942,16 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 				indices.append(row);
 			}
 		}
-	} else if (key == Qt::Key_Down) {
+	} else if (key == Qt::Key_Down || key == Qt::Key_Right) {
 		if (shift)
-			app_->hid()->HandleKeyShiftSelect(this, VDirection::Down);
+			app_->hid()->HandleKeyShiftSelect(this, VDirection::Down, key);
 		else
-			app_->hid()->HandleKeySelect(this, VDirection::Down);
-	} else if (key == Qt::Key_Up) {
+			app_->hid()->HandleKeySelect(this, VDirection::Down, key);
+	} else if (key == Qt::Key_Up || key == Qt::Key_Left) {
 		if (shift)
-			app_->hid()->HandleKeyShiftSelect(this, VDirection::Up);
+			app_->hid()->HandleKeyShiftSelect(this, VDirection::Up, key);
 		else
-			app_->hid()->HandleKeySelect(this, VDirection::Up);
+			app_->hid()->HandleKeySelect(this, VDirection::Up, key);
 	} else if (key == Qt::Key_D) {
 		if (any_modifiers)
 			return;

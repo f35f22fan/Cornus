@@ -17,7 +17,8 @@ Hid::Hid(App *app) : app_(app)
 Hid::~Hid()
 {}
 
-void Hid::HandleKeySelect(gui::Tab *tab, const VDirection vdir)
+void Hid::HandleKeySelect(gui::Tab *tab, const VDirection vdir,
+	const int key)
 {
 	io::Files &files = tab->view_files();
 	const int file_count = files.cached_files_count;
@@ -28,29 +29,40 @@ void Hid::HandleKeySelect(gui::Tab *tab, const VDirection vdir)
 	if (old_file_index == -1)
 		old_file_index = shift_select->base_row;
 	
-	VOID_RET_IF(old_file_index, -1);
+	const bool was_set_to_zero = (old_file_index == -1);
+	if (was_set_to_zero)
+		old_file_index = 0;
+	
 	if (vdir == VDirection::Up && old_file_index == 0)
 		return;
 	
 	if (vdir == VDirection::Down && old_file_index >= file_count - 1)
 		return;
 	
+	const bool is_icon_view = tab->view_mode() == gui::ViewMode::Icons;
+	const bool up_or_down = key == Qt::Key_Up || key == Qt::Key_Down;
 	int new_file_index = -1;
 	QVector<int> indices;
 	{
 		MutexGuard guard = files.guard();
 		files.SelectAllFiles_NoLock(Selected::No, indices);
-		if (old_file_index == -1)
+		if (was_set_to_zero)
 		{
 			new_file_index = (vdir == VDirection::Up) ? 0 : file_count - 1;
 			if (new_file_index >= 0)
 			{
 				indices.append(new_file_index);
-				io::File *file = files.data.vec[new_file_index];
-				file->set_selected(true);
+				files.data.vec[new_file_index]->set_selected(true);
 			}
 		} else {
-			new_file_index = old_file_index + ((vdir == VDirection::Up) ? -1 : 1);
+			if (is_icon_view && up_or_down)
+			{
+				const int n = was_set_to_zero ? -1 : old_file_index;
+				new_file_index = tab->icon_view()->CellIndexInNextRow(n, vdir);
+			} else {
+				new_file_index = old_file_index + ((vdir == VDirection::Up) ? -1 : 1);
+			}
+			
 			if (new_file_index >= 0 && new_file_index < file_count)
 			{
 				io::File *file = files.data.vec[old_file_index];
@@ -58,7 +70,6 @@ void Hid::HandleKeySelect(gui::Tab *tab, const VDirection vdir)
 				files.data.vec[new_file_index]->set_selected(true);
 				indices.append(new_file_index);
 				indices.append(old_file_index);
-				//mtl_info("new_index: %d", new_file_index);
 			}
 		}
 	}
@@ -71,7 +82,8 @@ void Hid::HandleKeySelect(gui::Tab *tab, const VDirection vdir)
 }
 
 
-void Hid::HandleKeyShiftSelect(gui::Tab *tab, const VDirection vdir)
+void Hid::HandleKeyShiftSelect(gui::Tab *tab, const VDirection vdir,
+	const int key)
 {
 	auto &files = tab->view_files();
 	int row = files.GetFirstSelectedFile_Lock(nullptr);

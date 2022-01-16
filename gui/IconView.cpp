@@ -61,7 +61,7 @@ void IconView::ComputeProportions(IconDim &dim) const
 	const QFontMetrics fm = fontMetrics();
 	const QRect br = fm.boundingRect(sample_str);
 	const double area_w = this->width();
-	const double w = br.width() * 6;
+	const double w = br.width() * 7;
 	
 	dim.gap = w / 16;
 	dim.two_gaps = dim.gap * 2;
@@ -535,11 +535,13 @@ void IconView::ScrollToAndSelect(const int file_index, const DeselectOthers des)
 
 void IconView::ScrollToFile(const int file_index)
 {
+	mtl_info("scroll to: %d, file_count: %d",
+		file_index, tab_->view_files().cached_files_count);
 	if (icon_dim_.per_row <= 0)
 		ComputeProportions(icon_dim_);
 	
 	const IconDim &cell = icon_dim_;
-	const int curr_y = vs_->value();
+	const double curr_y = vs_->value();
 	const int file_row = file_index / cell.per_row;
 	const double file_y = double(file_row) * cell.rh;
 	const double view_h = height();
@@ -548,22 +550,23 @@ void IconView::ScrollToFile(const int file_index)
 		(file_y <= curr_y + view_h - cell.rh);
 	
 	if (is_fully_visible) {
-//		static int k = 0;
-//		mtl_info("Fully visible %d", k++);
+		static int k = 0;
+		mtl_info("Fully visible %d", k++);
 		return;
 	}
 	
 	int new_val = -1;
 	if (file_y < curr_y) {
 		new_val = file_y;
-		//mtl_info("File was above: %d, new_row: %d", (int)file_y, file_row);
+		mtl_info("File was above: %d, new_row: %d", (int)file_y, file_row);
 	} else {
 		new_val = file_y - (view_h - cell.rh);
-		//mtl_info("File was below: %d, new_row: %d", (int)file_y, file_row);
+		mtl_info("File was below: %d, new_row: %d", (int)file_y, file_row);
 	}
 	
-	if (new_val != -1)
+	if (new_val != -1) {
 		vs_->setValue(new_val);
+	}
 }
 
 void IconView::SendLoadingNewThumbnailsBatch()

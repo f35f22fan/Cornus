@@ -570,7 +570,9 @@ mtl_info("==> New Batch ==>>");
 	
 	if (!indices.isEmpty()) {
 		tab_->UpdateIndices(indices);
-		tab_->ScrollToFile(indices[0]);
+		const int index = indices[0];
+		mtl_info("scroll to: %d", index);
+		tab_->ScrollToFile(index);
 	}
 }
 

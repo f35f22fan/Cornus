@@ -11,7 +11,8 @@ location_(location)
 	Q_UNUSED(location_);
 }
 
-CompleterModel::~CompleterModel() {}
+CompleterModel::~CompleterModel()
+{}
 
 QVariant
 CompleterModel::data(const QModelIndex &index, int role) const

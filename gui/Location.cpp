@@ -15,6 +15,8 @@ Location::Location(cornus::App *app): app_(app) {
 }
 
 Location::~Location() {
+	delete completer_;
+	delete model_;
 }
 
 void Location::focusInEvent(QFocusEvent *evt)
@@ -42,17 +44,18 @@ void Location::SetLocation(const QString &s)
 	setText(s);
 }
 
-void Location::Setup() {
-	QCompleter *completer = new QCompleter(this);
+void Location::Setup()
+{
 	model_ = new CompleterModel(this);
-	completer->setModel(model_);
-	setCompleter(completer);
+	completer_ = new QCompleter(this);
+	completer_->setModel(model_);
+	setCompleter(completer_);
 
-	completer->setCompletionMode(QCompleter::PopupCompletion);
-	completer->setModelSorting(QCompleter::UnsortedModel);
-	completer->setFilterMode(Qt::MatchStartsWith);
-	completer->setMaxVisibleItems(5);
-	completer->setCaseSensitivity(Qt::CaseInsensitive);
+	completer_->setCompletionMode(QCompleter::PopupCompletion);
+	completer_->setModelSorting(QCompleter::UnsortedModel);
+	completer_->setFilterMode(Qt::MatchStartsWith);
+	completer_->setMaxVisibleItems(5);
+	completer_->setCaseSensitivity(Qt::CaseInsensitive);
 	
 	connect(this, &QLineEdit::returnPressed, this, &Location::HitEnter);
 	connect(this, &QLineEdit::textChanged, model_,

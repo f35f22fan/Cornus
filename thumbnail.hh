@@ -13,6 +13,9 @@
 
 namespace cornus {
 
+using ThumbnailAbiType = i16;
+const ThumbnailAbiType CurrentThumbnailAbi = 0;
+
 enum class Origin: i8 {
 	TempDir,
 	ExtAttr,
@@ -20,8 +23,8 @@ enum class Origin: i8 {
 	Undefined
 };
 
-// header size: width=4 + height=4 + bpl=4 + img_format=4
-const int ThumbnailHeaderSize = 16;
+// header size: abi=2 + width=4 + height=4 + img_w=4 + img_h=4 + bpl=4 + img_format=4
+const int ThumbnailHeaderSize = 26;
 const bool DebugThumbnailExit = false;
 
 struct Thumbnail {
@@ -30,8 +33,11 @@ struct Thumbnail {
 	i64 time_generated = -1;
 	TabId tab_id = -1;
 	DirId dir_id = -1;
-	int w = -1;
-	int h = -1;
+	i32 w = -1;
+	i32 h = -1;
+	i32 original_image_w = -1;
+	i32 original_image_h = -1;
+	i16 abi_version = 0;
 	Origin origin = Origin::Undefined;
 };
 
@@ -150,7 +156,7 @@ Thumbnail* LoadThumbnail(const QString &full_path, const u64 &file_id,
 	const TabId tab_id, const DirId dir_id);
 
 namespace thumbnail {
-QImage ImageFromByteArray(ByteArray &ba);
+QImage ImageFromByteArray(ByteArray &ba, i32 &img_w, i32 &img_h);
 }
 
 }

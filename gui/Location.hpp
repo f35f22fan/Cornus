@@ -28,6 +28,7 @@ private:
 	cornus::App *app_ = nullptr;
 	///QFileSystemModel *fs_model_ = nullptr;
 	gui::CompleterModel *model_ = nullptr;
+	QCompleter *completer_ = nullptr;
 };
 
 }

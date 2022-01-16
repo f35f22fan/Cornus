@@ -114,21 +114,20 @@ void* ThumbnailLoader (void *args)
 		const bool has_ext_attr = new_work->ba.size() != 0;
 		if (has_ext_attr || io::ReadFile(thumb_in_temp_path, temp_ba, PrintErrors::No))
 		{
-//			if (has_ext_attr) {
-//				mtl_info("EXT ATTR %s", qPrintable(new_work->full_path));
-//			} else {
-//				mtl_info("TEMP DIR %s", qPrintable(new_work->full_path));
-//			}
 			ByteArray &img_ba = has_ext_attr ? new_work->ba : temp_ba;
-			QImage img = thumbnail::ImageFromByteArray(img_ba);
+			i32 orig_img_w, orig_img_h;
+			QImage img = thumbnail::ImageFromByteArray(img_ba, orig_img_w, orig_img_h);
 			if (!img.isNull())
 			{
 				thumbnail = new Thumbnail();
+				thumbnail->abi_version = CurrentThumbnailAbi;
 				thumbnail->img = img;
 				thumbnail->file_id = new_work->file_id.inode_number;
 				thumbnail->time_generated = time(NULL);
 				thumbnail->w = img.width();
 				thumbnail->h = img.height();
+				thumbnail->original_image_w = orig_img_w;
+				thumbnail->original_image_h = orig_img_h;
 				thumbnail->tab_id = new_work->tab_id;
 				thumbnail->dir_id = new_work->dir_id;
 				thumbnail->origin = has_ext_attr ? Origin::ExtAttr : Origin::TempDir;
@@ -153,6 +152,7 @@ void* ThumbnailLoader (void *args)
 		}
 		
 		if (!th_data->wait_for_work) {
+			delete thumbnail;
 			break;
 		}
 		
@@ -379,6 +379,9 @@ App::~App()
 	
 	delete media_;
 	media_ = nullptr;
+	
+	delete hid_;
+	hid_ = nullptr;
 }
 
 void App::ArchiveAskDestArchivePath(const QString &ext)
@@ -2007,6 +2010,8 @@ void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 				io::SaveThumbnail st;
 				st.full_path = full_path;
 				st.id = file_id;
+				st.orig_img_w = thumbnail->original_image_w;
+				st.orig_img_h = thumbnail->original_image_h;
 				st.img = thumbnail->img;
 				st.dir = can_write_to_dir ? TempDir::No : TempDir::Yes;
 				thumbnails_to_save_.append(st);

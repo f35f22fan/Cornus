@@ -32,6 +32,8 @@ namespace cornus::io {
 struct SaveThumbnail {
 	QString full_path;
 	QImage img;
+	i32 orig_img_w = -1;
+	i32 orig_img_h = -1;
 	TempDir dir;
 	DiskFileId id;
 };

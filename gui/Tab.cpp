@@ -63,10 +63,12 @@ void FigureOutSelectPath(QString &select_path, QString &go_to_path)
 	if (select_path.isEmpty())
 		return;
 	
-	if (go_to_path.isEmpty()) {
+	if (go_to_path.isEmpty())
+	{
 /// @go_to_path is empty
 /// @select_path is absolute path
-		if (!io::FileExists(select_path)) {
+		if (!io::FileExists(select_path))
+		{
 			QString msg = "File to select doesn't exist:\n\""
 				+ select_path + QChar('\"');
 			mtl_printq(msg);
@@ -75,12 +77,14 @@ void FigureOutSelectPath(QString &select_path, QString &go_to_path)
 		}
 		
 		QDir parent_dir(select_path);
-		if (!parent_dir.cdUp()) {
+		if (!parent_dir.cdUp())
+		{
 			mtl_warn("Can't access parent dir of file to select");
 			go_to_path = QDir::homePath();
 			select_path.clear();
 			return;
 		}
+		
 		go_to_path = parent_dir.absolutePath();
 		return;
 	}
@@ -324,14 +328,20 @@ void Tab::ActionPasteLinks(const LinkType link)
 	view_files().SelectFilenamesLater(names, SameDir::Yes);
 }
 
-bool Tab::AnyArchive(const QVector<QString> &extensions) const
+void Tab::AddIconsView()
 {
-	for (auto &next: ArchiveExtensions) {
-		if (extensions.contains(next))
-			return true;
-	}
+mtl_info();
+	if (icon_view_)
+		return;
 	
-	return false;
+	QWidget *w = new QWidget();
+	QBoxLayout *row = new QBoxLayout(QBoxLayout::LeftToRight);
+	w->setLayout(row);
+	QScrollBar *vs = new QScrollBar(Qt::Vertical);
+	icon_view_ = new IconView(app_, this, vs);
+	row->addWidget(icon_view_);
+	row->addWidget(vs);
+	icons_view_index_ = viewmode_stack_->addWidget(w);
 }
 
 void Tab::AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path)
@@ -352,6 +362,17 @@ void Tab::AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path)
 	main_menu->addMenu(open_with_menu);
 }
 
+bool Tab::AnyArchive(const QVector<QString> &extensions) const
+{
+	for (auto &next: ArchiveExtensions)
+	{
+		if (extensions.contains(next))
+			return true;
+	}
+	
+	return false;
+}
+
 void Tab::CreateGui()
 {
 	QBoxLayout *layout = new QBoxLayout(QBoxLayout::TopToBottom);
@@ -368,16 +389,6 @@ void Tab::CreateGui()
 	viewmode_stack_ = new QStackedWidget();
 	details_view_index_ = viewmode_stack_->addWidget(table_);
 	
-	{
-		QWidget *w = new QWidget();
-		QBoxLayout *row = new QBoxLayout(QBoxLayout::LeftToRight);
-		w->setLayout(row);
-		QScrollBar *vs = new QScrollBar(Qt::Vertical);
-		icon_view_ = new IconView(app_, this, vs);
-		row->addWidget(icon_view_);
-		row->addWidget(vs);
-		icons_view_index_ = viewmode_stack_->addWidget(w);
-	}
 	layout->addWidget(viewmode_stack_);
 }
 
@@ -761,10 +772,23 @@ void Tab::GoToInitialDir()
 	const QString CmdPrefix = QLatin1String("--");
 	const int arg_count = args.size();
 	
+	ViewMode view = ViewMode::None;
+	const QString IconsViewStr = QLatin1String("--view=icons");
+	const QString DetailsViewStr = QLatin1String("--view=details");
+	
 	QString *next_command = nullptr;
 	for (int i = 1; i < arg_count; i++)
 	{
 		const QString &next = args[i];
+		
+		if (view == ViewMode::None)
+		{
+			const QString s = next.toLower();
+			if (s == IconsViewStr)
+				view = ViewMode::Icons;
+			else if (s == DetailsViewStr)
+				view = ViewMode::Details;
+		}
 		
 		if (next_command != nullptr) {
 			*next_command = next;
@@ -787,6 +811,11 @@ void Tab::GoToInitialDir()
 				cmds.go_to_path = next;
 			}
 		}
+	}
+	
+	if (view != ViewMode::None)
+	{
+		SetViewMode(view);
 	}
 	
 	FigureOutSelectPath(cmds.select, cmds.go_to_path);
@@ -1190,7 +1219,9 @@ void Tab::SetViewMode(const ViewMode mode)
 		break;
 	}
 	case ViewMode::Icons: {
-		VOID_RET_IF(icon_view_, nullptr);
+		if (icon_view_ == nullptr) {
+			AddIconsView();
+		}
 		icon_view_->SetAsCurrentView(NewState::AboutToSet);
 		viewmode_stack_->setCurrentIndex(icons_view_index_);
 		icon_view_->setFocus(Qt::MouseFocusReason);

@@ -30,6 +30,8 @@ ToolBar::~ToolBar() {
 		delete next;
 	}
 	
+	
+	
 	delete prefs_menu_;
 	delete history_menu_;
 }
@@ -68,6 +70,7 @@ void ToolBar::CreateGui()
 	addWidget(location_);
 	
 	view_action_ = new QAction();
+	actions_.append(view_action_);
 	addAction(view_action_);
 	connect(view_action_, &QAction::triggered, this, &ToolBar::ViewChanged);
 	

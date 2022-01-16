@@ -1658,8 +1658,11 @@ bool SameFiles(const QString &path1, const QString &path2, int *ret_error)
 bool SaveThumbnailToDisk(const SaveThumbnail &item)
 {
 	ByteArray ba;
+	ba.add_i16(CurrentThumbnailAbi);
 	ba.add_i32(item.img.width());
 	ba.add_i32(item.img.height());
+	ba.add_i32(item.orig_img_w);
+	ba.add_i32(item.orig_img_h);
 	ba.add_i32(item.img.bytesPerLine());
 	ba.add_i32(static_cast<i32>(item.img.format()));
 	

@@ -23,7 +23,11 @@ int NormalFontSize()
 
 Prefs::Prefs(App *app): app_(app) {}
 
-Prefs::~Prefs() {}
+Prefs::~Prefs()
+{
+	delete left_bytes_;
+	left_bytes_ = nullptr;
+}
 
 void Prefs::ApplyTableHeight(gui::Table *table, int max)
 {
@@ -92,6 +96,11 @@ void Prefs::Load()
 	splitter_sizes_.append(buf.next_i32());
 	win_w_ = buf.next_i32();
 	win_h_ = buf.next_i32();
+	
+	
+	// ABI: this line must be the last one to save unknown data to @left_bytes
+	// to avoid casual abi version bumps which would entail losing prefs.
+	left_bytes_ = buf.CloneFromHere();
 }
 
 void Prefs::Save() const
@@ -130,7 +139,11 @@ void Prefs::Save() const
 	buf.add_i32(sz.width());
 	buf.add_i32(sz.height());
 	
-	if (io::WriteToFile(save_file.GetPathToWorkWith(), buf.data(), buf.size()) != 0) {
+	
+	// ABI: this line must be the last one to add data to @buf
+	buf.add(left_bytes_);
+	if (io::WriteToFile(save_file.GetPathToWorkWith(), buf.data(), buf.size()) != 0)
+	{
 		mtl_trace("Failed to save bookmarks");
 	}
 	

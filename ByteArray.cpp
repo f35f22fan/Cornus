@@ -38,6 +38,28 @@ void ByteArray::Clear() {
 	size_ = heap_size_ = at_ = 0;
 }
 
+ByteArray* ByteArray::CloneFromHere()
+{
+	ByteArray *ret = new ByteArray();
+	const i64 left = size() - at();
+	if (left == 0)
+		return ret;
+	
+	ret->MakeSure(left);
+	ret->add(data_ + left, left);
+	
+	return ret;
+}
+
+void ByteArray::add(const ByteArray *ba)
+{
+	if (ba)
+	{
+		// checking is a must
+		add(ba->data(), ba->size());
+	}
+}
+
 void ByteArray::add(const char *p, const isize size)
 {
 	MakeSure(size);

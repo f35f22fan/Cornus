@@ -21,10 +21,13 @@ public:
 	ByteArray(const ByteArray &rhs);
 	ByteArray& operator = (const ByteArray &rhs);
 	bool operator == (const ByteArray &rhs);
+	ByteArray* CloneFromHere();
 	virtual ~ByteArray();
+	
 	
 	void alloc(const isize n);
 	
+	void add(const ByteArray *ba);
 	void add(const char *p, const isize size);
 	void add_i8(const i8 n);
 	void add_u8(const u8 n);

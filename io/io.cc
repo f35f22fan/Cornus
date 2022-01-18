@@ -590,7 +590,7 @@ void Delete(io::File *file)
 		io::Files files;
 		files.data.processed_dir_path = file->build_full_path() + '/';
 		files.data.show_hidden_files(true);
-		VOID_RET_IF(ListFiles(files.data, &files), 0);
+		VOID_RET_IF(ListFiles(files.data, &files, CountDirFiles::No), 0);
 		
 		for (io::File *next: files.data.vec) {
 			if (next->is_dir())
@@ -1150,7 +1150,8 @@ bool ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 	return true;
 }
 
-int ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
+int ListFiles(io::FilesData &data, io::Files *ptr, const CountDirFiles cdf,
+	FilterFunc ff)
 {
 	if (!data.unprocessed_dir_path.isEmpty()) {
 		if (!ExpandLinksInDirPath(data.unprocessed_dir_path, data.processed_dir_path))
@@ -1192,8 +1193,10 @@ int ListFiles(io::FilesData &data, io::Files *ptr, FilterFunc ff)
 		if (ReloadMeta(*file, stx, &data.processed_dir_path))
 		{
 			data.vec.append(file);
-			if (file->is_dir_or_so())
+			if (cdf == CountDirFiles::Yes && file->is_dir_or_so())
+			{
 				file->CountDirFiles1Level();
+			}
 		} else {
 			delete file;
 		}

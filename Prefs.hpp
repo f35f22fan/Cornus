@@ -22,6 +22,7 @@ class Prefs {
 	const u64 ShowLinkTargets = 1u << 3;
 	const u64 MarkExtendedAttrsDisabled = 1u << 4;
 	const u64 RememberWindowSize = 1u << 5;
+	const u64 ShowDirFileCount = 1u << 6;
 public:
 	Prefs(App *app);
 	virtual ~Prefs();
@@ -43,6 +44,9 @@ public:
 	
 	bool remember_window_size() const { return bool_ & RememberWindowSize; }
 	void remember_window_size(bool b) { toggle_bool(b, RememberWindowSize); }
+	
+	bool show_dir_file_count() const { return bool_ & ShowDirFileCount; }
+	void show_dir_file_count(bool b) { toggle_bool(b, ShowDirFileCount); }
 	
 	bool show_hidden_files() const { return bool_ & ShowHiddenFiles; }
 	void show_hidden_files(bool b) { toggle_bool(b, ShowHiddenFiles); }
@@ -78,6 +82,7 @@ private:
 	QMap<i8, bool> cols_visibility_;
 	QList<int> splitter_sizes_;
 	i32 win_w_ = -1, win_h_ = -1;
+	ByteArray *left_bytes_ = nullptr;
 	
 	App *app_ = nullptr;
 };

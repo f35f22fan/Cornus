@@ -412,7 +412,7 @@ bool ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 	FilterFunc ff = nullptr);
 
 // returns 0 on success, errno on error
-int ListFiles(FilesData &data, Files *ptr, FilterFunc ff = nullptr);
+int ListFiles(FilesData &data, Files *ptr, const CountDirFiles cdf, FilterFunc ff = nullptr);
 
 inline FileType
 MapPosixTypeToLocal(const mode_t mode) {

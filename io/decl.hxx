@@ -18,6 +18,11 @@ class Notify;
 class SaveFile;
 class Task;
 
+enum class CountDirFiles: i8 {
+	Yes,
+	No
+};
+
 struct DevNum {
 	i32 major;
 	i32 minor;

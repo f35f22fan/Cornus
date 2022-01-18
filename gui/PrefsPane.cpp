@@ -35,6 +35,7 @@ PrefsPane::~PrefsPane()
 
 void PrefsPane::ApplyToWidgets(const Prefs &prefs)
 {
+	show_dir_file_count_->setCheckState(prefs.show_dir_file_count() ? Qt::Checked : Qt::Unchecked);
 	show_hidden_files_->setCheckState(prefs.show_hidden_files() ? Qt::Checked : Qt::Unchecked);
 	show_ms_files_loaded_->setCheckState(prefs.show_ms_files_loaded() ? Qt::Checked : Qt::Unchecked);
 	show_free_partition_space_->setCheckState(prefs.show_free_partition_space() ? Qt::Checked : Qt::Unchecked);
@@ -62,6 +63,9 @@ void PrefsPane::CreateGui()
 	
 	show_hidden_files_ = new QCheckBox(tr("Show hidden files (Ctrl+H)"));
 	vert_layout->addWidget(show_hidden_files_);
+	
+	show_dir_file_count_ = new QCheckBox(tr("Show each folder's file count"));
+	vert_layout->addWidget(show_dir_file_count_);
 	
 	show_ms_files_loaded_ = new QCheckBox(tr("Show folder listing speed (ms)"));
 	vert_layout->addWidget(show_ms_files_loaded_);
@@ -94,9 +98,11 @@ void PrefsPane::SavePrefs()
 {
 	Prefs &prefs = app_->prefs();
 	const bool show_hidden_files = prefs.show_hidden_files();
-	bool show_ms_files_loaded = prefs.show_ms_files_loaded();
-	bool show_free_space = prefs.show_free_partition_space();
+	const bool show_ms_files_loaded = prefs.show_ms_files_loaded();
+	const bool show_free_space = prefs.show_free_partition_space();
+	const bool show_dir_file_count = prefs.show_dir_file_count();
 	
+	prefs.show_dir_file_count(show_dir_file_count_->checkState() == Qt::Checked);
 	prefs.show_hidden_files(show_hidden_files_->checkState() == Qt::Checked);
 	prefs.show_ms_files_loaded(show_ms_files_loaded_->checkState() == Qt::Checked);
 	prefs.show_free_partition_space(show_free_partition_space_->checkState() == Qt::Checked);
@@ -106,7 +112,8 @@ void PrefsPane::SavePrefs()
 	prefs.Save();
 	
 	if (show_ms_files_loaded != prefs.show_ms_files_loaded() ||
-		show_hidden_files != prefs.show_hidden_files())
+		show_hidden_files != prefs.show_hidden_files() ||
+		show_dir_file_count != prefs.show_dir_file_count())
 	{
 		app_->Reload();
 	}

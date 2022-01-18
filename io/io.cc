@@ -722,8 +722,10 @@ bool ExpandLinksInDirPath(QString &unprocessed_dir_path,
 bool FileContentsContains(const QString &full_path,
 	const QString &searched_str)
 {
+	io::ReadParams read_params = {};
+	read_params.print_errors = PrintErrors::Yes;
 	ByteArray buf;
-	RET_IF(io::ReadFile(full_path, buf, PrintErrors::Yes), false, false);
+	RET_IF(io::ReadFile(full_path, buf, read_params), false, false);
 	
 	QString s = buf.toString();
 	return s.contains(searched_str);
@@ -1463,8 +1465,7 @@ bool ReadLinkSimple(const char *file_path, QString &result)
 }
 
 bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
-	const PrintErrors print_errors,
-	const i64 read_max, mode_t *ret_mode)
+	const ReadParams &param)
 {
 	struct statx stx;
 	auto path = full_path.toLocal8Bit();
@@ -1472,13 +1473,16 @@ bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	const auto fields = STATX_MODE | STATX_SIZE;
 	if (statx(0, path.data(), flags, fields, &stx) != 0)
 	{
-		if (print_errors == PrintErrors::Yes)
+		if (param.print_errors == PrintErrors::Yes)
 			mtl_warn("statx(): %s: \"%s\"", strerror(errno), path.data());
 		return false;
 	}
 	
-	if (ret_mode != nullptr)
-		*ret_mode = stx.stx_mode;
+	if (param.ret_mode != nullptr)
+		*(param.ret_mode) = stx.stx_mode;
+	
+	if (param.can_rely == CanRelyOnStatxSize::Yes)
+		buffer.MakeSure(stx.stx_size, ExactSize::Yes);
 	
 	const int fd = ::open(path.data(), O_RDONLY);
 	
@@ -1486,32 +1490,34 @@ bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 		return false;///MapPosixError(errno);
 	
 	isize so_far = 0;
-	const isize chunk_size = (read_max == -1 || read_max > 4096) ? 4096 : read_max;
+	const isize chunk_size = (param.read_max == -1 || param.read_max > 4096)
+		? 4096 : param.read_max;
 	char *buf = new char[chunk_size];
 	AutoDeleteArr ad(buf);
-	
+	isize read_chunk;
 	while (true)
 	{
-		isize count = read(fd, buf, chunk_size);
-		if (count == -1) {
+		read_chunk = read(fd, buf, chunk_size);
+		if (read_chunk == -1)
+		{
 			if (errno == EAGAIN)
 				continue;
 			buffer.size(so_far);
-			if (print_errors == PrintErrors::Yes)
+			if (param.print_errors == PrintErrors::Yes)
 				mtl_warn("ReadFile: %s", strerror(errno));
 			close(fd);
 			return false;
-		} else if (count == 0) {
+		} else if (read_chunk == 0) {
 			/// Zero indicates the end of file, happens with sysfs files.
 			break;
 		}
 		
-		so_far += count;
+		so_far += read_chunk;
 		
-		if (read_max != -1 && so_far > read_max)
+		if (param.read_max != -1 && so_far >= param.read_max)
 			break;
 		
-		buffer.add(buf, count);
+		buffer.add(buf, read_chunk);
 	}
 	
 	close(fd);
@@ -1655,27 +1661,27 @@ bool SameFiles(const QString &path1, const QString &path2, int *ret_error)
 	return id1 == id2;
 }
 
-bool SaveThumbnailToDisk(const SaveThumbnail &item)
+bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx)
 {
 	ByteArray ba;
-	ba.add_i16(CurrentThumbnailAbi);
-	ba.add_i32(item.img.width());
-	ba.add_i32(item.img.height());
+	ba.add_i16(thumbnail::AbiVersion);
+	ba.add_i16(item.thmb.width());
+	ba.add_i16(item.thmb.height());
+	const u16 bpl = item.thmb.bytesPerLine();
+	//mtl_info("BPL: %d", bpl);
+	ba.add_u16(bpl);
 	ba.add_i32(item.orig_img_w);
 	ba.add_i32(item.orig_img_h);
-	ba.add_i32(item.img.bytesPerLine());
-	ba.add_i32(static_cast<i32>(item.img.format()));
+	ba.add_i32(static_cast<i32>(item.thmb.format()));
 	
-	const char *img_buf = (const char*)item.img.constBits();
-	const i64 img_buflen = item.img.sizeInBytes();
-//	ba.add(bits, len);
-//	mtl_info("uncompressed len: %ld", len);
-	
-	const i64 bufsize = ZSTD_compressBound(img_buflen);
-	char *buf = (char*)malloc(bufsize);
-	const i64 compressed_size = ZSTD_compress(buf, bufsize, img_buf, img_buflen, 1);
-	ba.add(buf, compressed_size);
-	free(buf);
+	const char *src_buf = (const char*)item.thmb.constBits();
+	const i64 src_size = item.thmb.sizeInBytes();
+	const i64 dst_size = ZSTD_compressBound(src_size);
+	char *dst_buf = (char*)malloc(dst_size);
+	const i64 compressed_size = ZSTD_compressCCtx(compress_ctx,
+		dst_buf, dst_size, src_buf, src_size, 1);
+	ba.add(dst_buf, compressed_size);
+	free(dst_buf);
 	
 	if (item.dir == TempDir::No) {
 		if (io::SetXAttr(item.full_path, media::XAttrThumbnail, ba, PrintErrors::No))
@@ -1810,6 +1816,12 @@ bool SortFiles(io::File *a, io::File *b)
 	
 	mtl_trace();
 	return false;
+}
+
+QString thread_id_short(const pthread_t &th)
+{
+	const i64 n = static_cast<i64>(th);
+	return QString::number(n, 36);
 }
 
 isize TryReadFile(const QString &full_path, char *buf, const i64 how_much,

@@ -19,8 +19,8 @@ File::~File()
 		link_target_ = nullptr;
 	}
 	
-	if (cache_.short_data != nullptr)
-		delete cache_.short_data;
+	delete cache_.thumbnail;
+	cache_.thumbnail = nullptr;
 }
 
 QString File::build_full_path() const
@@ -55,6 +55,7 @@ File* File::Clone() const
 	file->type_ = type_;
 	file->id_ = id_;
 	file->cache_ = cache_;
+	file->cache_.thumbnail = nullptr;
 	file->cache_.short_data = nullptr;
 	file->bits_ = bits_;
 	file->time_created_ = time_created_;
@@ -200,13 +201,15 @@ void File::ReadLinkTarget()
 	link_target_ = target;
 }
 
-bool File::ShouldTryLoadingThumbnail()
+bool File::ShouldTryLoadingThumbnail(bool &is_webp)
 {
 	if (!is_regular() || cache_.tried_loading_thumbnail)
 		return false;
 	
 	static const auto formats = QImageReader::supportedImageFormats();
-	if (!formats.contains(cache_.ext.toLocal8Bit()))
+	is_webp = (cache_.ext == QLatin1String("webp"));
+	const auto ext_ba = cache_.ext.toLocal8Bit();
+	if (!is_webp && !formats.contains(ext_ba))
 		return false;
 	
 	const bool has_attr = has_thumbnail_attr();

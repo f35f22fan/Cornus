@@ -19,6 +19,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <sys/sysmacros.h>
+#include <zstd.h>
 
 #include <QHash>
 #include <QMetaType> /// Q_DECLARE_METATYPE()
@@ -29,9 +30,16 @@
 
 namespace cornus::io {
 
+struct ReadParams {
+	i64 read_max = -1;
+	mode_t *ret_mode = nullptr;
+	PrintErrors print_errors = PrintErrors::Yes;
+	CanRelyOnStatxSize can_rely = CanRelyOnStatxSize::No;
+};
+
 struct SaveThumbnail {
 	QString full_path;
-	QImage img;
+	QImage thmb;
 	i32 orig_img_w = -1;
 	i32 orig_img_h = -1;
 	TempDir dir;
@@ -433,8 +441,7 @@ void ProcessMime(QString &mime);
 const char* QuerySocketFor(const QString &dir_path, bool &needs_root);
 
 bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
-	const PrintErrors print_errors = PrintErrors::Yes,
-	const i64 read_max = -1, mode_t *ret_mode = nullptr);
+	const ReadParams &rp);
 
 bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_dir);
 
@@ -447,7 +454,7 @@ bool RemoveXAttr(const QString &full_path, const QString &xattr_name);
 bool SameFiles(const QString &path1, const QString &path2,
 	int *ret_error = nullptr);
 
-bool SaveThumbnailToDisk(const SaveThumbnail &item);
+bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx);
 
 bool sd_nvme(const QString &name);
 bool valid_dev_path(const QString &name);
@@ -458,6 +465,8 @@ bool SetXAttr(const QString &full_path, const QString &xattr_name,
 	const ByteArray &ba, const PrintErrors = PrintErrors::Yes);
 
 bool SortFiles(File *a, File *b);
+
+QString thread_id_short(const pthread_t &th);
 
 isize TryReadFile(const QString &full_path, char *buf,
 	const i64 how_much, ExecInfo *info = nullptr);

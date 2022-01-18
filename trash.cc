@@ -10,8 +10,9 @@ namespace cornus::trash {
 
 bool AddTrashNameToGitignore(const QString &new_path)
 {
+	io::ReadParams read_params = {};
 	ByteArray contents;
-	RET_IF(io::ReadFile(new_path, contents), false, false);
+	RET_IF(io::ReadFile(new_path, contents, read_params), false, false);
 	const QString trash_line = QLatin1String("\n")
 		+ trash::basename_regex();
 	QString new_data = contents.toString() + trash_line;

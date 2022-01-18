@@ -29,6 +29,16 @@ using TabId = i64;
 using DirId = i32;
 using FileId = i32;
 
+enum class ExactSize: i8 {
+	Yes,
+	No
+};
+
+enum class CanRelyOnStatxSize: i8 {
+	Yes,
+	No
+};
+
 enum class SameDir: i8 {
 	Yes,
 	No

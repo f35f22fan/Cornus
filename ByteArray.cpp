@@ -40,7 +40,7 @@ void ByteArray::Clear() {
 
 void ByteArray::add(const char *p, const isize size)
 {
-	make_sure(size);
+	MakeSure(size);
 	memcpy(data_ + at_, p, size);
 	at_ += size;
 	size_ += size;
@@ -98,7 +98,7 @@ void ByteArray::add_string(const QString &s)
 
 void ByteArray::alloc(const isize n)
 {
-	make_sure(n);
+	MakeSure(n);
 	size_ = n;
 }
 
@@ -108,25 +108,25 @@ ByteArray ByteArray::From(const QString &s) {
 	return ba;
 }
 
-void ByteArray::make_sure(const isize more_bytes, const bool exact_size)
+void ByteArray::MakeSure(const isize more_bytes, const ExactSize es)
 {
-	const isize new_size = at_ + more_bytes;
+	const isize more = (es == ExactSize::Yes) ? more_bytes : more_bytes * 3;
+	const isize new_size = at_ + more;
 	
 	if (heap_size_ >= new_size)
 		return;
 	
-	if (data_ == nullptr) {
-		heap_size_ = new_size;
-		data_ = new char[heap_size_];
-	} else {
-		heap_size_ = new_size;
-		if (!exact_size)
-			heap_size_ *= 1.3;
-		char *p = new char[heap_size_];
-		memcpy(p, data_, at_);
-		delete[] data_;
+	heap_size_ = new_size;
+	char *p = new char[heap_size_];
+	if (data_ == nullptr)
+	{
 		data_ = p;
+		return;
 	}
+	
+	memcpy(p, data_, at_);
+	delete[] data_;
+	data_ = p;
 }
 
 void ByteArray::next(char *p, const isize sz) {
@@ -211,7 +211,7 @@ void ByteArray::prepend_u64(const u64 n)
 
 void ByteArray::Prepend(const char *p, const isize size)
 {
-	make_sure(size);
+	MakeSure(size);
 	
 	char *new_heap = (char*) malloc(heap_size_);
 	VOID_RET_IF(new_heap, nullptr);
@@ -223,7 +223,7 @@ void ByteArray::Prepend(const char *p, const isize size)
 	size_ += size;
 }
 
-bool ByteArray::Receive(int fd,  const CloseSocket close_socket)
+bool ByteArray::Receive(int fd,  const CloseSocket cs)
 {
 	isize total_bytes;
 	if (read(fd, (char*)&total_bytes, sizeof(total_bytes)) != sizeof(total_bytes))
@@ -232,10 +232,11 @@ bool ByteArray::Receive(int fd,  const CloseSocket close_socket)
 		return false;
 	}
 	
-	make_sure(total_bytes, true);
+	MakeSure(total_bytes, ExactSize::Yes);
 	size_ = 0;
 	
-	while (true) {
+	while (true)
+	{
 		isize count = read(fd, data_ + size_, total_bytes - size_);
 		if (count == -1) {
 			perror("read");
@@ -249,7 +250,8 @@ bool ByteArray::Receive(int fd,  const CloseSocket close_socket)
 	
 	at_ = 0;
 	
-	if (close_socket == CloseSocket::Yes) {
+	if (cs == CloseSocket::Yes)
+	{
 		int status = ::close(fd);
 		if (status != 0)
 			mtl_status(errno);

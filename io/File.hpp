@@ -159,10 +159,15 @@ public:
 	i64 size() const { return size_; }
 	void size(const i64 n) { size_ = n; }
 	
-	bool ShouldTryLoadingThumbnail();
+	bool ShouldTryLoadingThumbnail(bool &is_webp);
 	
 	Thumbnail* thumbnail() const { return cache_.thumbnail; }
-	void thumbnail(Thumbnail *p) { cache_.thumbnail = p; }
+	void thumbnail(Thumbnail *p)
+	{
+		if (cache_.thumbnail)
+			delete cache_.thumbnail;
+		cache_.thumbnail = p;
+	}
 	
 	const struct statx_timestamp&
 	time_created() const { return time_created_; }

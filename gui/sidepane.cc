@@ -69,8 +69,9 @@ QString GetDevPath(GVolume *vol)
 void LoadAllVolumes(QVector<TreeItem*> &vec)
 {
 	udev_list_partitions(vec);
+	io::ReadParams read_params = {};
 	ByteArray ba;
-	VOID_RET_IF(io::ReadFile(QLatin1String("/proc/mounts"), ba), false);
+	VOID_RET_IF(io::ReadFile(QLatin1String("/proc/mounts"), ba, read_params), false);
 	QString data = ba.toString();
 	QVector<QStringRef> lines = data.splitRef('\n');
 	
@@ -95,8 +96,9 @@ void LoadAllVolumes(QVector<TreeItem*> &vec)
 bool LoadBookmarks(QVector<TreeItem*> &vec)
 {
 	const QString full_path = prefs::GetBookmarksFilePath();
+	io::ReadParams read_params = {};
 	ByteArray buf;
-	RET_IF(io::ReadFile(full_path, buf), false, false);
+	RET_IF(io::ReadFile(full_path, buf, read_params), false, false);
 	
 	if (!buf.has_more())
 		return false;

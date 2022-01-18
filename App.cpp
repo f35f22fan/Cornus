@@ -15,7 +15,6 @@
 #include <sys/un.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <zstd.h>      // presumes zstd library is installed
 
 #include "App.hpp"
 #include "AutoDelete.hh"
@@ -90,6 +89,10 @@ void* ThumbnailLoader (void *args)
 	pthread_detach(pthread_self());
 	cornus::ThumbLoaderData *th_data = (cornus::ThumbLoaderData*) args;
 	RET_IF(th_data->Lock(), false, NULL);
+	ZSTD_DCtx *decompress_context = ZSTD_createDCtx();
+	ByteArray temp_ba;
+	io::ReadParams read_params = {};
+	read_params.print_errors = PrintErrors::No;
 	
 	while (th_data->wait_for_work)
 	{
@@ -109,18 +112,21 @@ void* ThumbnailLoader (void *args)
 		
 		th_data->Unlock();
 		QString thumb_in_temp_path = io::BuildTempPathFromID(new_work->file_id);
-		ByteArray temp_ba;
 		Thumbnail *thumbnail = nullptr;
 		const bool has_ext_attr = new_work->ba.size() != 0;
-		if (has_ext_attr || io::ReadFile(thumb_in_temp_path, temp_ba, PrintErrors::No))
+		temp_ba.to(0);
+		QString th_str = io::thread_id_short(pthread_self());
+		//mtl_info("%s: %s", qPrintable(th_str), qPrintable(new_work->full_path));
+		if (has_ext_attr || io::ReadFile(thumb_in_temp_path, temp_ba, read_params))
 		{
 			ByteArray &img_ba = has_ext_attr ? new_work->ba : temp_ba;
 			i32 orig_img_w, orig_img_h;
-			QImage img = thumbnail::ImageFromByteArray(img_ba, orig_img_w, orig_img_h);
+			QImage img = thumbnail::ImageFromByteArray(img_ba,
+				orig_img_w, orig_img_h, decompress_context);
 			if (!img.isNull())
 			{
 				thumbnail = new Thumbnail();
-				thumbnail->abi_version = CurrentThumbnailAbi;
+				thumbnail->abi_version = thumbnail::AbiVersion;
 				thumbnail->img = img;
 				thumbnail->file_id = new_work->file_id.inode_number;
 				thumbnail->time_generated = time(NULL);
@@ -133,8 +139,7 @@ void* ThumbnailLoader (void *args)
 				thumbnail->origin = has_ext_attr ? Origin::ExtAttr : Origin::TempDir;
 			}
 		} else {
-			//mtl_info("FROM FILE %s", qPrintable(new_work->full_path));
-			thumbnail = LoadThumbnail(new_work->full_path,
+			thumbnail = thumbnail::Load(new_work->full_path,
 				new_work->file_id.inode_number,
 				new_work->ext, new_work->icon_w,
 				new_work->icon_h, new_work->tab_id,
@@ -145,13 +150,15 @@ void* ThumbnailLoader (void *args)
 		
 		th_data->Lock();
 		
-		if (thumbnail == nullptr) {
+		if (thumbnail == nullptr)
+		{
 			th_data->new_work = nullptr;
 			mtl_info("loading thumbnail failed %s", qPrintable(new_work->full_path));
 			continue;
 		}
 		
-		if (!th_data->wait_for_work) {
+		if (!th_data->wait_for_work)
+		{
 			delete thumbnail;
 			break;
 		}
@@ -181,6 +188,8 @@ void* ThumbnailLoader (void *args)
 			th_data->Lock();
 		}
 	}
+	
+	ZSTD_freeDCtx(decompress_context);
 	
 	const u64 t = static_cast<u64>(pthread_self());
 	th_data->thread_exited = true;
@@ -303,6 +312,8 @@ App::App()
 		if (status != 0)
 			mtl_status(status);
 	}
+	
+	//thumbnail::LoadWebpImage("/home/fox/scale_1200.webp", 128, 128);
 }
 
 App::~App()
@@ -382,6 +393,12 @@ App::~App()
 	
 	delete hid_;
 	hid_ = nullptr;
+	
+	if (compress_ctx_)
+	{
+		ZSTD_freeCCtx(compress_ctx_);
+		compress_ctx_ = nullptr;
+	}
 }
 
 void App::ArchiveAskDestArchivePath(const QString &ext)
@@ -1084,11 +1101,10 @@ QColor App::hover_bg_color_gray(const QColor &c) const
 	if (theme_type_ == ThemeType::Dark)
 		return QColor(90, 90, 90);
 	
-	QColor n = c.lighter(180);
-	const int avg = (n.red() + n.green() + n.blue()) / 3;
-	if (avg >= 240)
-		return c.lighter(140);
-	return n;
+	const QColor lght = c.lighter(180);
+	const int avg = (lght.red() + lght.green() + lght.blue()) / 3;
+	
+	return (avg >= 240) ? c.lighter(140) : lght;
 }
 
 void App::InitThumbnailPoolIfNeeded()
@@ -1115,7 +1131,7 @@ void App::InitThumbnailPoolIfNeeded()
 		}
 	}
 	
-	status = pthread_create(&th, NULL, GlobalThumbLoadMonitor, &global_thumb_loader_data_);
+	status = pthread_create(&th, NULL, thumbnail::LoadMonitor, &global_thumb_loader_data_);
 	if (status != 0)
 		mtl_status(status);
 }
@@ -1756,6 +1772,15 @@ void App::SaveBookmarks()
 	}
 }
 
+void App::SaveThumbnail()
+{
+	if (compress_ctx_ == nullptr)
+		compress_ctx_ = ZSTD_createCCtx();
+	
+	if (!thumbnails_to_save_.isEmpty())
+		io::SaveThumbnailToDisk(thumbnails_to_save_.takeLast(), compress_ctx_);
+}
+
 void App::SelectCurrentTab()
 {
 	TabSelected(tab_widget_->currentIndex());
@@ -1964,12 +1989,6 @@ void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 	}
 }
 
-void App::SaveThumbnail()
-{
-	if (!thumbnails_to_save_.isEmpty())
-		io::SaveThumbnailToDisk(thumbnails_to_save_.takeLast());
-}
-
 void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 {
 	gui::Tab *tab = this->tab(thumbnail->tab_id);
@@ -2012,7 +2031,7 @@ void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 				st.id = file_id;
 				st.orig_img_w = thumbnail->original_image_w;
 				st.orig_img_h = thumbnail->original_image_h;
-				st.img = thumbnail->img;
+				st.thmb = thumbnail->img;
 				st.dir = can_write_to_dir ? TempDir::No : TempDir::Yes;
 				thumbnails_to_save_.append(st);
 				

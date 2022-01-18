@@ -13,8 +13,9 @@ namespace media {
 
 void Reload(App *app)
 {
+	io::ReadParams read_params = {};
 	ByteArray ba;
-	VOID_RET_IF(io::ReadFile(prefs::GetMediaFilePath(), ba), false);
+	VOID_RET_IF(io::ReadFile(prefs::GetMediaFilePath(), ba, read_params), false);
 	Media *media = app->media();
 	{
 		auto guard = media->guard();

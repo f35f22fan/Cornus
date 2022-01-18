@@ -64,8 +64,14 @@ void Prefs::Load()
 {
 	const QString full_path = prefs::QueryAppConfigPath() + '/'
 		+ prefs::PrefsFileName + QString::number(prefs::PrefsFormatVersion);
+	io::ReadParams read_params = {};
 	ByteArray buf;
-	VOID_RET_IF(io::ReadFile(full_path, buf), false);
+	VOID_RET_IF(io::ReadFile(full_path, buf, read_params), false);
+	
+	if (buf.is_empty()) {
+		mtl_warn("Prefs file is empty");
+		return;
+	}
 	
 	u16 version = buf.next_u16();
 	VOID_RET_IF_NOT(version, prefs::PrefsFormatVersion);
@@ -92,24 +98,10 @@ void Prefs::Save() const
 	QString parent_dir = prefs::QueryAppConfigPath();
 	parent_dir.append('/');
 	VOID_RET_IF(parent_dir.isEmpty(), true);
-	const QString full_path = parent_dir + prefs::PrefsFileName 
+	const QString full_path = parent_dir + prefs::PrefsFileName
 		+ QString::number(prefs::PrefsFormatVersion);
-	const QByteArray path_ba = full_path.toLocal8Bit();
-	
-	if (!io::FileExists(full_path)) {
-		int fd = open(path_ba.data(), O_RDWR | O_CREAT | O_EXCL, 0664);
-		if (fd == -1) {
-			if (errno == EEXIST) {
-				mtl_warn("File already exists");
-			} else {
-				mtl_warn("Can't create file at: \"%s\", reason: %s",
-					path_ba.data(), strerror(errno));
-			}
-			return;
-		} else {
-			::close(fd);
-		}
-	}
+	const QString temp_file_path = full_path + QLatin1String(".temp");
+	VOID_RET_IF(io::EnsureRegularFile(temp_file_path), false);
 	
 	ByteArray buf;
 	buf.add_u16(prefs::PrefsFormatVersion);
@@ -138,8 +130,17 @@ void Prefs::Save() const
 	buf.add_i32(sz.width());
 	buf.add_i32(sz.height());
 	
-	if (io::WriteToFile(full_path, buf.data(), buf.size()) != 0) {
+	if (io::WriteToFile(temp_file_path, buf.data(), buf.size()) != 0) {
 		mtl_trace("Failed to save bookmarks");
+	}
+	
+	auto new_path = full_path.toLocal8Bit();
+	auto old_ba = temp_file_path.toLocal8Bit();
+	
+	int status = ::rename(old_ba.data(), new_path.data());
+	
+	if (status != 0) {
+		mtl_status(errno);
 	}
 }
 

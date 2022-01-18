@@ -371,8 +371,11 @@ void Daemon::GetPreferredOrder(QString mime,
 		full_path.append('/');
 	
 	full_path += filename;
+	io::ReadParams rp = {};
+	rp.print_errors = PrintErrors::No;
+	rp.can_rely = CanRelyOnStatxSize::Yes;
 	ByteArray buf;
-	if (!ReadFile(full_path, buf, PrintErrors::No))
+	if (!ReadFile(full_path, buf, rp))
 		return;
 	
 	while (buf.has_more())

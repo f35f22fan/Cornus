@@ -472,8 +472,9 @@ bool DesktopFile::Init(const QString &full_path,
 		return false;
 	name_ = ref.mid(0, index).toString();
 	
+	io::ReadParams param = {};
 	ByteArray ba;
-	RET_IF(io::ReadFile(full_path, ba), false, false);
+	RET_IF(io::ReadFile(full_path, ba, param), false, false);
 	
 	QString text = QString::fromLocal8Bit(ba.data(), ba.size());
 	QVector<QStringRef> list = text.splitRef('\n', Qt::SkipEmptyParts);

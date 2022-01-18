@@ -23,12 +23,13 @@ if (DEFINED ENV{PREFER_CLANG})
 endif()
 
 set(DO_BUILD_CORNUS_IO "y")
-#set(DO_BUILD_CORNUS_R "y")
+set(DO_BUILD_CORNUS_R "y")
 
 find_package(Qt5 COMPONENTS Core Gui Widgets DBus REQUIRED)
 include(FindPkgConfig)
 
 find_package(PkgConfig REQUIRED)
+pkg_search_module(WEBP REQUIRED libwebp)
 pkg_search_module(MTP REQUIRED libmtp)
 # pkg_search_module(DCONF REQUIRED dconf)
 pkg_search_module(UDISKS REQUIRED udisks2)
@@ -115,10 +116,10 @@ set (cornus_exe "cornus")
 add_executable(${cornus_exe} ${cornus_src_files} resources/resources.qrc)
 target_include_directories(${cornus_exe} PRIVATE ${MTP_INCLUDE_DIRS}
     ${URING_INCLUDE_DIRS} ${UDISKS_INCLUDE_DIRS} ${UDEV_INCLUDE_DIRS}
-    ${POLKIT_INCLUDE_DIRS} ${POLKIT_AGENT_INCLUDE_DIRS}) # ${DCONF_INCLUDE_DIRS}
+    ${POLKIT_INCLUDE_DIRS} ${POLKIT_AGENT_INCLUDE_DIRS} ${WEBP_INCLUDE_DIRS}) # ${DCONF_INCLUDE_DIRS}
 target_link_libraries(${cornus_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
     ${MTP_LDFLAGS} ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS}
-    ${URING_LDFLAGS} ${POLKIT_LDFLAGS} ${POLKIT_AGENT_LDFLAGS} pthread zstd) # ${DCONF_LDFLAGS}
+    ${URING_LDFLAGS} ${POLKIT_LDFLAGS} ${POLKIT_AGENT_LDFLAGS} ${WEBP_LDFLAGS} pthread zstd) # ${DCONF_LDFLAGS}
 
 if (DO_BUILD_CORNUS_IO)
 	set(cornus_io_src_files main_io.cpp
@@ -157,9 +158,9 @@ if (DO_BUILD_CORNUS_IO)
 	add_executable(${cornus_io_exe} ${cornus_io_src_files} resources/resources.qrc)
 	target_include_directories(${cornus_io_exe} PRIVATE
 		${URING_INCLUDE_DIRS}
-		${UDISKS_INCLUDE_DIRS}) # ${DCONF_INCLUDE_DIRS}
+		${UDISKS_INCLUDE_DIRS} ${WEBP_INCLUDE_DIRS}) # ${DCONF_INCLUDE_DIRS}
 	target_link_libraries(${cornus_io_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
-		${URING_LDFLAGS}
+		${URING_LDFLAGS} ${WEBP_LDFLAGS}
 		${UDISKS_LDFLAGS} pthread zstd) # ${DCONF_LDFLAGS}
 endif(DO_BUILD_CORNUS_IO)
 
@@ -189,7 +190,7 @@ if (DO_BUILD_CORNUS_R)
 
 	set (cornus_r_exe "cornus_r")
 	add_executable(${cornus_r_exe} ${cornus_r_src_files} resources/resources.qrc)
-	#target_include_directories(${cornus_r_exe})
-	target_link_libraries(${cornus_r_exe} Qt5::Core Qt5::Gui pthread zstd)
+	target_include_directories(${cornus_r_exe} PRIVATE ${WEBP_INCLUDE_DIRS})
+	target_link_libraries(${cornus_r_exe} Qt5::Core Qt5::Gui ${WEBP_LDFLAGS} pthread zstd)
 endif(DO_BUILD_CORNUS_R)
 

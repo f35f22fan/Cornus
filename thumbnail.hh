@@ -10,11 +10,17 @@
 #include <QString>
 
 #include <pthread.h>
+#include <zstd.h>
+#include <webp/decode.h>
+
+void CornusFreeQImageMemory(void *data);
 
 namespace cornus {
 
-using ThumbnailAbiType = i16;
-const ThumbnailAbiType CurrentThumbnailAbi = 0;
+namespace thumbnail {
+using AbiType = i16;
+const AbiType AbiVersion = 1;
+} // thumbnail::
 
 enum class Origin: i8 {
 	TempDir,
@@ -23,8 +29,8 @@ enum class Origin: i8 {
 	Undefined
 };
 
-// header size: abi=2 + width=4 + height=4 + img_w=4 + img_h=4 + bpl=4 + img_format=4
-const int ThumbnailHeaderSize = 26;
+// header size: abi=2 + width=2 + height=2 + bpl=2 + img_w=4 + img_h=4 + img_format=4
+const int ThumbnailHeaderSize = 20;
 const bool DebugThumbnailExit = false;
 
 struct Thumbnail {
@@ -149,16 +155,22 @@ struct GlobalThumbLoaderData {
 	}
 };
 
-void* GlobalThumbLoadMonitor(void *args);
+namespace thumbnail {
 
-Thumbnail* LoadThumbnail(const QString &full_path, const u64 &file_id,
+QSize GetScaledSize(const QSize &input, const int max_img_w, const int max_img_h);
+
+void* LoadMonitor(void *args);
+
+QImage ImageFromByteArray(ByteArray &ba,
+	i32 &img_w, i32 &img_h, ZSTD_DCtx *decompress_context);
+
+Thumbnail* Load(const QString &full_path, const u64 &file_id,
 	const QByteArray &ext, const int max_img_w, const int max_img_h,
 	const TabId tab_id, const DirId dir_id);
 
-namespace thumbnail {
-QImage ImageFromByteArray(ByteArray &ba, i32 &img_w, i32 &img_h);
-}
+QImage LoadWebpImage(const QString &full_path, const int max_img_w,
+	const int max_img_h, QSize &scaled_sz, QSize &orig_img_sz);
 
-}
+}} // cornus::thumbnail::
 Q_DECLARE_METATYPE(cornus::Thumbnail*);
 Q_DECLARE_METATYPE(cornus::ThumbLoaderArgs*);

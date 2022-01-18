@@ -330,7 +330,6 @@ void Tab::ActionPasteLinks(const LinkType link)
 
 void Tab::AddIconsView()
 {
-mtl_info();
 	if (icon_view_)
 		return;
 	

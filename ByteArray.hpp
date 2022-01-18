@@ -68,7 +68,7 @@ public:
 	isize size() const { return size_; }
 	isize heap_size() const { return heap_size_; }
 	void size(isize n) { size_ = n; } // called from inside io::ReadFile(..);
-	void make_sure(const isize more_bytes, const bool exact_size = false);
+	void MakeSure(const isize more_bytes, const ExactSize es = ExactSize::No);
 	inline void to(isize n) { at_ = n; }
 	bool Receive(int fd, const CloseSocket cs = CloseSocket::Yes);
 	bool Send(int fd, const CloseSocket cs = CloseSocket::Yes) const;

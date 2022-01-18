@@ -32,6 +32,29 @@ IconView::IconView(App *app, Tab *tab, QScrollBar *vs):
 IconView::~IconView()
 {}
 
+int IconView::CellIndexInNextRow(const int file_index, const VDirection vdir)
+{
+	const int file_count = tab_->view_files().cached_files_count;
+	
+	if (file_index == -1)
+		return (vdir == VDirection::Up) ? 0 : file_count - 1;
+	
+	const IconDim &cell = icon_dim_;
+	int next;
+	if (vdir == VDirection::Up)
+	{
+		next = file_index - cell.per_row;
+		if (next < 0)
+			next = file_index;
+	} else {
+		next = file_index + cell.per_row;
+		if (next >= file_count)
+			next = file_index;
+	}
+	
+	return next;
+}
+
 void IconView::ClearDndAnimation(const QPoint &drop_coord)
 {
 	// repaint() or update() don't work because
@@ -394,29 +417,6 @@ void IconView::mouseReleaseEvent(QMouseEvent *evt)
 	}
 }
 
-int IconView::CellIndexInNextRow(const int file_index, const VDirection vdir)
-{
-	const int file_count = tab_->view_files().cached_files_count;
-	
-	if (file_index == -1)
-		return (vdir == VDirection::Up) ? 0 : file_count - 1;
-	
-	const IconDim &cell = icon_dim_;
-	int next;
-	if (vdir == VDirection::Up)
-	{
-		next = file_index - cell.per_row;
-		if (next < 0)
-			next = file_index;
-	} else {
-		next = file_index + cell.per_row;
-		if (next >= file_count)
-			next = file_index;
-	}
-	
-	return next;
-}
-
 void IconView::paintEvent(QPaintEvent *ev)
 {
 	last_repaint_.Continue(Reset::Yes);
@@ -451,6 +451,7 @@ void IconView::paintEvent(QPaintEvent *ev)
 	QTextOption text_options;
 	text_options.setAlignment(Qt::AlignHCenter);
 	text_options.setWrapMode(QTextOption::WrapAnywhere);
+	const QColor gray_color(100, 100, 100);
 	
 	for (double y = y_off; y < y_end; y += cell.rh)
 	{
@@ -487,8 +488,11 @@ void IconView::paintEvent(QPaintEvent *ev)
 			
 			if (draw_border == DrawBorder::Yes)
 			{
-				painter.setPen(QColor(100, 100, 100));
+				QPen pen = painter.pen();
+				QColor c = app_->hover_bg_color_gray(gray_color);
+				painter.setPen(c);
 				painter.drawRect(cell_r);
+				painter.setPen(pen);
 			}
 		}
 		
@@ -590,7 +594,8 @@ void IconView::SendLoadingNewThumbnailsBatch()
 		auto guard = files.guard();
 		for (io::File *file: files.data.vec)
 		{
-			if (!file->ShouldTryLoadingThumbnail())
+			bool is_webp;
+			if (!file->ShouldTryLoadingThumbnail(is_webp))
 				continue;
 			
 			file->cache().tried_loading_thumbnail = true;

@@ -58,10 +58,13 @@ bool TextEdit::Display(io::File *cloned_file)
 		return false;
 	}
 	
-	const i64 MAX = 1024 * 1024; // 1 MiB
 	full_path_ = cloned_file->build_full_path();
+	io::ReadParams read_params = {};
+	read_params.print_errors = PrintErrors::Yes;
+	read_params.read_max = 1024 * 1024; // 1 MiB
+	
 	ByteArray buf;
-	RET_IF(io::ReadFile(full_path_, buf, PrintErrors::Yes, MAX), false, false);
+	RET_IF(io::ReadFile(full_path_, buf, read_params), false, false);
 	
 	hilite_mode_ = GetHiliteMode(buf, cloned_file);
 	hiliter_->SwitchTo(hilite_mode_);

@@ -24,6 +24,7 @@
 #include <QStackedWidget>
 
 #include <libmtp.h>
+#include <zstd.h>
 
 QT_BEGIN_NAMESPACE
 class QTabWidget;
@@ -182,6 +183,7 @@ private:
 	cornus::GuiBits gui_bits_ = {};
 	HashInfo root_hash_ = {};
 	QVector<io::SaveThumbnail> thumbnails_to_save_;
+	ZSTD_CCtx *compress_ctx_ = nullptr;
 	
 	GlobalThumbLoaderData global_thumb_loader_data_ = {};
 	

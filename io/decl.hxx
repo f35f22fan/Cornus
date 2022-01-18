@@ -15,6 +15,7 @@ class Daemon;
 class DirStream;
 class File;
 class Notify;
+class SaveFile;
 class Task;
 
 struct DevNum {

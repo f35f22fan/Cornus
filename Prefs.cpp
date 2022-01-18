@@ -3,6 +3,7 @@
 #include "App.hpp"
 #include "ByteArray.hpp"
 #include "io/io.hh"
+#include "io/SaveFile.hpp"
 #include "gui/Tab.hpp"
 #include "gui/Table.hpp"
 #include "gui/TreeView.hpp"
@@ -98,10 +99,9 @@ void Prefs::Save() const
 	QString parent_dir = prefs::QueryAppConfigPath();
 	parent_dir.append('/');
 	VOID_RET_IF(parent_dir.isEmpty(), true);
-	const QString full_path = parent_dir + prefs::PrefsFileName
-		+ QString::number(prefs::PrefsFormatVersion);
-	const QString temp_file_path = full_path + QLatin1String(".temp");
-	VOID_RET_IF(io::EnsureRegularFile(temp_file_path), false);
+	
+	auto filename = prefs::PrefsFileName + QString::number(prefs::PrefsFormatVersion);
+	io::SaveFile save_file(parent_dir, filename);
 	
 	ByteArray buf;
 	buf.add_u16(prefs::PrefsFormatVersion);
@@ -130,17 +130,14 @@ void Prefs::Save() const
 	buf.add_i32(sz.width());
 	buf.add_i32(sz.height());
 	
-	if (io::WriteToFile(temp_file_path, buf.data(), buf.size()) != 0) {
+	if (io::WriteToFile(save_file.GetPathToWorkWith(), buf.data(), buf.size()) != 0) {
 		mtl_trace("Failed to save bookmarks");
 	}
 	
-	auto new_path = full_path.toLocal8Bit();
-	auto old_ba = temp_file_path.toLocal8Bit();
-	
-	int status = ::rename(old_ba.data(), new_path.data());
-	
-	if (status != 0) {
-		mtl_status(errno);
+	QString err;
+	if (!save_file.Commit(&err))
+	{
+		mtl_printq(err);
 	}
 }
 

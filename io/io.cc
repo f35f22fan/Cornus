@@ -180,7 +180,7 @@ FilesData::~FilesData()
 
 QString BuildTempPathFromID(const DiskFileId &id)
 {
-	QString s = io::GetLastingAppTmpDir();
+	QString s = io::GetLastingTmpDir();
 	s.append(QString::number(id.dev_major)).append('_');
 	s.append(QString::number(id.dev_minor)).append('_');
 	s.append(QString::number(id.inode_number));
@@ -936,22 +936,24 @@ GetFileNameOfFullPath(const QString &full_path)
 	return QStringRef();
 }
 
-QString GetLastingAppTmpDir()
+QString get_lasting_tmp_dir()
 {
-	static QString s;
-	if (s.isEmpty())
+	QString s;
+	if (!EnsureDir(QLatin1String("/var/tmp/"), QLatin1String("Cornus.Mas"), &s))
 	{
-		if (!EnsureDir(QLatin1String("/var/tmp/"),
-			QLatin1String("Cornus.Mas"), &s))
-		{
-			mtl_trace();
-			return QString();
-		}
-		
-		if (!s.endsWith('/'))
-			s.append('/');
+		mtl_trace();
+		return QString();
 	}
 	
+	if (!s.endsWith('/'))
+		s.append('/');
+	
+	return s;
+}
+
+QString GetLastingTmpDir()
+{
+	static QString s = get_lasting_tmp_dir();
 	return s;
 }
 

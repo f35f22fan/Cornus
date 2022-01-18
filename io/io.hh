@@ -391,7 +391,7 @@ GetFileNameExtension(const QString &name, QStringRef *base_name = nullptr);
 QStringRef
 GetFileNameOfFullPath(const QString &full_path);
 
-QString GetLastingAppTmpDir();
+QString GetLastingTmpDir();
 
 QStringRef
 GetParentDirPath(const QString &full_path);

@@ -52,6 +52,7 @@ public Q_SLOTS:
 private:
 	NO_ASSIGN_COPY_MOVE(Daemon);
 	
+	void CheckOldThumbnails();
 	void GetDesktopFilesForMime(const QString &mime,
 		QVector<DesktopFile*> &show_vec, QVector<DesktopFile*> &hide_vec);
 	void GetPreferredOrder(QString mime, QVector<DesktopFile *> &show_vec,

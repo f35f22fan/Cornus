@@ -25,7 +25,7 @@ enum class Expand: i8 {
 
 struct DirItem {
 	struct statx stx;
-	QString name;
+	const char *name = nullptr;
 	DirStream *stream = nullptr;
 	
 	bool is_symlink() const { return S_ISLNK(stx.stx_mode); }

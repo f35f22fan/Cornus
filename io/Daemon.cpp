@@ -3,6 +3,7 @@
 #include "../AutoDelete.hh"
 #include "../ByteArray.hpp"
 #include "../DesktopFile.hpp"
+#include "DirStream.hpp"
 #include "../prefs.hh"
 #include "../str.hxx"
 #include "../trash.hh"
@@ -12,11 +13,14 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QMimeData>
+#include <QTimer>
 
 #include <bits/stdc++.h> /// std::sort()
 #include <sys/epoll.h>
 
 namespace cornus::io {
+
+const int OneHourInMs = 1000 * 60 * 60;
 
 bool SortByPriority(DesktopFile *a, DesktopFile *b)
 {
@@ -242,11 +246,36 @@ Daemon::Daemon()
 	tasks_win_ = new gui::TasksWin();
 	LoadDesktopFiles();
 	InitTrayIcon();
+	QTimer::singleShot(OneHourInMs, this, &Daemon::CheckOldThumbnails);
 }
 
 Daemon::~Daemon() {
 	notify_.Close();
 	delete tray_menu_;
+}
+
+void Daemon::CheckOldThumbnails()
+{
+	const int three_days = OneHourInMs * 24 * 3;
+	QTimer::singleShot(three_days, this, &Daemon::CheckOldThumbnails);
+	
+	const QString &dir_path = io::GetLastingTmpDir();
+	VOID_RET_IF(dir_path.isEmpty(), true);
+	const i64 ten_days = 60 * 60 * 24 * 10;
+	const i64 now_minus_ten_days = i64(time(NULL)) - ten_days;
+	io::DirStream ds(dir_path);
+	while (io::DirItem *next = ds.next())
+	{
+		const i64 modif_time_sec = next->stx.stx_mtime.tv_sec;
+		if (modif_time_sec > now_minus_ten_days)
+			continue;
+		auto ba = (dir_path + next->name).toLocal8Bit();
+		mtl_info("Removing %s", next->name);
+		int status = ::remove(ba.data());
+		if (status == -1) {
+			mtl_status(errno);
+		}
+	}
 }
 
 void Daemon::CopyURLsToClipboard(ByteArray *ba)

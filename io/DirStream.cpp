@@ -51,7 +51,10 @@ DirStream::DirStream(QString dir_path, const Expand expand)
 DirStream::~DirStream()
 {
 	if (dir_p_)
+	{
 		closedir(dir_p_);
+		dir_p_ = nullptr;
+	}
 }
 
 DirItem*

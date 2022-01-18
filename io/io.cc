@@ -449,7 +449,7 @@ bool CountSizeRecursive(const QString &path, struct statx &stx,
 	info.dir_count++;
 	QVector<QString> names;
 	
-	if (ListFileNames(path, names) != 0) {
+	if (!ListFileNames(path, names)) {
 		mtl_printq(path);
 		return false;
 	}
@@ -476,9 +476,8 @@ int DeleteFolder(QString dp)
 	struct statx stx;
 	
 	QVector<QString> filenames;
-	int status = ListFileNames(dp, filenames);
-	if (status != 0)
-		return status;
+	if (!ListFileNames(dp, filenames))
+		return EACCES;
 	
 	if (!dp.endsWith('/'))
 		dp.append('/');
@@ -494,7 +493,7 @@ int DeleteFolder(QString dp)
 		}
 		
 		if (S_ISDIR(stx.stx_mode)) {
-			status = DeleteFolder(full_path);
+			int status = DeleteFolder(full_path);
 			if (status != 0)
 				return status;
 		} else {
@@ -558,7 +557,7 @@ int CountSizeRecursiveTh(const QString &path,
 	
 	QVector<QString> names;
 	
-	if (ListFileNames(path, names) != 0) {
+	if (!ListFileNames(path, names)) {
 		mtl_printq(path);
 		return errno;
 	}

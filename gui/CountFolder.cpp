@@ -50,6 +50,8 @@ app_(app)
 	if (!Init(dir_path))
 		return;
 	
+	mtl_printq(dir_path);
+	
 	CreateGui();
 	
 	setWindowTitle(tr("Folder stats"));

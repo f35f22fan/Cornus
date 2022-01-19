@@ -93,6 +93,7 @@ public:
 	bool ViewIsAt(const QString &dir_path) const;
 	ViewMode view_mode() const { return view_mode_; }
 	void SetViewMode(const ViewMode mode);
+	void SetNextView();
 	gui::ShiftSelect* ShiftSelect();
 	void ShowRightClickMenu(const QPoint &global_pos,
 		const QPoint &local_pos);

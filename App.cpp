@@ -26,6 +26,7 @@
 #include "io/disks.hh"
 #include "io/io.hh"
 #include "io/File.hpp"
+#include "io/SaveFile.hpp"
 #include "io/socket.hh"
 #include "gui/actions.hxx"
 #include "gui/ConfirmDialog.hpp"
@@ -1731,23 +1732,7 @@ void App::SaveBookmarks()
 		item_vec.append(next->Clone());
 	}
 	
-	const QString full_path = prefs::GetBookmarksFilePath();
-	const QByteArray path_ba = full_path.toLocal8Bit();
-	
-	if (!io::FileExists(full_path)) {
-		int fd = open(path_ba.data(), O_RDWR | O_CREAT | O_EXCL, 0664);
-		if (fd == -1) {
-			if (errno == EEXIST) {
-				mtl_warn("File already exists");
-			} else {
-				mtl_warn("Can't create file at: \"%s\", reason: %s",
-					path_ba.data(), strerror(errno));
-			}
-			return;
-		} else {
-			::close(fd);
-		}
-	}
+	io::SaveFile save_file(prefs::GetBookmarksFilePath());
 	
 	ByteArray buf;
 	buf.add_u16(prefs::BookmarksFormatVersion);
@@ -1767,9 +1752,14 @@ void App::SaveBookmarks()
 		tree_data_.bookmarks_changed_by_me = true;
 		tree_data_.Unlock();
 	}
-	if (io::WriteToFile(full_path, buf.data(), buf.size()) != 0) {
+	
+	if (io::WriteToFile(save_file.GetPathToWorkWith(), buf.data(), buf.size()) != 0)
+	{
 		mtl_trace("Failed to save bookmarks");
+		return;
 	}
+	
+	save_file.Commit();
 }
 
 void App::SaveThumbnail()

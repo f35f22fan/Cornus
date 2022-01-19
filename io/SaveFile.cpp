@@ -12,21 +12,25 @@ SaveFile::SaveFile(const QString &dir_path, const QString &filename)
 	original_path_.append(filename);
 }
 
+SaveFile::SaveFile(const QString &full_path) :
+original_path_(full_path)
+{}
+
 SaveFile::~SaveFile()
 {
-	if (!committed_) {
+	if (!commit_cancelled_ && !committed_) {
 		mtl_warn("You forgot to commit()");
 	}
 }
 
-bool SaveFile::Commit(QString *ret_err_str)
+bool SaveFile::Commit(const PrintErrors pe)
 {
 	committed_ = true;
 	
 	if (temp_path_.isEmpty() && !InitTempPath())
 	{
-		if (ret_err_str)
-			*ret_err_str = QLatin1String("InitTempPath() failed");
+		if (pe == PrintErrors::Yes)
+			mtl_warn("InitTempPath() failed");
 		return false;
 	}
 	
@@ -36,8 +40,8 @@ bool SaveFile::Commit(QString *ret_err_str)
 	if (::rename(old_ba.data(), new_ba.data()) == 0)
 		return true;
 	
-	if (ret_err_str)
-		*ret_err_str = strerror(errno);
+	if (pe == PrintErrors::Yes)
+		mtl_status(errno);
 	
 	return false;
 }

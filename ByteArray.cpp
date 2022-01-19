@@ -46,7 +46,7 @@ ByteArray* ByteArray::CloneFromHere()
 		return ret;
 	
 	ret->MakeSure(left);
-	ret->add(data_ + left, left);
+	ret->add(data_ + at_, left);
 	
 	return ret;
 }

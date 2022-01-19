@@ -628,7 +628,6 @@ void TreeModel::UpdateIndices(const QModelIndex &top_left,
 	Q_EMIT dataChanged(top_left, bottom_right, {Qt::DisplayRole});
 }
 
-
 void TreeModel::UpdateIndex(const QModelIndex &index)
 {
 	Q_EMIT dataChanged(index, index, {Qt::DisplayRole});

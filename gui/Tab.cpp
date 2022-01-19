@@ -942,6 +942,8 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 	const bool any_modifiers = (modifiers != Qt::NoModifier);
 	const bool shift = (modifiers & Qt::ShiftModifier);
 	const bool ctrl = (modifiers & Qt::ControlModifier);
+	
+	
 	QVector<int> indices;
 	
 	if (ctrl) {
@@ -960,8 +962,8 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 		}
 	}
 	
-	if (!any_modifiers && key == Qt::Key_Delete) {
-		DeleteSelectedFiles(ShiftPressed::No);
+	if (key == Qt::Key_Delete) {
+		DeleteSelectedFiles(shift ? ShiftPressed::Yes : ShiftPressed::No);
 	} else if (key == Qt::Key_F2) {
 		app_->RenameSelectedFile();
 	} else if (key == Qt::Key_Return) {
@@ -993,6 +995,9 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 		else {
 			app_->HideTextEditor();
 		}
+	} else if (key == Qt::Key_F) {
+		if (!any_modifiers)
+			SetNextView();
 	} else if (key == Qt::Key_Escape) {
 		app_->HideTextEditor();
 	} else if (key == Qt::Key_PageUp) {
@@ -1045,6 +1050,27 @@ void Tab::LaunchFromOpenWithMenu()
 	QVariant v = act->data();
 	DesktopFile *p = (DesktopFile*) v.value<void *>();
 	p->Launch(open_with_.full_path, current_dir());
+}
+
+void Tab::SetNextView()
+{
+	ViewMode next = ViewMode::None;
+	switch(view_mode_)
+	{
+	case ViewMode::Details: {
+		next = ViewMode::Icons;
+		break;
+	}
+	case ViewMode::Icons: {
+		next = ViewMode::Details;
+		break;
+	}
+	default: break;
+	}
+	
+	if (next != ViewMode::None) {
+		SetViewMode(next);
+	}
 }
 
 void Tab::PopulateUndoDelete(QMenu *menu)

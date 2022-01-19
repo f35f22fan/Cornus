@@ -147,11 +147,7 @@ void Prefs::Save() const
 		mtl_trace("Failed to save bookmarks");
 	}
 	
-	QString err;
-	if (!save_file.Commit(&err))
-	{
-		mtl_printq(err);
-	}
+	save_file.Commit();
 }
 
 void Prefs::UpdateTableSizes()

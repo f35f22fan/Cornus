@@ -3,6 +3,7 @@
 #include "App.hpp"
 #include "ByteArray.hpp"
 #include "io/io.hh"
+#include "io/SaveFile.hpp"
 #include "prefs.hh"
 
 #include <cstdlib> /// srand, rand
@@ -10,7 +11,6 @@
 
 namespace cornus {
 namespace media {
-
 void Reload(App *app)
 {
 	io::ReadParams read_params = {};
@@ -426,8 +426,15 @@ void Media::Save()
 		}
 	}
 	
-	QString full_path = prefs::GetMediaFilePath();
-	io::WriteToFile(full_path, ba.data(), ba.size());
+	io::SaveFile save_file(prefs::GetMediaFilePath());
+	if (!io::WriteToFile(save_file.GetPathToWorkWith(), ba.data(), ba.size()))
+	{
+		mtl_trace();
+		save_file.CommitCancelled();
+		return;
+	}
+	
+	save_file.Commit();
 }
 
 i64 Media::SetNTS(const media::Field f, const i64 ID,

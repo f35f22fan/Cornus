@@ -37,6 +37,7 @@ You can use Cornus as is, no need to install it. However, Cornus can also perfor
 * Ctrl+A => Select all files
 * Ctrl+E => Toggle exec bit of selected file(s)
 * D => Display contents of selected file
+* F => Switch view
 * Ctrl+F => Search for file by name (then hit Enter to search forward or Ctrl+Enter for backwards)
 * Ctrl+M => Search by (movie) file's metadata (see bottom of page)
 * Ctrl+Shift+U => Remove thumbnail from selected files' extended attributes

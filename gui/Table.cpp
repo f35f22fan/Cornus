@@ -257,7 +257,7 @@ i32 Table::GetVisibleRowsCount() const
 
 void Table::HiliteFileUnderMouse()
 {
-	QVector<int> indices;
+	QSet<int> indices;
 	i32 name_row = -1, icon_row = -1;
 	{
 		io::Files &files = tab_->view_files();
@@ -269,20 +269,19 @@ void Table::HiliteFileUnderMouse()
 	
 	if (icon_row != mouse_over_file_icon_) {
 		if (icon_row != -1)
-			indices.append(icon_row);
+			indices.insert(icon_row);
 		if (mouse_over_file_icon_ != -1)
-			indices.append(mouse_over_file_icon_);
+			indices.insert(mouse_over_file_icon_);
 		mouse_over_file_icon_ = icon_row;
 	} else if (name_row != mouse_over_file_name_) {
 		if (name_row != -1)
-			indices.append(name_row);
+			indices.insert(name_row);
 		if (mouse_over_file_name_ != -1)
-			indices.append(mouse_over_file_name_);
+			indices.insert(mouse_over_file_name_);
 		mouse_over_file_name_ = name_row;
 	}
 	
-	if (!indices.isEmpty())
-		model_->UpdateIndices(indices);
+	model_->UpdateIndices(indices);
 }
 
 i32 Table::IsOnFileIcon_NoLock(const QPoint &local_pos, io::File **ret_file)
@@ -395,7 +394,7 @@ void Table::mousePressEvent(QMouseEvent *evt)
 	const bool shift = modif & Qt::ShiftModifier;
 	const bool right_click = evt->button() == Qt::RightButton;
 	const bool left_click = evt->button() == Qt::LeftButton;
-	QVector<int> indices;
+	QSet<int> indices;
 	
 	if (left_click) {
 		if (ctrl) {
@@ -428,7 +427,7 @@ void Table::mouseReleaseEvent(QMouseEvent *evt)
 	drag_start_pos_ = {-1, -1};
 	mouse_down_ = false;
 	
-	QVector<int> indices;
+	QSet<int> indices;
 	const bool ctrl = evt->modifiers() & Qt::ControlModifier;
 	const bool shift = evt->modifiers() & Qt::ShiftModifier;
 	
@@ -545,7 +544,7 @@ void Table::SelectByLowerCase(QVector<QString> filenames,
 	if (filenames.isEmpty())
 		return;
 
-	QVector<int> indices;
+	QSet<int> indices;
 	QString full_path;
 	io::Files &files = tab_->view_files();
 	{
@@ -568,7 +567,7 @@ void Table::SelectByLowerCase(QVector<QString> filenames,
 					full_path = file->build_full_path();
 				}
 				file->set_selected(true);
-				indices.append(i);
+				indices.insert(i);
 				filenames.remove(found_at);
 			}
 		}
@@ -632,7 +631,7 @@ void Table::SortingChanged(int logical, Qt::SortOrder order)
 	model_->UpdateVisibleArea();
 }
 
-void Table::SyncWith(const cornus::Clipboard &cl, QVector<int> &indices)
+void Table::SyncWith(const cornus::Clipboard &cl, QSet<int> &indices)
 {
 	auto &files = *app_->files(tab_->files_id());
 	MutexGuard guard = files.guard();
@@ -664,10 +663,10 @@ void Table::SyncWith(const cornus::Clipboard &cl, QVector<int> &indices)
 ///		mtl_info("Copy");
 		flag = io::FileBits::ActionCopy;
 	} else if (cl.action == ClipboardAction::Paste) {
-		mtl_info("Paste");
+//		mtl_info("Paste");
 		flag = io::FileBits::ActionPaste;
 	} else if (cl.action == ClipboardAction::Link) {
-		mtl_info("Link");
+//		mtl_info("Link");
 		flag = io::FileBits::PasteLink;
 	}
 	
@@ -677,7 +676,7 @@ void Table::SyncWith(const cornus::Clipboard &cl, QVector<int> &indices)
 		i++;
 		bool added = false;
 		if (next->clear_all_actions_if_needed()) {
-			indices.append(i);
+			indices.insert(i);
 			added = true;
 		}
 		
@@ -685,7 +684,7 @@ void Table::SyncWith(const cornus::Clipboard &cl, QVector<int> &indices)
 		for (int k = 0; k < count; k++) {
 			if (file_paths[k] == next->name()) {
 				if (!added) {
-					indices.append(i);
+					indices.insert(i);
 				}
 				next->toggle_flag(flag, true);
 				file_paths.remove(k);

@@ -40,29 +40,38 @@ void ByteArray::Clear() {
 
 ByteArray* ByteArray::CloneFromHere()
 {
-	ByteArray *ret = new ByteArray();
-	const i64 left = size() - at();
-	if (left == 0)
-		return ret;
+	const i64 left = size_ - at_;
+	if (left <= 0)
+		return nullptr;
 	
-	ret->MakeSure(left);
-	ret->add(data_ + at_, left);
+	ByteArray *ret = new ByteArray();
+	ret->add(this, From::CurrentPosition);
 	
 	return ret;
 }
 
-void ByteArray::add(const ByteArray *ba)
+void ByteArray::add(const ByteArray *ba, const From from)
 {
-	if (ba)
+	if (!ba)
+		return; // checking is a must
+	
+	char *buf;
+	i64 buf_len;
+	if (from == From::CurrentPosition)
 	{
-		// checking is a must
-		add(ba->data(), ba->size());
+		buf = ba->data() + ba->at();
+		buf_len = ba->size() - ba->at();
+	} else {
+		buf = ba->data();
+		buf_len = ba->size();
 	}
+	
+	add(buf, buf_len, ExactSize::Yes);
 }
 
-void ByteArray::add(const char *p, const isize size)
+void ByteArray::add(const char *p, const isize size, const ExactSize es)
 {
-	MakeSure(size);
+	MakeSure(size, es);
 	memcpy(data_ + at_, p, size);
 	at_ += size;
 	size_ += size;
@@ -124,21 +133,16 @@ void ByteArray::alloc(const isize n)
 	size_ = n;
 }
 
-ByteArray ByteArray::From(const QString &s) {
-	ByteArray ba;
-	ba.add_string(s);
-	return ba;
-}
-
-void ByteArray::MakeSure(const isize more_bytes, const ExactSize es)
+void ByteArray::MakeSure(const isize more_bytes, const ExactSize es,
+	const u32 offset_from_start)
 {
 	const isize more = (es == ExactSize::Yes) ? more_bytes : more_bytes * 3;
 	const isize new_size = at_ + more;
 	
-	if (heap_size_ >= new_size)
+	if ((heap_size_ >= new_size) && (offset_from_start <= 0))
 		return;
 	
-	heap_size_ = new_size;
+	heap_size_ = std::max(heap_size_, new_size);
 	char *p = new char[heap_size_];
 	if (data_ == nullptr)
 	{
@@ -146,7 +150,7 @@ void ByteArray::MakeSure(const isize more_bytes, const ExactSize es)
 		return;
 	}
 	
-	memcpy(p, data_, at_);
+	memcpy(p + offset_from_start, data_, size_);
 	delete[] data_;
 	data_ = p;
 }
@@ -233,8 +237,10 @@ void ByteArray::prepend_u64(const u64 n)
 
 void ByteArray::Prepend(const char *p, const isize size)
 {
-	MakeSure(size);
+	// the 3rd param makes sure new heap
+	MakeSure(size, ExactSize::Yes, size);
 	
+	// now move the heap to the right and insert new data at start:
 	char *new_heap = (char*) malloc(heap_size_);
 	VOID_RET_IF(new_heap, nullptr);
 	memcpy(new_heap, p, size);
@@ -243,6 +249,7 @@ void ByteArray::Prepend(const char *p, const isize size)
 	delete[] data_;
 	data_ = new_heap;
 	size_ += size;
+	at_ += size; // for it to point to the same thing as before
 }
 
 bool ByteArray::Receive(int fd,  const CloseSocket cs)

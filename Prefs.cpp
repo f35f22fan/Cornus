@@ -139,9 +139,8 @@ void Prefs::Save() const
 	buf.add_i32(sz.width());
 	buf.add_i32(sz.height());
 	
-	
 	// ABI: this line must be the last one to add data to @buf
-	buf.add(left_bytes_);
+	buf.add(left_bytes_, From::Start);
 	if (io::WriteToFile(save_file.GetPathToWorkWith(), buf.data(), buf.size()) != 0)
 	{
 		mtl_trace("Failed to save bookmarks");

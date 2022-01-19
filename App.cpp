@@ -576,7 +576,7 @@ void App::ClipboardChanged(QClipboard::Mode mode)
 	if (!clipboard_.has_files())
 		return;
 	
-	QVector<int> indices;
+	QSet<int> indices;
 	tab()->table()->SyncWith(clipboard_, indices);
 	tab()->table_model()->UpdateIndices(indices);
 }
@@ -1531,7 +1531,7 @@ void App::RegisterShortcuts()
 		connect(shortcut, &QShortcut::activated, [=] {
 			gui::Tab *tab = this->tab();
 			tab->GrabFocus();
-			QVector<int> indices;
+			QSet<int> indices;
 			auto &view_files = tab->view_files();
 			MutexGuard guard = view_files.guard();
 			view_files.SelectAllFiles_NoLock(Selected::Yes, indices);

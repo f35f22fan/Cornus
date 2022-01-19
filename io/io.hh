@@ -275,9 +275,9 @@ struct Files {
 	QPair<int, int> ListSelectedFiles_Lock(QList<QUrl> &list);
 	
 	void RemoveThumbnailsFromSelectedFiles();
-	void SelectAllFiles_NoLock(const Selected flag, QVector<int> &indices);
+	void SelectAllFiles_NoLock(const Selected flag, QSet<int> &indices);
 	void SelectFilenamesLater(const QVector<QString> &names, const SameDir sd = SameDir::No);
-	void SelectFileRange_NoLock(const int row1, const int row2, QVector<int> &indices);
+	void SelectFileRange_NoLock(const int row1, const int row2, QSet<int> &indices);
 };
 
 struct CountRecursiveInfo {

@@ -121,7 +121,7 @@ void Files::RemoveThumbnailsFromSelectedFiles()
 	}
 }
 
-void Files::SelectAllFiles_NoLock(const Selected flag, QVector<int> &indices)
+void Files::SelectAllFiles_NoLock(const Selected flag, QSet<int> &indices)
 {
 	int i = -1;
 	for (io::File *file: data.vec)
@@ -129,7 +129,7 @@ void Files::SelectAllFiles_NoLock(const Selected flag, QVector<int> &indices)
 		i++;
 		if (file->selected() != flag)
 		{
-			indices.append(i);
+			indices.insert(i);
 			file->selected(flag);
 		}
 	}
@@ -146,7 +146,7 @@ void Files::SelectFilenamesLater(const QVector<QString> &names, const SameDir sd
 	}
 }
 
-void Files::SelectFileRange_NoLock(const int row1, const int row2, QVector<int> &indices)
+void Files::SelectFileRange_NoLock(const int row1, const int row2, QSet<int> &indices)
 {
 	QVector<io::File*> &vec = data.vec;
 	
@@ -166,7 +166,7 @@ void Files::SelectFileRange_NoLock(const int row1, const int row2, QVector<int> 
 	for (int i = row_start; i <= row_end; i++)
 	{
 		vec[i]->set_selected(true);
-		indices.append(i);
+		indices.insert(i);
 	}
 }
 

@@ -24,11 +24,10 @@ public:
 	ByteArray* CloneFromHere();
 	virtual ~ByteArray();
 	
-	
 	void alloc(const isize n);
 	
-	void add(const ByteArray *ba);
-	void add(const char *p, const isize size);
+	void add(const ByteArray *ba, const From from);
+	void add(const char *p, const isize size, const ExactSize es = ExactSize::No);
 	void add_i8(const i8 n);
 	void add_u8(const u8 n);
 	void add_i16(const i16 n);
@@ -44,8 +43,6 @@ public:
 	void Clear();
 	char *data() const { return data_; }
 	const char *constData() const { return data_; }
-	
-	static ByteArray From(const QString &s);
 	
 	bool has_more() const { return at_ < size_; }
 	bool is_empty() const { return size_ == 0; }
@@ -71,7 +68,8 @@ public:
 	isize size() const { return size_; }
 	isize heap_size() const { return heap_size_; }
 	void size(isize n) { size_ = n; } // called from inside io::ReadFile(..);
-	void MakeSure(const isize more_bytes, const ExactSize es = ExactSize::No);
+	void MakeSure(const isize more_bytes, const ExactSize es = ExactSize::No,
+		const u32 offset_from_start = 0);
 	inline void to(isize n) { at_ = n; }
 	bool Receive(int fd, const CloseSocket cs = CloseSocket::Yes);
 	bool Send(int fd, const CloseSocket cs = CloseSocket::Yes) const;

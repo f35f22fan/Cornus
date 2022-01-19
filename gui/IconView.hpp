@@ -86,7 +86,7 @@ public:
 	ShiftSelect* shift_select() { return &shift_select_; }
 	void UpdateIndex(const int file_index);
 	void UpdateFileIndexRange(const int start, const int end);
-	void UpdateIndices(const QVector<int> &indices);
+	void UpdateIndices(const QSet<int> &indices);
 	void UpdateVisibleArea() { update(); }
 	QScrollBar* scrollbar() const { return vs_; }
 	

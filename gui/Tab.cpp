@@ -410,20 +410,20 @@ bool Tab::CreateMimeWithSelectedFiles(const ClipboardAction action,
 	else if (action == ClipboardAction::Link)
 		flag = io::FileBits::PasteLink;
 	
-	QVector<int> indices;
+	QSet<int> indices;
 	int i = -1;
 	for (io::File *next: files.data.vec)
 	{
 		i++;
 		
 		if (next->is_selected()) {
-			indices.append(i);
+			indices.insert(i);
 			next->toggle_flag(flag, true);
 			QString s = next->build_full_path();
 			list.append(QUrl::fromLocalFile(s).toString());
 		} else {
 			if (next->clear_all_actions_if_needed())
-				indices.append(i);
+				indices.insert(i);
 		}
 	}
 	
@@ -893,7 +893,7 @@ void Tab::GrabFocus() {
 	table_->setFocus();
 }
 
-void Tab::HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indices)
+void Tab::HandleMouseRightClickSelection(const QPoint &pos, QSet<int> &indices)
 {
 	io::Files &files = view_files();
 	MutexGuard guard = files.guard();
@@ -920,7 +920,7 @@ void Tab::HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indice
 			file->set_selected(true);
 			if (shift_select)
 				shift_select->base_row = file_index;
-			indices.append(file_index);
+			indices.insert(file_index);
 		}
 	}
 }
@@ -942,9 +942,7 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 	const bool any_modifiers = (modifiers != Qt::NoModifier);
 	const bool shift = (modifiers & Qt::ShiftModifier);
 	const bool ctrl = (modifiers & Qt::ControlModifier);
-	
-	
-	QVector<int> indices;
+	QSet<int> indices;
 	
 	if (ctrl) {
 		if (key == Qt::Key_C)
@@ -972,7 +970,7 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 			int row = files.GetFirstSelectedFile_Lock(&cloned_file);
 			if (row != -1) {
 				app->FileDoubleClicked(cloned_file, Column::FileName);
-				indices.append(row);
+				indices.insert(row);
 			}
 		}
 	} else if (key == Qt::Key_Down || key == Qt::Key_Right) {
@@ -1732,19 +1730,19 @@ void Tab::UndeleteFiles(const QMap<i64, QVector<trash::Names>> &items)
 	}
 }
 
-void Tab::UpdateIndices(const QVector<int> &vec)
+void Tab::UpdateIndices(const QSet<int> &indices)
 {
-	if (vec.isEmpty())
+	if (indices.isEmpty())
 		return;
 	
 	switch (view_mode_)
 	{
 	case ViewMode::Details : {
-		table_model_->UpdateIndices(vec);
+		table_model_->UpdateIndices(indices);
 		break;
 	}
 	case ViewMode::Icons: {
-		icon_view_->UpdateIndices(vec);
+		icon_view_->UpdateIndices(indices);
 		break;
 	}
 	default: {

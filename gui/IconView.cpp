@@ -15,6 +15,7 @@
 #include <QPaintEvent>
 #include <QPainter>
 #include <QScrollBar>
+#include <QSet>
 #include <QTimer>
 
 #include <algorithm>
@@ -240,14 +241,20 @@ void IconView::FilesChanged(const FileCountChanged fcc, const int file_index)
 
 void IconView::HiliteFileUnderMouse()
 {
+	QSet<int> indices;
+	if (mouse_over_file_ != -1)
+		indices.insert(mouse_over_file_);
+	
 	{
 		io::Files &files = tab_->view_files();
 		MutexGuard guard = files.guard();
 		GetFileAt_NoLock(mouse_pos_, Clone::No, &mouse_over_file_);
 	}
 	
-	if (mouse_over_file_ != -1)
-		UpdateIndex(mouse_over_file_);
+	if (mouse_over_file_ != -1 && !indices.contains(mouse_over_file_))
+		indices.insert(mouse_over_file_);
+	
+	UpdateIndices(indices);
 }
 
 void IconView::Init()
@@ -260,7 +267,7 @@ void IconView::Init()
 		if (repaint_without_delay_)
 			update();
 		else
-			RepaintLater();
+			update();//RepaintLater();
 	});
 	
 	connect(vs_, &QScrollBar::sliderReleased, [=] {
@@ -275,14 +282,15 @@ bool IconView::is_current_view() const
 
 io::File* IconView::GetFileAt_NoLock(const QPoint &pos, const Clone c, int *ret_index)
 {
-	const int y = pos.y() + vs_->value();
+	const auto &cell = icon_dim_;
+	const int mouse_y = pos.y() + vs_->value();
 	double y_off;
-	const int row_index = std::max(0, GetRowAtY(y, &y_off) - 1);
+	const int row_index = std::max(0, GetRowAtY(mouse_y, &y_off) - 1);
 	const int x = pos.x();
-	const int wide = icon_dim_.cell_and_gap;
-	const int x_index = x / wide;
+	const int max_real_x = cell.per_row * cell.cell_and_gap;
+	const int x_index = (x > max_real_x) ? -1 : x / cell.cell_and_gap;
 	
-	const int file_index = row_index * icon_dim_.per_row + x_index;
+	const int file_index = (x_index == -1) ? -1 : (row_index * cell.per_row + x_index);
 	auto &files = tab_->view_files();
 	if (file_index < 0 || file_index >= files.data.vec.size())
 	{
@@ -318,13 +326,11 @@ void IconView::leaveEvent(QEvent *evt)
 
 void IconView::mouseDoubleClickEvent(QMouseEvent *evt)
 {
-	QVector<int> indices;
 	int row;
 	io::File *file = GetFileAt_NoLock(evt->pos(), Clone::Yes, &row);
 	if (file) {
 		app_->FileDoubleClicked(file, Column::FileName);
-		indices.append(row);
-		UpdateIndices(indices);
+		UpdateIndex(row);
 	}
 }
 
@@ -352,7 +358,7 @@ void IconView::mousePressEvent(QMouseEvent *evt)
 	const bool shift = modif & Qt::ShiftModifier;
 	const bool right_click = evt->button() == Qt::RightButton;
 	const bool left_click = evt->button() == Qt::LeftButton;
-	QVector<int> indices;
+	QSet<int> indices;
 	
 	if (left_click)
 	{
@@ -386,7 +392,7 @@ void IconView::mouseReleaseEvent(QMouseEvent *evt)
 	drag_start_pos_ = {-1, -1};
 	mouse_down_ = false;
 	
-	QVector<int> indices;
+	QSet<int> indices;
 	const bool ctrl = evt->modifiers() & Qt::ControlModifier;
 	const bool shift = evt->modifiers() & Qt::ShiftModifier;
 	
@@ -644,7 +650,7 @@ void IconView::UpdateIndex(const int file_index)
 	update();
 }
 
-void IconView::UpdateIndices(const QVector<int> &indices)
+void IconView::UpdateIndices(const QSet<int> &indices)
 {
 	update();
 }

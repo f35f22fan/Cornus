@@ -57,7 +57,7 @@ public:
 	
 	void SwitchTo(io::FilesData *new_data);
 	gui::Tab* tab() const { return tab_; }
-	void UpdateIndices(const QVector<int> &indices);
+	void UpdateIndices(const QSet<int> &indices);
 	void UpdateRange(int row1, Column c1, int row2, Column c2);
 	void UpdateSingleRow(int row) {
 		UpdateRange(row, Column::Icon, row, Column(i8(Column::Count) - 1));

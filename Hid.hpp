@@ -4,6 +4,7 @@
 #include "gui/decl.hxx"
 #include "err.hpp"
 
+#include <QSet>
 #include <QVector>
 
 namespace cornus {
@@ -18,13 +19,13 @@ public:
 	void HandleKeyShiftSelect(gui::Tab *tab, const VDirection vdir, const int key);
 	
 	void HandleMouseSelectionShift(gui::Tab *tab, const QPoint &pos,
-		QVector<int> &indices);
+		QSet<int> &indices);
 	
 	void HandleMouseSelectionCtrl(gui::Tab *tab, const QPoint &pos,
-		QVector<int> *indices);
+		QSet<int> *indices);
 	
 	void HandleMouseSelectionNoModif(gui::Tab *tab, const QPoint &pos,
-		QVector<int> &indices, bool mouse_pressed,
+		QSet<int> &indices, bool mouse_pressed,
 		gui::ShiftSelect *shift_select = nullptr);
 	
 	void SelectFileByIndex(gui::Tab *tab, const int file_index, const DeselectOthers des);

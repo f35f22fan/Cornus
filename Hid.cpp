@@ -42,7 +42,7 @@ void Hid::HandleKeySelect(gui::Tab *tab, const VDirection vdir,
 	const bool is_icon_view = tab->view_mode() == gui::ViewMode::Icons;
 	const bool up_or_down = key == Qt::Key_Up || key == Qt::Key_Down;
 	int new_file_index = -1;
-	QVector<int> indices;
+	QSet<int> indices;
 	{
 		MutexGuard guard = files.guard();
 		files.SelectAllFiles_NoLock(Selected::No, indices);
@@ -51,7 +51,7 @@ void Hid::HandleKeySelect(gui::Tab *tab, const VDirection vdir,
 			new_file_index = (vdir == VDirection::Up) ? 0 : file_count - 1;
 			if (new_file_index >= 0)
 			{
-				indices.append(new_file_index);
+				indices.insert(new_file_index);
 				files.data.vec[new_file_index]->set_selected(true);
 			}
 		} else {
@@ -68,8 +68,8 @@ void Hid::HandleKeySelect(gui::Tab *tab, const VDirection vdir,
 				io::File *file = files.data.vec[old_file_index];
 				file->set_selected(false);
 				files.data.vec[new_file_index]->set_selected(true);
-				indices.append(new_file_index);
-				indices.append(old_file_index);
+				indices.insert(new_file_index);
+				indices.insert(old_file_index);
 			}
 		}
 	}
@@ -90,7 +90,7 @@ void Hid::HandleKeyShiftSelect(gui::Tab *tab, const VDirection vdir,
 	if (row == -1)
 		return;
 	
-	QVector<int> indices;
+	QSet<int> indices;
 	gui::ShiftSelect *shift_select = tab->ShiftSelect();
 	if (shift_select->head_row == -1)
 		shift_select->head_row = shift_select->base_row;
@@ -100,7 +100,7 @@ void Hid::HandleKeyShiftSelect(gui::Tab *tab, const VDirection vdir,
 		shift_select->head_row = row;
 		MutexGuard guard = files.guard();
 		files.data.vec[row]->set_selected(true);
-		indices.append(row);
+		indices.insert(row);
 	} else {
 		if (vdir == VDirection::Up) {
 			if (shift_select->head_row == 0)
@@ -115,7 +115,8 @@ void Hid::HandleKeyShiftSelect(gui::Tab *tab, const VDirection vdir,
 		{
 			MutexGuard guard = files.guard();
 			files.SelectAllFiles_NoLock(Selected::No, indices);
-			files.SelectFileRange_NoLock(shift_select->base_row, shift_select->head_row, indices);
+			files.SelectFileRange_NoLock(shift_select->base_row,
+				shift_select->head_row, indices);
 		}
 	}
 	
@@ -127,7 +128,7 @@ void Hid::HandleKeyShiftSelect(gui::Tab *tab, const VDirection vdir,
 }
 
 void Hid::HandleMouseSelectionShift(gui::Tab *tab, const QPoint &pos,
-	QVector<int> &indices)
+	QSet<int> &indices)
 {
 	io::Files &files = tab->view_files();
 	MutexGuard guard = files.guard();
@@ -151,7 +152,7 @@ void Hid::HandleMouseSelectionShift(gui::Tab *tab, const QPoint &pos,
 		{
 			shift_select->base_row = file_index;
 			file->set_selected(true);
-			indices.append(file_index);
+			indices.insert(file_index);
 		} else {
 			files.SelectAllFiles_NoLock(Selected::No, indices);
 			files.SelectFileRange_NoLock(shift_select->base_row, file_index, indices);
@@ -160,7 +161,7 @@ void Hid::HandleMouseSelectionShift(gui::Tab *tab, const QPoint &pos,
 }
 
 void Hid::HandleMouseSelectionCtrl(gui::Tab *tab, const QPoint &pos,
-	QVector<int> *indices)
+	QSet<int> *indices)
 {
 	const gui::ViewMode view_mode = tab->view_mode();
 	io::Files &files = tab->view_files();
@@ -179,11 +180,11 @@ void Hid::HandleMouseSelectionCtrl(gui::Tab *tab, const QPoint &pos,
 	{
 		file->toggle_selected();
 		if (indices != nullptr && row != -1)
-			indices->append(row);
+			indices->insert(row);
 	}
 }
 
-void Hid::HandleMouseSelectionNoModif(gui::Tab *tab, const QPoint &pos, QVector<int> &indices,
+void Hid::HandleMouseSelectionNoModif(gui::Tab *tab, const QPoint &pos, QSet<int> &indices,
 	bool mouse_pressed, gui::ShiftSelect *shift_select)
 {
 	const gui::ViewMode view_mode = tab->view_mode();
@@ -210,7 +211,7 @@ void Hid::HandleMouseSelectionNoModif(gui::Tab *tab, const QPoint &pos, QVector<
 				files.SelectAllFiles_NoLock(Selected::No, indices);
 			if (file != nullptr && !file->is_selected() && file_index != -1) {
 				file->selected(Selected::Yes);
-				indices.append(file_index);
+				indices.insert(file_index);
 			}
 		}
 	} else {
@@ -222,7 +223,7 @@ void Hid::SelectFileByIndex(gui::Tab *tab, const int file_index,
 	const DeselectOthers des)
 {
 	io::Files &files = tab->view_files();
-	QVector<int> indices;
+	QSet<int> indices;
 	{
 		MutexGuard guard = files.guard();
 		auto &vec = files.data.vec;
@@ -235,7 +236,7 @@ void Hid::SelectFileByIndex(gui::Tab *tab, const int file_index,
 				if (next->is_selected())
 				{
 					next->toggle_selected();
-					indices.append(i);
+					indices.insert(i);
 				}
 				i++;
 			}
@@ -244,7 +245,7 @@ void Hid::SelectFileByIndex(gui::Tab *tab, const int file_index,
 		if (file_index >= 0 && file_index < vec.size())
 		{
 			vec[file_index]->selected(Selected::Yes);
-			indices.append(file_index);
+			indices.insert(file_index);
 		}
 	}
 	

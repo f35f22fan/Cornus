@@ -75,7 +75,7 @@ public:
 	void GoUp();
 	void GoToInitialDir();
 	void GrabFocus();
-	void HandleMouseRightClickSelection(const QPoint &pos, QVector<int> &indices);
+	void HandleMouseRightClickSelection(const QPoint &pos, QSet<int> &indices);
 	History* history() const { return history_; }
 	gui::IconView* icon_view() const { return icon_view_; }
 	void KeyPressEvent(QKeyEvent *evt);
@@ -102,7 +102,7 @@ public:
 	const QString& title() const { return title_; }
 	void SetTitle(const QString &s);
 	
-	void UpdateIndices(const QVector<int> &indices);
+	void UpdateIndices(const QSet<int> &indices);
 	void UpdateView();
 	
 public Q_SLOTS:

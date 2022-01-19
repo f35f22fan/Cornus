@@ -15,6 +15,7 @@
 #include <QBoxLayout>
 #include <QFormLayout>
 #include <QLabel>
+#include <QSet>
 
 namespace cornus::gui {
 
@@ -253,7 +254,7 @@ QWidget* SearchPane::CreateByMediaXattrPane()
 void SearchPane::DeselectAll()
 {
 	gui::Tab *tab = app_->tab();
-	QVector<int> indices;
+	QSet<int> indices;
 	{
 		auto &files = *app_->files(tab->files_id());
 		MutexGuard guard = files.guard();
@@ -263,7 +264,7 @@ void SearchPane::DeselectAll()
 		for (io::File *next: vec) {
 			if (next->has(bits)) {
 				next->toggle_flag(bits, false);
-				indices.append(i);
+				indices.insert(i);
 			}
 			i++;
 		}
@@ -283,7 +284,7 @@ void SearchPane::DoSearch(const QString *search_str)
 	select_row_ = -1;
 	i32 found = 0, at = 0;
 	bool found_current = false;
-	QVector<int> indices;
+	QSet<int> indices;
 	{
 		auto &files = *app_->files(tab->files_id());
 		MutexGuard guard = files.guard();
@@ -296,18 +297,18 @@ void SearchPane::DoSearch(const QString *search_str)
 					at++;
 				if (!next->selected_by_search()) {
 					next->selected_by_search(true);
-					indices.append(i);
+					indices.insert(i);
 				}
 				if (select_row_ == -1) {
 					found_current = true;
 					next->selected_by_search_active(true);
 					select_row_ = i;
-					indices.append(i);
+					indices.insert(i);
 				}
 			} else if (next->selected_by_search()) {
 				next->selected_by_search(false);
 				next->selected_by_search_active(false);
-				indices.append(i);
+				indices.insert(i);
 			}
 			i++;
 		}
@@ -458,7 +459,7 @@ void SearchPane::ScrollToNext(const Direction dir)
 	
 	i32 at = 0;
 	gui::Tab *tab = app_->tab();
-	QVector<int> indices;
+	QSet<int> indices;
 	{
 		auto &files = *app_->files(tab->files_id());
 		MutexGuard guard = files.guard();
@@ -479,12 +480,12 @@ void SearchPane::ScrollToNext(const Direction dir)
 						next->selected_by_search_active(true);
 						active = next;
 						select_row_ = i;
-						indices.append(i);
+						indices.insert(i);
 						break;
 					} else if (next->selected_by_search_active()) {
 						next->selected_by_search_active(false);
 						deactive = next;
-						indices.append(i);
+						indices.insert(i);
 					}
 				}
 			}
@@ -499,12 +500,12 @@ void SearchPane::ScrollToNext(const Direction dir)
 						select_row_ = i;
 						next->selected_by_search_active(true);
 						active = next;
-						indices.append(i);
+						indices.insert(i);
 						break;
 					} else if (next->selected_by_search_active()){
 						next->selected_by_search_active(false);
 						deactive = next;
-						indices.append(i);
+						indices.insert(i);
 					}
 				}
 			}

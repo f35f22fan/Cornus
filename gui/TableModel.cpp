@@ -514,7 +514,7 @@ QVariant TableModel::headerData(int section_i, Qt::Orientation orientation, int 
 
 void TableModel::InotifyBatchFinished()
 {
-	QVector<int> indices;
+	QSet<int> indices;
 	auto &files = tab_->view_files();
 	{
 		MutexGuard guard = files.guard();
@@ -538,10 +538,8 @@ mtl_info("==> New Batch ==>>");
 			{
 				io::File *file = files_vec[i];
 				if (file->name() == name) {
-					indices.append(i);
+					indices.insert(i);
 					file->set_selected(true);
-//					mtl_info("Found! %s, index: %d, file_count: %d",
-//						qPrintable(file->name()), i, files_count);
 #ifdef CORNUS_DEBUG_INOTIFY_BATCH
 					mtl_info("Selected: %s", qPrintable(name));
 #endif
@@ -568,10 +566,11 @@ mtl_info("==> New Batch ==>>");
 		}
 	}
 	
-	if (!indices.isEmpty()) {
+	if (!indices.isEmpty())
+	{
 		tab_->UpdateIndices(indices);
-		const int index = indices[0];
-		mtl_info("scroll to: %d", index);
+		const int index = *indices.constBegin();
+		//mtl_info("scroll to: %d", index);
 		tab_->ScrollToFile(index);
 	}
 }
@@ -771,7 +770,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 	}
 	endInsertRows();
 	
-	QVector<int> indices;
+	QSet<int> indices;
 	tab_->table()->SyncWith(app_->clipboard(), indices);
 	WatchArgs *args = new WatchArgs {
 		.dir_id = dir_id,
@@ -791,7 +790,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 	}
 }
 
-void TableModel::UpdateIndices(const QVector<int> &indices)
+void TableModel::UpdateIndices(const QSet<int> &indices)
 {
 	if (indices.isEmpty())
 		return;
@@ -799,7 +798,10 @@ void TableModel::UpdateIndices(const QVector<int> &indices)
 	int min = -1, max = -1;
 	bool initialize = true;
 	
-	for (int next: indices) {
+	QSetIterator<int> it(indices);
+	while (it.hasNext())
+	{
+		const int next = it.next();
 		if (initialize) {
 			initialize = false;
 			min = next;
@@ -817,8 +819,6 @@ void TableModel::UpdateIndices(const QVector<int> &indices)
 	if (min == -1 || max == -1) {
 		UpdateVisibleArea();
 	} else if ((max - min) > count_per_page) {
-//		mtl_trace("Max: %d, min: %d, count per page: %d",
-//			max, min, count_per_page);
 		UpdateVisibleArea();
 	} else {
 		UpdateFileIndexRange(min, max);

@@ -29,6 +29,11 @@ using TabId = i64;
 using DirId = i32;
 using FileId = i32;
 
+enum class From: i8 {
+	Start,
+	CurrentPosition
+};
+
 enum class ExactSize: i8 {
 	Yes,
 	No

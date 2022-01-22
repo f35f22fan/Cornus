@@ -58,7 +58,6 @@ void TabBar::dropEvent(QDropEvent *evt)
 	if (tab_index == -1)
 		return;
 	
-mtl_trace();
 	gui::Tab *tab = app_->tab_at(tab_index);
 	tab->DropEvent(evt, ForceDropToCurrentDir::Yes);
 }

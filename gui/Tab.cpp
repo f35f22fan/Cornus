@@ -529,18 +529,20 @@ void Tab::DragEnterEvent(QDragEnterEvent *evt)
 
 void Tab::DropEvent(QDropEvent *evt, const ForceDropToCurrentDir fdir)
 {
+	const QMimeData *md = evt->mimeData();
+	const ui::DndType dnd_type = ui::GetDndType(md);
 	io::File *to_dir = nullptr;
+	
 	if (fdir == ForceDropToCurrentDir::Yes)
 	{
 		to_dir = io::FileFromPath(current_dir());
-	} else if (evt->mimeData()->hasUrls()) {
+	} else {
 		auto &files = view_files();
 		MutexGuard guard = files.guard();
 		
 		if (view_mode_ == ViewMode::Details)
 		{
 			if (table_->IsOnFileName_NoLock(evt->pos(), &to_dir) != -1 && to_dir->is_dir_or_so()) {
-				mtl_trace();
 				to_dir = to_dir->Clone();
 			} else {
 				to_dir = io::FileFromPath(current_dir());
@@ -555,16 +557,15 @@ void Tab::DropEvent(QDropEvent *evt, const ForceDropToCurrentDir fdir)
 	
 	VOID_RET_IF(to_dir, nullptr);
 	AutoDelete ad(to_dir);
-	const QMimeData *md = evt->mimeData();
-	const ui::DndType dnd_type = ui::GetDndType(md);
+	
 	if (dnd_type == ui::DndType::Ark)
 	{
 		const QString dbus_service_key = QLatin1String("application/x-kde-ark-dndextract-service");
 		const QString dbus_path_key = QLatin1String("application/x-kde-ark-dndextract-path");
 		const QString dbus_client = md->data(dbus_service_key);
 		const QString dbus_path = md->data(dbus_path_key);
-		const QString dir_path = app_->tab()->current_dir();
-		QUrl url = QUrl::fromLocalFile(dir_path);
+		const QString to_dir_path = to_dir->build_full_path();
+		QUrl url = QUrl::fromLocalFile(to_dir_path);
 		
 		QDBusMessage msg = QDBusMessage::createMethodCall(dbus_client, dbus_path,
 			QLatin1String("org.kde.ark.DndExtract"), QLatin1String("extractSelectedFilesTo"));

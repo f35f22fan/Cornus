@@ -59,7 +59,7 @@ public:
 	void DeleteSelectedFiles(const ShiftPressed sp);
 	void DisplayingNewDirectory(const DirId dir_id);
 	void DragEnterEvent(QDragEnterEvent *evt);
-	void DropEvent(QDropEvent *evt);
+	void DropEvent(QDropEvent *evt, const ForceDropToCurrentDir fdir);
 	void ExecuteDrop(QVector<io::File *> *files_vec, io::File *to_dir,
 		Qt::DropAction drop_action, Qt::DropActions possible_actions);
 	TabId id() const { return id_; }

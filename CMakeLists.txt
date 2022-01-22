@@ -22,8 +22,8 @@ if (DEFINED ENV{PREFER_CLANG})
     SET (CMAKE_CXX_FLAGS "-Wall -ftree-vectorize")
 endif()
 
-set(DO_BUILD_CORNUS_IO "")
-set(DO_BUILD_CORNUS_R "")
+set(DO_BUILD_CORNUS_IO "y")
+set(DO_BUILD_CORNUS_R "y")
 
 find_package(Qt5 COMPONENTS Core Gui Widgets DBus REQUIRED)
 include(FindPkgConfig)
@@ -65,6 +65,7 @@ set(cornus_src_files main.cpp
     trash.cc trash.hh
     thumbnail.cc thumbnail.hh
     TreeData.cpp TreeData.hpp
+    ui.cc ui.hh
 
     gui/actions.hxx
     gui/AttrsDialog.cpp gui/AttrsDialog.hpp
@@ -85,10 +86,12 @@ set(cornus_src_files main.cpp
     gui/SearchPane.cpp gui/SearchPane.hpp
     gui/sidepane.cc gui/sidepane.hh
     gui/Tab.cpp gui/Tab.hpp
+    gui/TabBar.cpp gui/TabBar.hpp
     gui/Table.cpp gui/Table.hpp
     gui/TableDelegate.cpp gui/TableDelegate.hpp
     gui/TableHeader.cpp gui/TableHeader.hpp
     gui/TableModel.cpp gui/TableModel.hpp
+    gui/TabsWidget.cpp gui/TabsWidget.hpp
     gui/TextEdit.cpp gui/TextEdit.hpp
     gui/TextField.cpp gui/TextField.hpp
     gui/ToolBar.cpp gui/ToolBar.hpp

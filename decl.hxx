@@ -29,6 +29,19 @@ using TabId = i64;
 using DirId = i32;
 using FileId = i32;
 
+struct Range {
+	int min = -1;
+	int max = -1;
+	
+	bool is_valid() const { return min != -1 && max != -1; }
+	static Range Invalid() { return Range{}; }
+};
+
+enum class ForceDropToCurrentDir: i8 {
+	Yes,
+	No
+};
+
 enum class From: i8 {
 	Start,
 	CurrentPosition

@@ -70,56 +70,56 @@ void* ProcessRequest(void *ptr)
 	gui::TasksWin *tasks_win = daemon->tasks_win();
 	delete args;
 	args = nullptr;
-	
 	RET_IF(ba.Receive(fd, CloseSocket::No), false, NULL);
-	const auto msg = ba.next_u32() & ~(7u << 29);
-	
-	switch (msg) {
-	case (io::MessageType)io::Message::CheckAlive: {
+	const auto msg_int = ba.next_u32() & ~(7u << 29);
+	const auto msg = static_cast<io::Message>(msg_int);
+	switch (msg)
+	{
+	case io::Message::CheckAlive: {
 		close(fd);
 		return nullptr;
 	}
-	case (io::MessageType)io::Message::CopyToClipboard: {
+	case io::Message::CopyToClipboard: {
 		close(fd);
 		QMetaObject::invokeMethod(daemon, "CopyURLsToClipboard",
 			ConnectionType, Q_ARG(ByteArray*, &ba));
 		return nullptr;
 	}
-	case (io::MessageType)io::Message::CutToClipboard: {
+	case io::Message::CutToClipboard: {
 		close(fd);
 		QMetaObject::invokeMethod(daemon, "CutURLsToClipboard",
 			ConnectionType, Q_ARG(ByteArray*, &ba));
 		return nullptr;
 	}
-	case (io::MessageType)io::Message::EmptyTrashRecursively: {
+	case io::Message::EmptyTrashRecursively: {
 		close(fd);
 		QString dir_path = ba.next_string();
 		QMetaObject::invokeMethod(daemon, "EmptyTrashRecursively",
 			ConnectionType, Q_ARG(QString, dir_path), Q_ARG(bool, true));
 		return nullptr;
 	}
-	case (io::MessageType)io::Message::SendOpenWithList: {
+	case io::Message::SendOpenWithList: {
 		QString mime = ba.next_string();
 		QMetaObject::invokeMethod(daemon, "SendOpenWithList",
 			ConnectionType, Q_ARG(QString, mime), Q_ARG(int, fd));
 		return nullptr;
 	}
-	case (io::MessageType)io::Message::SendDefaultDesktopFileForFullPath: {
+	case io::Message::SendDefaultDesktopFileForFullPath: {
 		QMetaObject::invokeMethod(daemon, "SendDefaultDesktopFileForFullPath",
 			ConnectionType, Q_ARG(ByteArray*, &ba), Q_ARG(int, fd));
 		return nullptr;
 	}
-	case (io::MessageType)io::Message::SendDesktopFilesById: {
+	case io::Message::SendDesktopFilesById: {
 		QMetaObject::invokeMethod(daemon, "SendDesktopFilesById",
 			ConnectionType, Q_ARG(ByteArray*, &ba), Q_ARG(int, fd));
 		return nullptr;
 	}
-	case (io::MessageType)io::Message::SendAllDesktopFiles: {
+	case io::Message::SendAllDesktopFiles: {
 		QMetaObject::invokeMethod(daemon, "SendAllDesktopFiles",
 			ConnectionType, Q_ARG(int, fd));
 		return nullptr;
 	}
-	case (io::MessageType) io::Message::QuitServer: {
+	case io::Message::QuitServer: {
 #ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
 		mtl_info("Received QuitServer signal over socket");
 #endif
@@ -138,8 +138,8 @@ void* ProcessRequest(void *ptr)
 		io::socket::SendSync(ba);
 		return nullptr;
 	}
-	} /// switch()
-	
+	default: {}
+	} // switch()
 	close(fd);
 	ba.to(0);
 	auto *task = cornus::io::Task::From(ba, HasSecret::No);
@@ -147,6 +147,7 @@ void* ProcessRequest(void *ptr)
 	{
 		QMetaObject::invokeMethod(tasks_win, "add",
 			ConnectionType, Q_ARG(cornus::io::Task*, task));
+		task->StartIO();
 	}
 	
 	return nullptr;
@@ -190,7 +191,7 @@ void* ListenTh(void *args)
 		auto *args = new args_data();
 		args->fd = client_fd;
 		args->daemon = daemon;
-		int status = pthread_create(&th, NULL, ProcessRequest, args);
+		const int status = pthread_create(&th, NULL, ProcessRequest, args);
 		if (status != 0) {
 			mtl_status(status);
 			break;
@@ -237,14 +238,14 @@ int main(int argc, char *argv[])
 	QApplication qapp(argc, argv);
 	qRegisterMetaType<cornus::io::Task*>();
 	qRegisterMetaType<cornus::ByteArray*>();
-	
 	setup_unix_signal_handlers();
+	
 	new cornus::MyDaemon();
 	
 	/// The TasksWin hides/deletes itself
 	/// Currently it deletes itself, change later to just hide itself.
 	cornus::io::Daemon *daemon = new cornus::io::Daemon();
-	cornus::AutoDelete daemon___(daemon);
+	cornus::AutoDelete ad(daemon);
 	
 	{
 		pthread_t th;

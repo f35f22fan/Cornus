@@ -17,7 +17,9 @@
 #include "../str.hxx"
 #include "Table.hpp"
 #include "TableModel.hpp"
+#include "TabsWidget.hpp"
 #include "TreeView.hpp"
+#include "../ui.hh"
 
 #include <QAction>
 #include <QApplication>
@@ -520,66 +522,66 @@ void Tab::DisplayingNewDirectory(const DirId dir_id)
 
 void Tab::DragEnterEvent(QDragEnterEvent *evt)
 {
-	const QMimeData *md = evt->mimeData();
-	
-	if (md->hasUrls())
-	{
+	const ui::DndType dt = ui::GetDndType(evt->mimeData());
+	if (dt != ui::DndType::None)
 		evt->acceptProposedAction();
-		return;
+}
+
+void Tab::DropEvent(QDropEvent *evt, const ForceDropToCurrentDir fdir)
+{
+	io::File *to_dir = nullptr;
+	if (fdir == ForceDropToCurrentDir::Yes)
+	{
+		to_dir = io::FileFromPath(current_dir());
+	} else if (evt->mimeData()->hasUrls()) {
+		auto &files = view_files();
+		MutexGuard guard = files.guard();
+		
+		if (view_mode_ == ViewMode::Details)
+		{
+			if (table_->IsOnFileName_NoLock(evt->pos(), &to_dir) != -1 && to_dir->is_dir_or_so()) {
+				mtl_trace();
+				to_dir = to_dir->Clone();
+			} else {
+				to_dir = io::FileFromPath(current_dir());
+			}
+		} else if (view_mode_ == ViewMode::Icons) {
+			to_dir = icon_view_->GetFileAt_NoLock(evt->pos(), Clone::No);
+		} else {
+			/// Otherwise drop onto current directory:
+			to_dir = io::FileFromPath(current_dir());
+		}
 	}
 	
-	const QString dbus_service_key = QLatin1String("application/x-kde-ark-dndextract-service");
-	const QString dbus_path_key = QLatin1String("application/x-kde-ark-dndextract-path");
-	
-	if (md->hasFormat(dbus_path_key) && md->hasFormat(dbus_service_key))
+	VOID_RET_IF(to_dir, nullptr);
+	AutoDelete ad(to_dir);
+	const QMimeData *md = evt->mimeData();
+	const ui::DndType dnd_type = ui::GetDndType(md);
+	if (dnd_type == ui::DndType::Ark)
 	{
+		const QString dbus_service_key = QLatin1String("application/x-kde-ark-dndextract-service");
+		const QString dbus_path_key = QLatin1String("application/x-kde-ark-dndextract-path");
 		const QString dbus_client = md->data(dbus_service_key);
 		const QString dbus_path = md->data(dbus_path_key);
-		QUrl url = QUrl::fromLocalFile(current_dir());
+		const QString dir_path = app_->tab()->current_dir();
+		QUrl url = QUrl::fromLocalFile(dir_path);
 		
 		QDBusMessage msg = QDBusMessage::createMethodCall(dbus_client, dbus_path,
 			QLatin1String("org.kde.ark.DndExtract"), QLatin1String("extractSelectedFilesTo"));
 		msg.setArguments({url.toDisplayString(QUrl::PreferLocalFile)});
 		QDBusConnection::sessionBus().call(msg, QDBus::NoBlock);
-	}
-}
-
-void Tab::DropEvent(QDropEvent *evt)
-{
-	if (evt->mimeData()->hasUrls())
-	{
-		io::File *to_dir = nullptr;
-		{
-			auto &files = view_files();
-			MutexGuard guard = files.guard();
-			
-			if (view_mode_ == ViewMode::Details)
-			{
-				if (table_->IsOnFileName_NoLock(evt->pos(), &to_dir) != -1 && to_dir->is_dir_or_so()) {
-					to_dir = to_dir->Clone();
-				}
-			} else if (view_mode_ == ViewMode::Icons) {
-				to_dir = icon_view_->GetFileAt_NoLock(evt->pos(), Clone::No);
-			} else {
-				/// Otherwise drop onto current directory:
-				to_dir = io::FileFromPath(current_dir());
-			}
-		}
+	} else if (dnd_type == ui::DndType::Urls) {
+		QVector<io::File*> *files_vec = new QVector<io::File*>();
 		
-		if (to_dir != nullptr)
+		for (const QUrl &url: evt->mimeData()->urls())
 		{
-			AutoDelete ad(to_dir);
-			QVector<io::File*> *files_vec = new QVector<io::File*>();
-			
-			for (const QUrl &url: evt->mimeData()->urls())
-			{
-				io::File *file = io::FileFromPath(url.path());
-				if (file != nullptr)
-					files_vec->append(file);
-			}
-			
-			ExecuteDrop(files_vec, to_dir, evt->proposedAction(), evt->possibleActions());
+			io::File *file = io::FileFromPath(url.path());
+			if (file != nullptr)
+				files_vec->append(file);
 		}
+		ExecuteDrop(files_vec, to_dir, evt->proposedAction(), evt->possibleActions());
+	} else {
+		mtl_warn();
 	}
 }
 
@@ -608,8 +610,10 @@ void Tab::ExecuteDrop(QVector<io::File*> *files_vec,
 	
 	ba->set_msg_id(io_operation);
 	ba->add_string(to_dir_path);
+	//mtl_info("to_dir_path: %s", qPrintable(to_dir_path));
 	
 	for (io::File *next: *files_vec) {
+		//mtl_info("build_full_path(): %s", qPrintable(next->build_full_path()));
 		ba->add_string(next->build_full_path());
 	}
 	
@@ -927,6 +931,10 @@ void Tab::HandleMouseRightClickSelection(const QPoint &pos, QSet<int> &indices)
 
 void Tab::Init()
 {
+	setFocusPolicy(Qt::WheelFocus);
+	// enables receiving ordinary mouse events (when mouse is not down)
+	setMouseTracking(true);
+	
 	notify_.Init();
 	files_id_ = app_->GenNextFilesId();
 	history_ = new History(app_);
@@ -1218,7 +1226,7 @@ void Tab::ScrollToFile(const int file_index)
 	}
 	}
 }
-
+ 
 void Tab::SetTitle(const QString &s)
 {
 	title_ = s;

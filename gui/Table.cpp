@@ -197,7 +197,7 @@ void Table::dragMoveEvent(QDragMoveEvent *evt)
 void Table::dropEvent(QDropEvent *evt)
 {
 	mouse_down_ = false;
-	tab_->DropEvent(evt);
+	tab_->DropEvent(evt, ForceDropToCurrentDir::No);
 	ClearDndAnimation(drop_coord_);
 	drop_coord_ = {-1, -1};
 }

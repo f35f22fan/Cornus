@@ -23,12 +23,14 @@ TaskGui::TaskGui(io::Task *task): task_(task)
 	CreateGui();
 	
 	timer_ = new QTimer(this);
+	timer_->setTimerType(Qt::PreciseTimer);
 	connect(timer_, &QTimer::timeout, this,
 		QOverload<>::of(&TaskGui::CheckTaskState));
 	timer_->start(200);
-	
+
 	auto new_state = task_->data().GetState(nullptr);
 	TaskStateChanged(new_state);
+	
 }
 
 TaskGui::~TaskGui()
@@ -45,8 +47,8 @@ void TaskGui::CheckTaskState()
 	static io::TaskState last_state = io::TaskState::None;
 	const io::TaskState state = task_->data().GetState(&task_question_);
 
-	if (state & (io::TaskState::Finished | io::TaskState::Abort)) {
-///		mtl_info("Finished! Removing task GUI");
+	if (state & (io::TaskState::Finished | io::TaskState::Abort))
+	{
 		tasks_win_->TaskDone(this, state);
 		return;
 	}
@@ -310,8 +312,8 @@ TaskGui::PresentUserFileExistsQuestion()
 	
 	file_exists_list_.line_edit->setText(s);
 
-	setFocus();
 	tasks_win_->setVisible(true);
+	setFocus();
 }
 
 void
@@ -326,8 +328,8 @@ TaskGui::PresentUserWriteFailedQuestion()
 	
 	write_failed_list_.line_edit->setText(s);
 
-	setFocus();
 	tasks_win_->setVisible(true);
+	setFocus();
 }
 
 void

@@ -86,13 +86,14 @@ public:
 	void RunExecutable(const QString &full_path, const ExecInfo &info);
 	void SaveBookmarks();
 	void SelectCurrentTab();
+	void SelectTabAt(const int tab_index);
 	bool ShowInputDialog(const gui::InputDialogParams &params, QString &ret_val);
 	
-	void SubmitThumbLoaderWork(ThumbLoaderArgs *new_work);
 	void SubmitThumbLoaderBatchFromTab(QVector<ThumbLoaderArgs*> *new_work_vec, const TabId tab_id, const DirId dir_id);
 	gui::Tab* tab() const; // returns current tab
 	gui::Tab* tab(const TabId id, int *ret_index = nullptr);
-	QTabWidget* tab_widget() const { return tab_widget_; }
+	gui::Tab* tab_at(const int tab_index) const;
+	gui::TabsWidget* tab_widget() const { return tab_widget_; }
 	
 	gui::TreeModel* tree_model() const { return tree_model_; }
 	gui::TreeView* tree_view() const { return tree_view_; }
@@ -113,6 +114,7 @@ public Q_SLOTS:
 	
 protected:
 	bool event(QEvent *event) override;
+	void showEvent(QShowEvent *evt) override;
 	
 private:
 	NO_ASSIGN_COPY_MOVE(App);
@@ -179,7 +181,8 @@ private:
 	QHash<QString, Category> possible_categories_;
 	ThemeType theme_type_ = ThemeType::None;
 	Media *media_ = nullptr;
-	QTabWidget *tab_widget_ = nullptr;
+	gui::TabBar *tab_bar_ = nullptr;
+	gui::TabsWidget *tab_widget_ = nullptr;
 	cornus::GuiBits gui_bits_ = {};
 	HashInfo root_hash_ = {};
 	QVector<io::SaveThumbnail> thumbnails_to_save_;

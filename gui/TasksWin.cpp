@@ -27,8 +27,7 @@ TasksWin::TasksWin()
 TasksWin::~TasksWin() {
 }
 
-void
-TasksWin::add(io::Task *task)
+void TasksWin::add(cornus::io::Task *task)
 {
 	auto *task_gui = TaskGui::From(task, this);
 	
@@ -36,12 +35,9 @@ TasksWin::add(io::Task *task)
 		layout_->addWidget(task_gui);
 		adjustSize();
 	}
-	
-	task->StartIO();
 }
 
-void
-TasksWin::CreateGui()
+void TasksWin::CreateGui()
 {
 	main_widget_ = new QWidget();
 	setCentralWidget(main_widget_);
@@ -64,7 +60,6 @@ QSize TasksWin::maximumSize() const {
 	return QSize(win_w_, sizeHint().height());
 }
 
-
 void TasksWin::TaskDone(TaskGui *tg, const io::TaskState state)
 {
 	layout_->removeWidget(tg);
@@ -72,7 +67,7 @@ void TasksWin::TaskDone(TaskGui *tg, const io::TaskState state)
 	adjustSize();
 	
 	if (layout_->count() == 0) {
-///		mtl_info("no more tasks! hiding");
+		//mtl_info("No more tasks! hiding");
 		setVisible(false);
 	}
 }

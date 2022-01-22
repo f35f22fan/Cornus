@@ -35,8 +35,10 @@
 #include "gui/SearchPane.hpp"
 #include "gui/sidepane.hh"
 #include "gui/Tab.hpp"
+#include "gui/TabBar.hpp"
 #include "gui/Table.hpp"
 #include "gui/TableModel.hpp"
+#include "gui/TabsWidget.hpp"
 #include "gui/TextEdit.hpp"
 #include "gui/ToolBar.hpp"
 #include "gui/TreeItem.hpp"
@@ -72,11 +74,13 @@
 #include <QPushButton>
 #include <QScrollBar>
 #include <QShortcut>
+#include <QShowEvent>
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QToolButton>
 #include <QUrl>
 
+#include <sched.h>
 #include <glib.h>
 #include <polkit/polkit.h>
 //#include <polkitagent/polkitagent.h>
@@ -272,9 +276,9 @@ App::App()
 	prefs_->Load();
 	
 	{
-		tab_widget_ = new QTabWidget();
-		tab_widget_->setTabsClosable(true);
-		tab_widget_->setTabBarAutoHide(true);
+		tab_widget_ = new gui::TabsWidget();
+		tab_bar_ = new gui::TabBar(this);
+		tab_widget_->SetTabBar(tab_bar_);
 		connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &App::DeleteTabAt);
 		connect(tab_widget_, &QTabWidget::currentChanged, this, &App::TabSelected);
 		OpenNewTab(FirstTime::Yes);
@@ -630,15 +634,15 @@ void App::CreateGui()
 void App::CreateFilesViewPane()
 {
 	QWidget *table_pane = new QWidget();
-	QBoxLayout *vlayout = new QBoxLayout(QBoxLayout::TopToBottom);
-	vlayout->setContentsMargins(0, 0, 0, 0);
-	vlayout->setSpacing(0);
-	table_pane->setLayout(vlayout);
+	QBoxLayout *vert_layout = new QBoxLayout(QBoxLayout::TopToBottom);
+	vert_layout->setContentsMargins(0, 0, 0, 0);
+	vert_layout->setSpacing(0);
+	table_pane->setLayout(vert_layout);
 	
-	vlayout->addWidget(tab_widget_);
+	vert_layout->addWidget(tab_widget_);
 	
 	search_pane_ = new gui::SearchPane(this);
-	vlayout->addWidget(search_pane_);
+	vert_layout->addWidget(search_pane_);
 	search_pane_->setVisible(false);
 	
 	main_splitter_->addWidget(table_pane);
@@ -1108,15 +1112,101 @@ QColor App::hover_bg_color_gray(const QColor &c) const
 	return (avg >= 240) ? c.lighter(140) : lght;
 }
 
+Range get_policy_range(const int policy)
+{
+	const int min = sched_get_priority_min(policy);
+	const int max = sched_get_priority_max(policy);
+	if (min == -1 || max == -1) {
+		mtl_status(errno);
+		return Range::Invalid();
+	}
+	
+	mtl_info("Policy: %d, min: %d, max: %d", policy, min, max);
+	
+	return Range{.min = min, .max = max};
+}
+
+void SetThreadPolicyAndPriority(const pthread_t &th, const int policy,
+	const int priority)
+{
+	pthread_attr_t th_attr;
+	sched_param th_param = {};
+	int status = pthread_attr_init (&th_attr);
+	if (status != 0)
+	{
+		mtl_status(status);
+		return;
+	}
+	
+	status = pthread_attr_setschedpolicy(&th_attr, policy);
+	if (status != 0)
+	{
+		mtl_status(status);
+		return;
+	}
+	status = pthread_attr_getschedparam (&th_attr, &th_param);
+	if (status != 0)
+	{
+		mtl_status(status);
+		return;
+	}
+	th_param.sched_priority = priority;
+	
+	status = pthread_setschedparam(th, policy, &th_param);
+	if (status != 0)
+	{
+		mtl_status(status);
+	}
+}
+
 void App::InitThumbnailPoolIfNeeded()
 {
 	if (!global_thumb_loader_data_.threads.isEmpty())
 		return;
 	
+	int status;
+	if (false)
+	{
+		static bool first_time = true;
+		if (first_time)
+		{
+			first_time = false;
+			SetThreadPolicyAndPriority(pthread_self(), SCHED_RR, 2);
+		}
+		
+		pthread_attr_t th_attr;
+		status = pthread_attr_init (&th_attr);
+		if (status != 0)
+		{
+			mtl_status(status);
+			return;
+		}
+		
+		int current_policy;
+		status = pthread_attr_getschedpolicy(&th_attr, &current_policy);
+		if (status != 0)
+		{
+			mtl_status(status);
+			return;
+		}
+		
+		mtl_info("Current policy: %d", current_policy);
+		const Range range = get_policy_range(current_policy);
+		VOID_RET_IF(range.is_valid(), false);
+		
+		mtl_info("Policy SCHED_OTHER: %d", SCHED_OTHER);
+		get_policy_range(SCHED_OTHER);
+		
+		mtl_info("Policy SCHED_FIFO: %d", SCHED_FIFO);
+		get_policy_range(SCHED_FIFO);
+		
+		mtl_info("Policy SCHED_RR: %d", SCHED_RR);
+		get_policy_range(SCHED_RR);
+	}
+	
 	pthread_t th;
 	// leave a thread for other background tasks
-	const int max_thread_count = std::max(1, AvailableCpuCores() - 1);
-	int status;
+	const int max_thread_count = std::max(1, AvailableCpuCores()/* - 1*/);
 	for (int i = 0; i < max_thread_count; i++)
 	{
 		ThumbLoaderData *thread_data = new ThumbLoaderData();
@@ -1135,6 +1225,10 @@ void App::InitThumbnailPoolIfNeeded()
 	status = pthread_create(&th, NULL, thumbnail::LoadMonitor, &global_thumb_loader_data_);
 	if (status != 0)
 		mtl_status(status);
+	
+//	status = pthread_attr_destroy(&th_attr);
+//	if (status != 0)
+//		mtl_status(status);
 }
 
 void App::LaunchOrOpenDesktopFile(const QString &full_path,
@@ -1776,6 +1870,12 @@ void App::SelectCurrentTab()
 	TabSelected(tab_widget_->currentIndex());
 }
 
+void App::SelectTabAt(const int tab_index)
+{
+	if (tab_index != tab_widget_->currentIndex())
+		tab_widget_->setCurrentIndex(tab_index);
+}
+
 void App::SetupIconNames()
 {
 	const QString folder_name = QLatin1String("file_icons");
@@ -1800,6 +1900,11 @@ void App::SetupIconNames()
 	const QString shared_dir = QLatin1String("/usr/share/cornus/") + folder_name;
 	if (io::DirExists(shared_dir))
 		LoadIconsFrom(shared_dir);
+}
+
+void App::showEvent(QShowEvent *evt)
+{
+	mtl_info("spontaneous: %d", evt->spontaneous());
 }
 
 bool App::ShowInputDialog(const gui::InputDialogParams &params,
@@ -1851,14 +1956,6 @@ bool App::ShowInputDialog(const gui::InputDialogParams &params,
 	bool ok = dialog.exec();
 	ret_val = le->text();
 	return ok;
-}
-
-void App::SubmitThumbLoaderWork(ThumbLoaderArgs *new_work)
-{
-	auto global_guard = global_thumb_loader_data_.guard();
-	InitThumbnailPoolIfNeeded();
-	global_thumb_loader_data_.work_queue.append(new_work);
-	global_thumb_loader_data_.SignalWorkQueueChanged();
 }
 
 void App::SubmitThumbLoaderBatchFromTab(QVector<ThumbLoaderArgs*> *new_work_vec,
@@ -1928,6 +2025,11 @@ gui::Tab* App::tab(const TabId id, int *ret_index)
 	}
 	
 	return nullptr;
+}
+
+gui::Tab* App::tab_at(const int tab_index) const
+{
+	return (gui::Tab*) tab_widget_->widget(tab_index);
 }
 
 void App::TabSelected(const int index)

@@ -20,7 +20,6 @@ static const QString IOContinue = QLatin1String("IOContinue");
 static const QString IOCancel = QLatin1String("IOCancel");
 static const QString ExtractTo = QLatin1String("ExtractTo");
 static const QString ExtractHere = QLatin1String("ExtractHere");
-static const QString ShortcutsMap = QLatin1String("ShortcutsMap");
 static const QString MediaNewActor = QLatin1String("MediaNewActor");
 static const QString MediaNewDirector = QLatin1String("MediaNewDirector");
 static const QString MediaNewWriter = QLatin1String("MediaNewWriter");
@@ -29,4 +28,5 @@ static const QString MediaNewSubgenre = QLatin1String("MediaNewSubgenre");
 static const QString MediaNewCountry = QLatin1String("MediaNewCountry");
 static const QString MoveToTrash = QLatin1String("MoveToTrash");
 static const QString EditMovieTitle = QLatin1String("EditMovieTitle");
+static const QString ShowShortcuts = QLatin1String("ShowShortcuts");
 }

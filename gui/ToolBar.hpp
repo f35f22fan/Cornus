@@ -30,7 +30,7 @@ private:
 	void CreateGui();
 	void ProcessAction(const QString &action);
 	void ShowAboutThisAppDialog();
-	void ShowShortcutsMap();
+	void ShowShortcuts();
 	
 	QVector<QAction*> actions_;
 	cornus::App *app_ = nullptr;

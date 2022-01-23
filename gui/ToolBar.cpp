@@ -25,12 +25,12 @@ ToolBar::ToolBar(cornus::App *app): app_(app) {
 	CreateGui();
 }
 
-ToolBar::~ToolBar() {
-	for (auto *next: actions_) {
+ToolBar::~ToolBar()
+{
+	for (auto *next: actions_)
+	{
 		delete next;
 	}
-	
-	
 	
 	delete prefs_menu_;
 	delete history_menu_;
@@ -83,8 +83,8 @@ void ToolBar::CreateGui()
 	
 	Add(prefs_menu_, tr("Preferences.."), actions::Preferences,
 		QLatin1String("preferences-other"));
-	Add(prefs_menu_, tr("Shortcuts Map"), actions::ShortcutsMap,
-		QLatin1String("format-justify-left"));
+	Add(prefs_menu_, tr("Show &Shortcuts.."), actions::ShowShortcuts,
+		QLatin1String("go-next"));
 	Add(prefs_menu_, tr("Media Database"), NewMediaEntryAction,
 		QLatin1String("contact-new"));
 	Add(prefs_menu_, tr("About"), actions::AboutThisApp,
@@ -106,8 +106,8 @@ void ToolBar::ProcessAction(const QString &action)
 		ShowAboutThisAppDialog();
 	} else if (action == actions::Preferences) {
 		gui::PrefsPane pp(app_);
-	} else if (action == actions::ShortcutsMap) {
-		ShowShortcutsMap();
+	} else if (action == actions::ShowShortcuts) {
+		ShowShortcuts();
 	} else if (action == NewMediaEntryAction) {
 		gui::MediaDialog d(app_);
 	}
@@ -151,22 +151,27 @@ void ToolBar::ShowAboutThisAppDialog()
 //		return;
 }
 
-void ToolBar::ShowShortcutsMap()
+void ToolBar::ShowShortcuts()
 {
 	QString s;
 	
-	s += QLatin1String("Alt+Up => ") + tr("Move one directory up\n");
-	s += QLatin1String("Ctrl+H => ") + tr("Toggle show hidden files\n");
-	s += QLatin1String("Ctrl+Q => ") + tr("Quit app\n");
-	s += QLatin1String("Shift+Delete => ") + tr("Delete selected files\n");
-	s += QLatin1String("F2 => ") + tr("Rename selected file\n");
-	s += QLatin1String("Ctrl+I => ") + tr("Focus files table view\n");
-	s += QLatin1String("Ctrl+L => ") + tr("Focus address bar\n");
-	s += QLatin1String("Ctrl+A => ") + tr("Select all files\n");
-	s += QLatin1String("Ctrl+E => ") + tr("Toggle exec bit of selected file(s)\n");
-	s += QLatin1String("D => ") + tr("Display contents of selected file\n");
-	s += QLatin1String("Ctrl+F => ") + tr("Search for file by name, then hit Enter\n"
-	"    to search forward or Ctrl+Enter for backwards\n");
+	s += QLatin1String("Ctrl + T => ")  + tr("Open a new tab");
+	s += QLatin1String("\nCtrl + W => ") + tr("Close current tab");
+	s += QLatin1String("\nCtrl + R => ") + tr("Reload (list folder files anew)");
+	s += QLatin1String("\nAlt + Up => ") + tr("Go one directory up");
+	s += QLatin1String("\nCtrl + H => ") + tr("Toggle showing of hidden files");
+	s += QLatin1String("\nCtrl + Q => ") + tr("Quit app");
+	s += QLatin1String("\nShift + Delete => ") + tr("Delete selected files permanently, no confirmation asked.");
+	s += QLatin1String("\nF2 => ") + tr("Rename selected file");
+	s += QLatin1String("\nCtrl + I => ") + tr("Focus table");
+	s += QLatin1String("\nCtrl + L => ") + tr("Focus address bar");
+	s += QLatin1String("\nCtrl + A => ") + tr("Select all files");
+	s += QLatin1String("\nCtrl + E => ") + tr("Toggle exec bit of selected file(s)");
+	s += QLatin1String("\nD => ") + tr("Display contents of selected file");
+	s += QLatin1String("\nF => ") + tr("Switch view");
+	s += QLatin1String("\nCtrl + F => ") + tr("Search for file by name (then hit Enter to search forward or Ctrl+Enter for backwards)");
+	s += QLatin1String("\nCtrl + M => ") + tr("Search by (movie) file's metadata (see bottom of page)");
+	s += QLatin1String("\nCtrl + Shift + U => ") + tr("Remove thumbnail from selected files' extended attributes");
 	
 	app_->TellUser(s, tr("App Shortcuts"));
 }

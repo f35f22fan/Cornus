@@ -202,6 +202,7 @@ Tab::Tab(App *app, const TabId tab_id) : app_(app), id_(tab_id)
 
 Tab::~Tab()
 {
+mtl_info();
 	/// tab must be deleted before prefs_ because table_model_ calls 
 	/// into prefs().show_free_partition_space() in TableModel::GetName()
 	ShutdownLastInotifyThread();
@@ -210,7 +211,6 @@ Tab::~Tab()
 	delete history_;
 	history_ = nullptr;
 	app_->DeleteFilesById(files_id_);
-	
 	open_with_.Clear();
 	delete undo_delete_menu_;
 	undo_delete_menu_ = nullptr;

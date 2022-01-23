@@ -279,7 +279,7 @@ App::App()
 		tab_widget_ = new gui::TabsWidget();
 		tab_bar_ = new gui::TabBar(this);
 		tab_widget_->SetTabBar(tab_bar_);
-		connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &App::DeleteTabAt);
+		connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &App::CloseTabAt);
 		connect(tab_widget_, &QTabWidget::currentChanged, this, &App::TabSelected);
 		OpenNewTab(FirstTime::Yes);
 	}
@@ -323,54 +323,12 @@ App::App()
 
 App::~App()
 {
-	global_thumb_loader_data_.Lock();
-	int global_index = 0;
-	for (ThumbLoaderData *th_data: global_thumb_loader_data_.threads)
-	{
-		if (DebugThumbnailExit)
-			mtl_info("Terminating thread %d", global_index++);
-		// Terminate thumb loading threads if any
-		th_data->Lock();
-		th_data->wait_for_work = false;
-		th_data->SignalNewWorkAvailable();
-		th_data->Unlock();
-	}
+	ShutdownThumbnailThreads();
+	prefs_->Save();
 	
-	struct timespec till;
-	const long ms = 50 * 1000 * 1000;
-	
-	while (!global_thumb_loader_data_.threads.isEmpty())
-	{
-		auto &vec = global_thumb_loader_data_.threads;
-		for (int i = vec.size() - 1; i >= 0; i--)
-		{
-			ThumbLoaderData *item = vec[i];
-			item->Lock();
-			const bool exited = item->thread_exited;
-			item->Unlock();
-			if (exited)
-			{
-				if (DebugThumbnailExit)
-					mtl_info("Deleted thread at %d", i);
-				delete item;
-				vec.remove(i);
-			}
-		}
-		
-		if (DebugThumbnailExit)
-			mtl_trace();
-		
-		clock_gettime(CLOCK_MONOTONIC, &till);
-		till.tv_nsec += ms;
-		// wait for threads termination
-		global_thumb_loader_data_.CondTimedWait(&till);
-		if (DebugThumbnailExit)
-			mtl_trace();
-	}
-	global_thumb_loader_data_.Unlock();
-
 	QHashIterator<QString, QIcon*> i(icon_set_);
-	while (i.hasNext()) {
+	while (i.hasNext())
+	{
 		i.next();
 		QIcon *icon = i.value();
 		delete icon;
@@ -385,7 +343,6 @@ App::~App()
 		tree_data_.Unlock();
 	}
 	{
-		prefs_->Save();
 		/// table_ must be deleted before prefs_ because table_model_ calls 
 		/// into prefs().show_free_partition_space() in TableModel::GetName()
 		delete tab_widget_;
@@ -586,6 +543,23 @@ void App::ClipboardChanged(QClipboard::Mode mode)
 	tab()->table_model()->UpdateIndices(indices);
 }
 
+void App::CloseCurrentTab()
+{
+	CloseTabAt(tab_widget_->currentIndex());
+}
+
+void App::CloseTabAt(const int i)
+{
+	if (tab_widget_->count() == 1)
+	{
+		QApplication::quit();
+	} else {
+		auto *tab = tab_widget_->widget(i);
+		tab_widget_->removeTab(i);
+		delete tab;
+	}
+}
+
 void App::CreateGui()
 {
 	toolbar_ = new gui::ToolBar(this);
@@ -745,18 +719,6 @@ void App::DeleteFilesById(const i64 id)
 		files_.remove(id);
 		delete p;
 	}
-}
-
-void App::DeleteTabAt(const int i)
-{
-	auto *tab = tab_widget_->widget(i);
-	const bool do_exit = (tab_widget_->count() == 1);
-	
-	tab_widget_->removeTab(i);
-	delete tab;
-	
-	if (do_exit)
-		QApplication::quit();
 }
 
 void App::DetectThemeType()
@@ -1588,6 +1550,11 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
+		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_W), this);
+		shortcut->setContext(Qt::ApplicationShortcut);
+		connect(shortcut, &QShortcut::activated, this, &App::CloseCurrentTab);
+	}
+	{
 		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_Q), this);
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
@@ -1967,6 +1934,54 @@ bool App::ShowInputDialog(const gui::InputDialogParams &params,
 	return ok;
 }
 
+void App::ShutdownThumbnailThreads()
+{
+	global_thumb_loader_data_.Lock();
+	int global_index = 0;
+	for (ThumbLoaderData *th_data: global_thumb_loader_data_.threads)
+	{
+		if (DebugThumbnailExit)
+			mtl_info("Terminating thread %d", global_index++);
+		// Terminate thumb loading threads if any
+		th_data->Lock();
+		th_data->wait_for_work = false;
+		th_data->SignalNewWorkAvailable();
+		th_data->Unlock();
+	}
+	
+	struct timespec till;
+	const i64 ms = 50 * 1000 * 1000;
+	auto &threads_vec = global_thumb_loader_data_.threads;
+	while (!threads_vec.isEmpty())
+	{
+		for (int i = threads_vec.size() - 1; i >= 0; i--)
+		{
+			ThumbLoaderData *item = threads_vec[i];
+			item->Lock();
+			const bool exited = item->thread_exited;
+			item->Unlock();
+			if (exited)
+			{
+				if (DebugThumbnailExit)
+					mtl_info("Thread %d exited", i);
+				delete item;
+				threads_vec.remove(i);
+			}
+		}
+		
+		if (DebugThumbnailExit)
+			mtl_trace();
+		
+		clock_gettime(CLOCK_MONOTONIC, &till);
+		till.tv_nsec += ms;
+		// wait for threads termination
+		global_thumb_loader_data_.CondTimedWait(&till);
+		if (DebugThumbnailExit)
+			mtl_trace();
+	}
+	global_thumb_loader_data_.Unlock();
+}
+
 void App::SubmitThumbLoaderBatchFromTab(QVector<ThumbLoaderArgs*> *new_work_vec,
 	const TabId tab_id, const DirId dir_id)
 {
@@ -2043,7 +2058,9 @@ gui::Tab* App::tab_at(const int tab_index) const
 
 void App::TabSelected(const int index)
 {
-	if (location_ == nullptr) {
+	if (location_ == nullptr || index == -1)
+	{
+		// index can be -1 when Ctrl+W the only existing tab.
 		return;
 	}
 	gui::Tab *tab = (gui::Tab*)tab_widget_->widget(index);

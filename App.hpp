@@ -121,10 +121,11 @@ private:
 	
 	void ArchiveAskDestArchivePath(const QString &ext);
 	void ClipboardChanged(QClipboard::Mode mode);
+	void CloseTabAt(const int i);
+	void CloseCurrentTab();
 	void CreateFilesViewPane();
 	void CreateGui();
 	void CreateSidePane();
-	void DeleteTabAt(const int i);
 	void DetectThemeType();
 	void DisplayMime(io::File *file);
 	void DisplaySymlinkInfo(io::File &file);
@@ -141,6 +142,7 @@ private:
 	void RegisterVolumesListener();
 	void SaveThumbnail();
 	void SetupIconNames();
+	void ShutdownThumbnailThreads();
 	void TabSelected(const int i);
 	
 	QVector<QString> search_icons_dirs_;

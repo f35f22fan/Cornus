@@ -35,15 +35,6 @@ void TabBar::dragLeaveEvent(QDragLeaveEvent *evt)
 
 void TabBar::dragMoveEvent(QDragMoveEvent *evt)
 {
-	static bool first_time = true;
-	if (first_time) {
-		first_time = false;
-		mtl_trace();
-	}
-//	const ui::DndType dt = ui::GetDndType(evt->mimeData());
-//	if (dt == ui::DndType::None)
-//		return;
-	
 	const auto &pos = evt->pos();
 	const int tab_index = tabAt(pos);
 	if (tab_index != -1) {

@@ -938,17 +938,18 @@ void App::ExtractTo(const QString &to_dir)
 	process.startDetached();
 }
 
-void App::FileDoubleClicked(io::File *file, const gui::Column col)
+void App::FileDoubleClicked(io::File *file, const PickBy pb)
 {
 	cornus::AutoDelete ad(file);
 
-	if (col == gui::Column::Icon) {
+	if (pb == PickBy::Icon)
+	{
 		if (file->is_symlink()) {
 			DisplaySymlinkInfo(*file);
 		} else {
 			DisplayFileContents(-1, file->Clone());
 		}
-	} else if (col == gui::Column::FileName) {
+	} else if (pb == PickBy::VisibleName) {
 		if (file->is_dir()) {
 			QString full_path = file->build_full_path();
 			tab()->GoTo(Action::To, {full_path, Processed::No});
@@ -1662,8 +1663,12 @@ void App::RegisterVolumesListener()
 	//g_signal_connect(monitor, "mount-changed", (GCallback)MountChanged, this);
 }
 
-void App::Reload() {
-	tab()->GoTo(Action::Reload, {tab()->current_dir(), Processed::Yes}, Reload::Yes);
+void App::Reload()
+{
+	gui::Tab *tab = this->tab();
+	const int vscroll = tab->GetScrollValue();
+	tab->GoTo(Action::Reload, {tab->current_dir(), Processed::Yes}, Reload::Yes);
+	tab->SetScrollValue(vscroll);
 }
 
 void App::RemoveAllThumbTasksExcept(const DirId dir_id)

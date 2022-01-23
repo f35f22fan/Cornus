@@ -224,6 +224,34 @@ io::File* Table::GetFileAt_NoLock(const QPoint &pos, const Clone clone, int *ret
 	return (clone == Clone::Yes) ? file->Clone() : file;
 }
 
+
+i32 Table::GetFileAt_NoLock(const QPoint &local_pos, const PickBy pb, io::File **ret_file)
+{
+	const Column col = static_cast<Column>(columnAt(local_pos.x()));
+	const Column curr = (pb == PickBy::Icon) ? Column::Icon : Column::FileName;
+	if (col != curr)
+			return -1;
+	
+	io::File *file = GetFileAt_NoLock(local_pos, Clone::No);
+	if (file == nullptr)
+		return -1;
+	
+	if (pb == PickBy::VisibleName)
+	{
+		QFontMetrics fm = fontMetrics();
+		const int name_w = std::max(delegate_->min_name_w(), fm.horizontalAdvance(file->name()));
+		const int absolute_name_end = name_w + columnViewportPosition((int)col);
+		
+		if (local_pos.x() > absolute_name_end + gui::FileNameRelax)
+			return -1;
+	}
+	
+	if (ret_file != nullptr)
+		*ret_file = file;
+	
+	return rowAt(local_pos.y());
+}
+
 int Table::GetRowHeight() const { return verticalHeader()->defaultSectionSize(); }
 
 void Table::GetSelectedFileNames(QVector<QString> &names, const StringCase str_case)
@@ -262,9 +290,9 @@ void Table::HiliteFileUnderMouse()
 	{
 		io::Files &files = tab_->view_files();
 		MutexGuard guard = files.guard();
-		name_row = IsOnFileName_NoLock(mouse_pos_, nullptr);
+		name_row = GetFileAt_NoLock(mouse_pos_, PickBy::VisibleName);
 		if (name_row == -1)
-			icon_row = IsOnFileIcon_NoLock(mouse_pos_, nullptr);
+			icon_row = GetFileAt_NoLock(mouse_pos_, PickBy::Icon);
 	}
 	
 	if (icon_row != mouse_over_file_icon_) {
@@ -282,45 +310,6 @@ void Table::HiliteFileUnderMouse()
 	}
 	
 	model_->UpdateIndices(indices);
-}
-
-i32 Table::IsOnFileIcon_NoLock(const QPoint &local_pos, io::File **ret_file)
-{
-	i32 col = columnAt(local_pos.x());
-	if (col != (int)Column::Icon) {
-		return -1;
-	}
-	io::File *file = GetFileAt_NoLock(local_pos, Clone::No);
-	if (file == nullptr)
-		return -1;
-	
-	if (ret_file != nullptr)
-		*ret_file = file;
-	
-	return rowAt(local_pos.y());
-}
-
-i32 Table::IsOnFileName_NoLock(const QPoint &local_pos, io::File **ret_file)
-{
-	i32 col = columnAt(local_pos.x());
-	ret_if_not(col, (int)Column::FileName, -1);
-	
-	io::File *file = GetFileAt_NoLock(local_pos, Clone::No);
-	ret_if(file, nullptr, -1);
-	
-	QFontMetrics fm = fontMetrics();
-	int name_w = fm.horizontalAdvance(file->name());
-	if (name_w < delegate_->min_name_w())
-		name_w = delegate_->min_name_w();
-	const int absolute_name_end = name_w + columnViewportPosition(col);
-	
-	if (local_pos.x() > absolute_name_end + gui::FileNameRelax)
-		return -1;
-	
-	if (ret_file != nullptr)
-		*ret_file = file;
-	
-	return rowAt(local_pos.y());
 }
 
 void Table::keyPressEvent(QKeyEvent *evt)
@@ -350,21 +339,23 @@ void Table::mouseDoubleClickEvent(QMouseEvent *evt)
 	i32 col = columnAt(evt->pos().x());
 	auto *app = model_->app();
 	
-	if (evt->button() == Qt::LeftButton) {
-		if (col == i32(Column::FileName)) {
+	if (evt->button() == Qt::LeftButton)
+	{
+		if (col == i32(Column::FileName))
+		{
 			io::Files &files = tab_->view_files();
 			io::File *cloned_file = nullptr;
 			{
 				MutexGuard guard = files.guard();
 				io::File *file = nullptr;
-				int row = IsOnFileName_NoLock(evt->pos(), &file);
+				const int row = GetFileAt_NoLock(evt->pos(), PickBy::VisibleName, &file);
 				Q_UNUSED(row);
 				if (file != nullptr)
 					cloned_file = file->Clone();
 			}
 			
 			if (cloned_file)
-				app->FileDoubleClicked(cloned_file, Column::FileName);
+				app->FileDoubleClicked(cloned_file, PickBy::VisibleName);
 		}
 	}
 }
@@ -452,7 +443,7 @@ void Table::mouseReleaseEvent(QMouseEvent *evt)
 			}
 			if (cloned_file) {
 				app_->hid()->SelectFileByIndex(tab_, file_index, DeselectOthers::Yes);
-				app_->FileDoubleClicked(cloned_file, Column::Icon);
+				app_->FileDoubleClicked(cloned_file, PickBy::Icon);
 			}
 		}
 	}

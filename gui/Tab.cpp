@@ -129,6 +129,7 @@ void* GoToTh(void *p)
 		params->dir_path.path.append('/');
 	
 	io::FilesData *new_data = new io::FilesData();
+	new_data->reloaded(params->reload);
 	io::Files &view_files = *app->files(tab->files_id());
 	{
 		MutexGuard guard = view_files.guard();
@@ -542,7 +543,9 @@ void Tab::DropEvent(QDropEvent *evt, const ForceDropToCurrentDir fdir)
 		
 		if (view_mode_ == ViewMode::Details)
 		{
-			if (table_->IsOnFileName_NoLock(evt->pos(), &to_dir) != -1 && to_dir->is_dir_or_so()) {
+			if (table_->GetFileAt_NoLock(evt->pos(), PickBy::VisibleName, &to_dir) != -1
+				&& to_dir->is_dir_or_so())
+			{
 				to_dir = to_dir->Clone();
 			} else {
 				to_dir = io::FileFromPath(current_dir());
@@ -633,6 +636,19 @@ void Tab::FilesChanged(const FileCountChanged fcc, const int row)
 	}
 }
 
+int Tab::GetScrollValue() const
+{
+	if (view_mode_ == ViewMode::Details)
+	{
+		return table_->scrollbar()->value();
+	} else if (view_mode_ == ViewMode::Icons) {
+		return icon_view_->scrollbar()->value();
+	} else {
+		mtl_trace();
+		return -1;
+	}
+}
+
 int Tab::GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file,
 	QString *full_path)
 {
@@ -642,7 +658,7 @@ int Tab::GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file,
 	io::File *file = nullptr;
 	int file_index;
 	if (view_mode_ == ViewMode::Details) {
-		file_index = table_->IsOnFileName_NoLock(local_pos, &file);
+		file_index = table_->GetFileAt_NoLock(local_pos, PickBy::VisibleName, &file);
 	} else {
 		file = icon_view_->GetFileAt_NoLock(local_pos, Clone::Yes, &file_index);
 	}
@@ -698,7 +714,7 @@ bool Tab::GoTo(const Action action, DirPath dp, const cornus::Reload r)
 	GoToParams *params = new GoToParams();
 	params->tab = this;
 	params->dir_path = dp;
-	params->reload = r == Reload::Yes;
+	params->reload = (r == Reload::Yes);
 	params->action = action;
 	
 	pthread_t th;
@@ -724,7 +740,7 @@ void Tab::GoToFinish(cornus::io::FilesData *new_data)
 	current_dir_ = new_data->processed_dir_path;
 	bool got_files_to_select;
 	{
-		io::Files &files = *app_->files(files_id());
+		io::Files &files = view_files();
 		got_files_to_select = !files.data.filenames_to_select.isEmpty();
 	}
 	table_model_->SwitchTo(new_data);
@@ -735,7 +751,7 @@ void Tab::GoToFinish(cornus::io::FilesData *new_data)
 		history_->GetSelectedFiles(list);
 		table_->SelectByLowerCase(list, NamesAreLowerCase::Yes);
 	} else if (new_data->scroll_to_and_select.isEmpty()) {
-		if (!got_files_to_select)
+		if (!new_data->reloaded() && !got_files_to_select)
 			ScrollToFile(0);
 	}
 	
@@ -908,7 +924,7 @@ void Tab::HandleMouseRightClickSelection(const QPoint &pos, QSet<int> &indices)
 	int file_index =  -1;
 	if (view_mode_ == ViewMode::Details)
 	{
-		file_index = table_->IsOnFileName_NoLock(pos, &file);
+		file_index = table_->GetFileAt_NoLock(pos, PickBy::VisibleName, &file);
 		shift_select = table_->shift_select();
 	} else if (view_mode_ == ViewMode::Icons) {
 		file = icon_view_->GetFileAt_NoLock(pos, Clone::No, &file_index);
@@ -960,6 +976,8 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 			ActionCut();
 		else if (key == Qt::Key_V) {
 			ActionPaste();
+		} else if (key == Qt::Key_R) {
+			app_->Reload();
 		}
 		
 		if (shift) {
@@ -978,7 +996,7 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 			io::File *cloned_file = nullptr;
 			int row = files.GetFirstSelectedFile_Lock(&cloned_file);
 			if (row != -1) {
-				app->FileDoubleClicked(cloned_file, Column::FileName);
+				app->FileDoubleClicked(cloned_file, PickBy::VisibleName);
 				indices.insert(row);
 			}
 		}
@@ -1227,7 +1245,21 @@ void Tab::ScrollToFile(const int file_index)
 	}
 	}
 }
- 
+
+void Tab::SetScrollValue(const int n)
+{
+	if (n == -1)
+		return;
+	
+	if (view_mode_ == ViewMode::Details) {
+		table_->scrollbar()->setValue(n);
+	} else if (view_mode_ == ViewMode::Icons) {
+		return icon_view_->scrollbar()->setValue(n);
+	} else {
+		mtl_trace();
+	}
+}
+
 void Tab::SetTitle(const QString &s)
 {
 	title_ = s;

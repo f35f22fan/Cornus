@@ -65,6 +65,8 @@ public:
 	TabId id() const { return id_; }
 	i64 files_id() const { return files_id_; }
 	void FilesChanged(const FileCountChanged fcc, const int row = -1);
+	int GetScrollValue() const;
+	void SetScrollValue(const int n);
 	void GetSelectedArchives(QVector<QString> &urls);
 	void GoBack();
 	void GoForward();

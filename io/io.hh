@@ -154,6 +154,7 @@ struct FilesData {
 	static const u16 ThreadExited = 1u << 2;
 	static const u16 CanWriteToDir = 1u << 3;
 	static const u16 CountDirFiles1Level = 1u << 4;
+	static const u16 Reloaded = 1u << 5;
 	
 	FilesData() {}
 	~FilesData();
@@ -196,6 +197,14 @@ struct FilesData {
 			bits_ |= CountDirFiles1Level;
 		else
 			bits_ &= ~CountDirFiles1Level;
+	}
+	
+	bool reloaded() const { return bits_ & Reloaded; }
+	void reloaded(const bool flag) {
+		if (flag)
+			bits_ |= Reloaded;
+		else
+			bits_ &= ~Reloaded;
 	}
 	
 	bool show_hidden_files() const { return bits_ & ShowHiddenFiles; }

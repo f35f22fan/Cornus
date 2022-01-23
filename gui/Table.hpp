@@ -28,16 +28,16 @@ public:
 	void AutoScroll(const VDirection d);
 	bool CheckIsOnFileName(io::File *file, const int file_row, const QPoint &pos) const;
 	void ClearMouseOver();
-	TableHeader* header() const { return header_; }
-	int IsOnFileName(const QPoint &pos);
-	TableModel* model() const { return model_; }
 	const QPoint& drop_coord() const { return drop_coord_; }
+	i32 GetFileAt_NoLock(const QPoint &local_pos, const PickBy pb, io::File **ret_file = nullptr);
 	io::File* GetFileAt_NoLock(const QPoint &pos, const Clone clone, int *ret_file_index = nullptr);
+	TableHeader* header() const { return header_; }
+	TableModel* model() const { return model_; }
+	
 	void GetSelectedFileNames(QVector<QString> &names,
 		const StringCase str_case = StringCase::AsIs);
 	int GetRowHeight() const;
 	i32 GetVisibleRowsCount() const;
-	i32 IsOnFileName_NoLock(const QPoint &local_pos, io::File **ret_file = nullptr);
 	bool mouse_down() const { return mouse_down_; }
 	i32 mouse_over_file_icon_index() const { return mouse_over_file_icon_; }
 	i32 mouse_over_file_name_index() const { return mouse_over_file_name_; }

@@ -26,21 +26,22 @@ You can use Cornus as is, no need to install it. However, Cornus can also perfor
 * MTP to deal with Android devices
 
 ##### Application Shortcuts:
-* Ctrl+T => Open a new tab
-* Alt+Up => Go one directory up
-* Ctrl+H => Toggle showing of hidden files
-* Ctrl+Q => Quit app
-* Shift+Delete => Delete selected files permanently, no confirmation asked.
+* Ctrl + T => Open a new tab
+* Ctrl + R => Reload (list folder files anew)
+* Alt + Up => Go one directory up
+* Ctrl + H => Toggle showing of hidden files
+* Ctrl + Q => Quit app
+* Shift + Delete => Delete selected files permanently, no confirmation asked.
 * F2 => Rename selected file
-* Ctrl+I => Focus table
-* Ctrl+L => Focus address bar
-* Ctrl+A => Select all files
-* Ctrl+E => Toggle exec bit of selected file(s)
+* Ctrl + I => Focus table
+* Ctrl + L => Focus address bar
+* Ctrl + A => Select all files
+* Ctrl + E => Toggle exec bit of selected file(s)
 * D => Display contents of selected file
 * F => Switch view
-* Ctrl+F => Search for file by name (then hit Enter to search forward or Ctrl+Enter for backwards)
-* Ctrl+M => Search by (movie) file's metadata (see bottom of page)
-* Ctrl+Shift+U => Remove thumbnail from selected files' extended attributes
+* Ctrl + F => Search for file by name (then hit Enter to search forward or Ctrl+Enter for backwards)
+* Ctrl + M => Search by (movie) file's metadata (see bottom of page)
+* Ctrl + Shift + U => Remove thumbnail from selected files' extended attributes
 
 ---
 ### Screenshot with dark theme:

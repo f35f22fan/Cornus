@@ -37,6 +37,11 @@ struct Range {
 	static Range Invalid() { return Range{}; }
 };
 
+enum class PickBy: i8 {
+	Icon,
+	VisibleName,
+};
+
 enum class ForceDropToCurrentDir: i8 {
 	Yes,
 	No

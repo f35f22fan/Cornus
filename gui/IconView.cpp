@@ -329,7 +329,7 @@ void IconView::mouseDoubleClickEvent(QMouseEvent *evt)
 	int row;
 	io::File *file = GetFileAt_NoLock(evt->pos(), Clone::Yes, &row);
 	if (file) {
-		app_->FileDoubleClicked(file, Column::FileName);
+		app_->FileDoubleClicked(file, PickBy::VisibleName);
 		UpdateIndex(row);
 	}
 }
@@ -404,7 +404,8 @@ void IconView::mouseReleaseEvent(QMouseEvent *evt)
 	
 	UpdateIndices(indices);
 	
-	if (evt->button() == Qt::LeftButton) {
+	if (evt->button() == Qt::LeftButton)
+	{
 		const i32 col = (i32)Column::FileName;//columnAt(evt->pos().x());
 		if (col == i32(Column::Icon))
 		{
@@ -417,7 +418,7 @@ void IconView::mouseReleaseEvent(QMouseEvent *evt)
 			}
 			if (cloned_file) {
 				app_->hid()->SelectFileByIndex(tab_, file_index, DeselectOthers::Yes);
-				app_->FileDoubleClicked(cloned_file, Column::Icon);
+				app_->FileDoubleClicked(cloned_file, PickBy::Icon);
 			}
 		}
 	}

@@ -50,7 +50,7 @@ public:
 	void EditSelectedMovieTitle();
 	void ExtractAskDestFolder();
 	void ExtractTo(const QString &to_dir);
-	void FileDoubleClicked(io::File *file, const gui::Column col);
+	void FileDoubleClicked(io::File *file, const PickBy pb);
 	io::Files* files(const i64 files_id) const;
 	QIcon* GetIcon(const QString &str);
 	QIcon* GetFileIcon(io::File *file);

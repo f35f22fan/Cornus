@@ -33,9 +33,6 @@ public:
 	io::File* GetFileAt_NoLock(const QPoint &pos, const Clone clone, int *ret_file_index = nullptr);
 	TableHeader* header() const { return header_; }
 	TableModel* model() const { return model_; }
-	
-	void GetSelectedFileNames(QVector<QString> &names,
-		const StringCase str_case = StringCase::AsIs);
 	int GetRowHeight() const;
 	i32 GetVisibleRowsCount() const;
 	bool mouse_down() const { return mouse_down_; }

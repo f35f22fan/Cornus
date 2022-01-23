@@ -515,10 +515,10 @@ void Tab::DeleteSelectedFiles(const ShiftPressed sp)
 	io::socket::SendAsync(ba, socket_path);
 }
 
-void Tab::DisplayingNewDirectory(const DirId dir_id)
+void Tab::DisplayingNewDirectory(const DirId dir_id, const Reload r)
 {
 	if (icon_view_ != nullptr)
-		icon_view_->DisplayingNewDirectory(dir_id);
+		icon_view_->DisplayingNewDirectory(dir_id, r);
 }
 
 void Tab::DragEnterEvent(QDragEnterEvent *evt)

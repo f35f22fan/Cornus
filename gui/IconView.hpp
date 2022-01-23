@@ -52,7 +52,7 @@ public:
 	IconView(App *app, Tab *tab, QScrollBar *vs);
 	virtual ~IconView();
 	
-	void DisplayingNewDirectory(const DirId dir_id);
+	void DisplayingNewDirectory(const DirId dir_id, const Reload r);
 	
 	int GetRowAtY(const int y, double *y_off = nullptr) const
 	{

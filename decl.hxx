@@ -37,6 +37,11 @@ struct Range {
 	static Range Invalid() { return Range{}; }
 };
 
+enum class Path: i8 {
+	OnlyName,
+	Full
+};
+
 enum class PickBy: i8 {
 	Icon,
 	VisibleName,

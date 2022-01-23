@@ -57,7 +57,7 @@ public:
 	const QString& current_dir() const { return current_dir_; }
 	QString CurrentDirTrashPath();
 	void DeleteSelectedFiles(const ShiftPressed sp);
-	void DisplayingNewDirectory(const DirId dir_id);
+	void DisplayingNewDirectory(const DirId dir_id, const Reload r);
 	void DragEnterEvent(QDragEnterEvent *evt);
 	void DropEvent(QDropEvent *evt, const ForceDropToCurrentDir fdir);
 	void ExecuteDrop(QVector<io::File *> *files_vec, io::File *to_dir,

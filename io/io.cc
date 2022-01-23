@@ -86,6 +86,34 @@ int Files::GetSelectedFilesCount_Lock(QVector<QString> *extensions)
 	return selected_count;
 }
 
+void Files::GetSelectedFileNames(QVector<QString> &names,
+	const Path path,
+	const StringCase str_case)
+{
+	MutexGuard guard = this->guard();
+	const bool OnlyName = (path == Path::OnlyName);
+	for (io::File *next: data.vec)
+	{
+		if (next->is_selected()) {
+			switch (str_case) {
+			case StringCase::AsIs: {
+				names.append(OnlyName ? next->name() : next->build_full_path());
+				break;
+			}
+			case StringCase::Lower: {
+				names.append(OnlyName ? next->name_lower()
+					: next->build_full_path().toLower());
+				break;
+			}
+			default: {
+				mtl_trace();
+			}
+			} /// switch()
+		}
+	}
+	
+}
+
 QPair<int, int> Files::ListSelectedFiles_Lock(QList<QUrl> &list)
 {
 	MutexGuard guard = this->guard();

@@ -522,10 +522,6 @@ void TableModel::InotifyBatchFinished()
 		if (select_list.isEmpty() || files.data.should_skip_selecting())
 			return;
 		
-#ifdef CORNUS_DEBUG_INOTIFY_BATCH
-mtl_info("==> New Batch ==>>");
-#endif
-
 		QVector<io::File*> &files_vec = files.data.vec;
 		auto it = select_list.begin();
 		const int files_count = files_vec.size();
@@ -537,29 +533,21 @@ mtl_info("==> New Batch ==>>");
 			for (int i = 0; i < files_count; i++)
 			{
 				io::File *file = files_vec[i];
-				if (file->name() == name) {
+				if (file->name() == name)
+				{
 					indices.insert(i);
 					file->set_selected(true);
-#ifdef CORNUS_DEBUG_INOTIFY_BATCH
-					mtl_info("Selected: %s", qPrintable(name));
-#endif
 					it = select_list.erase(it);
 					found = true;
 					break;
 				}
 			}
 			if (!found) {
-#ifdef CORNUS_DEBUG_INOTIFY_BATCH
-				mtl_info("Not Found %s", qPrintable(name));
-#endif
 				const int new_count = it.value() + 1;
 				if (new_count > 5) {
 					it = select_list.erase(it);
 				} else {
 					select_list[it.key()] = new_count;
-#ifdef CORNUS_DEBUG_INOTIFY_BATCH
-					mtl_info("%s is now %d", qPrintable(it.key()), new_count);
-#endif
 					it++;
 				}
 			}
@@ -734,6 +722,7 @@ int TableModel::rowCount(const QModelIndex &parent) const
 
 void TableModel::SwitchTo(io::FilesData *new_data)
 {
+	const Reload reload = new_data->reloaded() ? Reload::Yes : Reload::No;
 	io::Files &files = tab_->view_files();
 	int prev_count, new_count;
 	{
@@ -781,7 +770,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 	UpdateIndices(indices);
 	UpdateHeaderNameColumn();
 	InotifyBatchFinished();
-	tab_->DisplayingNewDirectory(dir_id);
+	tab_->DisplayingNewDirectory(dir_id, reload);
 	
 	pthread_t th;
 	int status = pthread_create(&th, NULL, cornus::gui::WatchDir, args);

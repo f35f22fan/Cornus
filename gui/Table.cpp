@@ -224,7 +224,6 @@ io::File* Table::GetFileAt_NoLock(const QPoint &pos, const Clone clone, int *ret
 	return (clone == Clone::Yes) ? file->Clone() : file;
 }
 
-
 i32 Table::GetFileAt_NoLock(const QPoint &local_pos, const PickBy pb, io::File **ret_file)
 {
 	const Column col = static_cast<Column>(columnAt(local_pos.x()));
@@ -253,30 +252,6 @@ i32 Table::GetFileAt_NoLock(const QPoint &local_pos, const PickBy pb, io::File *
 }
 
 int Table::GetRowHeight() const { return verticalHeader()->defaultSectionSize(); }
-
-void Table::GetSelectedFileNames(QVector<QString> &names, const StringCase str_case)
-{
-	io::Files &files = *app_->files(tab_->files_id());
-	MutexGuard guard = files.guard();
-	for (io::File *next: files.data.vec) {
-		if (next->is_selected()) {
-			switch (str_case) {
-			case StringCase::AsIs: {
-				names.append(next->name());
-				break;
-			}
-			case StringCase::Lower: {
-				names.append(next->name_lower());
-				break;
-			}
-			default: {
-				mtl_trace();
-			}
-			} /// switch()
-		}
-	}
-	
-}
 
 i32 Table::GetVisibleRowsCount() const
 {

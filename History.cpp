@@ -89,8 +89,10 @@ void History::GetSelectedFiles(QVector<QString> &list)
 void History::Record()
 {
 	int last = index_;
-	if (last >= 0 && last < vec_.size()) {
-		app_->tab()->table()->GetSelectedFileNames(vec_[last].selected_filenames, StringCase::Lower);
+	if (last >= 0 && last < vec_.size())
+	{
+		app_->tab()->view_files().GetSelectedFileNames(vec_[last].selected_filenames,
+			Path::OnlyName, StringCase::Lower);
 	}
 }
 

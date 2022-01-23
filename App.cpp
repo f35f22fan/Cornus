@@ -422,7 +422,7 @@ void App::ArchiveAskDestArchivePath(const QString &ext)
 void App::ArchiveTo(const QString &dir_path, const QString &ext)
 {
 	QVector<QString> urls;
-	tab()->table()->GetSelectedFileNames(urls);
+	tab()->view_files().GetSelectedFileNames(urls, Path::Full);
 	if (urls.isEmpty())
 		return;
 	
@@ -430,7 +430,8 @@ void App::ArchiveTo(const QString &dir_path, const QString &ext)
 	if (!files_dir.endsWith('/'))
 		files_dir.append('/');
 	
-	for (int i = 0; i < urls.size(); i++) {
+	for (int i = 0; i < urls.size(); i++)
+	{
 		QString s = QUrl(files_dir + urls[i]).toString();
 		urls[i] = s;
 	}
@@ -1666,7 +1667,10 @@ void App::RegisterVolumesListener()
 void App::Reload()
 {
 	gui::Tab *tab = this->tab();
+	QVector<QString> filenames;
+	tab->view_files().GetSelectedFileNames(filenames, Path::OnlyName);
 	const int vscroll = tab->GetScrollValue();
+	tab->view_files().SelectFilenamesLater(filenames, SameDir::No);
 	tab->GoTo(Action::Reload, {tab->current_dir(), Processed::Yes}, Reload::Yes);
 	tab->SetScrollValue(vscroll);
 }

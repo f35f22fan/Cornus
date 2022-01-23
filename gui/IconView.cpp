@@ -209,7 +209,7 @@ DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
 	return (area_img_ratio > 1.45) ? DrawBorder::Yes : DrawBorder::No;
 }
 
-void IconView::DisplayingNewDirectory(const DirId dir_id)
+void IconView::DisplayingNewDirectory(const DirId dir_id, const Reload r)
 {
 	if (last_thumbnail_submission_for_ == dir_id)
 		return;
@@ -220,10 +220,12 @@ void IconView::DisplayingNewDirectory(const DirId dir_id)
 		app_->RemoveAllThumbTasksExcept(dir_id);
 	}
 	
-	if (is_current_view()) {
+	if (is_current_view())
+	{
 		SendLoadingNewThumbnailsBatch();
 		UpdateScrollRange();
-		vs_->setValue(0);
+		if (r == Reload::No)
+			vs_->setValue(0);
 	}
 }
 

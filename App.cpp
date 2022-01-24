@@ -118,20 +118,21 @@ void* ThumbnailLoader (void *args)
 		th_data->Unlock();
 		QString thumb_in_temp_path = io::BuildTempPathFromID(new_work->file_id);
 		Thumbnail *thumbnail = nullptr;
-		const bool has_ext_attr = new_work->ba.size() != 0;
+		const bool has_ext_attr = !new_work->ba.is_empty();
 		temp_ba.to(0);
 		QString th_str = io::thread_id_short(pthread_self());
 		//mtl_info("%s: %s", qPrintable(th_str), qPrintable(new_work->full_path));
+		thumbnail::AbiType abi_version = -1;
 		if (has_ext_attr || io::ReadFile(thumb_in_temp_path, temp_ba, read_params))
 		{
 			ByteArray &img_ba = has_ext_attr ? new_work->ba : temp_ba;
 			i32 orig_img_w, orig_img_h;
 			QImage img = thumbnail::ImageFromByteArray(img_ba,
-				orig_img_w, orig_img_h, decompress_context);
+				orig_img_w, orig_img_h, abi_version, decompress_context);
 			if (!img.isNull())
 			{
 				thumbnail = new Thumbnail();
-				thumbnail->abi_version = thumbnail::AbiVersion;
+				thumbnail->abi_version = abi_version;
 				thumbnail->img = img;
 				thumbnail->file_id = new_work->file_id.inode_number;
 				thumbnail->time_generated = time(NULL);
@@ -143,7 +144,9 @@ void* ThumbnailLoader (void *args)
 				thumbnail->dir_id = new_work->dir_id;
 				thumbnail->origin = has_ext_attr ? Origin::ExtAttr : Origin::TempDir;
 			}
-		} else {
+		}
+		if (thumbnail == nullptr)
+		{
 			thumbnail = thumbnail::Load(new_work->full_path,
 				new_work->file_id.inode_number,
 				new_work->ext, new_work->icon_w,
@@ -158,7 +161,7 @@ void* ThumbnailLoader (void *args)
 		if (thumbnail == nullptr)
 		{
 			th_data->new_work = nullptr;
-			mtl_info("loading thumbnail failed %s", qPrintable(new_work->full_path));
+			//mtl_info("thumbnail failed %s", qPrintable(new_work->full_path));
 			continue;
 		}
 		
@@ -1175,15 +1178,15 @@ void App::InitThumbnailPoolIfNeeded()
 	{
 		ThumbLoaderData *thread_data = new ThumbLoaderData();
 		thread_data->global_data = &global_thumb_loader_data_;
-		global_thumb_loader_data_.threads.append(thread_data);
 		status = pthread_create(&th, NULL, ThumbnailLoader, thread_data);
 		if (status != 0)
 		{
 			delete thread_data;
-			global_thumb_loader_data_.threads.removeLast();
 			mtl_status(status);
 			return;
 		}
+		
+		global_thumb_loader_data_.threads.append(thread_data);
 	}
 	
 	status = pthread_create(&th, NULL, thumbnail::LoadMonitor, &global_thumb_loader_data_);
@@ -2006,10 +2009,6 @@ void App::SubmitThumbLoaderBatchFromTab(QVector<ThumbLoaderArgs*> *new_work_vec,
 				delete arg;
 				work_queue.remove(i);
 			}
-		}
-		
-		if (removed_count > 0) {
-			mtl_info("Removed work items: %d", removed_count);
 		}
 		
 		for (int i = new_work_vec->size() - 1; i >= 0; i--)

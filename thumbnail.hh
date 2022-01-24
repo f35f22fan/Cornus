@@ -161,8 +161,8 @@ QSize GetScaledSize(const QSize &input, const int max_img_w, const int max_img_h
 
 void* LoadMonitor(void *args);
 
-QImage ImageFromByteArray(ByteArray &ba,
-	i32 &img_w, i32 &img_h, ZSTD_DCtx *decompress_context);
+QImage ImageFromByteArray(ByteArray &ba, i32 &img_w, i32 &img_h,
+	AbiType &abi_version, ZSTD_DCtx *decompress_context);
 
 Thumbnail* Load(const QString &full_path, const u64 &file_id,
 	const QByteArray &ext, const int max_img_w, const int max_img_h,

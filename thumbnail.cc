@@ -10,27 +10,18 @@ void CornusFreeQImageMemory(void *data)
 {
 //	mtl_info("Memory freed");
 	uchar *m = (uchar*)data;
-	free(m);
-	//delete[] m;
+	delete[] m;
+	//free(m);
 }
 
 namespace cornus::thumbnail {
 
 QImage ImageFromByteArray(ByteArray &ba, i32 &img_w, i32 &img_h,
-	ZSTD_DCtx *decompress_context)
+	AbiType &abi_version, ZSTD_DCtx *decompress_context)
 {
-	if (ba.size() <= ThumbnailHeaderSize)
+	if (ba.size() <= ThumbnailHeaderSize ||
+		((abi_version = ba.next_i16()) != thumbnail::AbiVersion))
 	{
-		img_w = img_h = -1;
-		return QImage();
-	}
-	
-	const i16 abi_version = ba.next_i16();
-	Q_UNUSED(abi_version);
-	
-	if (abi_version != thumbnail::AbiVersion)
-	{
-		mtl_warn("Wrong abi: %d", (int)abi_version);
 		return QImage();
 	}
 	
@@ -40,12 +31,12 @@ QImage ImageFromByteArray(ByteArray &ba, i32 &img_w, i32 &img_h,
 	img_w = ba.next_i32();
 	img_h = ba.next_i32();
 	const auto format = static_cast<QImage::Format>(ba.next_i32());
-	ba.to(0);
+	ba.to(0); // leave ByteArray in same state it was passed in
 	char *src_buf = (ba.data() + ThumbnailHeaderSize);
 	const i64 src_size = ba.size() - ThumbnailHeaderSize;
 	
 	const i64 dst_size = ZSTD_getFrameContentSize(src_buf, src_size);
-	uchar *dst_buf = (uchar*) malloc(dst_size);// new uchar[dst_size];
+	uchar *dst_buf = new uchar[dst_size];
 	const i64 decompressed_size = ZSTD_decompressDCtx(decompress_context,
 		dst_buf, dst_size, src_buf, src_size);
 	Q_UNUSED(decompressed_size);
@@ -92,12 +83,12 @@ Thumbnail* Load(const QString &full_path, const u64 &file_id,
 		
 		scaled = GetScaledSize(orig_img_sz, max_img_w, max_img_h);
 		reader.setScaledSize(scaled);
-		
 		img = reader.read();
-		if (img.isNull())
-		{
-			return nullptr;
-		}
+	}
+	
+	//mtl_info("%s is null: %s", qPrintable(full_path), img.isNull() ? "true" : "false");
+	if (img.isNull()) {
+		return nullptr;
 	}
 	
 	auto *thumbnail = new Thumbnail();
@@ -162,13 +153,13 @@ QImage LoadWebpImage(const QString &full_path, const int max_img_w,
 	WebPDecoderConfig config;
 	if (!WebPInitDecoderConfig(&config))
 	{
-		mtl_trace();
+//		mtl_trace();
 		return img;
 	}
 	
 	if (WebPGetFeatures((const u8*)ba.data(), ba.size(), &config.input) != VP8_STATUS_OK)
 	{
-		mtl_trace();
+//		mtl_trace();
 		return img;
 	}
 	
@@ -181,18 +172,18 @@ QImage LoadWebpImage(const QString &full_path, const int max_img_w,
 	config.options.scaled_height = scaled_sz.height();
 	
 	const i64 scanline_stride = scaled_sz.width() * 4;
-	mtl_info("Requested stride: %ld", scanline_stride);
-	mtl_info("max_img_w: %d, h: %d, scaled w: %d, h: %d",
-		max_img_w, max_img_h, scaled_sz.width(), scaled_sz.height());
-	const i64 memory_buf_size = scanline_stride * scaled_sz.height();
-	uchar *memory_buf = (uchar*)malloc(memory_buf_size);
+//	mtl_info("Requested stride: %ld", scanline_stride);
+//	mtl_info("max_img_w: %d, h: %d, scaled w: %d, h: %d",
+//		max_img_w, max_img_h, scaled_sz.width(), scaled_sz.height());
+	const i64 external_buf_size = scanline_stride * scaled_sz.height();
+	uchar *external_buf = new uchar[external_buf_size];
 	{
 		// Specify the desired output colorspace:
 		config.output.colorspace = MODE_RGBA;
 		// Have config.output point to an external buffer:
-		config.output.u.RGBA.rgba = memory_buf;
+		config.output.u.RGBA.rgba = external_buf;
 		config.output.u.RGBA.stride = scanline_stride;
-		config.output.u.RGBA.size = memory_buf_size;
+		config.output.u.RGBA.size = external_buf_size;
 		config.output.is_external_memory = 1;
 	}
 	
@@ -202,16 +193,11 @@ QImage LoadWebpImage(const QString &full_path, const int max_img_w,
 		return img;
 	}
 	
-	auto &buf = config.output.u.RGBA;
-	const QSize thmb_sz(config.output.width, config.output.height);
-	mtl_info("Scanline stride: %d, w: %d, h:%d", buf.stride,
-		thmb_sz.width(), thmb_sz.height());
-	
-	img = QImage(memory_buf, thmb_sz.width(), thmb_sz.height(),
-		(int)buf.stride, QImage::Format_RGBA8888,
-		CornusFreeQImageMemory, memory_buf);
-	
 	WebPFreeDecBuffer(&config.output);
+	
+	img = QImage(external_buf, config.output.width, config.output.height,
+		scanline_stride, QImage::Format_RGBA8888,
+		CornusFreeQImageMemory, external_buf);
 	
 	return img;
 }

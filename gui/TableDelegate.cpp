@@ -169,8 +169,9 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 		text.append("\u2022");
 		if (file->has_media_attrs())
 			pen.setColor(QColor(50, 50, 255));
-		else if (file->has_thumbnail_attr())
+		else if (file->has_thumbnail_attr()) {
 			pen.setColor(QColor(0, 100, 0));
+		}
 	}
 	
 	painter->setPen(pen);

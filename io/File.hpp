@@ -144,8 +144,7 @@ public:
 	
 	void dir_path(const QString &s) { dp_ = s; }
 	
-	const QString& dir_path() const {
-		return (files_ == nullptr) ? dp_ : files_->data.processed_dir_path; }
+	const QString& dir_path() const;
 	
 	io::Files* files() const { return files_; }
 	void files(io::Files *ptr) { files_ = ptr; dp_.clear(); }

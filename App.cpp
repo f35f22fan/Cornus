@@ -24,8 +24,9 @@
 #include "Hid.hpp"
 #include "History.hpp"
 #include "io/disks.hh"
-#include "io/io.hh"
 #include "io/File.hpp"
+#include "io/Files.hpp"
+#include "io/io.hh"
 #include "io/SaveFile.hpp"
 #include "io/socket.hh"
 #include "gui/actions.hxx"
@@ -1905,7 +1906,7 @@ void App::SetupIconNames()
 
 void App::showEvent(QShowEvent *evt)
 {
-	mtl_info("spontaneous: %d", evt->spontaneous());
+	//mtl_info("spontaneous: %d", evt->spontaneous());
 }
 
 bool App::ShowInputDialog(const gui::InputDialogParams &params,

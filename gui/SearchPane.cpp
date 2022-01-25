@@ -3,6 +3,7 @@
 #include "../App.hpp"
 #include "../Hid.hpp"
 #include "../io/File.hpp"
+#include "../io/Files.hpp"
 #include "Location.hpp"
 #include "../Media.hpp"
 #include "../MutexGuard.hpp"

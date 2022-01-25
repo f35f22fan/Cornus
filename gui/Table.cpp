@@ -11,6 +11,7 @@
 #include "OpenOrderPane.hpp"
 #include "../io/io.hh"
 #include "../io/File.hpp"
+#include "../io/Files.hpp"
 #include "../io/socket.hh"
 #include "../MutexGuard.hpp"
 #include "../Prefs.hpp"

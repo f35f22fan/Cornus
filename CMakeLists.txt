@@ -103,6 +103,7 @@ set(cornus_src_files main.cpp
     io/DirStream.cpp io/DirStream.hpp
     io/disks.cc io/disks.hh
     io/File.cpp io/File.hpp
+    io/Files.cpp io/Files.hpp
     io/io.cc io/io.hh
     io/Notify.cpp io/Notify.hpp
     io/SaveFile.cpp io/SaveFile.hpp
@@ -146,6 +147,7 @@ if (DO_BUILD_CORNUS_IO)
 		io/decl.hxx
 		io/DirStream.cpp io/DirStream.hpp
 		io/File.cpp io/File.hpp
+		io/Files.cpp io/Files.hpp
 		io/io.cc io/io.hh
 		io/Notify.cpp io/Notify.hpp
 		io/SaveFile.cpp io/SaveFile.hpp
@@ -183,6 +185,7 @@ if (DO_BUILD_CORNUS_R)
 
 		io/decl.hxx
 		io/File.cpp io/File.hpp
+		io/Files.cpp io/Files.hpp
 		io/io.cc io/io.hh
 		io/socket.cc io/socket.hh
 		io/Task.cpp io/Task.hpp

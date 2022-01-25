@@ -1,6 +1,7 @@
 #include "File.hpp"
 
 #include "../ByteArray.hpp"
+#include "Files.hpp"
 #include "../thumbnail.hh"
 
 #include <QImageReader>
@@ -113,6 +114,11 @@ void File::CountDirFiles1Level()
 int File::Delete() {
 	auto ba = build_full_path().toLocal8Bit();
 	return remove(ba.data());
+}
+
+const QString& File::dir_path() const
+{
+	return (files_ == nullptr) ? dp_ : files_->data.processed_dir_path;
 }
 
 bool File::has_exec_bit() const {

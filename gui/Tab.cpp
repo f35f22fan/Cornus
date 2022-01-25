@@ -12,6 +12,7 @@
 #include "../History.hpp"
 #include "IconView.hpp"
 #include "../io/File.hpp"
+#include "../io/Files.hpp"
 #include "Location.hpp"
 #include "OpenOrderPane.hpp"
 #include "../str.hxx"
@@ -202,7 +203,6 @@ Tab::Tab(App *app, const TabId tab_id) : app_(app), id_(tab_id)
 
 Tab::~Tab()
 {
-mtl_info();
 	/// tab must be deleted before prefs_ because table_model_ calls 
 	/// into prefs().show_free_partition_space() in TableModel::GetName()
 	ShutdownLastInotifyThread();
@@ -1607,14 +1607,18 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 
 void Tab::ShutdownLastInotifyThread()
 {
-	io::Files *p = app_->files(files_id_);
-	VOID_RET_IF(p, nullptr);
-	auto &files = *p;
+	io::Files &files = view_files();
 	files.Lock();
 #ifdef CORNUS_WAITED_FOR_WIDGETS
 	auto start_time = std::chrono::steady_clock::now();
 #endif
 	files.data.thread_must_exit(true);
+	{ // wake up epoll() to not wait till it time out
+		const i64 n = 1;
+		int status = ::write(files.data.signal_quit_fd, &n, sizeof n);
+		if (status == -1)
+			mtl_status(errno);
+	}
 	
 	while (!files.data.thread_exited())
 	{

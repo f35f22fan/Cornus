@@ -6,6 +6,7 @@
 #include "gui/Table.hpp"
 #include "gui/TableModel.hpp"
 #include "io/File.hpp"
+#include "io/Files.hpp"
 
 namespace cornus {
 

@@ -3,6 +3,7 @@
 #include "../App.hpp"
 #include "../io/io.hh"
 #include "../io/File.hpp"
+#include "../io/Files.hpp"
 #include "../MutexGuard.hpp"
 #include "../Prefs.hpp"
 #include "RestorePainter.hpp"

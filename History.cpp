@@ -1,5 +1,7 @@
 #include "History.hpp"
+
 #include "App.hpp"
+#include "io/Files.hpp"
 #include "gui/Tab.hpp"
 #include "gui/Table.hpp"
 #include "gui/ToolBar.hpp"

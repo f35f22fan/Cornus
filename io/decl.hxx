@@ -14,6 +14,8 @@ class AutoRemoveWatch;
 class Daemon;
 class DirStream;
 class File;
+class Files;
+class FilesData;
 class Notify;
 class SaveFile;
 class Task;

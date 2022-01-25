@@ -3,6 +3,7 @@
 #include "../App.hpp"
 #include "../Hid.hpp"
 #include "../io/File.hpp"
+#include "../io/Files.hpp"
 #include "../Prefs.hpp"
 #include "RestorePainter.hpp"
 #include "Tab.hpp"
@@ -263,15 +264,10 @@ void IconView::Init()
 	// enables receiving ordinary mouse events (when mouse is not down)
 	setMouseTracking(true);
 	connect(vs_, &QScrollBar::valueChanged, [=](int value) {
-		mtl_info("Scrolled to %d", value);
 		if (repaint_without_delay_)
 			update();
 		else
 			update();//RepaintLater();
-	});
-	
-	connect(vs_, &QScrollBar::rangeChanged, [=](int min, int max) {
-		mtl_info("New range: %d < %d", min, max);
 	});
 	
 	connect(vs_, &QScrollBar::sliderReleased, [=] {
@@ -449,8 +445,10 @@ void IconView::paintEvent(QPaintEvent *ev)
 	const auto &cell = icon_dim_; // to make sure I don't change any value
 	const int at_row = scroll_y / cell.rh;
 	double remainder = std::fmod(scroll_y, cell.rh);
-	if (cornus::DoublesEqual(remainder, cell.rh, cell.rh / 1000000.0)) {
-		//mtl_info("FIXED remainder! was %f", remainder);
+	// std::numeric_limits<double>::epsilon() doesn't work here!
+	const double my_epsilon = cell.rh / 1000000.0;
+	if (cornus::DoublesEqual(remainder, cell.rh, my_epsilon)) {
+		//mtl_info("%f vs %f", std::numeric_limits<double>::epsilon(), my_epsilon);
 		remainder = 0;
 	}
 	const double y_off = -remainder;

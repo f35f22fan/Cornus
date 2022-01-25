@@ -3,6 +3,7 @@
 #include "../App.hpp"
 #include "../AutoDelete.hh"
 #include "../io/File.hpp"
+#include "../io/Files.hpp"
 #include "../io/Notify.hpp"
 #include "Location.hpp"
 #include "../MutexGuard.hpp"
@@ -357,7 +358,8 @@ void* WatchDir(void *void_args)
 		mtl_status(errno);
 		return 0;
 	}
-	AutoCloseFd poll_fd___(poll_fd);
+	AutoCloseFd poll_fd_ac(poll_fd);
+	io::Files &files = *app->files(files_id);
 	struct epoll_event poll_event = {};
 	poll_event.events = EPOLLIN;
 	poll_event.data.fd = notify_fd;
@@ -367,7 +369,11 @@ void* WatchDir(void *void_args)
 		return nullptr;
 	}
 	
-	io::Files &files = *app->files(files_id);
+	if (epoll_ctl(poll_fd, EPOLL_CTL_ADD, files.data.signal_quit_fd, &poll_event)) {
+		mtl_status(errno);
+		return nullptr;
+	}
+	
 	QVector<RenameData> rename_vec;
 	bool call_event_func = false;
 	
@@ -383,7 +389,7 @@ void* WatchDir(void *void_args)
 				break;
 		}
 		
-		const int ms = (!rename_vec.isEmpty()) ? 20 : 1000;
+		const int ms = rename_vec.isEmpty() ? 1000 : 20;
 		const int num_file_descriptors = epoll_wait(poll_fd, &poll_event, 1, ms);
 		bool with_hidden_files;
 		{
@@ -438,7 +444,7 @@ void* WatchDir(void *void_args)
 		if (args->dir_id == files.data.dir_id)
 		{
 			files.data.thread_exited(true);
-			files.Signal();
+			files.Broadcast();
 		}
 	}
 	

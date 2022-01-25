@@ -61,8 +61,8 @@ void IconView::ClearDndAnimation(const QPoint &drop_coord)
 	// repaint() or update() don't work because
 	// the window is not raised when dragging an item
 	// on top of the table and the repaint
-	// requests are ignored. Repaint using a hack:
-	int row = GetRowAtY(drop_coord.y());
+	// requests are ignored. Thus repaint using a hack:
+	const int row = GetRowAtY(drop_coord.y());
 	
 	if (row != -1) {
 		int start = row;
@@ -99,10 +99,7 @@ void IconView::ComputeProportions(IconDim &dim) const
 	dim.str_h = br.height();
 	dim.text_h = dim.str_h * dim.text_rows;
 	dim.text_y = dim.h_and_gaps - dim.str_h * dim.text_rows;
-	dim.per_row = (int)(area_w + dim.gap) / (int)dim.cell_and_gap;
-	
-	if (dim.per_row == 0)
-		dim.per_row = 1;
+	dim.per_row = std::max(1, (int)(area_w + dim.gap) / (int)dim.cell_and_gap);
 	
 	const int file_count = tab_->view_files().cached_files_count;
 	dim.row_count = file_count / dim.per_row;
@@ -266,10 +263,15 @@ void IconView::Init()
 	// enables receiving ordinary mouse events (when mouse is not down)
 	setMouseTracking(true);
 	connect(vs_, &QScrollBar::valueChanged, [=](int value) {
+		mtl_info("Scrolled to %d", value);
 		if (repaint_without_delay_)
 			update();
 		else
 			update();//RepaintLater();
+	});
+	
+	connect(vs_, &QScrollBar::rangeChanged, [=](int min, int max) {
+		mtl_info("New range: %d < %d", min, max);
 	});
 	
 	connect(vs_, &QScrollBar::sliderReleased, [=] {
@@ -286,8 +288,7 @@ io::File* IconView::GetFileAt_NoLock(const QPoint &pos, const Clone c, int *ret_
 {
 	const auto &cell = icon_dim_;
 	const int mouse_y = pos.y() + vs_->value();
-	double y_off;
-	const int row_index = std::max(0, GetRowAtY(mouse_y, &y_off) - 1);
+	const int row_index = std::max(0, GetRowAtY(mouse_y));
 	const int x = pos.x();
 	const int max_real_x = cell.per_row * cell.cell_and_gap;
 	const int x_index = (x > max_real_x) ? -1 : x / cell.cell_and_gap;
@@ -444,13 +445,16 @@ void IconView::paintEvent(QPaintEvent *ev)
 	auto clear_r = QRect(0, 0, width(), height());
 	painter.fillRect(clear_r, option.palette.brush(QPalette::Base));
 	ComputeProportions(icon_dim_);
-	
 	const double scroll_y = vs_->value();
 	const auto &cell = icon_dim_; // to make sure I don't change any value
 	const int at_row = scroll_y / cell.rh;
-	const double int_off = std::fmod(scroll_y, cell.rh);
-	const double y_off = -int_off;
-	const double y_end = int_off + height();
+	double remainder = std::fmod(scroll_y, cell.rh);
+	if (cornus::DoublesEqual(remainder, cell.rh, cell.rh / 1000000.0)) {
+		//mtl_info("FIXED remainder! was %f", remainder);
+		remainder = 0;
+	}
+	const double y_off = -remainder;
+	const double y_end = remainder + height();
 	const double width = (this->width() < cell.cell_and_gap) ?
 		cell.cell_and_gap : this->width();
 	
@@ -548,8 +552,8 @@ void IconView::ScrollToAndSelect(const int file_index, const DeselectOthers des)
 
 void IconView::ScrollToFile(const int file_index)
 {
-	mtl_info("scroll to: %d, file_count: %d",
-		file_index, tab_->view_files().cached_files_count);
+//	mtl_info("File index: %d, file_count: %d",
+//		file_index, tab_->view_files().cached_files_count);
 	if (icon_dim_.per_row <= 0)
 		ComputeProportions(icon_dim_);
 	
@@ -563,21 +567,23 @@ void IconView::ScrollToFile(const int file_index)
 		(file_y <= curr_y + view_h - cell.rh);
 	
 	if (is_fully_visible) {
-		static int k = 0;
-		mtl_info("Fully visible %d", k++);
+//		static int k = 0;
+//		mtl_info("Fully visible %d", k++);
 		return;
 	}
 	
 	int new_val = -1;
 	if (file_y < curr_y) {
 		new_val = file_y;
-		mtl_info("File was above: %d, new_row: %d", (int)file_y, file_row);
+//		mtl_info("File was above: %f, new_row: %d, rh: %f",
+//			file_y, file_row, cell.rh);
 	} else {
 		new_val = file_y - (view_h - cell.rh);
-		mtl_info("File was below: %d, new_row: %d", (int)file_y, file_row);
+//		mtl_info("File was below: %f, new_row: %d, rh: %f",
+//			file_y, file_row, cell.rh);
 	}
 	
-	if (new_val != -1) {
+	if (new_val >= 0) {
 		vs_->setValue(new_val);
 	}
 }

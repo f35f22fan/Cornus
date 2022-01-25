@@ -327,7 +327,14 @@ struct PendingCommand {
 			bits_ &= ~ExpiredBit;
 	}
 };
+
+inline bool DoublesEqual(const double A, const double B, const double epsilon)
+{
+	const auto diff = std::abs(A - B);
+	return (diff < epsilon);
 }
+
+} // cornus::
 
 Q_DECLARE_METATYPE(cornus::PartitionEvent*);
 Q_DECLARE_METATYPE(cornus::Device);

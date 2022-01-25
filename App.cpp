@@ -120,7 +120,7 @@ void* ThumbnailLoader (void *args)
 		Thumbnail *thumbnail = nullptr;
 		const bool has_ext_attr = !new_work->ba.is_empty();
 		temp_ba.to(0);
-		QString th_str = io::thread_id_short(pthread_self());
+		//QString th_str = io::thread_id_short(pthread_self());
 		//mtl_info("%s: %s", qPrintable(th_str), qPrintable(new_work->full_path));
 		thumbnail::AbiType abi_version = -1;
 		if (has_ext_attr || io::ReadFile(thumb_in_temp_path, temp_ba, read_params))
@@ -176,9 +176,6 @@ void* ThumbnailLoader (void *args)
 		th_data->new_work = nullptr;
 		if (th_data->wait_for_work)
 		{
-//			static int k = 0;
-//			i64 th_id = i64(pthread_self());
-//			mtl_info("Thumbnail loaded: %d, thread: %ld", ++k, th_id);
 			QMetaObject::invokeMethod(app, "ThumbnailArrived",
 				Q_ARG(cornus::Thumbnail*, thumbnail));
 		} else {
@@ -255,8 +252,22 @@ void TestPolkit(App *app)
 	//PolkitAgentSession *session = polkit_agent_session_new(identity);
 }
 
+void Print(const double x, const double y)
+{
+	const double rem = std::fmod(x, y);
+	mtl_info("%.3f MOD %.3f = %f", x, y, rem);
+}
+
 App::App()
 {
+//	const double y = 5.0;
+//	Print(6.2, y);
+//	Print(1.0, y);
+//	Print(11.0, y);
+//	Print(5.1, y);
+//	Print(4.9, y);
+	
+	
 	qRegisterMetaType<cornus::io::File*>();
 	qRegisterMetaType<cornus::io::FilesData*>();
 	qRegisterMetaType<cornus::io::FileEvent>();

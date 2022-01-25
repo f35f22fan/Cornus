@@ -54,17 +54,9 @@ public:
 	
 	void DisplayingNewDirectory(const DirId dir_id, const Reload r);
 	
-	int GetRowAtY(const int y, double *y_off = nullptr) const
+	int GetRowAtY(const int y) const
 	{
-		int row = double(y) / icon_dim_.rh;
-		const double d_off = std::fmod(double(y), icon_dim_.rh);
-		if (y_off != nullptr)
-			*y_off = -d_off;
-		
-		if (d_off >= 0.1)
-			row++;
-		
-		return row;
+		return int(double(y) / icon_dim_.rh);
 	}
 	int GetRowHeight() const { return icon_dim_.rh; }
 	void HiliteFileUnderMouse();

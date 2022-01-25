@@ -222,7 +222,7 @@ bool CanWriteToDir(const QString &dir_path)
 	return access(ba.data(), W_OK) == 0;
 }
 
-static int CompareDigits(QStringRef a, QStringRef b)
+int CompareDigits(QStringRef a, QStringRef b)
 {
 	int i = 0;
 	for (; i < a.size(); i++) {
@@ -344,7 +344,7 @@ media::ShortData* DecodeShort(ByteArray &ba)
 	return p;
 }
 
-static QStringRef GetDigits(const QString &s, const int from)
+QStringRef GetDigits(const QString &s, const int from)
 {
 	const int max = s.size();
 	int k = from;

@@ -36,6 +36,8 @@
 #include <QScrollBar>
 #include <QUrl>
 
+// #define CORNUS_WAITED_FOR_WIDGETS
+
 namespace cornus {
 
 const QVector<QString> ArchiveExtensions = {
@@ -144,25 +146,24 @@ void* GoToTh(void *p)
 		new_data->processed_dir_path = params->dir_path.path;
 	else
 		new_data->unprocessed_dir_path = params->dir_path.path;
-	//new_data->scroll_to_and_select = params->scroll_to_and_select;
 
 	const auto cdf = app->prefs().show_dir_file_count() ?
 		io::CountDirFiles::Yes : io::CountDirFiles::No;
 	
-	if (io::ListFiles(*new_data, &view_files, cdf) != 0) {
+	if (io::ListFiles(*new_data, &view_files, cdf) != 0)
+	{
 		delete params;
 		delete new_data;
 		return nullptr;
 	}
-///#define CORNUS_WAITED_FOR_WIDGETS
+	
 	GuiBits &gui_bits = app->gui_bits();
 	gui_bits.Lock();
 	while (!gui_bits.created())
 	{
-		using Clock = std::chrono::steady_clock;
-		new_data->start_time = std::chrono::time_point<Clock>::max();
 #ifdef CORNUS_WAITED_FOR_WIDGETS
-		auto start_time = std::chrono::steady_clock::now();
+		using Clock = std::chrono::steady_clock;
+		auto start_time = Clock::now();
 #endif
 		const int status = gui_bits.CondWait();
 		if (status != 0) {
@@ -733,7 +734,7 @@ void Tab::GoToFinish(cornus::io::FilesData *new_data)
 	}
 	
 	AutoDelete ad(new_data);
-	int count = new_data->vec.size();
+	//const int new_file_count = new_data->vec.size();
 	table_->ClearMouseOver();
 /// current_dir_ must be assigned before model->SwitchTo
 /// otherwise won't properly show current partition's free space
@@ -746,7 +747,8 @@ void Tab::GoToFinish(cornus::io::FilesData *new_data)
 	table_model_->SwitchTo(new_data);
 	history_->Add(new_data->action, current_dir_);
 	
-	if (new_data->action == Action::Back) {
+	if (new_data->action == Action::Back)
+	{
 		QVector<QString> list;
 		history_->GetSelectedFiles(list);
 		table_->SelectByLowerCase(list, NamesAreLowerCase::Yes);
@@ -764,16 +766,13 @@ void Tab::GoToFinish(cornus::io::FilesData *new_data)
 		(new_data->start_time != std::chrono::time_point<Clock>::max()))
 	{
 		auto now = std::chrono::steady_clock::now();
-		const float elapsed = std::chrono::duration<float,
+		list_speed_ = std::chrono::duration<float,
 			std::chrono::milliseconds::period>(now - new_data->start_time).count();
-		QString diff_str = io::FloatToString(elapsed, 2);
-		
-		QString s = dir_name + QLatin1String(" (") + QString::number(count)
-			+ QChar('/') + diff_str + QLatin1String(" ms)");
-		SetTitle(s);
 	} else {
-		SetTitle(dir_name);
+		list_speed_ = -1;
 	}
+	
+	SetTitle(dir_name);
 	app_->SelectCurrentTab();
 }
 
@@ -1099,6 +1098,15 @@ void Tab::LaunchFromOpenWithMenu()
 	p->Launch(open_with_.full_path, current_dir());
 }
 
+QString Tab::ListSpeedString() const
+{
+	QString diff_str = io::FloatToString(list_speed_, 2);
+	QString num_files = QString::number(view_files().cached_files_count);
+	QString ret = QChar('[') + num_files + tr(" files in ")
+		+ diff_str + QLatin1String(" ms]");
+	return ret;
+}
+
 void Tab::SetNextView()
 {
 	ViewMode next = ViewMode::None;
@@ -1288,7 +1296,8 @@ void Tab::SetTitle(const QString &s)
 	QTabWidget *w = app_->tab_widget();
 	int index = w->indexOf(this);
 	QString short_title = title_;
-	if (short_title.size() > 10) {
+	if (short_title.size() > 10)
+	{
 		short_title = short_title.mid(0, 10);
 		short_title += QLatin1String("..");
 	}
@@ -1610,7 +1619,8 @@ void Tab::ShutdownLastInotifyThread()
 	io::Files &files = view_files();
 	files.Lock();
 #ifdef CORNUS_WAITED_FOR_WIDGETS
-	auto start_time = std::chrono::steady_clock::now();
+	using Clock = std::chrono::steady_clock;
+	auto start_time = Clock::now();
 #endif
 	files.data.thread_must_exit(true);
 	{ // wake up epoll() to not wait till it time out
@@ -1631,10 +1641,9 @@ void Tab::ShutdownLastInotifyThread()
 	
 	files.Unlock();
 #ifdef CORNUS_WAITED_FOR_WIDGETS
-	auto now = std::chrono::steady_clock::now();
+	auto now = Clock::now();
 	const float elapsed = std::chrono::duration<float,
 		std::chrono::milliseconds::period>(now - start_time).count();
-	
 	mtl_info("Waited for thread termination: %.1f ms", elapsed);
 #endif
 }
@@ -1836,8 +1845,7 @@ void Tab::UpdateView()
 	}
 }
 
-io::Files&
-Tab::view_files() { return *app_->files(files_id()); }
+io::Files& Tab::view_files() const { return *app_->files(files_id()); }
 
 bool Tab::ViewIsAt(const QString &dir_path) const
 {

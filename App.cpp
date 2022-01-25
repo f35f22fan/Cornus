@@ -2090,8 +2090,15 @@ void App::TabSelected(const int index)
 	location_->SetLocation(path);
 	tree_view_->MarkCurrentPartition(path);
 	toolbar_->SyncViewModeWithCurrentTab();
-	const QString s = tab->title() + QString(" — Cornus");
-	setWindowTitle(s);
+	QString title_str = tab->title() + QString(" — Cornus");
+	
+	if (prefs().show_ms_files_loaded())
+	{
+		title_str.append(' ');
+		title_str.append(tab->ListSpeedString());
+	}
+	
+	setWindowTitle(title_str);
 }
 
 void App::TellUser(const QString &msg, const QString title) {

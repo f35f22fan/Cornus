@@ -81,6 +81,8 @@ public:
 	History* history() const { return history_; }
 	gui::IconView* icon_view() const { return icon_view_; }
 	void KeyPressEvent(QKeyEvent *evt);
+	float list_speed() const { return list_speed_; }
+	QString ListSpeedString() const;
 	io::Notify& notify() { return notify_; }
 	const OpenWith& open_with() const { return open_with_; }
 	void PopulateUndoDelete(QMenu *menu);
@@ -99,7 +101,7 @@ public:
 	gui::ShiftSelect* ShiftSelect();
 	void ShowRightClickMenu(const QPoint &global_pos,
 		const QPoint &local_pos);
-	io::Files& view_files();
+	io::Files& view_files() const;
 	
 	const QString& title() const { return title_; }
 	void SetTitle(const QString &s);
@@ -139,6 +141,7 @@ private:
 	TabId id_ = -1;
 	QString title_;
 	QString current_dir_;
+	float list_speed_ = -1.0f;
 	
 	QStackedWidget *viewmode_stack_ = nullptr;
 	int details_view_index_ = -1, icons_view_index_ = -1;

@@ -86,7 +86,7 @@ public:
 	void RunExecutable(const QString &full_path, const ExecInfo &info);
 	void SaveBookmarks();
 	void SelectCurrentTab();
-	void SelectTabAt(const int tab_index);
+	void SelectTabAt(const int tab_index, const FocusView fv);
 	bool ShowInputDialog(const gui::InputDialogParams &params, QString &ret_val);
 	
 	void SubmitThumbLoaderBatchFromTab(QVector<ThumbLoaderArgs*> *new_work_vec, const TabId tab_id, const DirId dir_id);

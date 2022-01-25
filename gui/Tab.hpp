@@ -76,7 +76,7 @@ public:
 	void GoToSimple(const QString &full_path);
 	void GoUp();
 	void GoToInitialDir();
-	void GrabFocus();
+	void FocusView();
 	void HandleMouseRightClickSelection(const QPoint &pos, QSet<int> &indices);
 	History* history() const { return history_; }
 	gui::IconView* icon_view() const { return icon_view_; }

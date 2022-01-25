@@ -608,7 +608,7 @@ void App::CreateGui()
 
 	prefs_->UpdateTableSizes();
 	
-	tab()->GrabFocus();
+	tab()->FocusView();
 	{
 		QIcon icon = QIcon::fromTheme(QLatin1String("window-new"));
 		QToolButton *btn = new QToolButton();
@@ -1589,7 +1589,7 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
 		connect(shortcut, &QShortcut::activated, [=] {
-			tab()->GrabFocus();
+			tab()->FocusView();
 		});
 	}
 	{
@@ -1607,7 +1607,7 @@ void App::RegisterShortcuts()
 		
 		connect(shortcut, &QShortcut::activated, [=] {
 			gui::Tab *tab = this->tab();
-			tab->GrabFocus();
+			tab->FocusView();
 			QSet<int> indices;
 			auto &view_files = tab->view_files();
 			MutexGuard guard = view_files.guard();
@@ -1860,10 +1860,21 @@ void App::SelectCurrentTab()
 	TabSelected(tab_widget_->currentIndex());
 }
 
-void App::SelectTabAt(const int tab_index)
+void App::SelectTabAt(const int tab_index, const FocusView fv)
 {
+	const int count = tab_widget_->count();
+	if (count == 0 || tab_index < 0 || tab_index >= count)
+		return;
+	
 	if (tab_index != tab_widget_->currentIndex())
+	{
 		tab_widget_->setCurrentIndex(tab_index);
+	}
+	
+	if (fv == FocusView::Yes)
+	{
+		tab()->FocusView();
+	}
 }
 
 void App::SetupIconNames()

@@ -38,6 +38,8 @@ protected:
 	virtual void dragMoveEvent(QDragMoveEvent *event) override;
 	virtual void dropEvent(QDropEvent *event) override;
 	
+	void keyPressEvent(QKeyEvent *evt) override;
+	
 	virtual void mouseDoubleClickEvent(QMouseEvent *evt) override;
 	virtual void mouseMoveEvent(QMouseEvent *evt) override;
 	virtual void mousePressEvent(QMouseEvent *evt) override;

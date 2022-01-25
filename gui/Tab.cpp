@@ -910,8 +910,21 @@ void Tab::GoUp()
 	GoTo(Action::Up, {dir.absolutePath(), Processed::Yes}, Reload::No);
 }
 
-void Tab::GrabFocus() {
-	table_->setFocus();
+void Tab::FocusView()
+{
+	switch (view_mode_) {
+	case ViewMode::Details: {
+		table_->setFocus();
+		break;
+	}
+	case ViewMode::Icons: {
+		icon_view_->setFocus();
+		break;
+	}
+	default: {
+		mtl_trace();
+	}
+	}
 }
 
 void Tab::HandleMouseRightClickSelection(const QPoint &pos, QSet<int> &indices)
@@ -969,6 +982,15 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 	const bool ctrl = (modifiers & Qt::ControlModifier);
 	QSet<int> indices;
 	
+	if (!any_modifiers)
+	{
+		if (key >= Qt::Key_1 && key <= Qt::Key_9) {
+			const int index = key - Qt::Key_0 - 1;
+			app_->SelectTabAt(index, FocusView::Yes);
+			return;
+		}
+	}
+	
 	if (ctrl) {
 		if (key == Qt::Key_C)
 			ActionCopy();
@@ -1004,12 +1026,12 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 		if (shift)
 			app_->hid()->HandleKeyShiftSelect(this, VDirection::Down, key);
 		else
-			app_->hid()->HandleKeySelect(this, VDirection::Down, key);
+			app_->hid()->HandleKeySelect(this, VDirection::Down, key, modifiers);
 	} else if (key == Qt::Key_Up || key == Qt::Key_Left) {
 		if (shift)
 			app_->hid()->HandleKeyShiftSelect(this, VDirection::Up, key);
 		else
-			app_->hid()->HandleKeySelect(this, VDirection::Up, key);
+			app_->hid()->HandleKeySelect(this, VDirection::Up, key, modifiers);
 	} else if (key == Qt::Key_D) {
 		if (any_modifiers)
 			return;

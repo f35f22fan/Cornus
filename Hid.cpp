@@ -18,14 +18,17 @@ Hid::~Hid()
 {}
 
 void Hid::HandleKeySelect(gui::Tab *tab, const VDirection vdir,
-	const int key)
+	const int key, const Qt::KeyboardModifiers modifiers)
 {
+	if (modifiers & Qt::ControlModifier)
+		return;
+	
 	io::Files &files = tab->view_files();
 	const int file_count = files.cached_files_count;
 	gui::ShiftSelect *shift_select = tab->ShiftSelect();
 	VOID_RET_IF(shift_select, nullptr);
 	
-	int old_file_index = old_file_index = files.GetFirstSelectedFile_Lock(nullptr);
+	int old_file_index = files.GetFirstSelectedFile_Lock(nullptr);
 	if (old_file_index == -1)
 		old_file_index = shift_select->base_row;
 	
@@ -33,7 +36,7 @@ void Hid::HandleKeySelect(gui::Tab *tab, const VDirection vdir,
 	if (was_set_to_zero)
 		old_file_index = 0;
 	
-	if (vdir == VDirection::Up && old_file_index == 0)
+	if (vdir == VDirection::Up && (!was_set_to_zero && old_file_index == 0))
 		return;
 	
 	if (vdir == VDirection::Down && old_file_index >= file_count - 1)

@@ -14,7 +14,7 @@ public:
 	Hid(App *app);
 	virtual ~Hid();
 	
-	void HandleKeySelect(gui::Tab *tab, const VDirection vdir, const int key);
+	void HandleKeySelect(gui::Tab *tab, const VDirection vdir, const int key, const Qt::KeyboardModifiers modifiers);
 	
 	void HandleKeyShiftSelect(gui::Tab *tab, const VDirection vdir, const int key);
 	

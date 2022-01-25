@@ -28,7 +28,8 @@ You can use Cornus as is, no need to install it. However, Cornus can also perfor
 ##### Application Shortcuts:
 * Ctrl + T => Open a new tab
 * Ctrl + W => Close current tab
-* Ctrl + R => Reload (list folder files anew)
+* 1 to 9 => Select and focus tab 1 to 9
+* Ctrl + R => Reload tab view (list files anew)
 * Alt + Up => Go one directory up
 * Ctrl + H => Toggle showing of hidden files
 * Ctrl + Q => Quit app

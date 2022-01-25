@@ -29,6 +29,11 @@ using TabId = i64;
 using DirId = i32;
 using FileId = i32;
 
+enum class FocusView: i8 {
+	Yes,
+	No
+};
+
 struct Range {
 	int min = -1;
 	int max = -1;

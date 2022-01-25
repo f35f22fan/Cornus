@@ -38,7 +38,7 @@ void TabBar::dragMoveEvent(QDragMoveEvent *evt)
 	const auto &pos = evt->pos();
 	const int tab_index = tabAt(pos);
 	if (tab_index != -1) {
-		app_->SelectTabAt(tab_index);
+		app_->SelectTabAt(tab_index, FocusView::Yes);
 	}
 }
 

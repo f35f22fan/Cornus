@@ -161,51 +161,22 @@ TreeView::dragMoveEvent(QDragMoveEvent *evt)
 	}
 }
 
-void
-TreeView::StartDrag(const QPoint &pos)
+void TreeView::keyPressEvent(QKeyEvent *evt)
 {
-	auto diff = (pos - drag_start_pos_).manhattanLength();
-	if (diff < QApplication::startDragDistance()) {
-		return;
-	}
-
-	drag_start_pos_ = {-1, -1};
-	QStringList str_list;
-	auto indexes = selectedIndexes();
-	if (indexes.isEmpty()) {
-		return;
-	}
-	
+	const auto modifiers = evt->modifiers();
+	const bool any_modifiers = (modifiers != Qt::NoModifier);
+	const int key = evt->key();
+	if (!any_modifiers)
 	{
-		for (QModelIndex &next: indexes)
-		{
-			TreeItem *node = static_cast<TreeItem*>(next.internalPointer());
-			if (!node)
-				continue;
-			
-			if (node->is_bookmark()) {
-				str_list.append(node->bookmark_name());
-				str_list.append(node->bookmark_path());
-			}
+		if (key >= Qt::Key_1 && key <= Qt::Key_9) {
+			const int index = key - Qt::Key_0 - 1;
+			app_->SelectTabAt(index, FocusView::Yes);
+			return;
 		}
 	}
-	
-	if (str_list.isEmpty()) {
-		return;
-	}
-	QMimeData *mimedata = new QMimeData();
-	QByteArray ba;
-	QDataStream dataStreamWrite(&ba, QIODevice::WriteOnly);
-	dataStreamWrite << str_list;
-	mimedata->setData(BookmarkMime, ba);
-	
-	QDrag *drag = new QDrag(this);
-	drag->setMimeData(mimedata);
-	drag->exec(Qt::MoveAction);
 }
 
-void
-TreeView::dropEvent(QDropEvent *evt)
+void TreeView::dropEvent(QDropEvent *evt)
 {
 	//setCursor(Qt::ArrowCursor);
 	mouse_down_ = false;
@@ -394,6 +365,48 @@ void TreeView::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_
 	}
 	
 	menu_->popup(global_pos);
+}
+
+void TreeView::StartDrag(const QPoint &pos)
+{
+	auto diff = (pos - drag_start_pos_).manhattanLength();
+	if (diff < QApplication::startDragDistance()) {
+		return;
+	}
+
+	drag_start_pos_ = {-1, -1};
+	QStringList str_list;
+	auto indexes = selectedIndexes();
+	if (indexes.isEmpty()) {
+		return;
+	}
+	
+	{
+		for (QModelIndex &next: indexes)
+		{
+			TreeItem *node = static_cast<TreeItem*>(next.internalPointer());
+			if (!node)
+				continue;
+			
+			if (node->is_bookmark()) {
+				str_list.append(node->bookmark_name());
+				str_list.append(node->bookmark_path());
+			}
+		}
+	}
+	
+	if (str_list.isEmpty()) {
+		return;
+	}
+	QMimeData *mimedata = new QMimeData();
+	QByteArray ba;
+	QDataStream dataStreamWrite(&ba, QIODevice::WriteOnly);
+	dataStreamWrite << str_list;
+	mimedata->setData(BookmarkMime, ba);
+	
+	QDrag *drag = new QDrag(this);
+	drag->setMimeData(mimedata);
+	drag->exec(Qt::MoveAction);
 }
 
 }

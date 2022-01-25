@@ -157,7 +157,8 @@ void ToolBar::ShowShortcuts()
 	
 	s += QLatin1String("Ctrl + T => ")  + tr("Open a new tab");
 	s += QLatin1String("\nCtrl + W => ") + tr("Close current tab");
-	s += QLatin1String("\nCtrl + R => ") + tr("Reload (list folder files anew)");
+	s += QLatin1String("\n1 to 9 => ") + tr("Select and focus tab 1 to 9");
+	s += QLatin1String("\nCtrl + R => ") + tr("Reload tab view (list files anew)");
 	s += QLatin1String("\nAlt + Up => ") + tr("Go one directory up");
 	s += QLatin1String("\nCtrl + H => ") + tr("Toggle showing of hidden files");
 	s += QLatin1String("\nCtrl + Q => ") + tr("Quit app");

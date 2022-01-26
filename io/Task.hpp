@@ -17,11 +17,13 @@ enum class Question : i8 {
 	None = 0,
 	FileExists,
 	WriteFailed,
+	DeleteFailed,
 };
 
 struct TaskQuestion {
 	QString file_path_in_question;
 	QString explanation;
+	DeleteFailedAnswer delete_failed_answer = io::DeleteFailedAnswer::None;
 	FileExistsAnswer file_exists_answer = io::FileExistsAnswer::None;
 	WriteFailedAnswer write_failed_answer = io::WriteFailedAnswer::None;
 	Question question = Question::None;
@@ -33,11 +35,22 @@ struct TaskData {
 	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 	ElapsedTimer work_time_recorder_ = {};
 	TaskQuestion task_question_ = {};
+	
+	bool Broadcast()
+	{
+		const int status = pthread_cond_broadcast(&cond);
+		if (status != 0) {
+			mtl_status(status);
+			return false;
+		}
+		return true;
+	}
+	
 	MutexGuard guard() { return MutexGuard(&mutex); }
 	
-	inline TaskState GetState(TaskQuestion *question, i64 *ret_time_worked = nullptr) {
+	inline TaskState GetState(TaskQuestion *question, i64 *ret_time_worked = nullptr)
+	{
 		MutexGuard guard(&mutex);
-		
 		if (state == TaskState::AwatingAnswer && question != nullptr)
 			*question = task_question_;
 		
@@ -158,9 +171,12 @@ private:
 		const QString &filename, const mode_t mode, const i64 file_size);
 	void CopyXAttr(const int input_fd, const int output_fd);
 	i64 CountTotalSize();
+	ActUponAnswer DealWithDeleteFailedAnswer(const i64 file_size);
 	ActUponAnswer DealWithFileExistsAnswer(const i64 file_size);
 	ActUponAnswer DealWithWriteFailedAnswer(const i64 file_size);
-	void DeleteFile(const QString &full_path, struct statx &stx);
+	
+	// returns 0 on success, errno otherwise
+	int DeleteFile(const QString &full_path, struct statx &stx, QString &problematic_file);
 	void DeleteFiles();
 	void MoveToTrash();
 	bool TryAtomicMove();

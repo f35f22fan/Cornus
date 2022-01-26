@@ -20,7 +20,7 @@ public:
 	virtual QSize minimumSizeHint() const override;
 	QSize maximumSize() const;
 	
-	void TaskDone(TaskGui *tg, const io::TaskState state);
+	void TaskDone(TaskGui *gui_task, const io::TaskState state);
 	
 public Q_SLOTS:
 	void add(cornus::io::Task *task);

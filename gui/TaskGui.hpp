@@ -28,13 +28,17 @@ public:
 	
 private:
 	TaskGui(io::Task *task);
+	QWidget* CreateDeleteFailedPane();
 	QWidget* CreateFileExistsPane();
 	QWidget* CreateWriteFailedPane();
 	void CreateGui();
 	QWidget* CreateProgressPane();
+	void PresentUserDeleteFailedQuestion();
 	void PresentUserFileExistsQuestion();
 	void PresentUserWriteFailedQuestion();
+	void PresentWindow();
 	void ProcessAction(const QString &action);
+	void SendDeleteFailedAnswer(const io::DeleteFailedAnswer answer);
 	void SendFileExistsAnswer(const io::FileExistsAnswer answer);
 	void SendWriteFailedAnswer(const io::WriteFailedAnswer answer);
 	void UpdateSpeedLabel();
@@ -56,6 +60,7 @@ private:
 	struct Stack {
 		QStackedLayout *layout = nullptr;
 		int progress_index = -1;
+		int delete_failed_index = -1;
 		int file_exists_index = -1;
 		int write_failed_index = -1;
 	} stack_ = {};
@@ -68,5 +73,8 @@ private:
 		QLineEdit *line_edit = nullptr;
 	} write_failed_list_ = {};
 	
+	struct DeleteFailedList {
+		QLineEdit *line_edit = nullptr;
+	} delete_failed_list_ = {};
 };
 }

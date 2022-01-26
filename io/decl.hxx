@@ -79,6 +79,14 @@ enum class FileExistsAnswer: i8 {
 	Abort
 };
 
+enum class DeleteFailedAnswer: i8 {
+	None = 0,
+	Retry,
+	Skip,
+	SkipAll,
+	Abort
+};
+
 enum class WriteFailedAnswer: i8 {
 	None = 0,
 	Retry,

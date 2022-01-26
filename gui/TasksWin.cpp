@@ -10,6 +10,7 @@ namespace cornus::gui {
 
 TasksWin::TasksWin()
 {
+	setFocusPolicy(Qt::WheelFocus);
 	CreateGui();
 	setWindowIcon(QIcon(cornus::AppIconPath));
 	setWindowTitle("Cornus I/O Daemon");
@@ -60,10 +61,10 @@ QSize TasksWin::maximumSize() const {
 	return QSize(win_w_, sizeHint().height());
 }
 
-void TasksWin::TaskDone(TaskGui *tg, const io::TaskState state)
+void TasksWin::TaskDone(TaskGui *gui_task, const io::TaskState state)
 {
-	layout_->removeWidget(tg);
-	delete tg;
+	layout_->removeWidget(gui_task);
+	delete gui_task;
 	adjustSize();
 	
 	if (layout_->count() == 0) {

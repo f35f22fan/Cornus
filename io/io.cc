@@ -1166,6 +1166,15 @@ const char* QuerySocketFor(const QString &dir_path, bool &needs_root)
 {
 	auto ba = dir_path.toLocal8Bit();
 	needs_root = (access(ba.data(), W_OK) != 0);
+	
+	if (false)
+	{
+		// Temporarily block this decision to test a feature elsewhere in
+		// the code, but delete this line when done:
+		needs_root = false;
+		mtl_trace("Reminder");
+	}
+	
 	return needs_root ? cornus::RootSocketPath : cornus::SocketPath;
 }
 
@@ -1496,10 +1505,11 @@ bool SameFiles(const QString &path1, const QString &path2, int *ret_error)
 		return false;
 	}
 	
-	auto id1 = DiskFileId::FromStx(stx);
+	const auto id1 = DiskFileId::FromStx(stx);
 	ba = path2.toLocal8Bit();
 	
-	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
+	if (statx(0, ba.data(), flags, fields, &stx) != 0)
+	{
 		if (ret_error != nullptr)
 			*ret_error = errno;
 		return false;
@@ -1508,7 +1518,8 @@ bool SameFiles(const QString &path1, const QString &path2, int *ret_error)
 	if (ret_error != nullptr)
 		*ret_error = 0;
 	
-	auto id2 = DiskFileId::FromStx(stx);
+	const auto id2 = DiskFileId::FromStx(stx);
+	
 	return id1 == id2;
 }
 

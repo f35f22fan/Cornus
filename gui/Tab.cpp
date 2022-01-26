@@ -499,6 +499,7 @@ void Tab::DeleteSelectedFiles(const ShiftPressed sp)
 	HashInfo hash_info;
 	if (needs_root)
 	{
+mtl_trace();
 		hash_info = app_->WaitForRootDaemon(CanOverwrite::No);
 		VOID_RET_IF(hash_info.valid(), false);
 	}

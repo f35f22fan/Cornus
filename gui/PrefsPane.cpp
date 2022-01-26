@@ -31,6 +31,7 @@ PrefsPane::~PrefsPane()
 	delete show_free_partition_space_;
 	delete show_link_targets_;
 	delete remember_window_size_;
+	delete sync_views_scroll_;
 }
 
 void PrefsPane::ApplyToWidgets(const Prefs &prefs)
@@ -42,6 +43,7 @@ void PrefsPane::ApplyToWidgets(const Prefs &prefs)
 	show_link_targets_->setCheckState(prefs.show_link_targets() ? Qt::Checked : Qt::Unchecked);
 	mark_extended_attrs_disabled_->setCheckState(prefs.mark_extended_attrs_disabled() ? Qt::Checked : Qt::Unchecked);
 	remember_window_size_->setCheckState(prefs.remember_window_size() ? Qt::Checked : Qt::Unchecked);
+	sync_views_scroll_->setCheckState(prefs.sync_views_scroll_location() ? Qt::Checked : Qt::Unchecked);
 }
 
 void PrefsPane::ButtonClicked(QAbstractButton *btn)
@@ -83,6 +85,9 @@ void PrefsPane::CreateGui()
 	remember_window_size_ = new QCheckBox(tr("Remember window size"));
 	vert_layout->addWidget(remember_window_size_);
 	
+	sync_views_scroll_ = new QCheckBox(tr("Sync scroll location of views"));
+	vert_layout->addWidget(sync_views_scroll_);
+	
 	button_box_ = new QDialogButtonBox (QDialogButtonBox::Ok
 		| QDialogButtonBox::RestoreDefaults | QDialogButtonBox::Cancel);
 	connect(button_box_, &QDialogButtonBox::clicked, this, &PrefsPane::ButtonClicked);
@@ -109,6 +114,7 @@ void PrefsPane::SavePrefs()
 	prefs.show_link_targets(show_link_targets_->checkState() == Qt::Checked);
 	prefs.mark_extended_attrs_disabled(mark_extended_attrs_disabled_->checkState() == Qt::Checked);
 	prefs.remember_window_size(remember_window_size_->checkState() == Qt::Checked);
+	prefs.sync_views_scroll_location(sync_views_scroll_->checkState() == Qt::Checked);
 	prefs.Save();
 	
 	if (show_ms_files_loaded != prefs.show_ms_files_loaded() ||

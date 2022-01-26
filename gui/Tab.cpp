@@ -673,6 +673,18 @@ int Tab::GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file,
 	return file_index;
 }
 
+int Tab::GetVisibleFileIndex()
+{
+	// Used i.e. when switching to a different view to approximately
+	// scroll to the file the user was at in the previous view.
+	
+	switch (view_mode_) {
+	case ViewMode::Details: return table_->GetVisibleFileIndex();
+	case ViewMode::Icons: return icon_view_->GetVisibleFileIndex();
+	default: return -1;
+	}
+}
+
 void Tab::GetSelectedArchives(QVector<QString> &urls)
 {
 	io::Files &files = view_files();
@@ -913,11 +925,11 @@ void Tab::FocusView()
 {
 	switch (view_mode_) {
 	case ViewMode::Details: {
-		table_->setFocus();
+		table_->setFocus(Qt::MouseFocusReason);
 		break;
 	}
 	case ViewMode::Icons: {
-		icon_view_->setFocus();
+		icon_view_->setFocus(Qt::MouseFocusReason);
 		break;
 	}
 	default: {
@@ -1102,30 +1114,9 @@ QString Tab::ListSpeedString() const
 {
 	QString diff_str = io::FloatToString(list_speed_, 2);
 	QString num_files = QString::number(view_files().cached_files_count);
-	QString ret = QChar('[') + num_files + tr(" files in ")
-		+ diff_str + QLatin1String(" ms]");
+	QString ret = QLatin1String(" [") + num_files + tr(" files=")
+		+ diff_str + QLatin1String("ms]");
 	return ret;
-}
-
-void Tab::SetNextView()
-{
-	ViewMode next = ViewMode::None;
-	switch(view_mode_)
-	{
-	case ViewMode::Details: {
-		next = ViewMode::Icons;
-		break;
-	}
-	case ViewMode::Icons: {
-		next = ViewMode::Details;
-		break;
-	}
-	default: break;
-	}
-	
-	if (next != ViewMode::None) {
-		SetViewMode(next);
-	}
 }
 
 void Tab::PopulateUndoDelete(QMenu *menu)
@@ -1260,6 +1251,9 @@ void Tab::resizeEvent(QResizeEvent *ev)
 
 void Tab::ScrollToFile(const int file_index)
 {
+	if (file_index < 0)
+		return;
+	
 	const ViewMode vm = view_mode();
 	switch (vm) {
 	case ViewMode::Details : {
@@ -1273,6 +1267,27 @@ void Tab::ScrollToFile(const int file_index)
 	default: {
 		mtl_trace();
 	}
+	}
+}
+
+void Tab::SetNextView()
+{
+	ViewMode next = ViewMode::None;
+	switch(view_mode_)
+	{
+	case ViewMode::Details: {
+		next = ViewMode::Icons;
+		break;
+	}
+	case ViewMode::Icons: {
+		next = ViewMode::Details;
+		break;
+	}
+	default: break;
+	}
+	
+	if (next != ViewMode::None) {
+		SetViewMode(next);
 	}
 }
 
@@ -1296,9 +1311,10 @@ void Tab::SetTitle(const QString &s)
 	QTabWidget *w = app_->tab_widget();
 	int index = w->indexOf(this);
 	QString short_title = title_;
-	if (short_title.size() > 10)
+	const int max_len = 10;
+	if (short_title.size() > max_len)
 	{
-		short_title = short_title.mid(0, 10);
+		short_title = short_title.mid(0, max_len);
 		short_title += QLatin1String("..");
 	}
 	
@@ -1307,13 +1323,14 @@ void Tab::SetTitle(const QString &s)
 
 void Tab::SetViewMode(const ViewMode mode)
 {
+	const bool sync_scroll = app_->prefs().sync_views_scroll_location();
+	const int last_file_index = sync_scroll ? GetVisibleFileIndex() : -1;
 	view_mode_ = mode;
-	
-	switch (view_mode_) {
+	switch (view_mode_)
+	{
 	case ViewMode::Details: {
 		viewmode_stack_->setCurrentIndex(details_view_index_);
 		VOID_RET_IF(table_, nullptr);
-		table_->setFocus(Qt::MouseFocusReason);
 		break;
 	}
 	case ViewMode::Icons: {
@@ -1322,14 +1339,18 @@ void Tab::SetViewMode(const ViewMode mode)
 		}
 		icon_view_->SetAsCurrentView(NewState::AboutToSet);
 		viewmode_stack_->setCurrentIndex(icons_view_index_);
-		icon_view_->setFocus(Qt::MouseFocusReason);
 		icon_view_->SetAsCurrentView(NewState::Set);
 		break;
 	}
 	default: {
 		mtl_trace();
+		return;
 	}
 	}
+	
+	FocusView();
+	if (sync_scroll)
+		ScrollToFile(last_file_index);
 }
 
 ShiftSelect* Tab::ShiftSelect()

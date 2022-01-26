@@ -252,6 +252,13 @@ i32 Table::GetFileAt_NoLock(const QPoint &local_pos, const PickBy pb, io::File *
 	return rowAt(local_pos.y());
 }
 
+int Table::GetVisibleFileIndex()
+{
+	const int row = rowAt(0) + GetVisibleRowsCount() / 2;
+	//mtl_info("row: %d, rh: %d", row, GetRowHeight());
+	return row;
+}
+
 int Table::GetRowHeight() const { return verticalHeader()->defaultSectionSize(); }
 
 i32 Table::GetVisibleRowsCount() const

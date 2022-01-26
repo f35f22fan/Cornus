@@ -31,6 +31,7 @@ public:
 	const QPoint& drop_coord() const { return drop_coord_; }
 	i32 GetFileAt_NoLock(const QPoint &local_pos, const PickBy pb, io::File **ret_file = nullptr);
 	io::File* GetFileAt_NoLock(const QPoint &pos, const Clone clone, int *ret_file_index = nullptr);
+	int GetVisibleFileIndex();
 	TableHeader* header() const { return header_; }
 	TableModel* model() const { return model_; }
 	int GetRowHeight() const;

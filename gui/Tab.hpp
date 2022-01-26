@@ -66,6 +66,7 @@ public:
 	i64 files_id() const { return files_id_; }
 	void FilesChanged(const FileCountChanged fcc, const int row = -1);
 	int GetScrollValue() const;
+	int GetVisibleFileIndex();
 	void SetScrollValue(const int n);
 	void GetSelectedArchives(QVector<QString> &urls);
 	void GoBack();
@@ -96,8 +97,9 @@ public:
 	
 	bool ViewIsAt(const QString &dir_path) const;
 	ViewMode view_mode() const { return view_mode_; }
-	void SetViewMode(const ViewMode mode);
 	void SetNextView();
+	void SetViewMode(const ViewMode mode);
+	
 	gui::ShiftSelect* ShiftSelect();
 	void ShowRightClickMenu(const QPoint &global_pos,
 		const QPoint &local_pos);

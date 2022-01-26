@@ -34,5 +34,6 @@ private:
 	QCheckBox *show_free_partition_space_ = nullptr;
 	QCheckBox *show_link_targets_ = nullptr;
 	QCheckBox *remember_window_size_ = nullptr;
+	QCheckBox *sync_views_scroll_ = nullptr;
 };
 }

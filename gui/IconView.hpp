@@ -53,12 +53,13 @@ public:
 	virtual ~IconView();
 	
 	void DisplayingNewDirectory(const DirId dir_id, const Reload r);
-	
+	i32 GetFileIndexAt(const QPoint &pos) const;
 	int GetRowAtY(const int y) const
 	{
 		return int(double(y) / icon_dim_.rh);
 	}
 	int GetRowHeight() const { return icon_dim_.rh; }
+	i32 GetVisibleFileIndex();
 	void HiliteFileUnderMouse();
 	void SetAsCurrentView(const NewState ns);
 	QSize minimumSize() const { return size(); }

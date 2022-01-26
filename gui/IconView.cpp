@@ -280,7 +280,7 @@ bool IconView::is_current_view() const
 	return tab_->view_mode() == ViewMode::Icons;
 }
 
-io::File* IconView::GetFileAt_NoLock(const QPoint &pos, const Clone c, int *ret_index)
+i32 IconView::GetFileIndexAt(const QPoint &pos) const
 {
 	const auto &cell = icon_dim_;
 	const int mouse_y = pos.y() + vs_->value();
@@ -290,20 +290,34 @@ io::File* IconView::GetFileAt_NoLock(const QPoint &pos, const Clone c, int *ret_
 	const int x_index = (x > max_real_x) ? -1 : x / cell.cell_and_gap;
 	
 	const int file_index = (x_index == -1) ? -1 : (row_index * cell.per_row + x_index);
-	auto &files = tab_->view_files();
-	if (file_index < 0 || file_index >= files.data.vec.size())
+	const auto &files = tab_->view_files();
+	const int file_count = files.cached_files_count;
+	if (file_index < 0 || file_index >= file_count)
 	{
-		if (ret_index)
-			*ret_index = -1;
-		return nullptr;
+		return -1;
 	}
 	
+	return file_index;
+}
+
+io::File* IconView::GetFileAt_NoLock(const QPoint &pos, const Clone c, int *ret_index)
+{
+	const int file_index = GetFileIndexAt(pos);
 	if (ret_index)
 		*ret_index = file_index;
 	
+	if (file_index == -1)
+		return nullptr;
+	
+	auto &files = tab_->view_files();
 	io::File *f = files.data.vec[file_index];
 	
 	return (c == Clone::Yes) ? f->Clone() : f;
+}
+
+i32 IconView::GetVisibleFileIndex()
+{
+	return GetFileIndexAt(QPoint(width() / 2, height() / 2));
 }
 
 void IconView::keyPressEvent(QKeyEvent *evt)

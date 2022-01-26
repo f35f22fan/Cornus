@@ -108,6 +108,20 @@ public:
 	int cached_files_count = -1;
 	// <== only used in gui thread
 	
+	// returns cloned file
+	io::File* GetFileAtIndex_Lock(const int index);
+	int GetFirstSelectedFile_Lock(io::File **ret_cloned_file);
+	QString GetFirstSelectedFileFullPath_Lock(QString *ext);
+	int GetSelectedFilesCount_Lock(QVector<QString> *extensions = nullptr);
+	void GetSelectedFileNames(QVector<QString> &names, const Path path,
+		const StringCase str_case = StringCase::AsIs);
+	QPair<int, int> ListSelectedFiles_Lock(QList<QUrl> &list);
+	
+	void RemoveThumbnailsFromSelectedFiles();
+	void SelectAllFiles_NoLock(const Selected flag, QSet<int> &indices);
+	void SelectFilenamesLater(const QVector<QString> &names, const SameDir sd = SameDir::No);
+	void SelectFileRange_NoLock(const int row1, const int row2, QSet<int> &indices);
+	
 	inline void Broadcast() {
 		int status = pthread_cond_broadcast(&cond);
 		if (status != 0)
@@ -138,20 +152,6 @@ public:
 	inline int CondWait() {
 		return pthread_cond_wait(&cond, &mutex);
 	}
-
-	// returns cloned file
-	io::File* GetFileAtIndex_Lock(const int index);
-	int GetFirstSelectedFile_Lock(io::File **ret_cloned_file);
-	QString GetFirstSelectedFileFullPath_Lock(QString *ext);
-	int GetSelectedFilesCount_Lock(QVector<QString> *extensions = nullptr);
-	void GetSelectedFileNames(QVector<QString> &names, const Path path,
-		const StringCase str_case = StringCase::AsIs);
-	QPair<int, int> ListSelectedFiles_Lock(QList<QUrl> &list);
-	
-	void RemoveThumbnailsFromSelectedFiles();
-	void SelectAllFiles_NoLock(const Selected flag, QSet<int> &indices);
-	void SelectFilenamesLater(const QVector<QString> &names, const SameDir sd = SameDir::No);
-	void SelectFileRange_NoLock(const int row1, const int row2, QSet<int> &indices);
 };
 
 }

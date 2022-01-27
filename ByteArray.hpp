@@ -61,15 +61,10 @@ public:
 	
 	isize alloc_size() const { return size_; }
 	
-	// Prepend() doesn't change the at_ position.
-	void Prepend(const char *p, const isize size);
-	void prepend_u64(const u64 n);
-	
 	isize size() const { return size_; }
 	isize heap_size() const { return heap_size_; }
 	void size(isize n) { size_ = n; } // called from inside io::ReadFile(..);
-	void MakeSure(const isize more_bytes, const ExactSize es = ExactSize::No,
-		const u32 offset_from_start = 0);
+	void MakeSure(const isize more_bytes, const ExactSize es = ExactSize::No);
 	inline void to(isize n) { at_ = n; }
 	bool Receive(int fd, const CloseSocket cs = CloseSocket::Yes);
 	bool Send(int fd, const CloseSocket cs = CloseSocket::Yes) const;

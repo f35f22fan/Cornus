@@ -26,6 +26,8 @@
 
 namespace cornus::io {
 
+const QString DesktopExt = QLatin1String("desktop");
+
 QString BuildTempPathFromID(const DiskFileId &id)
 {
 	QString s = io::GetLastingTmpDir();
@@ -1012,7 +1014,6 @@ int ListFiles(io::FilesData &data, io::Files *ptr, const CountDirFiles cdf,
 		ptr->data.processed_dir_path = data.processed_dir_path;
 	}
 	
-	const QString DesktopExt = QLatin1String("desktop");
 	auto dir_path_ba = data.processed_dir_path.toLocal8Bit();
 	DIR *dp = opendir(dir_path_ba.data());
 	
@@ -1039,6 +1040,7 @@ int ListFiles(io::FilesData &data, io::Files *ptr, const CountDirFiles cdf,
 		
 		auto *file = new io::File(ptr);
 		file->name(name);
+		file->cache().possible_categories = possible_categories;
 
 		if (ReloadMeta(*file, stx, &data.processed_dir_path))
 		{
@@ -1047,11 +1049,6 @@ int ListFiles(io::FilesData &data, io::Files *ptr, const CountDirFiles cdf,
 			{
 				file->CountDirFiles1Level();
 			}
-			
-			if (possible_categories == nullptr || file->cache().ext != DesktopExt)
-				continue;
-			DesktopFile *df = DesktopFile::FromPath(file->build_full_path(), *possible_categories);
-			file->cache().desktop_file = df;
 		} else {
 			delete file;
 		}
@@ -1349,8 +1346,14 @@ bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	if (param.ret_mode != nullptr)
 		*(param.ret_mode) = stx.stx_mode;
 	
+	ExactSize es;
 	if (param.can_rely == CanRelyOnStatxSize::Yes)
+	{
+		es = ExactSize::Yes;
 		buffer.MakeSure(stx.stx_size, ExactSize::Yes);
+	} else {
+		es = ExactSize::No;
+	}
 	
 	const int fd = ::open(path.data(), O_RDONLY);
 	
@@ -1358,15 +1361,14 @@ bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 		return false;///MapPosixError(errno);
 	
 	isize so_far = 0;
-	const isize chunk_size = (param.read_max == -1 || param.read_max > 4096)
-		? 4096 : param.read_max;
+	const isize chunk_size = 4096 * 4;
 	char *buf = new char[chunk_size];
 	AutoDeleteArr ad(buf);
-	isize read_chunk;
+	isize actually_read;
 	while (true)
 	{
-		read_chunk = read(fd, buf, chunk_size);
-		if (read_chunk == -1)
+		actually_read = read(fd, buf, chunk_size);
+		if (actually_read == -1)
 		{
 			if (errno == EAGAIN)
 				continue;
@@ -1375,17 +1377,17 @@ bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 				mtl_warn("ReadFile: %s", strerror(errno));
 			close(fd);
 			return false;
-		} else if (read_chunk == 0) {
+		} else if (actually_read == 0) {
 			/// Zero indicates the end of file, happens with sysfs files.
 			break;
 		}
 		
-		so_far += read_chunk;
+		so_far += actually_read;
 		
 		if (param.read_max != -1 && so_far >= param.read_max)
 			break;
 		
-		buffer.add(buf, read_chunk);
+		buffer.add(buf, actually_read, es);
 	}
 	
 	close(fd);
@@ -1459,12 +1461,15 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 
 bool ReloadMeta(io::File &file, struct statx &stx, QString *dir_path)
 {
-	QByteArray full_path;
-	if (dir_path != nullptr) {
-		full_path = (*dir_path + file.name()).toLocal8Bit();
+	QString full_path_str;
+	if (dir_path != nullptr)
+	{
+		full_path_str = (*dir_path + file.name());
 	} else {
-		full_path = file.build_full_path().toLocal8Bit();
+		full_path_str = file.build_full_path();
 	}
+	
+	QByteArray full_path = full_path_str.toLocal8Bit();
 	const auto flags = AT_SYMLINK_NOFOLLOW;
 	const auto fields = STATX_ALL;
 	
@@ -1482,6 +1487,17 @@ bool ReloadMeta(io::File &file, struct statx &stx, QString *dir_path)
 			(dir_path != nullptr) ? *dir_path : file.dir_path());
 		delete file.link_target();
 		file.link_target(target);
+	}
+	
+	auto &cache = file.cache();
+	if (file.is_regular() && (cache.possible_categories != nullptr)
+		&& cache.ext == DesktopExt)
+	{
+		DesktopFile *df = DesktopFile::FromPath(full_path_str, *cache.possible_categories);
+		if (cache.desktop_file != nullptr)
+			delete cache.desktop_file;
+		
+		cache.desktop_file = df;
 	}
 	
 	return true;

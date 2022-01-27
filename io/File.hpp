@@ -7,6 +7,7 @@
 #include "io.hh"
 #include "../thumbnail.hh"
 
+#include <QHash>
 #include <QIcon>
 #include <QMetaType> /// Q_DECLARE_METATYPE()
 #include <QMimeDatabase>
@@ -18,6 +19,7 @@ struct FileCache {
 	QStringRef ext = QStringRef();
 	QIcon *icon = nullptr;
 	DesktopFile *desktop_file = nullptr;
+	const QHash<QString, Category> *possible_categories = nullptr;
 	media::ShortData *short_data = nullptr;
 	Thumbnail *thumbnail = nullptr;
 	bool tried_loading_thumbnail = false;

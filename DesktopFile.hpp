@@ -40,7 +40,10 @@ public:
 	~Group();
 	
 	Group* Clone() const;
+	QString ExpandEnvVars(QString s, QProcessEnvironment &my_env);
 	static Group* From(ByteArray &ba);
+	QString GetIcon(QProcessEnvironment &env);
+	QString GetPath(QProcessEnvironment &env);
 	bool IsMain() const;
 	void Launch(const QString &working_dir, const QString &full_path);
 	const QString& name() const { return name_; }

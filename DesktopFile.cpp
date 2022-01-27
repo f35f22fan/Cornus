@@ -60,37 +60,6 @@ Category GetToolkitFor(const Category desktop)
 }
 
 const QRegularExpression regex("\\$\\{?\\w+\\}?");
-
-QString ExpandEnvVars(QString s, QProcessEnvironment &my_env)
-{
-	QRegularExpressionMatch match;
-	while (true)
-	{
-		int index = s.indexOf(regex, 0, &match);
-		if (index == -1)
-			break;
-		
-		QString var_name = match.captured();
-		//mtl_printq2("var_name initial: ", var_name);
-		const int var_len = var_name.size();
-		if (var_name.at(1) == QChar('{') && var_name.endsWith('}'))
-		{
-			var_name = var_name.mid(2, var_len - 3); // 3 = "{$}"
-		} else {
-			var_name = var_name.mid(1);
-		}
-		//mtl_printq2("var_name: ", var_name);
-		//mtl_printq2("value: ", my_env.value(var_name));
-		QString new_val = s.mid(0, index);
-		new_val += my_env.value(var_name);
-		new_val += s.mid(index + var_len);
-		s = new_val;
-	}
-	
-	//mtl_printq2("Returning: ", s);
-	return s;
-}
-
 const auto MainGroupName = QLatin1String("Desktop Entry");
 const auto KeyExec = QLatin1String("Exec");
 
@@ -110,6 +79,42 @@ Group::Clone() const
 	p->not_show_in_ = not_show_in_;
 	
 	return p;
+}
+
+QString Group::ExpandEnvVars(QString s, QProcessEnvironment &my_env)
+{
+	QRegularExpressionMatch match;
+	while (true)
+	{
+		int index = s.indexOf(regex, 0, &match);
+		if (index == -1)
+			break;
+		
+		QString var_name = match.captured();
+		//mtl_printq2("var_name initial: ", var_name);
+		const int initial_var_len = var_name.size();
+		if (var_name.at(1) == QChar('{') && var_name.endsWith('}'))
+		{
+			var_name = var_name.mid(2, initial_var_len - 3); // 3 = "{$}"
+		} else {
+			var_name = var_name.mid(1);
+		}
+		//mtl_printq2("var_name: ", var_name);
+		//mtl_printq2("value: ", my_env.value(var_name));
+		QString new_val = s.mid(0, index);
+		QString var_value = my_env.value(var_name);
+		if (var_value.isEmpty())
+		{
+			var_value = kv_map_.value(var_name);
+			//mtl_printq2("var_value was empty, now: ", var_value);
+		}
+		new_val += var_value;
+		new_val += s.mid(index + initial_var_len);
+		s = new_val;
+	}
+	
+	//mtl_printq2("Returning: ", s);
+	return s;
 }
 
 Group*
@@ -151,6 +156,26 @@ Group::From(ByteArray &ba)
 	}
 	
 	return p;
+}
+
+QString
+Group::GetIcon(QProcessEnvironment &env)
+{
+	QString val = value(QLatin1String("Icon"));
+	if (val.isEmpty())
+		return val;
+
+	return ExpandEnvVars(val, env);
+}
+
+QString
+Group::GetPath(QProcessEnvironment &env)
+{
+	QString val = value(QLatin1String("Path"));
+	if (val.isEmpty())
+		return val;
+
+	return ExpandEnvVars(val, env);
 }
 
 bool Group::IsMain() const {
@@ -205,12 +230,19 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 //		mtl_printq2("App arg: ", next);
 //	}
 	
+	QString work_dir = working_dir;
+	if (work_dir.isEmpty())
+	{
+// Path description in .desktop spec:
+// If entry is of type Application, the working directory to run the program in.
+		work_dir = GetPath(custom_env);
+	}
+	
 	QString exe_str = app_args.takeFirst();
-	//QProcess::startDetached(exe, app_args, working_dir);
 	QProcess *process = new QProcess();
 	process->setProgram(exe_str);
 	process->setArguments(app_args);
-	process->setWorkingDirectory(working_dir);
+	process->setWorkingDirectory(work_dir);
 	process->setProcessEnvironment(custom_env);
 	process->startDetached();
 	
@@ -480,9 +512,7 @@ DesktopFile::GetIcon(QProcessEnvironment &env) const
 	if (!is_desktop_file() || !main_group_)
 		return QString();
 	
-	QString val = main_group_->value(QLatin1String("Icon"));
-
-	return ExpandEnvVars(val, env);
+	return main_group_->GetIcon(env);
 }
 
 QString

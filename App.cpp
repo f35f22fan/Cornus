@@ -99,7 +99,7 @@ void* ThumbnailLoader (void *args)
 	ByteArray temp_ba;
 	io::ReadParams read_params = {};
 	read_params.print_errors = PrintErrors::No;
-	read_params.can_rely = CanRelyOnStatxSize::Yes;
+	//read_params.can_rely = CanRelyOnStatxSize::Yes;
 	
 	while (th_data->wait_for_work)
 	{

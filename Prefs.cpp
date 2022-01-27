@@ -70,6 +70,8 @@ void Prefs::Load()
 	const QString full_path = prefs::QueryAppConfigPath() + '/'
 		+ prefs::PrefsFileName + QString::number(prefs::PrefsFormatVersion);
 	io::ReadParams read_params = {};
+	read_params.can_rely = CanRelyOnStatxSize::Yes;
+	read_params.print_errors = PrintErrors::No;
 	ByteArray buf;
 	VOID_RET_IF(io::ReadFile(full_path, buf, read_params), false);
 	

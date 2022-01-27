@@ -137,7 +137,7 @@ bool File::has_exec_bit() const {
 bool File::IsThumbnailMarkedFailed()
 {
 	ByteArray &ba = ext_attrs_[media::XAttrThumbnail];
-	return ba.size() <= (ThumbnailHeaderSize + 4);
+	return ba.size() <= (thumbnail::HeaderSize + 4);
 }
 
 void File::MarkThumbnailFailed()

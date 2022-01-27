@@ -97,6 +97,7 @@ bool LoadBookmarks(QVector<TreeItem*> &vec)
 {
 	const QString full_path = prefs::GetBookmarksFilePath();
 	io::ReadParams read_params = {};
+	read_params.can_rely = CanRelyOnStatxSize::Yes;
 	ByteArray buf;
 	RET_IF(io::ReadFile(full_path, buf, read_params), false, false);
 	

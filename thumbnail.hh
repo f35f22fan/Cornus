@@ -20,6 +20,8 @@ namespace cornus {
 namespace thumbnail {
 using AbiType = i16;
 const AbiType AbiVersion = 1;
+// header size: abi=2 + width=2 + height=2 + bpl=2 + img_w=4 + img_h=4 + img_format=4
+const i64 HeaderSize = 20;
 } // thumbnail::
 
 enum class Origin: i8 {
@@ -29,8 +31,6 @@ enum class Origin: i8 {
 	Undefined
 };
 
-// header size: abi=2 + width=2 + height=2 + bpl=2 + img_w=4 + img_h=4 + img_format=4
-const int ThumbnailHeaderSize = 20;
 const bool DebugThumbnailExit = false;
 
 struct Thumbnail {

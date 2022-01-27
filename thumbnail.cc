@@ -17,9 +17,9 @@ void CornusFreeQImageMemory(void *data)
 namespace cornus::thumbnail {
 
 QImage ImageFromByteArray(ByteArray &ba, i32 &img_w, i32 &img_h,
-	AbiType &abi_version, ZSTD_DCtx *decompress_context)
+	AbiType &abi_version, ZSTD_DCtx *decompress_ctx)
 {
-	if (ba.size() <= ThumbnailHeaderSize ||
+	if (ba.size() <= thumbnail::HeaderSize ||
 		((abi_version = ba.next_i16()) != thumbnail::AbiVersion))
 	{
 		return QImage();
@@ -32,12 +32,12 @@ QImage ImageFromByteArray(ByteArray &ba, i32 &img_w, i32 &img_h,
 	img_h = ba.next_i32();
 	const auto format = static_cast<QImage::Format>(ba.next_i32());
 	ba.to(0); // leave ByteArray in same state it was passed in
-	char *src_buf = (ba.data() + ThumbnailHeaderSize);
-	const i64 src_size = ba.size() - ThumbnailHeaderSize;
+	char *src_buf = (ba.data() + thumbnail::HeaderSize);
+	const i64 src_size = ba.size() - thumbnail::HeaderSize;
 	
 	const i64 dst_size = ZSTD_getFrameContentSize(src_buf, src_size);
 	uchar *dst_buf = new uchar[dst_size];
-	const i64 decompressed_size = ZSTD_decompressDCtx(decompress_context,
+	const i64 decompressed_size = ZSTD_decompressDCtx(decompress_ctx,
 		dst_buf, dst_size, src_buf, src_size);
 	Q_UNUSED(decompressed_size);
 	

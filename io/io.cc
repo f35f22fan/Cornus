@@ -8,6 +8,7 @@
 #include "Files.hpp"
 #include "../err.hpp"
 #include "../ByteArray.hpp"
+#include "SaveFile.hpp"
 #include "../trash.hh"
 
 #include <QDir>
@@ -1330,7 +1331,7 @@ bool ReadLinkSimple(const char *file_path, QString &result)
 }
 
 bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
-	const ReadParams &param)
+	const ReadParams &params)
 {
 	struct statx stx;
 	auto path = full_path.toLocal8Bit();
@@ -1338,27 +1339,29 @@ bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	const auto fields = STATX_MODE | STATX_SIZE;
 	if (statx(0, path.data(), flags, fields, &stx) != 0)
 	{
-		if (param.print_errors == PrintErrors::Yes)
+		if (params.print_errors == PrintErrors::Yes)
 			mtl_warn("statx(): %s: \"%s\"", strerror(errno), path.data());
 		return false;
 	}
 	
-	if (param.ret_mode != nullptr)
-		*(param.ret_mode) = stx.stx_mode;
+	if (params.ret_mode != nullptr)
+		*(params.ret_mode) = stx.stx_mode;
 	
+	const int fd = ::open(path.data(), O_RDONLY);
+	if (fd == -1)
+		return false;
+	
+	const auto at = buffer.at();
 	ExactSize es;
-	if (param.can_rely == CanRelyOnStatxSize::Yes)
+	if (params.can_rely == CanRelyOnStatxSize::Yes)
 	{
 		es = ExactSize::Yes;
 		buffer.MakeSure(stx.stx_size, ExactSize::Yes);
+		//mtl_printq2("Exact: ", full_path);
 	} else {
 		es = ExactSize::No;
+		//mtl_printq2("Not exact: ", full_path);
 	}
-	
-	const int fd = ::open(path.data(), O_RDONLY);
-	
-	if (fd == -1)
-		return false;///MapPosixError(errno);
 	
 	isize so_far = 0;
 	const isize chunk_size = 4096 * 4;
@@ -1372,8 +1375,7 @@ bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 		{
 			if (errno == EAGAIN)
 				continue;
-			buffer.size(so_far);
-			if (param.print_errors == PrintErrors::Yes)
+			if (params.print_errors == PrintErrors::Yes)
 				mtl_warn("ReadFile: %s", strerror(errno));
 			close(fd);
 			return false;
@@ -1384,14 +1386,14 @@ bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 		
 		so_far += actually_read;
 		
-		if (param.read_max != -1 && so_far >= param.read_max)
+		if (params.read_max != -1 && so_far >= params.read_max)
 			break;
 		
 		buffer.add(buf, actually_read, es);
 	}
 	
 	close(fd);
-	buffer.to(0);
+	buffer.to(at);
 	buffer.size(so_far); /// needed for buffer.toString()
 	
 	return true;
@@ -1550,6 +1552,7 @@ bool SameFiles(const QString &path1, const QString &path2, int *ret_error)
 bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx)
 {
 	ByteArray ba;
+	ba.MakeSure(thumbnail::HeaderSize, ExactSize::Yes);
 	ba.add_i16(thumbnail::AbiVersion);
 	ba.add_i16(item.thmb.width());
 	ba.add_i16(item.thmb.height());
@@ -1566,7 +1569,7 @@ bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx)
 	char *dst_buf = (char*)malloc(dst_size);
 	const i64 compressed_size = ZSTD_compressCCtx(compress_ctx,
 		dst_buf, dst_size, src_buf, src_size, 1);
-	ba.add(dst_buf, compressed_size);
+	ba.add(dst_buf, compressed_size, ExactSize::Yes);
 	free(dst_buf);
 	
 	if (item.dir == TempDir::No) {
@@ -1575,8 +1578,11 @@ bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx)
 	}
 	
 	QString temp_path = io::BuildTempPathFromID(item.id);
-	//mtl_info("Saved to temp: %s", qPrintable(temp_path));
-	return io::WriteToFile(temp_path, ba.data(), ba.size()) == 0;
+	io::SaveFile save_file(temp_path);
+	if (io::WriteToFile(save_file.GetPathToWorkWith(), ba.data(), ba.size()) != 0)
+		return false;
+	
+	return save_file.Commit();
 }
 
 bool sd_nvme(const QString &name)

@@ -188,6 +188,7 @@ if (DO_BUILD_CORNUS_R)
 		io/File.cpp io/File.hpp
 		io/Files.cpp io/Files.hpp
 		io/io.cc io/io.hh
+		io/SaveFile.cpp io/SaveFile.hpp
 		io/socket.cc io/socket.hh
 		io/Task.cpp io/Task.hpp
 	)

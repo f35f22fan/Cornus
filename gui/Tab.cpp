@@ -1108,7 +1108,10 @@ void Tab::LaunchFromOpenWithMenu()
 	QAction *act = qobject_cast<QAction *>(sender());
 	QVariant v = act->data();
 	DesktopFile *p = (DesktopFile*) v.value<void *>();
-	p->Launch(open_with_.full_path, current_dir());
+	DesktopArgs args;
+	args.full_path = open_with_.full_path;
+	args.working_dir = current_dir();
+	p->Launch(args);
 }
 
 QString Tab::ListSpeedString() const

@@ -4,9 +4,10 @@
 #include "io/io.hh"
 
 #include <QProcess>
+#include <QRegularExpression>
 
 namespace cornus {
-
+static const QString DesktopExt = QLatin1String(".desktop");
 ///mpv: Categories=AudioVideo;Audio;Video;Player;TV;
 ///Totem: Categories=GTK;GNOME;AudioVideo;Player;Video;
 ///VLC: Categories=AudioVideo;Player;Recorder;
@@ -58,8 +59,40 @@ Category GetToolkitFor(const Category desktop)
 	}
 }
 
+const QRegularExpression regex("\\$\\{?\\w+\\}?");
+
+QString UnfoldEnvVars(QString s, QProcessEnvironment &my_env)
+{
+	QRegularExpressionMatch match;
+	while (true)
+	{
+		int index = s.indexOf(regex, 0, &match);
+		if (index == -1)
+			break;
+		
+		QString var_name = match.captured();
+		//mtl_printq2("var_name initial: ", var_name);
+		const int var_len = var_name.size();
+		if (var_name.at(1) == QChar('{') && var_name.endsWith('}'))
+		{
+			var_name = var_name.mid(2, var_len - 3); // 3 = "{$}"
+		} else {
+			var_name = var_name.mid(1);
+		}
+		//mtl_printq2("var_name: ", var_name);
+		//mtl_printq2("value: ", my_env.value(var_name));
+		QString new_val = s.mid(0, index);
+		new_val += my_env.value(var_name);
+		new_val += s.mid(index + var_len);
+		s = new_val;
+	}
+	
+	//mtl_printq2("Returning: ", s);
+	return s;
+}
+
 const auto MainGroupName = QLatin1String("Desktop Entry");
-const auto Exec = QLatin1String("Exec");
+const auto KeyExec = QLatin1String("Exec");
 
 namespace desktopfile {
 
@@ -124,51 +157,62 @@ bool Group::IsMain() const {
 	return name_ == MainGroupName;
 }
 
-void Group::Launch(const QString &full_path, const QString &working_dir)
+void Group::Launch(const QString &working_dir, const QString &full_path)
 {
-	QString exec = value(Exec);
+	QString exec = value(KeyExec);
 	if (exec.isEmpty())
 		return;
-	QStringList args = exec.split(' ', Qt::SkipEmptyParts);
-	
-	for (auto &next: args) {
-		if (next.startsWith('%')) {
-			if (next == QLatin1String("%f") || next == QLatin1String("%F")) {
-				next = full_path;
-			} else if (next == QLatin1String("%u") || next == QLatin1String("%U")) {
-				next = QUrl::fromLocalFile(full_path).toString();
-			}
-		}
-	}
-	
-	QString exe = args.takeFirst();
-	QProcess::startDetached(exe, args, working_dir);
-	
-///"/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=ghb --file-forwarding fr.handbrake.ghb @@ %f @@"
-}
 
-void Group::LaunchEmpty(const QString &working_dir)
-{
-	QString exec = value(Exec);
-	if (exec.isEmpty())
-		return;
+	QProcessEnvironment custom_env = QProcessEnvironment::systemEnvironment();
 	QStringList args = exec.split(' ', Qt::SkipEmptyParts);
-	
-	int i = 0;
-	for (auto &next: args) {
-		if (next.startsWith('%')) {
-			if (next == QLatin1String("%f") || next == QLatin1String("%F") ||
-				next == QLatin1String("%u") || next == QLatin1String("%U")) {
-				args.removeAt(i);
-				i--;
-			}
-		}
+	const QString env_key = QLatin1String("env");
+	const int arg_count = args.size();
+	QStringList app_args;
+// Exec=env APPMENU_DISPLAY_BOTH=abc dolphin -caption "%c" %i --f${APPMENU_DISPLAY_BOTH}older=$HOME/.special
+	for (int i = 0; i < arg_count; i++)
+	{
+		const QString &next = args[i];
 		
-		i++;
+		if (next == env_key)
+		{
+			if ((++i) >= arg_count)
+				continue;
+			
+			auto env_pair = args[i].split('=');
+			if (env_pair.size() == 2) {
+				//mtl_info("Env vars: \"%s\"=\"%s\"", qPrintable(env_pair[0]), qPrintable(env_pair[1]));
+				custom_env.insert(env_pair[0], env_pair[1]);
+			}
+		} else if (next.startsWith('%')) {
+			if (next == QLatin1String("%f") || next == QLatin1String("%F"))
+			{
+				if (full_path.isEmpty())
+					continue;
+				app_args.append(full_path);
+			} else if (next == QLatin1String("%u") || next == QLatin1String("%U")) {
+				if (full_path.isEmpty())
+					continue;
+				auto url_str = QUrl::fromLocalFile(full_path).toString();
+				app_args.append(url_str);
+			}
+		} else {
+			QString s = UnfoldEnvVars(next, custom_env);
+			app_args.append(s);
+		}
 	}
 	
-	QString exe = args.takeFirst();
-	QProcess::startDetached(exe, args, working_dir);
+//	for (auto &next: app_args) {
+//		mtl_printq2("App arg: ", next);
+//	}
+	
+	QString exe_str = app_args.takeFirst();
+	//QProcess::startDetached(exe, app_args, working_dir);
+	QProcess *process = new QProcess();
+	process->setProgram(exe_str);
+	process->setArguments(app_args);
+	process->setWorkingDirectory(working_dir);
+	process->setProcessEnvironment(custom_env);
+	process->startDetached();
 	
 ///"/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=ghb --file-forwarding fr.handbrake.ghb @@ %f @@"
 }
@@ -467,10 +511,12 @@ bool DesktopFile::Init(const QString &full_path,
 	full_path_ = full_path;
 	possible_categories_ = &possible_categories;
 	auto ref = io::GetFileNameOfFullPath(full_path_);
-	int index = ref.lastIndexOf(QLatin1String(".desktop"));
-	if (index == -1)
+	if (!ref.endsWith(DesktopExt))
 		return false;
-	name_ = ref.mid(0, index).toString();
+	
+	name_ = ref.mid(0, ref.size() - DesktopExt.size()).toString();
+	if (name_.isEmpty())
+		return false;
 	
 	io::ReadParams param = {};
 	ByteArray ba;
@@ -513,30 +559,16 @@ bool DesktopFile::IsApp() const
 	return main_group_->value(QLatin1String("Type")) == QLatin1String("Application");
 }
 
-void DesktopFile::Launch(const QString &full_path, const QString &working_dir)
+void DesktopFile::Launch(const DesktopArgs &desk_args)
 {
 	if (is_desktop_file())
 	{
 		if (main_group_ != nullptr)
-			main_group_->Launch(full_path, working_dir);
+			main_group_->Launch(desk_args.working_dir, desk_args.full_path);
 	} else if (is_just_exe_path()) {
 		QStringList args;
-		args.append(full_path);
-		QProcess::startDetached(full_path_, args, working_dir);
-	} else {
-		mtl_trace();
-	}
-}
-
-void DesktopFile::LaunchEmpty(const QString &working_dir)
-{
-	if (is_desktop_file())
-	{
-		if (main_group_ != nullptr)
-			main_group_->LaunchEmpty(working_dir);
-	} else if (is_just_exe_path()) {
-		QStringList args;
-		QProcess::startDetached(full_path_, args, working_dir);
+		args.append(desk_args.full_path);
+		QProcess::startDetached(full_path_, args, desk_args.working_dir);
 	} else {
 		mtl_trace();
 	}

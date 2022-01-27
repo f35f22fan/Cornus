@@ -9,6 +9,11 @@
 
 namespace cornus {
 
+struct DesktopArgs {
+	QString working_dir;
+	QString full_path;
+};
+
 enum class MimeInfo: u8 {
 	None,
 	Audio,
@@ -36,8 +41,7 @@ public:
 	Group* Clone() const;
 	static Group* From(ByteArray &ba);
 	bool IsMain() const;
-	void Launch(const QString &full_path, const QString &working_dir);
-	void LaunchEmpty(const QString &working_dir);
+	void Launch(const QString &working_dir, const QString &full_path);
 	const QString& name() const { return name_; }
 	void ParseLine(const QStringRef &line, const QHash<QString, Category> &possible_categories);
 	QMap<QString, QString>& map() { return kv_map_; }
@@ -98,8 +102,7 @@ public:
 		return main_group_ != nullptr &&
 		main_group_->is_text_editor();
 	}
-	void Launch(const QString &full_path, const QString &working_dir);
-	void LaunchEmpty(const QString &working_dir);
+	void Launch(const DesktopArgs &args);
 	desktopfile::Group* main_group() const { return main_group_; }
 	
 	bool ToBeRunInTerminal() const;

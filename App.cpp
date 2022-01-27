@@ -1226,8 +1226,9 @@ void App::LaunchOrOpenDesktopFile(const QString &full_path,
 	DesktopFile *df = DesktopFile::FromPath(full_path, possible_categories_);
 	if (df == nullptr)
 		return;
-	
-	df->LaunchEmpty(tab()->current_dir());
+	DesktopArgs args;
+	args.working_dir = tab()->current_dir();
+	df->Launch(args);
 	delete df;
 }
 
@@ -1347,7 +1348,10 @@ void App::OpenWithDefaultApp(const QString &full_path) const
 	
 	DesktopFile *p = DesktopFile::From(ba);
 	VOID_RET_IF(p, nullptr);
-	p->Launch(full_path, tab()->current_dir());
+	DesktopArgs args;
+	args.full_path = full_path;
+	args.working_dir = tab()->current_dir();
+	p->Launch(args);
 	delete p;
 }
 

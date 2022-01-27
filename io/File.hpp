@@ -17,6 +17,7 @@ struct FileCache {
 	QString mime;
 	QStringRef ext = QStringRef();
 	QIcon *icon = nullptr;
+	DesktopFile *desktop_file = nullptr;
 	media::ShortData *short_data = nullptr;
 	Thumbnail *thumbnail = nullptr;
 	bool tried_loading_thumbnail = false;
@@ -206,8 +207,8 @@ private:
 	io::FileBits bits_ = FileBits::Empty;
 	FileType type_ = FileType::Unknown;
 	
-	friend int io::ListFiles(io::FilesData &data, io::Files *ptr,
-		const CountDirFiles cdf, FilterFunc ff);
+//	friend int io::ListFiles(io::FilesData &data, io::Files *ptr,
+//		const CountDirFiles cdf, FilterFunc ff);
 	friend class cornus::gui::TableModel;
 };
 

@@ -33,6 +33,7 @@
 #include <QMessageBox>
 #include <QMimeData>
 #include <QPainter>
+#include <QProcessEnvironment>
 #include <QScrollBar>
 #include <QUrl>
 
@@ -150,7 +151,7 @@ void* GoToTh(void *p)
 	const auto cdf = app->prefs().show_dir_file_count() ?
 		io::CountDirFiles::Yes : io::CountDirFiles::No;
 	
-	if (io::ListFiles(*new_data, &view_files, cdf) != 0)
+	if (io::ListFiles(*new_data, &view_files, cdf, &app->possible_categories()) != 0)
 	{
 		delete params;
 		delete new_data;
@@ -442,6 +443,7 @@ Tab::CreateOpenWithList(const QString &full_path)
 	open_with_.mime = app_->QueryMimeType(full_path);
 	ReloadOpenWith();
 	QVector<QAction*> ret;
+	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
 	
 	for (DesktopFile *next: open_with_.show_vec)
 	{
@@ -456,7 +458,7 @@ Tab::CreateOpenWithList(const QString &full_path)
 		QAction *action = new QAction(name);
 		QVariant v = QVariant::fromValue((void *) next);
 		action->setData(v);
-		action->setIcon(next->CreateQIcon());
+		action->setIcon(next->CreateQIcon(env));
 		connect(action, &QAction::triggered, this, &Tab::LaunchFromOpenWithMenu);
 		ret.append(action);
 	}
@@ -1389,8 +1391,9 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 			}
 		}
 	}
-	
-	if (selected_count == 1 && !file_under_mouse_full_path.isEmpty()) {
+	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+	if (selected_count == 1 && !file_under_mouse_full_path.isEmpty())
+	{
 		if (file->cache().ext == str::Desktop)
 		{
 			DesktopFile *df = DesktopFile::FromPath(file_under_mouse_full_path,
@@ -1403,7 +1406,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 						app_->LaunchOrOpenDesktopFile(file_under_mouse_full_path,
 							false, RunAction::Run);
 					});
-					action->setIcon(df->CreateQIcon());
+					action->setIcon(df->CreateQIcon(env));
 				}
 				{
 					QAction *action = menu->addAction(tr("Open"));
@@ -1411,7 +1414,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 						app_->LaunchOrOpenDesktopFile(file_under_mouse_full_path,
 							false, RunAction::Open);
 					});
-					action->setIcon(df->CreateQIcon());
+					action->setIcon(df->CreateQIcon(env));
 				}
 				delete df;
 			}

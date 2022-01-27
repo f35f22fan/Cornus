@@ -61,7 +61,7 @@ Category GetToolkitFor(const Category desktop)
 
 const QRegularExpression regex("\\$\\{?\\w+\\}?");
 
-QString UnfoldEnvVars(QString s, QProcessEnvironment &my_env)
+QString ExpandEnvVars(QString s, QProcessEnvironment &my_env)
 {
 	QRegularExpressionMatch match;
 	while (true)
@@ -196,7 +196,7 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 				app_args.append(url_str);
 			}
 		} else {
-			QString s = UnfoldEnvVars(next, custom_env);
+			QString s = ExpandEnvVars(next, custom_env);
 			app_args.append(s);
 		}
 	}
@@ -374,9 +374,9 @@ DesktopFile::Clone() const
 }
 
 QIcon
-DesktopFile::CreateQIcon()
+DesktopFile::CreateQIcon(QProcessEnvironment &env)
 {
-	QString s = GetIcon();
+	QString s = GetIcon(env);
 	if (s.isEmpty())
 		return QIcon::fromTheme(QLatin1String("application-x-executable"));
 	
@@ -475,13 +475,14 @@ DesktopFile::GetId() const
 }
 
 QString
-DesktopFile::GetIcon() const
+DesktopFile::GetIcon(QProcessEnvironment &env) const
 {
-	if (is_desktop_file() && main_group_) {
-		return main_group_->value(QLatin1String("Icon"));
-	}
+	if (!is_desktop_file() || !main_group_)
+		return QString();
 	
-	return QString();
+	QString val = main_group_->value(QLatin1String("Icon"));
+
+	return ExpandEnvVars(val, env);
 }
 
 QString

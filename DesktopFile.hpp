@@ -2,6 +2,7 @@
 
 #include <QIcon>
 #include <QMap>
+#include <QProcessEnvironment>
 
 #include "category.hh"
 #include "decl.hxx"
@@ -91,7 +92,7 @@ public:
 	DesktopFile* Clone() const;
 	
 	static MimeInfo GetForMime(const QString &mime);
-	QIcon CreateQIcon();
+	QIcon CreateQIcon(QProcessEnvironment &env);
 	
 	const QString& full_path() const { return full_path_; }
 	void full_path(const QString &s) { full_path_ = s; }
@@ -115,7 +116,7 @@ public:
 	Type type() const { return type_; }
 	void WriteTo(ByteArray &ba) const;
 	
-	QString GetIcon() const;
+	QString GetIcon(QProcessEnvironment &env) const;
 	QString GetName() const;
 	QString GetGenericName() const;
 	

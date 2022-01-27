@@ -1,6 +1,7 @@
 #include "File.hpp"
 
 #include "../ByteArray.hpp"
+#include "../DesktopFile.hpp"
 #include "Files.hpp"
 #include "../thumbnail.hh"
 
@@ -22,6 +23,9 @@ File::~File()
 	
 	delete cache_.thumbnail;
 	cache_.thumbnail = nullptr;
+	
+	delete cache_.desktop_file;
+	cache_.desktop_file = nullptr;
 }
 
 QString File::build_full_path() const
@@ -58,6 +62,8 @@ File* File::Clone() const
 	file->cache_ = cache_;
 	file->cache_.thumbnail = nullptr;
 	file->cache_.short_data = nullptr;
+	file->cache_.desktop_file = (cache_.desktop_file != nullptr)
+		? cache_.desktop_file->Clone() : nullptr;
 	file->bits_ = bits_;
 	file->time_created_ = time_created_;
 	file->time_modified_ = time_modified_;

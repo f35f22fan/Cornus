@@ -177,6 +177,7 @@ if (DO_BUILD_CORNUS_R)
 		AutoDelete.hh
 		ByteArray.cpp ByteArray.hpp
 		category.cc category.hh
+		DesktopFile.cpp DesktopFile.hpp
 		ElapsedTimer.cpp ElapsedTimer.hpp
 		err.hpp
 		MutexGuard.cpp MutexGuard.hpp

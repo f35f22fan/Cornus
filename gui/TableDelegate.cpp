@@ -1,6 +1,7 @@
 #include "TableDelegate.hpp"
 
 #include "../App.hpp"
+#include "../DesktopFile.hpp"
 #include "../io/io.hh"
 #include "../io/File.hpp"
 #include "../io/Files.hpp"
@@ -83,9 +84,25 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 		painter->fillPath(path, c);
 	}
 	
-	auto rcopy = text_rect;
-	rcopy.setWidth(rcopy.width() + 300);
-	painter->drawText(text_rect, text_alignment_, file->name(), &rcopy);
+	auto bounding_rect = text_rect;
+	bounding_rect.setWidth(bounding_rect.width() + 300);
+	painter->drawText(text_rect, text_alignment_, file->name(), &bounding_rect);
+	
+	if (file->is_regular() && file->cache().desktop_file != nullptr)
+	{
+		DesktopFile *df = file->cache().desktop_file;
+		QString desktop_fn = df->GetName();
+		if (!desktop_fn.isEmpty())
+		{
+			desktop_fn = QLatin1String(" (") + desktop_fn + ')';
+			QBrush brush = option.palette.brush(QPalette::PlaceholderText);
+			QPen pen(brush.color());
+			painter->setPen(pen);
+			auto drect = text_rect;
+			drect.setX(drect.x() + bounding_rect.width());
+			painter->drawText(drect, text_alignment_, desktop_fn);
+		}
+	}
 	
 	if (!app_->prefs().show_link_targets())
 		return;

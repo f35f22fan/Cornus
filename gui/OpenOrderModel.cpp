@@ -11,7 +11,9 @@ namespace cornus::gui {
 
 OpenOrderModel::OpenOrderModel(App *app, OpenOrderPane *oop)
 : oop_(oop)
-{}
+{
+	env_ = QProcessEnvironment::systemEnvironment();
+}
 
 OpenOrderModel::~OpenOrderModel()
 {
@@ -68,7 +70,7 @@ OpenOrderModel::data(const QModelIndex &index, int role) const
 //			return option.palette.light();
 	} else if (role == Qt::ForegroundRole) {
 	} else if (role == Qt::DecorationRole) {
-		return item->CreateQIcon();
+		return item->CreateQIcon(env_);
 	}
 	return {};
 }

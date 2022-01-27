@@ -20,6 +20,7 @@
 #include <QMenu>
 #include <QMetaType> /// Q_DECLARE_METATYPE()
 #include <QMimeDatabase>
+#include <QProcessEnvironment>
 #include <QSplitter>
 #include <QStackedWidget>
 
@@ -200,6 +201,8 @@ private:
 	QHash<i64, io::Files*> files_;
 	i64 next_files_id_ = 0;
 	// <== end
+	
+	QProcessEnvironment env_;
 	
 //	friend class cornus::gui::Table;
 //	friend class cornus::gui::Tab;

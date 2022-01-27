@@ -5,6 +5,7 @@
 #include "../err.hpp"
 
 #include <QAbstractTableModel>
+#include <QProcessEnvironment>
 #include <QVector>
 
 namespace cornus::gui {
@@ -44,5 +45,6 @@ private:
 	OpenOrderTable *table_ = nullptr;
 	QVector<DesktopFile*> vec_;
 	OpenOrderPane *oop_ = nullptr;
+	mutable QProcessEnvironment env_;
 };
 }

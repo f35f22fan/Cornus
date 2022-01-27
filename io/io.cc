@@ -1,6 +1,7 @@
 #include "io.hh"
 
 #include "../AutoDelete.hh"
+#include "../DesktopFile.hpp"
 #include "../ExecInfo.hpp"
 #include "../str.hxx"
 #include "File.hpp"
@@ -998,6 +999,7 @@ bool ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 }
 
 int ListFiles(io::FilesData &data, io::Files *ptr, const CountDirFiles cdf,
+	const QHash<QString, Category> *possible_categories,
 	FilterFunc ff)
 {
 	if (!data.unprocessed_dir_path.isEmpty()) {
@@ -1010,6 +1012,7 @@ int ListFiles(io::FilesData &data, io::Files *ptr, const CountDirFiles cdf,
 		ptr->data.processed_dir_path = data.processed_dir_path;
 	}
 	
+	const QString DesktopExt = QLatin1String("desktop");
 	auto dir_path_ba = data.processed_dir_path.toLocal8Bit();
 	DIR *dp = opendir(dir_path_ba.data());
 	
@@ -1044,6 +1047,11 @@ int ListFiles(io::FilesData &data, io::Files *ptr, const CountDirFiles cdf,
 			{
 				file->CountDirFiles1Level();
 			}
+			
+			if (possible_categories == nullptr || file->cache().ext != DesktopExt)
+				continue;
+			DesktopFile *df = DesktopFile::FromPath(file->build_full_path(), *possible_categories);
+			file->cache().desktop_file = df;
 		} else {
 			delete file;
 		}

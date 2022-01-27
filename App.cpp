@@ -277,6 +277,7 @@ App::App()
 	qRegisterMetaType<QVector<cornus::gui::TreeItem*>>();
 	qDBusRegisterMetaType<QMap<QString, QVariant>>();
 	qRegisterMetaType<cornus::Thumbnail*>();
+	env_ = QProcessEnvironment::systemEnvironment();
 	media_ = new Media();
 	hid_ = new Hid(this);
 	
@@ -1234,8 +1235,10 @@ void App::LaunchOrOpenDesktopFile(const QString &full_path,
 
 QIcon* App::LoadIcon(io::File &file)
 {
-	if (file.is_dir_or_so()) {
-		if (icon_cache_.folder == nullptr) {
+	if (file.is_dir_or_so())
+	{
+		if (icon_cache_.folder == nullptr)
+		{
 			QString full_path = GetIconThatStartsWith(QLatin1String("special_folder"));
 			RET_IF(full_path.isEmpty(), true, nullptr);
 			icon_cache_.folder = GetIconOrLoadExisting(full_path);
@@ -1247,7 +1250,8 @@ QIcon* App::LoadIcon(io::File &file)
 	const auto &fn = file.name_lower();
 	const auto &ext = file.cache().ext;
 	
-	if (ext.isEmpty()) {
+	if (ext.isEmpty())
+	{
 		
 		if (fn.indexOf(QLatin1String(".so.")) != -1)
 		{
@@ -1260,6 +1264,21 @@ QIcon* App::LoadIcon(io::File &file)
 		}
 		
 		return GetDefaultIcon();
+	}
+	
+	static const QString desktop_ext = QLatin1String("desktop");
+	if (ext == desktop_ext)
+	{
+		if (file.cache().desktop_file != nullptr)
+		{
+			QIcon icon = file.cache().desktop_file->CreateQIcon(env_);
+			// just testing icon.isNull() doesn't test if the image
+			// can be loaded, so:
+			if (!icon.pixmap(QSize(32, 32)).isNull())
+			{
+				return new QIcon(icon);
+			}
+		}
 	}
 	
 	QString filename = icon_names_.value(ext.toString());

@@ -20,6 +20,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QProcessEnvironment>
 #include <QPushButton>
 
 namespace cornus::gui {
@@ -165,6 +166,7 @@ QWidget* OpenOrderPane::CreateAddingCustomItem()
 	add_custom_cb_ = new QComboBox();
 	const QString two_points = QLatin1String("..");
 	const int max_len = 40;
+	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
 	
 	for (DesktopFile *p: all_desktop_files_)
 	{
@@ -183,7 +185,7 @@ QWidget* OpenOrderPane::CreateAddingCustomItem()
 			s.append(two_points);
 		}
 		
-		add_custom_cb_->addItem(p->CreateQIcon(), s,
+		add_custom_cb_->addItem(p->CreateQIcon(env), s,
 			QVariant::fromValue((void*)p));
 	}
 	

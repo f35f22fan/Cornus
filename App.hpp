@@ -65,13 +65,12 @@ public:
 		QColor(0, 100, 0) : QColor(200, 255, 200);
 	}
 	
-	void Reload();
 	Hid* hid() const { return hid_; }
-	void HideTextEditor();
 	QColor hover_bg_color() const { return (theme_type_ == ThemeType::Light)
 		? QColor(150, 255, 150) : QColor(0, 80, 0); }
 	QColor hover_bg_color_gray(const QColor &c) const;
 	void LaunchOrOpenDesktopFile(const QString &full_path, const bool has_exec_bit, const RunAction action) const;
+	bool level_browser() const { return top_level_stack_.level == TopLevel::Browser; }
 	gui::Location* location() { return location_; }
 	QSplitter* main_splitter() const { return main_splitter_; }
 	Media* media() const { return media_; }
@@ -82,12 +81,14 @@ public:
 	inline ExecInfo QueryExecInfo(io::File &file);
 	ExecInfo QueryExecInfo(const QString &full_path, const QString &ext);
 	QString QueryMimeType(const QString &full_path);
+	void Reload();
 	void RemoveAllThumbTasksExcept(const DirId dir_id);
 	void RenameSelectedFile();
 	void RunExecutable(const QString &full_path, const ExecInfo &info);
 	void SaveBookmarks();
 	void SelectCurrentTab();
 	void SelectTabAt(const int tab_index, const FocusView fv);
+	void SetTopLevel(const TopLevel tl, io::File *cloned_file = nullptr);
 	bool ShowInputDialog(const gui::InputDialogParams &params, QString &ret_val);
 	
 	void SubmitThumbLoaderBatchFromTab(QVector<ThumbLoaderArgs*> *new_work_vec, const TabId tab_id, const DirId dir_id);
@@ -175,6 +176,7 @@ private:
 		int window_index = -1;
 		int editor_index = -1;
 		int imgview_index = -1;
+		TopLevel level = TopLevel::Browser;
 		QString saved_window_title;
 	};
 	

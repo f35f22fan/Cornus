@@ -29,6 +29,12 @@ using TabId = i64;
 using DirId = i32;
 using FileId = i32;
 
+enum class TopLevel: i8 {
+	Browser,
+	Editor,
+	ImageViewer
+};
+
 enum class FocusView: i8 {
 	Yes,
 	No

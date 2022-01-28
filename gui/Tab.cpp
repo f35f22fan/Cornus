@@ -1054,13 +1054,13 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 		if (row != -1)
 			app_->DisplayFileContents(row, cloned_file);
 		else {
-			app_->HideTextEditor();
+			app_->SetTopLevel(TopLevel::Browser);
 		}
 	} else if (key == Qt::Key_F) {
 		if (!any_modifiers)
 			SetNextView();
 	} else if (key == Qt::Key_Escape) {
-		app_->HideTextEditor();
+		app_->SetTopLevel(TopLevel::Browser);
 	} else if (key == Qt::Key_PageUp) {
 		auto *vs = ViewScrollBar();
 		VOID_RET_IF(vs, nullptr);

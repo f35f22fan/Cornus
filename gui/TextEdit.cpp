@@ -5,6 +5,7 @@
 #include "../ExecInfo.hpp"
 #include "../io/File.hpp"
 #include "../io/io.hh"
+#include "../io/SaveFile.hpp"
 #include "Hiliter.hpp"
 
 #include <QKeyEvent>
@@ -61,15 +62,26 @@ bool TextEdit::Display(io::File *cloned_file)
 	full_path_ = cloned_file->build_full_path();
 	io::ReadParams read_params = {};
 	read_params.print_errors = PrintErrors::Yes;
-	read_params.read_max = 1024 * 1024; // 1 MiB
+	read_params.read_max = 1024 * 1024 * 5; // 5 MiB
 	
 	ByteArray buf;
 	RET_IF(io::ReadFile(full_path_, buf, read_params), false, false);
 	
 	hilite_mode_ = GetHiliteMode(buf, cloned_file);
 	hiliter_->SwitchTo(hilite_mode_);
-	setReadOnly(hilite_mode_ == HiliteMode::None);
-	QString s = QString::fromLocal8Bit(buf.data(), buf.size());
+	
+	QString s;
+	if (hilite_mode_ == HiliteMode::None)
+	{
+		setReadOnly(true);
+		// fromLatin1() instead of fromLocal8Bit() to avoid crashes
+		// when dealing with blobs that aren't strings:
+		s = QString::fromLatin1(buf.data(), buf.size());
+	} else {
+		setReadOnly(false);
+		s = QString::fromLocal8Bit(buf.data(), buf.size());
+	}
+	
 	setPlainText(s);
 	moveCursor(QTextCursor::Start);
 	
@@ -138,18 +150,18 @@ void TextEdit::keyPressEvent(QKeyEvent *evt)
 	const auto key = evt->key();
 	const bool ctrl = evt->modifiers() & Qt::ControlModifier;
 	
-	if (ctrl) {
+	if (ctrl)
+	{
 		if (key == Qt::Key_S) {
 			if (Save()) {
-				app_->HideTextEditor();
+				app_->SetTopLevel(TopLevel::Browser);
 			}
 		}
-		
 		return;
 	}
 	
 	if (key == Qt::Key_Escape) {
-		app_->HideTextEditor();
+		app_->SetTopLevel(TopLevel::Browser);
 	}
 }
 
@@ -158,8 +170,13 @@ bool TextEdit::Save()
 	if (hilite_mode_ == HiliteMode::None)
 		return false;
 	
+	io::SaveFile save_file(full_path_);
 	auto ba = toPlainText().toLocal8Bit();
-	return (io::WriteToFile(full_path_, ba.data(), ba.size()) == 0);
+	int status = io::WriteToFile(save_file.GetPathToWorkWith(), ba.data(), ba.size());
+	if (status != 0)
+		return false;
+	
+	return save_file.Commit();
 }
 
 }

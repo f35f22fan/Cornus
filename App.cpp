@@ -270,7 +270,11 @@ App::App()
 	qRegisterMetaType<QVector<cornus::gui::TreeItem*>>();
 	qDBusRegisterMetaType<QMap<QString, QVariant>>();
 	qRegisterMetaType<cornus::Thumbnail*>();
+//	ElapsedTimer timer;
+//	timer.Continue();
 	env_ = QProcessEnvironment::systemEnvironment();
+//	timer.Pause();
+//	mtl_info("Elapsed (nano) %ld", timer.elapsed_nano());
 	media_ = new Media();
 	hid_ = new Hid(this);
 	
@@ -754,19 +758,7 @@ void App::DisplayFileContents(const int row, io::File *cloned_file)
 			return;
 	}
 	
-	if (top_level_stack_.editor == nullptr) {
-		top_level_stack_.editor = new gui::TextEdit(this);
-		top_level_stack_.editor_index = top_level_stack_.stack->addWidget(top_level_stack_.editor);
-	}
-	
-	top_level_stack_.saved_window_title = windowTitle();
-	if (top_level_stack_.editor->Display(cloned_file))
-	{
-		setWindowTitle(tr("Esc => Exit, Ctrl+S => Save & Exit"));
-		toolbar_->setVisible(false);
-		top_level_stack_.stack->setCurrentIndex(top_level_stack_.editor_index);
-		tab()->table()->ClearMouseOver();
-	}
+	SetTopLevel(TopLevel::Editor, cloned_file);
 }
 
 void App::DisplaySymlinkInfo(io::File &file)
@@ -1070,13 +1062,37 @@ QString App::GetPartitionFreeSpace()
 
 void App::GoUp() { tab()->GoUp(); }
 
-void App::HideTextEditor() {
-	if (top_level_stack_.stack->currentIndex() == top_level_stack_.window_index)
+void App::SetTopLevel(const TopLevel tl, io::File *cloned_file)
+{
+	if (top_level_stack_.level == tl)
 		return;
 	
-	setWindowTitle(top_level_stack_.saved_window_title);
-	toolbar_->setVisible(true);
-	top_level_stack_.stack->setCurrentIndex(top_level_stack_.window_index);
+	if (tl == TopLevel::Browser)
+	{
+		top_level_stack_.level = tl;
+		if (top_level_stack_.stack->currentIndex() == top_level_stack_.window_index)
+			return;
+		
+		setWindowTitle(top_level_stack_.saved_window_title);
+		toolbar_->setVisible(true);
+		top_level_stack_.stack->setCurrentIndex(top_level_stack_.window_index);
+	} else if (tl == TopLevel::Editor) {
+		if (top_level_stack_.editor == nullptr)
+		{
+			top_level_stack_.editor = new gui::TextEdit(this);
+			top_level_stack_.editor_index = top_level_stack_.stack->addWidget(top_level_stack_.editor);
+		}
+		
+		top_level_stack_.saved_window_title = windowTitle();
+		if (top_level_stack_.editor->Display(cloned_file))
+		{
+			setWindowTitle(tr("Esc => Exit, Ctrl+S => Save & Exit"));
+			toolbar_->setVisible(false);
+			top_level_stack_.stack->setCurrentIndex(top_level_stack_.editor_index);
+			tab()->table()->ClearMouseOver();
+			top_level_stack_.level = tl;
+		}
+	}
 }
 
 QColor App::hover_bg_color_gray(const QColor &c) const
@@ -1570,9 +1586,12 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
 		connect(shortcut, &QShortcut::activated, [=] {
-			search_pane_->SetSearchByFileName();
-			search_pane_->setVisible(true);
-			search_pane_->RequestFocus();
+			if (level_browser())
+			{
+				search_pane_->SetSearchByFileName();
+				search_pane_->setVisible(true);
+				search_pane_->RequestFocus();
+			}
 		});
 	}
 	{
@@ -1580,15 +1599,23 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
 		connect(shortcut, &QShortcut::activated, [=] {
-			search_pane_->SetSearchByMediaXattr();
-			search_pane_->setVisible(true);
-			search_pane_->RequestFocus();
+			if (level_browser())
+			{
+				search_pane_->SetSearchByMediaXattr();
+				search_pane_->setVisible(true);
+				search_pane_->RequestFocus();
+			}
 		});
 	}
 	{
 		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_W), this);
 		shortcut->setContext(Qt::ApplicationShortcut);
-		connect(shortcut, &QShortcut::activated, this, &App::CloseCurrentTab);
+		connect(shortcut, &QShortcut::activated, [=] {
+			if (level_browser())
+			{
+				CloseCurrentTab();
+			}
+		});
 	}
 	{
 		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_Q), this);
@@ -1603,7 +1630,10 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
 		connect(shortcut, &QShortcut::activated, [=] {
-			tab()->DeleteSelectedFiles(ShiftPressed::Yes);
+			if (level_browser())
+			{
+				tab()->DeleteSelectedFiles(ShiftPressed::Yes);
+			}
 		});
 	}
 	{
@@ -1611,7 +1641,10 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
 		connect(shortcut, &QShortcut::activated, [=] {
-			tab()->FocusView();
+			if (level_browser())
+			{
+				tab()->FocusView();
+			}
 		});
 	}
 	{
@@ -1619,8 +1652,11 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
 		connect(shortcut, &QShortcut::activated, [=] {
-			location_->setFocus();
-			location_->selectAll();
+			if (level_browser())
+			{
+				location_->setFocus();
+				location_->selectAll();
+			}
 		});
 	}
 	{
@@ -1628,13 +1664,16 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
 		connect(shortcut, &QShortcut::activated, [=] {
-			gui::Tab *tab = this->tab();
-			tab->FocusView();
-			QSet<int> indices;
-			auto &view_files = tab->view_files();
-			MutexGuard guard = view_files.guard();
-			view_files.SelectAllFiles_NoLock(Selected::Yes, indices);
-			tab->table_model()->UpdateIndices(indices);
+			if (level_browser())
+			{
+				gui::Tab *tab = this->tab();
+				tab->FocusView();
+				QSet<int> indices;
+				auto &view_files = tab->view_files();
+				MutexGuard guard = view_files.guard();
+				view_files.SelectAllFiles_NoLock(Selected::Yes, indices);
+				tab->table_model()->UpdateIndices(indices);
+			}
 		});
 	}
 	{
@@ -1642,7 +1681,10 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
 		connect(shortcut, &QShortcut::activated, [=] {
-			ToggleExecBitOfSelectedFiles();
+			if (level_browser())
+			{
+				ToggleExecBitOfSelectedFiles();
+			}
 		});
 	}
 	{
@@ -1650,7 +1692,10 @@ void App::RegisterShortcuts()
 		shortcut->setContext(Qt::ApplicationShortcut);
 		
 		connect(shortcut, &QShortcut::activated, [=] {
-			OpenNewTab();
+			if (level_browser())
+			{
+				OpenNewTab();
+			}
 		});
 	}
 }

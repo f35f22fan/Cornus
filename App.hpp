@@ -120,6 +120,7 @@ protected:
 private:
 	NO_ASSIGN_COPY_MOVE(App);
 	
+	void ApplyDefaultPrefs();
 	void ArchiveAskDestArchivePath(const QString &ext);
 	void ClipboardChanged(QClipboard::Mode mode);
 	void CloseTabAt(const int i);
@@ -168,16 +169,17 @@ private:
 	
 	QSplitter *main_splitter_ = nullptr;
 	
-	struct Notepad {
+	struct TopLevelStack {
 		QStackedWidget *stack = nullptr;
 		gui::TextEdit *editor = nullptr;
 		int window_index = -1;
 		int editor_index = -1;
+		int imgview_index = -1;
 		QString saved_window_title;
 	};
 	
 	Hid *hid_ = nullptr;
-	Notepad notepad_ = {};
+	TopLevelStack top_level_stack_ = {};
 	Clipboard clipboard_ = {};
 	gui::SearchPane *search_pane_ = nullptr;
 	Category desktop_ = Category::None;

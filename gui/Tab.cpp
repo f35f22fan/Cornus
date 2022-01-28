@@ -741,6 +741,21 @@ bool Tab::GoTo(const Action action, DirPath dp, const cornus::Reload r)
 	return true;
 }
 
+void Tab::GoToAndSelect(const QString full_path)
+{
+	QFileInfo info(full_path);
+	QDir parent = info.dir();
+	VOID_RET_IF(parent.exists(), false);
+	QString parent_dir = parent.absolutePath();
+	const QString name = io::GetFileNameOfFullPath(full_path).toString();
+	const SameDir same_dir = io::SameFiles(parent_dir, current_dir_) ? SameDir::Yes : SameDir::No;
+	view_files().SelectFilenamesLater({name}, same_dir);
+	
+	if (same_dir == SameDir::No) {
+		VOID_RET_IF(GoTo(Action::To, {parent_dir, Processed::No}, Reload::No), false);
+	}
+}
+
 void Tab::GoToFinish(cornus::io::FilesData *new_data)
 {
 	if (new_data->action != Action::Back)
@@ -887,21 +902,6 @@ void Tab::GoToInitialDir()
 			GoTo(Action::To, {parent_dir.absolutePath(), Processed::No}, Reload::No);
 			return;
 		}
-	}
-}
-
-void Tab::GoToAndSelect(const QString full_path)
-{
-	QFileInfo info(full_path);
-	QDir parent = info.dir();
-	VOID_RET_IF(parent.exists(), false);
-	QString parent_dir = parent.absolutePath();
-	const QString name = io::GetFileNameOfFullPath(full_path).toString();
-	const SameDir same_dir = io::SameFiles(parent_dir, current_dir_) ? SameDir::Yes : SameDir::No;
-	view_files().SelectFilenamesLater({name}, same_dir);
-	
-	if (same_dir == SameDir::No) {
-		VOID_RET_IF(GoTo(Action::To, {parent_dir, Processed::No}, Reload::No), false);
 	}
 }
 
@@ -1355,6 +1355,7 @@ void Tab::SetViewMode(const ViewMode mode)
 	}
 	
 	FocusView();
+	
 	if (sync_scroll)
 		ScrollToFile(last_file_index);
 }
@@ -1401,7 +1402,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 			if (df != nullptr)
 			{
 				{
-					QAction *action = menu->addAction(tr("Run"));
+					QAction *action = menu->addAction(tr("Run as a Program"));
 					connect(action, &QAction::triggered, [=] {
 						app_->LaunchOrOpenDesktopFile(file_under_mouse_full_path,
 							false, RunAction::Run);
@@ -1425,7 +1426,8 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 	QMenu *new_menu = app_->CreateNewMenu();
 	menu->addMenu(new_menu);
 	
-	if (selected_count == 0) {
+	if (file_under_mouse_full_path.isEmpty())
+	{
 		{
 			menu->addSeparator();
 			QAction *action = menu->addAction(tr("New Tab"));

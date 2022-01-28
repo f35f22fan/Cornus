@@ -20,6 +20,12 @@ class Notify;
 class SaveFile;
 class Task;
 
+enum class TopLevel: i8 {
+	Browser,
+	Editor,
+	ImageViewer
+};
+
 enum class CountDirFiles: i8 {
 	Yes,
 	No

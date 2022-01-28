@@ -282,7 +282,8 @@ App::App()
 	io::socket::AutoLoadRegularIODaemon();
 	setWindowIcon(QIcon(cornus::AppIconPath));
 	prefs_ = new Prefs(this);
-	prefs_->Load();
+	if (!prefs_->Load())
+		ApplyDefaultPrefs();
 	
 	{
 		tab_widget_ = new gui::TabsWidget();
@@ -299,12 +300,10 @@ App::App()
 	if (prefs_->remember_window_size())
 	{
 		QSize sz = prefs_->window_size();
-		if (sz.width() < 0 || sz.height() < 0)
+		if (sz.width() > 5 || sz.height() > 5)
 		{
-			mtl_trace();
-			sz = QSize(800, 600);
+			resize(sz);
 		}
-		resize(sz);
 	}
 	
 	auto *clipboard = QGuiApplication::clipboard();
@@ -362,6 +361,20 @@ App::~App()
 		ZSTD_freeCCtx(compress_ctx_);
 		compress_ctx_ = nullptr;
 	}
+}
+
+void App::ApplyDefaultPrefs()
+{
+	// first time, apply sane default prefs:
+	prefs_->sync_views_scroll_location(true);
+	prefs_->remember_window_size(true);
+	prefs_->show_free_partition_space(true);
+	prefs_->show_dir_file_count(true);
+	
+	auto &cols = prefs_->cols_visibility();
+	cols[(int)gui::Column::Size] = 1;
+	cols[(int)gui::Column::TimeModified] = 1;
+	cols[(int)gui::Column::TimeCreated] = 0;
 }
 
 void App::ArchiveAskDestArchivePath(const QString &ext)
@@ -567,12 +580,12 @@ void App::CreateGui()
 	location_ = toolbar_->location();
 	addToolBar(toolbar_);
 	
-	notepad_.stack = new QStackedWidget();
-	setCentralWidget(notepad_.stack);
+	top_level_stack_.stack = new QStackedWidget();
+	setCentralWidget(top_level_stack_.stack);
 	
 	main_splitter_ = new QSplitter(Qt::Horizontal);
-	notepad_.window_index = notepad_.stack->addWidget(main_splitter_);
-	notepad_.stack->setCurrentIndex(notepad_.window_index);
+	top_level_stack_.window_index = top_level_stack_.stack->addWidget(main_splitter_);
+	top_level_stack_.stack->setCurrentIndex(top_level_stack_.window_index);
 	
 	CreateSidePane();
 	
@@ -741,17 +754,17 @@ void App::DisplayFileContents(const int row, io::File *cloned_file)
 			return;
 	}
 	
-	if (notepad_.editor == nullptr) {
-		notepad_.editor = new gui::TextEdit(this);
-		notepad_.editor_index = notepad_.stack->addWidget(notepad_.editor);
+	if (top_level_stack_.editor == nullptr) {
+		top_level_stack_.editor = new gui::TextEdit(this);
+		top_level_stack_.editor_index = top_level_stack_.stack->addWidget(top_level_stack_.editor);
 	}
 	
-	notepad_.saved_window_title = windowTitle();
-	if (notepad_.editor->Display(cloned_file))
+	top_level_stack_.saved_window_title = windowTitle();
+	if (top_level_stack_.editor->Display(cloned_file))
 	{
-		setWindowTitle(tr("Esc=>exit, Ctrl+S=>save & exit"));
+		setWindowTitle(tr("Esc => Exit, Ctrl+S => Save & Exit"));
 		toolbar_->setVisible(false);
-		notepad_.stack->setCurrentIndex(notepad_.editor_index);
+		top_level_stack_.stack->setCurrentIndex(top_level_stack_.editor_index);
 		tab()->table()->ClearMouseOver();
 	}
 }
@@ -1058,12 +1071,12 @@ QString App::GetPartitionFreeSpace()
 void App::GoUp() { tab()->GoUp(); }
 
 void App::HideTextEditor() {
-	if (notepad_.stack->currentIndex() == notepad_.window_index)
+	if (top_level_stack_.stack->currentIndex() == top_level_stack_.window_index)
 		return;
 	
-	setWindowTitle(notepad_.saved_window_title);
+	setWindowTitle(top_level_stack_.saved_window_title);
 	toolbar_->setVisible(true);
-	notepad_.stack->setCurrentIndex(notepad_.window_index);
+	top_level_stack_.stack->setCurrentIndex(top_level_stack_.window_index);
 }
 
 QColor App::hover_bg_color_gray(const QColor &c) const
@@ -1313,8 +1326,8 @@ gui::Tab* App::OpenNewTab(const cornus::FirstTime ft)
 	if (ft == FirstTime::Yes) {
 		tab->GoToInitialDir();
 	} else {
-		tab->GoHome();
-		tab->setVisible(true);
+		QString dir_path = this->tab()->current_dir();
+		tab->GoToSimple(dir_path);
 		tab_widget_->setCurrentWidget(tab);
 	}
 	

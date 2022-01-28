@@ -65,7 +65,7 @@ void Prefs::ApplyTreeViewHeight()
 	view->setFont(f);
 }
 
-void Prefs::Load()
+bool Prefs::Load()
 {
 	const QString full_path = prefs::QueryAppConfigPath() + '/'
 		+ prefs::PrefsFileName + QString::number(prefs::PrefsFormatVersion);
@@ -73,15 +73,15 @@ void Prefs::Load()
 	read_params.can_rely = CanRelyOnStatxSize::Yes;
 	read_params.print_errors = PrintErrors::No;
 	ByteArray buf;
-	VOID_RET_IF(io::ReadFile(full_path, buf, read_params), false);
+	RET_IF(io::ReadFile(full_path, buf, read_params), false, false);
 	
 	if (buf.is_empty()) {
 		mtl_warn("Prefs file is empty");
-		return;
+		return false;
 	}
 	
 	u16 version = buf.next_u16();
-	VOID_RET_IF_NOT(version, prefs::PrefsFormatVersion);
+	RET_IF_NOT(version, prefs::PrefsFormatVersion, false);
 	table_size_.pixels = buf.next_i16();
 	table_size_.points = buf.next_i16();
 	const i8 col_start = buf.next_i8();
@@ -99,10 +99,11 @@ void Prefs::Load()
 	win_w_ = buf.next_i32();
 	win_h_ = buf.next_i32();
 	
-	
 	// ABI: this line must be the last one to save unknown data to @left_bytes
 	// to avoid casual abi version bumps which would entail losing prefs.
 	left_bytes_ = buf.CloneFromHere();
+	
+	return true;
 }
 
 void Prefs::Save() const

@@ -30,7 +30,7 @@ public:
 	
 	Prefs Defaults() const { return Prefs(app_); }
 	
-	void Load();
+	bool Load();
 	void Save() const;
 	
 	inline void toggle_bool(const bool b, const u64 flag) {

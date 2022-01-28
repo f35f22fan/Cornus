@@ -103,12 +103,13 @@ void Table::ApplyPrefs()
 {
 	auto &map = app_->prefs().cols_visibility();
 	auto *hz = horizontalHeader();
-	QMap<i8, bool>::const_iterator i = map.constBegin();
+	QMap<i8, bool>::const_iterator it = map.constBegin();
 	
-	while (i != map.constEnd()) {
-		const bool hidden = !i.value();
-		hz->setSectionHidden(i.key(), hidden);
-		++i;
+	while (it != map.constEnd())
+	{
+		const bool hidden = !it.value();
+		hz->setSectionHidden(it.key(), hidden);
+		++it;
 	}
 }
 

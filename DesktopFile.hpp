@@ -36,14 +36,15 @@ namespace desktopfile {
 class Group {
 	
 public:
-	Group(const QString &name);
+	Group(const QString &name, DesktopFile *parent);
 	~Group();
 	
-	Group* Clone() const;
+	Group* Clone(DesktopFile *new_parent) const;
 	QString ExpandEnvVars(QString s, QProcessEnvironment &my_env);
-	static Group* From(ByteArray &ba);
-	QString GetIcon(QProcessEnvironment &env);
-	QString GetPath(QProcessEnvironment &env);
+	static Group* From(ByteArray &ba, DesktopFile *parent);
+	QString Get(const QString &key, QProcessEnvironment &env);
+	QString GetIcon(QProcessEnvironment &env) { return Get(QLatin1String("Icon"), env); }
+	QString GetPath(QProcessEnvironment &env) { return Get(QLatin1String("Path"), env); }
 	bool IsMain() const;
 	void Launch(const QString &working_dir, const QString &full_path);
 	const QString& name() const { return name_; }
@@ -74,7 +75,7 @@ private:
 	QVector<Category> categories_;
 	QVector<Category> only_show_in_;
 	QVector<Category> not_show_in_;
-	
+	DesktopFile *parent_ = nullptr;
 	friend class DesktopFile;
 };
 } // namespace
@@ -106,6 +107,9 @@ public:
 		return main_group_ != nullptr &&
 		main_group_->is_text_editor();
 	}
+	
+	const QHash<QString, QString>& kv() const { return kv_; }
+	
 	void Launch(const DesktopArgs &args);
 	desktopfile::Group* main_group() const { return main_group_; }
 	
@@ -142,6 +146,7 @@ private:
 	QMap<QString, desktopfile::Group*> groups_;
 	desktopfile::Group *main_group_ = nullptr;
 	const QHash<QString, Category> *possible_categories_ = nullptr;
+	QHash<QString, QString> kv_;
 };
 
 bool ContainsDesktopFile(QVector<DesktopFile*> &vec, DesktopFile *p, int *ret_index = nullptr);

@@ -389,7 +389,7 @@ void* WatchDir(void *void_args)
 				break;
 		}
 		
-		const int ms = rename_vec.isEmpty() ? 1000 : 20;
+		const int ms = rename_vec.isEmpty() ? 5000 : 20;
 		const int num_file_descriptors = epoll_wait(poll_fd, &poll_event, 1, ms);
 		bool with_hidden_files;
 		{

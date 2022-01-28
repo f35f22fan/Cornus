@@ -65,13 +65,14 @@ const auto KeyExec = QLatin1String("Exec");
 
 namespace desktopfile {
 
-Group::Group(const QString &name): name_(name) {}
+Group::Group(const QString &name, DesktopFile *parent)
+	: name_(name), parent_(parent) {}
 Group::~Group() {}
 
 Group*
-Group::Clone() const
+Group::Clone(DesktopFile *new_parent) const
 {
-	Group *p = new Group(name_);
+	Group *p = new Group(name_, new_parent);
 	p->mimetypes_ = mimetypes_;
 	p->kv_map_ = kv_map_;
 	p->categories_ = categories_;
@@ -107,6 +108,9 @@ QString Group::ExpandEnvVars(QString s, QProcessEnvironment &my_env)
 		{
 			var_value = kv_map_.value(var_name);
 			//mtl_printq2("var_value was empty, now: ", var_value);
+			if (var_value.isEmpty() && parent_ != nullptr) {
+				var_value = parent_->kv().value(var_name);
+			}
 		}
 		new_val += var_value;
 		new_val += s.mid(index + initial_var_len);
@@ -118,9 +122,9 @@ QString Group::ExpandEnvVars(QString s, QProcessEnvironment &my_env)
 }
 
 Group*
-Group::From(ByteArray &ba)
+Group::From(ByteArray &ba, DesktopFile *parent)
 {
-	Group *p = new Group(ba.next_string());
+	Group *p = new Group(ba.next_string(), parent);
 	
 	{
 		const u8 count = ba.next_u8();
@@ -159,19 +163,9 @@ Group::From(ByteArray &ba)
 }
 
 QString
-Group::GetIcon(QProcessEnvironment &env)
+Group::Get(const QString &key, QProcessEnvironment &env)
 {
-	QString val = value(QLatin1String("Icon"));
-	if (val.isEmpty())
-		return val;
-
-	return ExpandEnvVars(val, env);
-}
-
-QString
-Group::GetPath(QProcessEnvironment &env)
-{
-	QString val = value(QLatin1String("Path"));
+	QString val = value(key);
 	if (val.isEmpty())
 		return val;
 
@@ -382,27 +376,27 @@ DesktopFile::~DesktopFile() {
 DesktopFile*
 DesktopFile::Clone() const
 {
-	DesktopFile *p = new DesktopFile();
-	p->type_ = type_;
-	p->priority_ = priority_;
+	DesktopFile *new_desktop_file = new DesktopFile();
+	new_desktop_file->type_ = type_;
+	new_desktop_file->priority_ = priority_;
 	
 	if (is_desktop_file()) {
-		p->name_ = name_;
-		p->full_path_ = full_path_;
+		new_desktop_file->name_ = name_;
+		new_desktop_file->full_path_ = full_path_;
 		
 		QMapIterator<QString, desktopfile::Group*> it(groups_);
 		while (it.hasNext()) {
 			it.next();
-			desktopfile::Group *group = it.value()->Clone();
+			desktopfile::Group *group = it.value()->Clone(new_desktop_file);
 			if (group->IsMain())
-				p->main_group_ = group;
-			p->groups_.insert(it.key(), group);
+				new_desktop_file->main_group_ = group;
+			new_desktop_file->groups_.insert(it.key(), group);
 		}
 	} else {
-		p->full_path_ = full_path_;
+		new_desktop_file->full_path_ = full_path_;
 	}
 	
-	return p;
+	return new_desktop_file;
 }
 
 QIcon
@@ -421,32 +415,32 @@ DesktopFile::CreateQIcon(QProcessEnvironment &env)
 DesktopFile*
 DesktopFile::From(ByteArray &ba)
 {
-	DesktopFile *p = new DesktopFile();
-	p->type_ = (Type) ba.next_i8();
-	p->priority_ = (Priority) ba.next_i8();
+	DesktopFile *new_desktop_file = new DesktopFile();
+	new_desktop_file->type_ = (Type) ba.next_i8();
+	new_desktop_file->priority_ = (Priority) ba.next_i8();
 	
-	if (p->is_desktop_file())
+	if (new_desktop_file->is_desktop_file())
 	{
-		p->full_path_ = ba.next_string();
-		p->name_ = ba.next_string();
+		new_desktop_file->full_path_ = ba.next_string();
+		new_desktop_file->name_ = ba.next_string();
 		const i32 group_count = ba.next_i32();
 		
 		for (i32 i = 0; i < group_count; i++) {
-			desktopfile::Group *group = desktopfile::Group::From(ba);
+			desktopfile::Group *group = desktopfile::Group::From(ba, new_desktop_file);
 			if (group == nullptr)
 				continue;
 			
-			p->groups_.insert(group->name(), group);
+			new_desktop_file->groups_.insert(group->name(), group);
 			if (group->IsMain())
-				p->main_group_ = group;
+				new_desktop_file->main_group_ = group;
 		}
-	} else if (p->is_just_exe_path()) {
-		p->full_path_ = ba.next_string();
+	} else if (new_desktop_file->is_just_exe_path()) {
+		new_desktop_file->full_path_ = ba.next_string();
 	} else {
 		mtl_trace();
 	}
 	
-	return p;
+	return new_desktop_file;
 }
 
 DesktopFile*
@@ -546,8 +540,7 @@ bool DesktopFile::Init(const QString &full_path,
 		return false;
 	
 	name_ = ref.mid(0, ref.size() - DesktopExt.size()).toString();
-	if (name_.isEmpty())
-		return false;
+	RET_IF(name_.isEmpty(), true, false);
 	
 	io::ReadParams param = {};
 	ByteArray ba;
@@ -563,20 +556,34 @@ bool DesktopFile::Init(const QString &full_path,
 		if (line.startsWith('#') || line.isEmpty())
 			continue;
 		
-		if (line.startsWith('[')) {
-			int end = line.lastIndexOf(']');
+		if (line.startsWith('['))
+		{
+			const int end = line.lastIndexOf(']');
 			RET_IF(end, -1, false);
 			QStringRef name = line.mid(1, end - 1);
-			group = new desktopfile::Group(name.toString());
+			group = new desktopfile::Group(name.toString(), this);
 			if (main_group_ == nullptr && name == MainGroupName)
 				main_group_ = group;
 			
 			continue;
 		}
 		
-		RET_IF(group, nullptr, false);
-		group->ParseLine(line, possible_categories);
-		groups_.insert(group->name(), group);
+		if (group == nullptr)
+		{
+			const int sep = line.indexOf('=');
+			if (sep == -1)
+				continue;
+			auto key = line.mid(0, sep).trimmed();
+			auto value = line.mid(sep + 1).trimmed();
+			
+			if (key.isEmpty())
+				continue;
+			
+			kv_.insert(key.toString(), value.toString());
+		} else {
+			group->ParseLine(line, possible_categories);
+			groups_.insert(group->name(), group);
+		}
 	}
 	
 	return true;

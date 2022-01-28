@@ -133,21 +133,22 @@ void ByteArray::alloc(const isize n)
 	size_ = n;
 }
 
-void ByteArray::MakeSure(const isize more_bytes, const ExactSize es)
+void ByteArray::MakeSure(isize more, const ExactSize es)
 {
-	const isize more = (es == ExactSize::Yes) ? more_bytes : more_bytes * 1.3;
-	const isize requested_size = at_ + more;
-	
-	if (heap_size_ >= requested_size)
+	if (heap_size_ >= at_ + more)
 		return;
 	
-	heap_size_ = requested_size;
+	if (es != ExactSize::Yes)
+		more *= 1.3;
+	
+	heap_size_ = at_ + more;
 	char *p = new char[heap_size_];
 	if (data_ != nullptr)
 	{
 		memcpy(p, data_, size_);
 		delete[] data_;
 	}
+	
 	data_ = p;
 }
 

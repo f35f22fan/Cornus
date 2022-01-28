@@ -5,6 +5,7 @@
 #include "../err.hpp"
 #include "../media.hxx"
 #include "io.hh"
+#include "../str.hxx"
 #include "../thumbnail.hh"
 
 #include <QHash>
@@ -54,6 +55,8 @@ public:
 	ByteArray media_attrs() const { return ext_attrs_.value(media::XAttrName); }
 	bool has_thumbnail_attr() const { return ext_attrs_.contains(media::XAttrThumbnail); }
 	ByteArray thumbnail_attrs() const { return ext_attrs_.value(media::XAttrThumbnail); }
+	bool is_desktop_file() const { return is_regular() &&
+		cache_.ext == str::Desktop; }
 	bool IsThumbnailMarkedFailed();
 	void MarkThumbnailFailed();
 	media::ShortData* media_attrs_decoded();

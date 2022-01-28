@@ -11,9 +11,7 @@
 #include "Tab.hpp"
 #include "Table.hpp"
 #include "TableHeader.hpp"
-#include "../io/uring.hh"
 
-#include <liburing.h>
 #include <sys/epoll.h>
 #include <QFont>
 #include <QScrollBar>

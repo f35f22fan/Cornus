@@ -1,9 +1,3 @@
-///extern "C" {
-/// This has to be the first include otherwise
-/// gdbusintrospection.h causes an error.
-///	#include <dconf.h>
-///	#include <udisks/udisks.h>
-///}
 #include <chrono>
 #include <fcntl.h>
 #include <iostream>
@@ -85,8 +79,6 @@
 #include <glib.h>
 #include <polkit/polkit.h>
 //#include <polkitagent/polkitagent.h>
-
-#include "io/uring.hh"
 
 namespace cornus {
 
@@ -327,14 +319,6 @@ App::App()
 //	setMouseTracking(true);
 	
 //	TestPolkit(this);
-	
-	if (false) {
-		pthread_t th;
-		int status = pthread_create(&th, NULL, &uring::DoTest, NULL);
-		if (status != 0)
-			mtl_status(status);
-	}
-	
 	//thumbnail::LoadWebpImage("/home/fox/scale_1200.webp", 128, 128);
 }
 

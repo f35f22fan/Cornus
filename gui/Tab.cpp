@@ -1394,7 +1394,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
 	if (selected_count == 1 && !file_under_mouse_full_path.isEmpty())
 	{
-		if (file->cache().ext == str::Desktop)
+		if (file->is_desktop_file())
 		{
 			DesktopFile *df = DesktopFile::FromPath(file_under_mouse_full_path,
 				app_->possible_categories());
@@ -1409,7 +1409,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 					action->setIcon(df->CreateQIcon(env));
 				}
 				{
-					QAction *action = menu->addAction(tr("Open"));
+					QAction *action = menu->addAction(tr("Open For Editing"));
 					connect(action, &QAction::triggered, [=] {
 						app_->LaunchOrOpenDesktopFile(file_under_mouse_full_path,
 							false, RunAction::Open);

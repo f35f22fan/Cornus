@@ -851,19 +851,6 @@ QVector<QString> &xdg_data_dirs,
 QHash<QString, Category> &possible_categories)
 {
 	xdg_data_dirs.clear();
-	{
-//		DConfClient *dc = dconf_client_new();
-//		const gchar *p = "/org/gnome/desktop/interface/icon-theme";
-//		GVariant *v = dconf_client_read(dc, p);
-//		gchar *result;
-//		g_variant_get (v, "s", &result);
-//		theme_name_ = result;
-//		g_free (result);
-//		g_variant_unref(v);
-	}
-	
-//	mtl_printq2("Theme name: ", theme_name_);
-	
 	category::InitAll(possible_categories);
 	auto env = QProcessEnvironment::systemEnvironment();
 	QString str = env.value(QLatin1String("XDG_CURRENT_DESKTOP")).toLower();

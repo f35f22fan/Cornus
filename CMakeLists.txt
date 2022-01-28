@@ -22,8 +22,8 @@ if (DEFINED ENV{PREFER_CLANG})
     SET (CMAKE_CXX_FLAGS "-Wall -ftree-vectorize")
 endif()
 
-#set(DO_BUILD_CORNUS_IO "y")
-#set(DO_BUILD_CORNUS_R "y")
+set(DO_BUILD_CORNUS_IO "y")
+set(DO_BUILD_CORNUS_R "y")
 
 find_package(Qt5 COMPONENTS Core Gui Widgets DBus REQUIRED)
 include(FindPkgConfig)
@@ -34,7 +34,6 @@ pkg_search_module(MTP REQUIRED libmtp)
 # pkg_search_module(DCONF REQUIRED dconf)
 pkg_search_module(UDISKS REQUIRED udisks2)
 pkg_search_module(UDEV REQUIRED libudev)
-pkg_search_module(URING REQUIRED liburing)
 pkg_search_module(POLKIT REQUIRED polkit-gobject-1)
 pkg_search_module(POLKIT_AGENT REQUIRED polkit-agent-1)
 
@@ -108,7 +107,6 @@ set(cornus_src_files main.cpp
     io/Notify.cpp io/Notify.hpp
     io/SaveFile.cpp io/SaveFile.hpp
     io/socket.cc io/socket.hh
-    io/uring.cc io/uring.hh
 )
 
 foreach(f IN LISTS cornus_src_files)
@@ -120,11 +118,11 @@ endforeach()
 set (cornus_exe "cornus")
 add_executable(${cornus_exe} ${cornus_src_files} resources/resources.qrc)
 target_include_directories(${cornus_exe} PRIVATE ${MTP_INCLUDE_DIRS}
-    ${URING_INCLUDE_DIRS} ${UDISKS_INCLUDE_DIRS} ${UDEV_INCLUDE_DIRS}
-    ${POLKIT_INCLUDE_DIRS} ${POLKIT_AGENT_INCLUDE_DIRS} ${WEBP_INCLUDE_DIRS}) # ${DCONF_INCLUDE_DIRS}
+    ${UDISKS_INCLUDE_DIRS} ${UDEV_INCLUDE_DIRS}
+    ${POLKIT_INCLUDE_DIRS} ${POLKIT_AGENT_INCLUDE_DIRS} ${WEBP_INCLUDE_DIRS})
 target_link_libraries(${cornus_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
     ${MTP_LDFLAGS} ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS}
-    ${URING_LDFLAGS} ${POLKIT_LDFLAGS} ${POLKIT_AGENT_LDFLAGS} ${WEBP_LDFLAGS} pthread zstd) # ${DCONF_LDFLAGS}
+    ${POLKIT_LDFLAGS} ${POLKIT_AGENT_LDFLAGS} ${WEBP_LDFLAGS} pthread zstd)
 
 if (DO_BUILD_CORNUS_IO)
 	set(cornus_io_src_files main_io.cpp
@@ -153,7 +151,6 @@ if (DO_BUILD_CORNUS_IO)
 		io/SaveFile.cpp io/SaveFile.hpp
 		io/socket.cc io/socket.hh
 		io/Task.cpp io/Task.hpp
-		io/uring.cc io/uring.hh
 	)
 
 	foreach(f IN LISTS cornus_io_src_files)
@@ -165,11 +162,9 @@ if (DO_BUILD_CORNUS_IO)
 	set (cornus_io_exe "cornus_io")
 	add_executable(${cornus_io_exe} ${cornus_io_src_files} resources/resources.qrc)
 	target_include_directories(${cornus_io_exe} PRIVATE
-		${URING_INCLUDE_DIRS}
-		${UDISKS_INCLUDE_DIRS} ${WEBP_INCLUDE_DIRS}) # ${DCONF_INCLUDE_DIRS}
+		${UDISKS_INCLUDE_DIRS} ${WEBP_INCLUDE_DIRS})
 	target_link_libraries(${cornus_io_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
-		${URING_LDFLAGS} ${WEBP_LDFLAGS}
-		${UDISKS_LDFLAGS} pthread zstd) # ${DCONF_LDFLAGS}
+		${WEBP_LDFLAGS}	${UDISKS_LDFLAGS} pthread zstd)
 endif(DO_BUILD_CORNUS_IO)
 
 if (DO_BUILD_CORNUS_R)

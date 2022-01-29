@@ -125,10 +125,10 @@ TreeView::dragEnterEvent(QDragEnterEvent *event)
 	dragging_ = true;
 	const QMimeData *mimedata = event->mimeData();
 	
-	if (mimedata->hasUrls())
+	if (mimedata->hasUrls() || !mimedata->data(BookmarkMime).isEmpty())
+	{
 		event->acceptProposedAction();
-	else if (!mimedata->data(BookmarkMime).isEmpty())
-		event->acceptProposedAction();
+	}
 }
 
 void

@@ -483,7 +483,8 @@ void Tab::DeleteSelectedFiles(const ShiftPressed sp)
 		io::Files &files = this->view_files();
 		MutexGuard guard = files.guard();
 		
-		for (io::File *next: files.data.vec) {
+		for (io::File *next: files.data.vec)
+		{
 			if (next->is_selected())
 				paths.append(next->build_full_path());
 		}
@@ -501,7 +502,7 @@ void Tab::DeleteSelectedFiles(const ShiftPressed sp)
 	HashInfo hash_info;
 	if (needs_root)
 	{
-mtl_trace();
+mtl_trace("Not supposed to happen");
 		hash_info = app_->WaitForRootDaemon(CanOverwrite::No);
 		VOID_RET_IF(hash_info.valid(), false);
 	}
@@ -516,7 +517,9 @@ mtl_trace();
 		ba->add_string(next);
 	}
 	
+mtl_trace();
 	io::socket::SendAsync(ba, socket_path);
+mtl_trace();
 }
 
 void Tab::DisplayingNewDirectory(const DirId dir_id, const Reload r)
@@ -1653,7 +1656,7 @@ void Tab::ShutdownLastInotifyThread()
 	auto start_time = Clock::now();
 #endif
 	files.data.thread_must_exit(true);
-	{ // wake up epoll() to not wait till it time out
+	{ // wake up epoll() to not wait till it times out
 		const i64 n = 1;
 		int status = ::write(files.data.signal_quit_fd, &n, sizeof n);
 		if (status == -1)

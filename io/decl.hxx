@@ -100,9 +100,9 @@ enum class TaskState: u16 {
 	Continue = 1u << 1,
 	Pause = 1u << 2,
 	Abort = 1u << 3,
-	Error = 1u << 4,
+	InternalError = 1u << 4,
 	Finished = 1u << 5,
-	AwatingAnswer = 1u << 6,
+	AwaitingAnswer = 1u << 6,
 	Answered = 1u << 7,
 };
 

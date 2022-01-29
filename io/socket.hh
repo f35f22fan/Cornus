@@ -17,7 +17,7 @@ void AutoLoadRegularIODaemon();
 
 int Client(const char *addr_str = cornus::SocketPath);
 
-int Daemon(const char *addr_str = cornus::SocketPath);
+int Daemon(const char *addr_str = cornus::SocketPath, const PrintErrors pe = PrintErrors::Yes);
 
 bool SendAsync(ByteArray *ba, const char *socket_path = cornus::SocketPath,
 	const bool delete_path = false);

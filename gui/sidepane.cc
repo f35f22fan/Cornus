@@ -286,7 +286,8 @@ void* udev_monitor(void *args)
 	int fd = udev_monitor_get_fd(monitor);
 	struct timeval tv;
 	
-	while (1) {
+	while (1)
+	{
 		fd_set fds;
 		FD_ZERO(&fds);
 		FD_SET(fd, &fds);

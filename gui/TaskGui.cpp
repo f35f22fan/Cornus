@@ -1,22 +1,49 @@
 #include "TaskGui.hpp"
 
 #include "actions.hxx"
+#include "../CondMutex.hpp"
 #include "../io/io.hh"
 #include "../io/Task.hpp"
 #include "TasksWin.hpp"
 
 #include <QBoxLayout>
 #include <QPushButton>
-#include <QTimer>
 
 namespace cornus::gui {
+using io::TaskState;
 
+static const auto TaskIsDoneBits = TaskState::Finished | TaskState::Abort;
 const QString IconCancel = QLatin1String("edit-delete");
 const int ProgressMin = 0;
 const int ProgressMax = 100;
 
+void* wait_for_signal(void *ptr)
+{
+	pthread_detach(pthread_self());
+	
+	TaskGui *task_gui = (TaskGui*)ptr;
+	auto &data = task_gui->task()->data();
+	const auto bits = io::TaskState::InternalError | TaskState::Continue
+		| TaskState::Pause | TaskState::AwaitingAnswer | TaskIsDoneBits;
+
+	while (true)
+	{
+		data.WaitFor(bits);
+		QMetaObject::invokeMethod(task_gui, "CheckTaskState", Qt::QueuedConnection);
+		const auto state = data.GetState();
+		if (state & TaskIsDoneBits)
+			break;
+		
+		if (state & TaskState::AwaitingAnswer)
+			data.WaitFor(TaskState::Answered);
+	}
+	
+	return nullptr;
+}
+
 TaskGui::TaskGui(io::Task *task): task_(task)
 {
+	//mtl_printq2("TaskGui thread: ", io::thread_id_short(pthread_self()));
 	continue_icon_ = QIcon::fromTheme(QLatin1String("media-playback-start"));
 	pause_icon_ = QIcon::fromTheme(QLatin1String("media-playback-pause"));
 	
@@ -24,30 +51,34 @@ TaskGui::TaskGui(io::Task *task): task_(task)
 	
 	timer_ = new QTimer(this);
 	timer_->setTimerType(Qt::PreciseTimer);
-	connect(timer_, &QTimer::timeout, this,
-		QOverload<>::of(&TaskGui::CheckTaskState));
-	timer_->start(200);
+//	connect(timer_, &QTimer::timeout, this,
+//		QOverload<>::of(&TaskGui::CheckTaskState));
+//	timer_->start(200);
 
-	auto new_state = task_->data().GetState(nullptr);
-	TaskStateChanged(new_state);
+//	auto new_state = task_->data().GetState(nullptr);
+//	TaskStateChanged(new_state);
 	
+	pthread_t th;
+	int status = pthread_create(&th, NULL, wait_for_signal, this);
+	if (status != 0)
+		mtl_status(status);
 }
 
 TaskGui::~TaskGui()
 {
-	if (task_->data().WaitFor(io::TaskState::Finished | io::TaskState::Abort)) {
+	if (task_->data().WaitFor(TaskState::Finished | TaskState::Abort)) {
 		delete task_;
-	} else {
-		mtl_trace();
 	}
+	delete timer_;
+	timer_ = nullptr;
 }
 
 void TaskGui::CheckTaskState()
 {
+	//mtl_printq2("in method", io::thread_id_short(pthread_self()));
 	static io::TaskState last_state = io::TaskState::None;
 	const io::TaskState state = task_->data().GetState(&task_question_);
-
-	if (state & (io::TaskState::Finished | io::TaskState::Abort))
+	if (state & TaskIsDoneBits)
 	{
 		tasks_win_->TaskDone(this, state);
 		return;
@@ -59,7 +90,8 @@ void TaskGui::CheckTaskState()
 		made_visible_once_ = true;
 	}
 	
-	if (state & io::TaskState::Error) {
+	if (state & io::TaskState::InternalError)
+	{
 		info_->setText(tr("An error occurred"));
 		setVisible(true);
 		timer_->stop();
@@ -88,7 +120,8 @@ void TaskGui::CheckTaskState()
 			work_pause_btn_->setIcon(continue_icon_);
 			last_state = state;
 		}
-	} else if (state & io::TaskState::AwatingAnswer) {
+	}
+	if (state & io::TaskState::AwaitingAnswer) {
 		timer_->stop();
 		
 		switch (task_question_.question) {
@@ -109,8 +142,6 @@ void TaskGui::CheckTaskState()
 			break;
 		}
 		}
-	} else {
-		mtl_info("state: %u", u16(state));
 	}
 }
 

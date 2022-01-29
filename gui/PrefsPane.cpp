@@ -66,7 +66,7 @@ void PrefsPane::CreateGui()
 	show_hidden_files_ = new QCheckBox(tr("Show hidden files (Ctrl+H)"));
 	vert_layout->addWidget(show_hidden_files_);
 	
-	show_dir_file_count_ = new QCheckBox(tr("Show each folder's file count"));
+	show_dir_file_count_ = new QCheckBox(tr("Show folder file count (in Details View)"));
 	vert_layout->addWidget(show_dir_file_count_);
 	
 	show_ms_files_loaded_ = new QCheckBox(tr("Show folder listing speed (ms)"));

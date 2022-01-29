@@ -17,6 +17,7 @@
 
 #include <bits/stdc++.h> /// std::sort()
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
 
 namespace cornus::io {
 
@@ -175,7 +176,7 @@ void* WatchDesktopFileDirs(void *void_args)
 	
 	QScopedPointer<DesktopFileWatchArgs> args((DesktopFileWatchArgs*) void_args);
 	Daemon *server = args->server;
-	
+	CondMutex *cm = server->get_exit_cm();
 	char *buf = new char[kInotifyEventBufLen];
 	AutoDeleteArr ad_arr(buf);
 	Notify &notify = server->notify();
@@ -198,8 +199,8 @@ void* WatchDesktopFileDirs(void *void_args)
 	}
 	
 	int epfd = epoll_create(1);
-	
-	if (epfd == -1) {
+	if (epfd == -1)
+	{
 		mtl_status(errno);
 		return 0;
 	}
@@ -208,7 +209,9 @@ void* WatchDesktopFileDirs(void *void_args)
 	pev.events = EPOLLIN;
 	pev.data.fd = notify.fd;
 	
-	if (epoll_ctl(epfd, EPOLL_CTL_ADD, notify.fd, &pev)) {
+	if (epoll_ctl(epfd, EPOLL_CTL_ADD, notify.fd, &pev) ||
+		epoll_ctl(epfd, EPOLL_CTL_ADD, server->signal_quit_fd(), &pev))
+	{
 		mtl_status(errno);
 		close(epfd);
 		return nullptr;
@@ -216,10 +219,14 @@ void* WatchDesktopFileDirs(void *void_args)
 	
 	struct epoll_event poll_event;
 	const int seconds = 1 * 1000;
-	
 	while (true)
 	{
 		int event_count = epoll_wait(epfd, &poll_event, 1, seconds);
+		cm->Lock();
+		const bool do_exit = cm->exit;
+		cm->Unlock();
+		if (do_exit)
+			break;
 		bool has_been_unmounted_or_deleted = false;
 		
 		if (event_count > 0) {
@@ -241,6 +248,12 @@ void* WatchDesktopFileDirs(void *void_args)
 
 Daemon::Daemon()
 {
+	signal_quit_fd_ = ::eventfd(0, 0);
+	if (signal_quit_fd_ == -1)
+		mtl_status(errno);
+	
+	cm_ = new CondMutex();
+	life_ = new ServerLife();
 	notify_.Init();
 	io::InitEnvInfo(category_, search_icons_dirs_, xdg_data_dirs_, possible_categories_);
 	tasks_win_ = new gui::TasksWin();
@@ -250,8 +263,23 @@ Daemon::Daemon()
 }
 
 Daemon::~Daemon() {
+	{
+		{ // wake up epoll() to not wait till it times out
+			const i64 n = 1;
+			int status = ::write(signal_quit_fd_, &n, sizeof n);
+			if (status == -1)
+				mtl_status(errno);
+		}
+		const int status = ::close(signal_quit_fd_);
+		if (status != 0)
+			mtl_status(errno);
+	}
 	notify_.Close();
+	delete life_;
+	life_ = nullptr;
 	delete tray_menu_;
+	delete tasks_win_;
+	tasks_win_ = nullptr;
 }
 
 void Daemon::CheckOldThumbnails()
@@ -518,13 +546,10 @@ void Daemon::LoadDesktopFilesFrom(QString dir_path)
 
 void Daemon::QuitGuiApp()
 {
-#ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
-	mtl_info("Quitting GUI App");
-#endif
-	QCoreApplication::quit();
-#ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
-	mtl_info("Done.");
-#endif
+	life_->Lock();
+	life_->exit = true;
+	life_->Unlock();
+	QApplication::exit();// triggers qapp.exec() to return
 }
 
 void Daemon::SendAllDesktopFiles(const int fd)

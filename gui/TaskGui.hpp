@@ -15,7 +15,13 @@
 
 namespace cornus::gui {
 
+struct ThreadExit {
+	
+	bool must_exit = false;
+};
+
 class TaskGui: public QWidget {
+	Q_OBJECT
 public:
 	~TaskGui();
 	static TaskGui* From(io::Task *task, gui::TasksWin *tw);
@@ -23,11 +29,15 @@ public:
 //	virtual QSize sizeHint() const override;
 //	virtual QSize minimumSizeHint() const override;
 	
-	void CheckTaskState();
+	io::Task* task() const { return task_; }
 	void TaskStateChanged(const io::TaskState new_state);
+	
+public Q_SLOTS:
+	void CheckTaskState();
 	
 private:
 	TaskGui(io::Task *task);
+	
 	QWidget* CreateDeleteFailedPane();
 	QWidget* CreateFileExistsPane();
 	QWidget* CreateWriteFailedPane();

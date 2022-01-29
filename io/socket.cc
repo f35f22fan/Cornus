@@ -123,24 +123,30 @@ int Client(const char *addr_str)
 	return sock_fd;
 }
 
-int Daemon(const char *addr_str)
+int Daemon(const char *addr_str, const PrintErrors pe)
 {
 	int sock_fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
-	if (sock_fd == -1) {
-		mtl_status(errno);
+	if (sock_fd == -1)
+	{
+		if (pe == PrintErrors::Yes)
+			mtl_status(errno);
 		return -1;
 	}
 	
 	struct sockaddr_un addr;
 	FillIn(addr, addr_str);
 	
-	if (bind(sock_fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
-		mtl_status(errno);
+	if (bind(sock_fd, (struct sockaddr*)&addr, sizeof(addr)) == -1)
+	{
+		if (pe == PrintErrors::Yes)
+			mtl_status(errno);
 		return -1;
 	}
 	
-	if (listen(sock_fd, 5) == -1) {
-		mtl_status(errno);
+	if (listen(sock_fd, 5) == -1)
+	{
+		if (pe == PrintErrors::Yes)
+			mtl_status(errno);
 		return -1;
 	}
 	

@@ -48,6 +48,7 @@ set(cornus_src_files main.cpp
     AutoDelete.hh
     ByteArray.cpp ByteArray.hpp
     category.cc category.hh
+    CondMutex.cpp CondMutex.hpp
     cornus.cc cornus.hh
     decl.hxx
     DesktopFile.cpp DesktopFile.hpp
@@ -129,6 +130,7 @@ if (DO_BUILD_CORNUS_IO)
 		AutoDelete.hh
 		category.cc category.hh
 		ByteArray.cpp ByteArray.hpp
+		CondMutex.cpp CondMutex.hpp
 		DesktopFile.cpp DesktopFile.hpp
 		ElapsedTimer.cpp ElapsedTimer.hpp
 		err.hpp
@@ -172,6 +174,7 @@ if (DO_BUILD_CORNUS_R)
 		AutoDelete.hh
 		ByteArray.cpp ByteArray.hpp
 		category.cc category.hh
+		CondMutex.cpp CondMutex.hpp
 		DesktopFile.cpp DesktopFile.hpp
 		ElapsedTimer.cpp ElapsedTimer.hpp
 		err.hpp

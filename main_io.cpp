@@ -125,10 +125,10 @@ void* ProcessRequest(void *ptr)
 #endif
 		close(fd);
 		
-		cornus::io::ServerLife &life = daemon->life();
-		life.Lock();
-		life.exit = true;
-		life.Unlock();
+		cornus::io::ServerLife *life = daemon->life();
+		life->Lock();
+		life->exit = true;
+		life->Unlock();
 		
 		ByteArray ba;
 		ba.set_msg_id(io::Message::None);
@@ -157,13 +157,14 @@ void* ListenTh(void *args)
 {
 	pthread_detach(pthread_self());
 	auto *daemon = (io::Daemon*)args;
-	io::ServerLife &life = daemon->life();
+	io::ServerLife *life = daemon->life();
 	
-	int daemon_sock_fd = cornus::io::socket::Daemon(cornus::SocketPath);
+	int daemon_sock_fd = io::socket::Daemon(cornus::SocketPath, PrintErrors::No);
 	if (daemon_sock_fd == -1)
 	{
 		mtl_info("Another cornus_io is running. Exiting.");
-		exit(0);
+		QMetaObject::invokeMethod(daemon, "QuitGuiApp", ConnectionType);
+		return nullptr;
 	}
 	
 	pthread_t th;
@@ -175,10 +176,10 @@ void* ListenTh(void *args)
 			break;
 		}
 		
-		if (life.Lock())
+		if (life->Lock())
 		{
-			const bool do_exit = life.exit;
-			life.Unlock();
+			const bool do_exit = life->exit;
+			life->Unlock();
 			
 			if (do_exit) {
 #ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
@@ -200,15 +201,12 @@ void* ListenTh(void *args)
 	
 	close(daemon_sock_fd);
 	QMetaObject::invokeMethod(daemon, "QuitGuiApp", ConnectionType);
-#ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
-	mtl_info("Daemon socket closed");
-#endif
-	
+
 	return nullptr;
 }
 }
 
-static int setup_unix_signal_handlers()
+/* static int setup_unix_signal_handlers()
 {
 	struct sigaction hup, term;
 	
@@ -230,6 +228,7 @@ static int setup_unix_signal_handlers()
 	
 	return 0;
 }
+*/
 
 int main(int argc, char *argv[])
 {
@@ -238,14 +237,10 @@ int main(int argc, char *argv[])
 	QApplication qapp(argc, argv);
 	qRegisterMetaType<cornus::io::Task*>();
 	qRegisterMetaType<cornus::ByteArray*>();
-	setup_unix_signal_handlers();
+	//setup_unix_signal_handlers();
+	//new cornus::MyDaemon();
 	
-	new cornus::MyDaemon();
-	
-	/// The TasksWin hides/deletes itself
-	/// Currently it deletes itself, change later to just hide itself.
-	cornus::io::Daemon *daemon = new cornus::io::Daemon();
-	cornus::AutoDelete ad(daemon);
+	auto *daemon = new cornus::io::Daemon();
 	
 	{
 		pthread_t th;
@@ -257,20 +252,21 @@ int main(int argc, char *argv[])
 		if (status != 0)
 			mtl_status(status);
 	}
-	
-	cornus::io::ServerLife &life = daemon->life();
+
+	cornus::io::ServerLife *life = daemon->life();
 	int ret;
 	while (true)
 	{
 		ret = qapp.exec();
-		
-		life.Lock();
-		const bool do_exit = life.exit;
-		life.Unlock();
-		if (do_exit)
+		life->Lock();
+		const bool do_exit = life->exit;
+		life->Unlock();
+		if (do_exit) {
 			break;
+		}
 	}
-	
+	delete daemon;
+
 	return ret;
 }
 

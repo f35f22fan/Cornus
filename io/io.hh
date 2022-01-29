@@ -241,9 +241,6 @@ FileExists(const QString &path, FileType *file_type = nullptr) {
 io::File*
 FileFromPath(const QString &full_path, int *ret_error = nullptr);
 
-const char*
-FileTypeToString(const FileType t);
-
 void
 FillInStx(io::File &file, const struct statx &st, const QString *name);
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../category.hh"
+#include "../CondMutex.hpp"
 #include "../MutexGuard.hpp"
 #include "../gui/decl.hxx"
 #include "../decl.hxx"
@@ -33,9 +34,11 @@ public:
 	virtual ~Daemon();
 	
 	DesktopFiles& desktop_files() { return desktop_files_; }
-	io::ServerLife& life() { return life_; }
+	CondMutex* get_exit_cm() const { return cm_; }
+	io::ServerLife* life() { return life_; }
 	io::Notify& notify() { return notify_; }
 	const QHash<QString, Category>& possible_categories() const { return possible_categories_; }
+	int signal_quit_fd() const { return signal_quit_fd_; }
 	gui::TasksWin* tasks_win() const { return tasks_win_; }
 	
 public Q_SLOTS:
@@ -61,6 +64,7 @@ private:
 	void SetTrayVisible(const bool yes);
 	void SysTrayClicked();
 	
+	CondMutex *cm_ = nullptr;
 	gui::TasksWin *tasks_win_ = nullptr;
 	cornus::Clipboard clipboard_ = {};
 	QVector<QString> search_icons_dirs_;
@@ -71,8 +75,9 @@ private:
 	QMimeDatabase mime_db_;
 	QSystemTrayIcon *tray_icon_ = nullptr;
 	QMenu *tray_menu_ = nullptr;
-	io::ServerLife life_ = {};
+	io::ServerLife *life_ = nullptr;
 	Category category_ = Category::None;
 	QHash<QString, Category> possible_categories_;
+	int signal_quit_fd_ = -1;
 };
 }

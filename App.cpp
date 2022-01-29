@@ -374,6 +374,7 @@ void App::ApplyDefaultPrefs()
 	prefs_->remember_window_size(true);
 	prefs_->show_free_partition_space(true);
 	prefs_->show_dir_file_count(true);
+	prefs_->show_link_targets(true);
 	
 	auto &cols = prefs_->cols_visibility();
 	cols[(int)gui::Column::Size] = 1;

@@ -638,27 +638,6 @@ FileFromPath(const QString &full_path, int *ret_error)
 	return file;
 }
 
-const char*
-FileTypeToString(const FileType t)
-{
-	if (t == FileType::Regular)
-		return "Regular";
-	if (t == FileType::Dir)
-		return "Folder";
-	if (t == FileType::BlockDevice)
-		return "Block device";
-	if (t == FileType::CharDevice)
-		return "Char device";
-	if (t == FileType::Pipe)
-		return "Pipe";
-	if (t == FileType::Socket)
-		return "Socket";
-	if (t == FileType::Symlink)
-		return "Symlink";
-
-	return nullptr;
-}
-
 void FillInStx(io::File &file, const struct statx &stx, const QString *name)
 {
 	using io::FileType;
@@ -1160,7 +1139,7 @@ const char* QuerySocketFor(const QString &dir_path, bool &needs_root)
 	auto ba = dir_path.toLocal8Bit();
 	needs_root = (access(ba.data(), W_OK) != 0);
 	
-	if (false)
+	if (true)
 	{
 		// Temporarily block this decision to test a feature elsewhere in
 		// the code, but delete this line when done:

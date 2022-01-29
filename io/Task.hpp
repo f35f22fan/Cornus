@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../CondMutex.hpp"
 #include "../decl.hxx"
 #include "decl.hxx"
 #include "../err.hpp"
@@ -31,27 +32,14 @@ struct TaskQuestion {
 
 struct TaskData {
 	TaskState state = TaskState::Pause;
-	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+	CondMutex cm = {};
 	ElapsedTimer work_time_recorder_ = {};
 	TaskQuestion task_question_ = {};
 	
-	bool Broadcast()
+	inline TaskState GetState(TaskQuestion *question = nullptr, i64 *ret_time_worked = nullptr)
 	{
-		const int status = pthread_cond_broadcast(&cond);
-		if (status != 0) {
-			mtl_status(status);
-			return false;
-		}
-		return true;
-	}
-	
-	MutexGuard guard() { return MutexGuard(&mutex); }
-	
-	inline TaskState GetState(TaskQuestion *question, i64 *ret_time_worked = nullptr)
-	{
-		MutexGuard guard(&mutex);
-		if (state == TaskState::AwatingAnswer && question != nullptr)
+		MutexGuard guard = cm.guard();
+		if (state == TaskState::AwaitingAnswer && question != nullptr)
 			*question = task_question_;
 		
 		if (ret_time_worked != nullptr)
@@ -61,24 +49,10 @@ struct TaskData {
 	}
 	
 	inline i64 GetTimeWorked() {
-		Lock();
+		cm.Lock();
 		i64 ret = work_time_recorder_.elapsed_ms();
-		Unlock();
+		cm.Unlock();
 		return ret;
-	}
-	
-	inline bool Lock() {
-		int status = pthread_mutex_lock(&mutex);
-		if (status != 0)
-			mtl_status(status);
-		return status == 0;
-	}
-	
-	inline bool Unlock() {
-		int status = pthread_mutex_unlock(&mutex);
-		if (status != 0)
-			mtl_status(status);
-		return status == 0;
 	}
 	
 	bool ChangeState(const TaskState new_state,

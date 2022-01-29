@@ -477,7 +477,6 @@ void IconView::paintEvent(QPaintEvent *ev)
 	text_options.setAlignment(Qt::AlignHCenter);
 	text_options.setWrapMode(QTextOption::WrapAnywhere);
 	const QColor gray_color(100, 100, 100);
-	
 	for (double y = y_off; y < y_end; y += cell.rh)
 	{
 		for (double x = 0.0; (x + cell.w_and_gaps) < width; x += cell.cell_and_gap)
@@ -489,6 +488,7 @@ void IconView::paintEvent(QPaintEvent *ev)
 			QString file_name;
 			const QRect cell_r(x, y, cell.w_and_gaps, cell.h_and_gaps);
 			DrawBorder draw_border = DrawBorder::No;
+			QString img_wh_str;
 			{
 				auto guard = files.guard();
 				io::File *file = files.data.vec[file_index++];
@@ -504,11 +504,34 @@ void IconView::paintEvent(QPaintEvent *ev)
 				}
 				
 				draw_border = DrawThumbnail(file, painter, x, y);
+				const Thumbnail *thmb = file->thumbnail();
+				if (thmb != nullptr)
+				{
+					img_wh_str = thumbnail::SizeToString(thmb->original_image_w,
+						thmb->original_image_h, ViewMode::Icons);
+				}
 			}
 			
-			const float text_y = y + cell.text_y;
-			QRectF text_space(x, text_y, cell.w_and_gaps, cell.text_h);
-			//painter.fillRect(text_space, QColor(255, 255, 100));
+			if (!img_wh_str.isEmpty())
+			{
+				QPen saved_pen = painter.pen();
+				QBrush brush = option.palette.brush(QPalette::PlaceholderText);
+				QPen pen(brush.color());
+				painter.setPen(pen);
+				const float text_y = y + cell.text_y;
+				QRectF text_space(x, text_y, cell.w_and_gaps, cell.str_h);
+				painter.drawText(text_space, img_wh_str, text_options);
+				painter.setPen(saved_pen);
+			}
+			
+			float text_y = y + cell.text_y;
+			auto text_h = cell.text_h;
+			if (!img_wh_str.isEmpty())
+			{
+				text_y += cell.str_h;
+				text_h -= cell.str_h;
+			}
+			QRectF text_space(x, text_y, cell.w_and_gaps, text_h);
 			painter.drawText(text_space, file_name, text_options);
 			
 			if (draw_border == DrawBorder::Yes)

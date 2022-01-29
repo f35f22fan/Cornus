@@ -91,7 +91,7 @@ void* ThumbnailLoader (void *args)
 	ByteArray temp_ba;
 	io::ReadParams read_params = {};
 	read_params.print_errors = PrintErrors::No;
-	//read_params.can_rely = CanRelyOnStatxSize::Yes;
+	read_params.can_rely = CanRelyOnStatxSize::Yes;
 	
 	while (th_data->wait_for_work)
 	{
@@ -2220,9 +2220,9 @@ void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 		if (thumbnail->dir_id != dir_id)
 		{
 			files.Unlock();
-			static int wrong_dir = 0;
+//			static int wrong_dir = 0;
 			delete thumbnail;
-			mtl_info("Wrong dir, skipped: %d", ++wrong_dir);
+//			mtl_info("Wrong dir, skipped: %d", ++wrong_dir);
 			return;
 		}
 		

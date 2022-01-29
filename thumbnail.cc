@@ -16,6 +16,23 @@ void CornusFreeQImageMemory(void *data)
 
 namespace cornus::thumbnail {
 
+bool GetOriginalImageSize(ByteArray &ba, i32 &w, i32 &h)
+{
+	const auto at = ba.at();
+	if (ba.size() <= thumbnail::HeaderSize ||
+		(ba.next_i16() != thumbnail::AbiVersion))
+	{
+		return false;
+	}
+	
+	ba.to(at + 8);
+	w = ba.next_i32();
+	h = ba.next_i32();
+	ba.to(at);
+	
+	return true;
+}
+
 QImage ImageFromByteArray(ByteArray &ba, i32 &img_w, i32 &img_h,
 	AbiType &abi_version, ZSTD_DCtx *decompress_ctx)
 {

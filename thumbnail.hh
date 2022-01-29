@@ -157,6 +157,9 @@ struct GlobalThumbLoaderData {
 
 namespace thumbnail {
 
+// returns true on success
+bool GetOriginalImageSize(ByteArray &ba, i32 &w, i32 &h);
+
 QSize GetScaledSize(const QSize &input, const int max_img_w, const int max_img_h);
 
 void* LoadMonitor(void *args);
@@ -170,6 +173,16 @@ Thumbnail* Load(const QString &full_path, const u64 &file_id,
 
 QImage LoadWebpImage(const QString &full_path, const int max_img_w,
 	const int max_img_h, QSize &scaled_sz, QSize &orig_img_sz);
+
+inline QString SizeToString(const i32 w, const i32 h, const gui::ViewMode vm)
+{
+	if (vm == gui::ViewMode::Details) {
+		return QChar('(') + QString::number(w) + QChar('x')
+			+ QString::number(h) + QChar(')');
+	}
+	
+	return QString::number(w) + QLatin1String(" x ") + QString::number(h);
+}
 
 }} // cornus::thumbnail::
 Q_DECLARE_METATYPE(cornus::Thumbnail*);

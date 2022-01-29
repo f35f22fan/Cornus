@@ -102,6 +102,33 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 			drect.setX(drect.x() + bounding_rect.width());
 			painter->drawText(drect, text_alignment_, desktop_fn);
 		}
+	} else if (file->thumbnail() != nullptr || file->has_thumbnail_attr()) {
+		
+		i32 w, h;
+		bool proceed;
+		Thumbnail *thmb = file->thumbnail();
+		if (thmb != nullptr) {
+			w = thmb->original_image_w;
+			h = thmb->original_image_h;
+			proceed = true;
+		} else {
+			ByteArray &ba = file->thumbnail_attrs_ref();
+			proceed = thumbnail::GetOriginalImageSize(ba, w, h);
+		}
+		
+		if (proceed)
+		{
+			const QString img_wh_str = QChar(' ')
+				+ thumbnail::SizeToString(w, h, ViewMode::Details);
+			QPen saved_pen = painter->pen();
+			QRect img_dim_rect = text_rect;
+			img_dim_rect.setX(text_rect.x() + filename_width);
+			QBrush brush = option.palette.brush(QPalette::PlaceholderText);
+			QPen pen(brush.color());
+			painter->setPen(pen);
+			painter->drawText(img_dim_rect, text_alignment_, img_wh_str);
+			painter->setPen(saved_pen);
+		}
 	}
 	
 	if (!app_->prefs().show_link_targets())

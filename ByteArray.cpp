@@ -138,10 +138,10 @@ void ByteArray::MakeSure(isize more, const ExactSize es)
 	if (heap_size_ >= at_ + more)
 		return;
 	
+	heap_size_ += more;
 	if (es != ExactSize::Yes)
-		more *= 1.3;
+		heap_size_ *= 1.3;
 	
-	heap_size_ = at_ + more;
 	char *p = new char[heap_size_];
 	if (data_ != nullptr)
 	{

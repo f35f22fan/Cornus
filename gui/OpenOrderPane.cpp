@@ -152,7 +152,9 @@ QWidget* OpenOrderPane::CreateAddingCustomItem()
 	}
 	
 	ba.Clear();
+	mtl_trace("%ld", time(NULL));
 	RET_IF(ba.Receive(fd), false, nullptr);
+	mtl_trace("%ld", time(NULL));
 	
 	while (ba.has_more()) {
 		DesktopFile *p = DesktopFile::From(ba);

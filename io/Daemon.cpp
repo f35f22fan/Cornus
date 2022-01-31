@@ -561,11 +561,11 @@ void Daemon::SendAllDesktopFiles(const int fd)
 		while (it != desktop_files_.hash.constEnd())
 		{
 			DesktopFile *p = it.value();
+			//mtl_printq(p->GetName());
 			p->WriteTo(ba);
 			it++;
 		}
 	}
-	
 	ba.Send(fd);
 }
 

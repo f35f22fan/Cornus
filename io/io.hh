@@ -71,8 +71,10 @@ enum class PostWrite: i8 {
 };
 
 using MessageType = u32;
+const int MessageBitsStartAt = 28;
+const MessageType MessageBitsMask = 15;
 enum class Message: MessageType {
-	None = 0,
+	Empty = 0,
 	CheckAlive,
 	QuitServer,
 	SendOpenWithList,
@@ -88,6 +90,7 @@ enum class Message: MessageType {
 	PasteRelativeLinks,
 	RenameFile,
 	
+	Pasted_Hint = 1u << 28,
 	Copy = 1u << 29, // copies files
 	DontTryAtomicMove = 1u << 30, // moves with rename()
 	Move = 1u << 31, // moves by copying to new dir and deleting old ones
@@ -117,7 +120,7 @@ inline Message& operator &= (Message &a, const Message &b) {
 
 inline Message MessageFor(const Qt::DropAction action)
 {
-	io::Message bits = Message::None;
+	io::Message bits = Message::Empty;
 	if (action & Qt::CopyAction) {
 		bits |= Message::Copy;
 	}
@@ -133,7 +136,7 @@ inline Message MessageFor(const Qt::DropAction action)
 
 inline Message MessageForMany(const Qt::DropActions action)
 {
-	io::Message bits = Message::None;
+	io::Message bits = Message::Empty;
 	if (action & Qt::CopyAction) {
 		bits |= Message::Copy;
 	}
@@ -203,6 +206,10 @@ bool CountSizeRecursive(const QString &path, struct statx &stx,
 
 // returns errno, or zero for success
 int CountSizeRecursiveTh(const QString &path, CountFolderData &data, const bool inside_trash);
+
+// returns -1 on error, fd otherwise
+int CreateAutoRenamedFile(QString dir_path, QString filename,
+	const int file_flags, const mode_t mode);
 
 media::ShortData* DecodeShort(ByteArray &ba);
 

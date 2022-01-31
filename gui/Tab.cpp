@@ -238,12 +238,12 @@ void Tab::ActionPaste()
 {
 	const Clipboard &clipboard = app_->clipboard();
 	
-	io::Message io_op = io::Message::None;
+	io::Message io_op = io::Message::Pasted_Hint;
 	if (clipboard.action == ClipboardAction::Copy) {
-		io_op = io::Message::Copy;
+		io_op |= io::Message::Copy;
 		io_op |= io::Message::DontTryAtomicMove;
 	} else {
-		io_op = io::Message::Move;
+		io_op |= io::Message::Move;
 	}
 	
 	QString to_dir = app_->tab()->current_dir();
@@ -502,7 +502,7 @@ void Tab::DeleteSelectedFiles(const ShiftPressed sp)
 	HashInfo hash_info;
 	if (needs_root)
 	{
-mtl_trace("Not supposed to happen");
+mtl_trace("Starting up root daemon");
 		hash_info = app_->WaitForRootDaemon(CanOverwrite::No);
 		VOID_RET_IF(hash_info.valid(), false);
 	}

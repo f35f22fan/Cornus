@@ -71,7 +71,7 @@ void* ProcessRequest(void *ptr)
 	delete args;
 	args = nullptr;
 	RET_IF(ba.Receive(fd, CloseSocket::No), false, NULL);
-	const auto msg_int = ba.next_u32() & ~(7u << 29);
+	const auto msg_int = ba.next_u32() & ~(io::MessageBitsMask << io::MessageBitsStartAt);
 	const auto msg = static_cast<io::Message>(msg_int);
 	switch (msg)
 	{
@@ -131,7 +131,7 @@ void* ProcessRequest(void *ptr)
 		life->Unlock();
 		
 		ByteArray ba;
-		ba.set_msg_id(io::Message::None);
+		ba.set_msg_id(io::Message::Empty);
 #ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
 		mtl_info("Waking up daemon to process it...");
 #endif

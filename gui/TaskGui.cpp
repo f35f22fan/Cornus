@@ -461,7 +461,7 @@ TaskGui::SendDeleteFailedAnswer(const io::DeleteFailedAnswer answer)
 {
 	auto &data = task_->data();
 	task_question_.delete_failed_answer = answer;
-	data.ChangeState(io::TaskState::Answered, &task_question_);
+	data.ChangeState(TaskState::Answered, &task_question_);
 	timer_->start();
 }
 
@@ -470,7 +470,7 @@ TaskGui::SendFileExistsAnswer(const io::FileExistsAnswer answer)
 {
 	auto &data = task_->data();
 	task_question_.file_exists_answer = answer;
-	data.ChangeState(io::TaskState::Answered, &task_question_);
+	data.ChangeState(TaskState::Answered, &task_question_);
 	timer_->start();
 }
 
@@ -479,7 +479,7 @@ TaskGui::SendWriteFailedAnswer(const io::WriteFailedAnswer answer)
 {
 	auto &data = task_->data();
 	task_question_.write_failed_answer = answer;
-	data.ChangeState(io::TaskState::Answered, &task_question_);
+	data.ChangeState(TaskState::Answered, &task_question_);
 	timer_->start();
 }
 

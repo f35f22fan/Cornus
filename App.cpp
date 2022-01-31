@@ -2320,14 +2320,17 @@ HashInfo App::WaitForRootDaemon(const CanOverwrite co)
 	const QString daemon_dir_path = QCoreApplication::applicationDirPath();
 	const QString app_to_execute = daemon_dir_path + QLatin1String("/cornus_r");
 	
-	QProcess *process = new QProcess();
-	process->setProgram(QLatin1String("pkexec"));
-	QStringList args;
-	args << app_to_execute;
-	args << hash_str;
-	args << QString::number(io_action);
-	process->setArguments(args);
-	process->start();
+	if (true)
+	{
+		QProcess *process = new QProcess();
+		process->setProgram(QLatin1String("pkexec"));
+		QStringList args;
+		args << app_to_execute;
+		args << hash_str;
+		args << QString::number(io_action);
+		process->setArguments(args);
+		process->start();
+	}
 
 	/*const int result = process->exitCode();
 mtl_trace("%ld, result: %d", time(NULL), result);

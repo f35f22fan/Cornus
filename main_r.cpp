@@ -27,16 +27,19 @@ bool CheckSecret(const u64 n, const QString &real_hash_str)
 void* ProcessRequest(void *p)
 {
 	pthread_detach(pthread_self());
+mtl_trace();
 	Args *args = (Args*)p;
 	close(args->client_fd);
 	
 	auto &ba = args->ba;
 	ba.to(0);
 	ba.next_u64(); // skip secret num
-	const auto msg = ba.next_u32() & ~(7u << 29);
-	const bool paste_links = (msg == (io::MessageType)io::Message::PasteLinks);
-	if (paste_links || (msg == (io::MessageType)io::Message::PasteRelativeLinks))
+	const auto msg_int = ba.next_u32() & ~(io::MessageBitsMask << io::MessageBitsStartAt);
+	const auto msg = static_cast<io::Message>(msg_int);
+	const bool paste_links = msg == io::Message::PasteLinks;
+	if (paste_links || (msg == io::Message::PasteRelativeLinks))
 	{
+mtl_trace();
 		QString to_dir_path = ba.next_string();
 		QVector<QString> paths;
 		while (ba.has_more()) {
@@ -44,17 +47,22 @@ void* ProcessRequest(void *p)
 		}
 		
 		if (paste_links) {
+mtl_trace();
 			io::PasteLinks(paths, to_dir_path, nullptr);
 		} else {
+mtl_trace();
 			io::PasteRelativeLinks(paths, to_dir_path, nullptr);
 		}
-	} else if (msg == (io::MessageType)io::Message::RenameFile) {
+	} else if (msg == io::Message::RenameFile) {
+mtl_trace();
 		const auto old_path = ba.next_string().toLocal8Bit();
 		const auto new_path = ba.next_string().toLocal8Bit();
 		::rename(old_path.data(), new_path.data());
 	} else {
+mtl_trace();
 		ba.to(0);
 		io::Task *task = io::Task::From(args->ba, HasSecret::Yes);
+mtl_trace();
 		task->SetDefaultAction(args->default_action);
 		task->StartIO();
 		delete task;
@@ -66,8 +74,9 @@ void* ProcessRequest(void *p)
 
 void Listen(const QString &hash_str, const IOAction io_action)
 {
-	int daemon_sock_fd = cornus::io::socket::Daemon(cornus::RootSocketPath);
-	if (daemon_sock_fd == -1) {
+	int daemon_sock_fd = cornus::io::socket::Daemon(cornus::RootSocketPath, PrintErrors::Yes);
+	if (daemon_sock_fd == -1)
+	{
 		mtl_info("Another root daemon is running. Exiting.");
 		exit(0);
 	}
@@ -88,14 +97,14 @@ void Listen(const QString &hash_str, const IOAction io_action)
 		
 		Args *args = new Args();
 		ByteArray &ba = args->ba;
-		
-		if (!ba.Receive(client_fd, cornus::CloseSocket::No)) {
+		if (!ba.Receive(client_fd, cornus::CloseSocket::No))
+		{
 			close(client_fd);
 			delete args;
 			continue;
 		}
-		
-		if (ba.size() < min_size || !CheckSecret(ba.next_u64(), hash_str))
+		//ba.next_u64(); // <= delete and this
+		if ((ba.size() < min_size) || !CheckSecret(ba.next_u64(), hash_str))
 		{
 			failed_count++;
 			close(client_fd);
@@ -103,9 +112,10 @@ void Listen(const QString &hash_str, const IOAction io_action)
 			continue;
 		}
 		
-		const auto msg = ba.next_u32() & ~(7u << 29);
-		
-		if (msg == (io::MessageType)io::Message::CheckAlive) {
+		const auto msg_num = ba.next_u32() & ~(io::MessageBitsMask << io::MessageBitsStartAt);
+		const auto msg = static_cast<io::Message>(msg_num);
+		if (msg == io::Message::CheckAlive)
+		{
 			close(client_fd);
 			delete args;
 			continue;
@@ -114,9 +124,9 @@ void Listen(const QString &hash_str, const IOAction io_action)
 		args->client_fd = client_fd;
 		args->default_action = io_action;
 		int status = pthread_create(&th, NULL, cornus::ProcessRequest, args);
-		if (status != 0) {
+		if (status != 0)
+		{
 			mtl_status(status);
-			break;
 		}
 		
 		break;
@@ -139,8 +149,10 @@ void PrintHelp(const char *exec_name)
 int main(int argc, char *argv[])
 {
 	QCoreApplication app(argc, argv);
-	
-	if (argc <= 1) {
+mtl_trace();
+//	int action_i = (int)cornus::IOAction::AutoRenameAll;
+//	QString hash_str = "";
+	if (argc != 3) {
 		cornus::PrintHelp(argv[0]);
 		return 0;
 	}
@@ -151,7 +163,7 @@ int main(int argc, char *argv[])
 	int action_i = action_str.toInt(&ok);
 	if (ok)
 		cornus::Listen(hash_str, static_cast<cornus::IOAction>(action_i));
-	
+mtl_trace();
 	return 0;
 }
 

@@ -320,6 +320,22 @@ bool CountSizeRecursive(const QString &path, struct statx &stx,
 	return true;
 }
 
+int CreateAutoRenamedFile(QString dir_path, QString filename,
+	const int file_flags, const mode_t mode)
+{
+	int next = 0;
+	for (;;)
+	{
+		QString dest_path = dir_path + io::NewNamePattern(filename, next);
+		auto ba = dest_path.toLocal8Bit();
+		const int fd = ::open(ba.data(), file_flags, mode);
+		if (fd != -1)
+			return fd;
+		if (errno != EEXIST)
+			return -1;
+	}
+}
+
 int DeleteFolder(QString dp)
 {
 	const auto flags = AT_SYMLINK_NOFOLLOW;
@@ -1032,15 +1048,9 @@ int ListFiles(io::FilesData &data, io::Files *ptr, const CountDirFiles cdf,
 
 QString NewNamePattern(const QString &filename, i32 &next)
 {
-	if (next == 0) {
-		next++;
-		return filename;
-	}
-	
 	QStringRef base_name;
 	const QStringRef ext = io::GetFileNameExtension(filename, &base_name);
-	const QString num_str = QLatin1String(" (") + QString::number(next) + ')';
-	next++;
+	const QString num_str = QLatin1String(" (") + QString::number(++next) + ')';
 	if (ext.isEmpty())
 		return filename + num_str;
 		
@@ -1138,14 +1148,15 @@ const char* QuerySocketFor(const QString &dir_path, bool &needs_root)
 {
 	auto ba = dir_path.toLocal8Bit();
 	needs_root = (access(ba.data(), W_OK) != 0);
+	mtl_info("Needs root: %s %s", (needs_root ? "yes" : "no"), qPrintable(dir_path));
 	
-	if (true)
-	{
-		// Temporarily block this decision to test a feature elsewhere in
-		// the code, but delete this line when done:
-		needs_root = false;
-		mtl_trace("Reminder");
-	}
+//	if (true)
+//	{
+//		// Temporarily block this decision to test a feature elsewhere in
+//		// the code, but delete this line when done:
+//		needs_root = false;
+//		mtl_trace("Reminder");
+//	}
 	
 	return needs_root ? cornus::RootSocketPath : cornus::SocketPath;
 }

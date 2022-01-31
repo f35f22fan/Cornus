@@ -33,15 +33,15 @@
 	"%s[%s:%.3d %s]%s " fmt "", MTL_COLOR_BLUE, SRC_FILE_NAME, \
 	__LINE__, __FUNCTION__, MTL_COLOR_DEFAULT, ##args)
 
-#define mtl_warn(fmt, args...) fprintf(stderr, \
+#define mtl_warn(fmt, args...) fprintf(stdout, \
 	"%s[%s:%.3d %s] " fmt "%s\n", MTL_COLOR_RED, SRC_FILE_NAME, \
 	__LINE__, __FUNCTION__, ##args, MTL_COLOR_DEFAULT)
 
-#define mtl_trace(fmt, args...) fprintf(stderr, \
+#define mtl_trace(fmt, args...) fprintf(stdout, \
 	"%s%s[%s:%.3d %s]%s%s " fmt "\n", MTL_BOLD_START, MTL_COLOR_MAGENTA, SRC_FILE_NAME, \
 	__LINE__, __FUNCTION__, MTL_BOLD_END, MTL_COLOR_DEFAULT, ##args)
 
-#define mtl_status(status) fprintf (stderr, "%s[%s %.3d] %s%s\n", \
+#define mtl_status(status) fprintf (stdout, "%s[%s %.3d] %s%s\n", \
 	MTL_COLOR_RED, SRC_FILE_NAME, \
 	__LINE__, strerror(status), MTL_COLOR_DEFAULT)
 

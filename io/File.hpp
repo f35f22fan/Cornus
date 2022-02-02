@@ -53,6 +53,7 @@ public:
 	bool has_ext_attrs() const { return ext_attrs_.size() > 0; }
 	bool has_media_attrs() const { return ext_attrs_.contains(media::XAttrName);}
 	ByteArray media_attrs() const { return ext_attrs_.value(media::XAttrName); }
+	bool has_last_watched_attr() const { return ext_attrs_.contains(media::XAttrLastWatched); }
 	bool has_thumbnail_attr() const { return ext_attrs_.contains(media::XAttrThumbnail); }
 	ByteArray thumbnail_attrs() const { return ext_attrs_.value(media::XAttrThumbnail); }
 	ByteArray& thumbnail_attrs_ref() { return ext_attrs_[media::XAttrThumbnail]; }
@@ -75,7 +76,6 @@ public:
 	bool is_socket() const { return type_ == FileType::Socket; }
 	bool is_bloc_device() const { return type_ == FileType::BlockDevice; }
 	bool is_char_device() const { return type_ == FileType::CharDevice; }
-	
 	inline void toggle_flag(const FileBits flag, const bool do_add) {
 		if (do_add)
 			bits_ |= flag;

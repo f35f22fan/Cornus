@@ -22,8 +22,8 @@ if (DEFINED ENV{PREFER_CLANG})
     SET (CMAKE_CXX_FLAGS "-Wall -ftree-vectorize")
 endif()
 
-set(DO_BUILD_CORNUS_IO "y")
-set(DO_BUILD_CORNUS_R "y")
+set(BUILD_CORNUS_IO "y")
+set(BUILD_CORNUS_R "y")
 
 find_package(Qt5 COMPONENTS Core Gui Widgets DBus REQUIRED)
 include(FindPkgConfig)
@@ -125,7 +125,9 @@ target_link_libraries(${cornus_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
     ${MTP_LDFLAGS} ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS}
     ${POLKIT_LDFLAGS} ${POLKIT_AGENT_LDFLAGS} ${WEBP_LDFLAGS} pthread zstd)
 
-if (DO_BUILD_CORNUS_IO)
+#if (DEFINED ENV{BUILD_CORNUS_IO})
+if (BUILD_CORNUS_IO)
+message(STATUS "BUILD_CORNUS_IO defined!")
 	set(cornus_io_src_files main_io.cpp
 		AutoDelete.hh
 		category.cc category.hh
@@ -167,9 +169,9 @@ if (DO_BUILD_CORNUS_IO)
 		${UDISKS_INCLUDE_DIRS} ${WEBP_INCLUDE_DIRS})
 	target_link_libraries(${cornus_io_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
 		${WEBP_LDFLAGS}	${UDISKS_LDFLAGS} pthread zstd)
-endif(DO_BUILD_CORNUS_IO)
+endif()
 
-if (DO_BUILD_CORNUS_R)
+if (BUILD_CORNUS_R)
 	set(cornus_r_src_files main_r.cpp
 		AutoDelete.hh
 		ByteArray.cpp ByteArray.hpp
@@ -201,5 +203,5 @@ if (DO_BUILD_CORNUS_R)
 	add_executable(${cornus_r_exe} ${cornus_r_src_files} resources/resources.qrc)
 	target_include_directories(${cornus_r_exe} PRIVATE ${WEBP_INCLUDE_DIRS})
 	target_link_libraries(${cornus_r_exe} Qt5::Core Qt5::Gui ${WEBP_LDFLAGS} pthread zstd)
-endif(DO_BUILD_CORNUS_R)
+endif()
 

@@ -212,11 +212,17 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	
 	if (!app_->prefs().mark_extended_attrs_disabled() && file->has_ext_attrs()) {
 		text.append("\u2022");
-		if (file->has_media_attrs())
-			pen.setColor(QColor(50, 50, 255));
+		QColor color;
+		if (file->has_last_watched_attr()) {
+			color = QColor(255, 0, 0);
+		} else if (file->has_media_attrs())
+			color = QColor(50, 50, 255);
 		else if (file->has_thumbnail_attr()) {
-			pen.setColor(QColor(0, 100, 0));
+			color = QColor(0, 100, 0);
+		} else {
+			color = QColor(100, 100, 100);
 		}
+		pen.setColor(color);
 	}
 	
 	painter->setPen(pen);

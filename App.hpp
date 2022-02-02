@@ -21,6 +21,7 @@
 #include <QMetaType> /// Q_DECLARE_METATYPE()
 #include <QMimeDatabase>
 #include <QProcessEnvironment>
+#include <QShortcut>
 #include <QSplitter>
 #include <QStackedWidget>
 
@@ -141,6 +142,7 @@ private:
 	void LoadIconsFrom(QString dir_path);
 	void OpenWithDefaultApp(const QString &full_path) const;
 	int ReadMTP();
+	inline QShortcut* Register(const QKeySequence ks);
 	void RegisterShortcuts();
 	void RegisterVolumesListener();
 	void SaveThumbnail();
@@ -148,6 +150,7 @@ private:
 	void ShutdownThumbnailThreads();
 	void TabSelected(const int i);
 	
+	QVector<QShortcut*> shortcuts_;
 	QVector<QString> search_icons_dirs_;
 	QVector<QString> xdg_data_dirs_;
 	QString theme_name_;

@@ -109,18 +109,21 @@ public:
 	// <== only used in gui thread
 	
 	// returns cloned file
-	io::File* GetFileAtIndex_Lock(const int index);
-	int GetFirstSelectedFile_Lock(io::File **ret_cloned_file);
-	QString GetFirstSelectedFileFullPath_Lock(QString *ext);
-	int GetSelectedFilesCount_Lock(QVector<QString> *extensions = nullptr);
-	void GetSelectedFileNames(QVector<QString> &names, const Path path,
+	io::File* GetFileAtIndex(const cornus::Lock l, const int index);
+	int GetFirstSelectedFile(const cornus::Lock l, io::File **ret_cloned_file = nullptr,
+		const Clone c = Clone::Yes);
+	QString GetFirstSelectedFileFullPath(const cornus::Lock l, QString *ext);
+	int GetSelectedFilesCount(const cornus::Lock l, QVector<QString> *extensions = nullptr);
+	void GetSelectedFileNames(const cornus::Lock l, QVector<QString> &names, const Path path,
 		const StringCase str_case = StringCase::AsIs);
-	QPair<int, int> ListSelectedFiles_Lock(QList<QUrl> &list);
+	bool HasSelectedFiles(const cornus::Lock l) const;
+	QPair<int, int> ListSelectedFiles(const cornus::Lock l, QList<QUrl> &list);
 	
 	void RemoveThumbnailsFromSelectedFiles();
-	void SelectAllFiles_NoLock(const Selected flag, QSet<int> &indices);
+	void SelectAllFiles(const cornus::Lock l, const Selected flag, QSet<int> &indices);
 	void SelectFilenamesLater(const QVector<QString> &names, const SameDir sd = SameDir::No);
-	void SelectFileRange_NoLock(const int row1, const int row2, QSet<int> &indices);
+	void SelectFileRange(const cornus::Lock l, const int row1, const int row2, QSet<int> &indices);
+	void SetLastWatched(const cornus::Lock l, io::File *file);
 	
 	inline void Broadcast() {
 		int status = pthread_cond_broadcast(&cond);
@@ -128,8 +131,8 @@ public:
 			mtl_status(status);
 	}
 	
-	MutexGuard guard() const {
-		return MutexGuard(&mutex);
+	MutexGuard guard(const Lock l = Lock::Yes) const {
+		return (l == Lock::Yes) ? MutexGuard(&mutex) : MutexGuard();
 	}
 	
 	inline int Lock() {

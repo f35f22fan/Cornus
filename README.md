@@ -43,7 +43,9 @@ You can use Cornus as is, no need to install it. However, Cornus can also perfor
 * F => Switch view
 * Ctrl + F => Search for file by name (then hit Enter to search forward or Ctrl+Enter for backwards)
 * Ctrl + M => Search by (movie) file's metadata (see bottom of page)
+* Shift + M => Show media dialog for selected file
 * Ctrl + Shift + U => Remove thumbnail from selected files' extended attributes
+* F1 => Mark last watched file (with a red dot in Details View)
 
 ---
 ### Screenshot with dark theme:

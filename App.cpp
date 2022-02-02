@@ -68,7 +68,6 @@
 #include <QProcessEnvironment>
 #include <QPushButton>
 #include <QScrollBar>
-#include <QShortcut>
 #include <QShowEvent>
 #include <QStandardPaths>
 #include <QTabWidget>
@@ -365,6 +364,10 @@ App::~App()
 		ZSTD_freeCCtx(compress_ctx_);
 		compress_ctx_ = nullptr;
 	}
+
+	for (auto *shortcut: shortcuts_)
+		delete shortcut;
+	shortcuts_.clear();
 }
 
 void App::ApplyDefaultPrefs()
@@ -398,7 +401,7 @@ void App::ArchiveAskDestArchivePath(const QString &ext)
 void App::ArchiveTo(const QString &dir_path, const QString &ext)
 {
 	QVector<QString> urls;
-	tab()->view_files().GetSelectedFileNames(urls, Path::Full);
+	tab()->view_files().GetSelectedFileNames(Lock::Yes, urls, Path::Full);
 	if (urls.isEmpty())
 		return;
 	
@@ -754,7 +757,7 @@ void App::DisplayFileContents(const int row, io::File *cloned_file)
 {
 	if (cloned_file == nullptr)
 	{
-		cloned_file = tab()->view_files().GetFileAtIndex_Lock(row);
+		cloned_file = tab()->view_files().GetFileAtIndex(Lock::Yes, row);
 		if (cloned_file == nullptr)
 			return;
 	}
@@ -812,7 +815,7 @@ void App::DisplaySymlinkInfo(io::File &file)
 void App::EditSelectedMovieTitle()
 {
 	QString ext;
-	QString full_path = tab()->view_files().GetFirstSelectedFileFullPath_Lock(&ext);
+	QString full_path = tab()->view_files().GetFirstSelectedFileFullPath(Lock::Yes, &ext);
 	if (full_path.isEmpty())
 		return;
 	
@@ -1544,49 +1547,48 @@ mtl_trace();
 	return 0;
 }
 
+QShortcut* App::Register(const QKeySequence ks)
+{
+	auto *sp = new QShortcut(ks, this);
+	sp->setContext(Qt::ApplicationShortcut);
+	shortcuts_.append(sp);
+	return sp;
+}
+
 void App::RegisterShortcuts()
 {
-	QShortcut *shortcut;
+	QShortcut *sp;
 	{
-		shortcut = new QShortcut(QKeySequence(Qt::ALT + Qt::Key_Up), this);
-		shortcut->setContext(Qt::ApplicationShortcut);
-		connect(shortcut, &QShortcut::activated, this, &App::GoUp);
+		sp = Register(QKeySequence(Qt::ALT + Qt::Key_Up));
+		connect(sp, &QShortcut::activated, this, &App::GoUp);
 	}
 	{
-		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_U), this);
-		shortcut->setContext(Qt::ApplicationShortcut);
-		connect(shortcut, &QShortcut::activated, [=] {
+		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_U));
+		connect(sp, &QShortcut::activated, [=] {
 //			tab()->UndoDelete(0); // 0 = most recent batch, -1 = all
 		});
 	}
 	{
-		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_O), this);
-		shortcut->setContext(Qt::ApplicationShortcut);
-		connect(shortcut, &QShortcut::activated, [=] {
-			OpenTerminal();
-		});
+		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_O));
+		connect(sp, &QShortcut::activated, [=] { OpenTerminal(); });
 	}
 	{
-		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_0), this);
-		shortcut->setContext(Qt::ApplicationShortcut);
-		connect(shortcut, &QShortcut::activated, [=] {
+		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_0));
+		connect(sp, &QShortcut::activated, [=] {
 			prefs_->WheelEventFromMainView(Zoom::Reset);
 		});
 	}
 	{
-		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_H), this);
-		shortcut->setContext(Qt::ApplicationShortcut);
-		connect(shortcut, &QShortcut::activated, [=] {
+		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_H));
+		connect(sp, &QShortcut::activated, [=] {
 			prefs_->show_hidden_files(!prefs_->show_hidden_files());
 			tab()->GoTo(Action::Reload, {tab()->current_dir(), Processed::Yes}, Reload::Yes);
 			prefs_->Save();
 		});
 	}
 	{
-		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_F), this);
-		shortcut->setContext(Qt::ApplicationShortcut);
-		
-		connect(shortcut, &QShortcut::activated, [=] {
+		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_F));
+		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
 				search_pane_->SetSearchByFileName();
@@ -1596,10 +1598,8 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
-		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_M), this);
-		shortcut->setContext(Qt::ApplicationShortcut);
-		
-		connect(shortcut, &QShortcut::activated, [=] {
+		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_M));
+		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
 				search_pane_->SetSearchByMediaXattr();
@@ -1609,9 +1609,8 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
-		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_W), this);
-		shortcut->setContext(Qt::ApplicationShortcut);
-		connect(shortcut, &QShortcut::activated, [=] {
+		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_W));
+		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
 				CloseCurrentTab();
@@ -1619,18 +1618,14 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
-		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_Q), this);
-		shortcut->setContext(Qt::ApplicationShortcut);
-		
-		connect(shortcut, &QShortcut::activated, [=] {
+		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_Q));
+		connect(sp, &QShortcut::activated, [=] {
 			QApplication::quit();
 		});
 	}
 	{
-		shortcut = new QShortcut(QKeySequence(Qt::SHIFT + Qt::Key_Delete), this);
-		shortcut->setContext(Qt::ApplicationShortcut);
-		
-		connect(shortcut, &QShortcut::activated, [=] {
+		sp = Register(QKeySequence(Qt::SHIFT + Qt::Key_Delete));
+		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
 				tab()->DeleteSelectedFiles(ShiftPressed::Yes);
@@ -1638,10 +1633,8 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
-		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_I), this);
-		shortcut->setContext(Qt::ApplicationShortcut);
-		
-		connect(shortcut, &QShortcut::activated, [=] {
+		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_I));
+		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
 				tab()->FocusView();
@@ -1649,10 +1642,8 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
-		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_L), this);
-		shortcut->setContext(Qt::ApplicationShortcut);
-		
-		connect(shortcut, &QShortcut::activated, [=] {
+		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_L));
+		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
 				location_->setFocus();
@@ -1661,10 +1652,8 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
-		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_A), this);
-		shortcut->setContext(Qt::ApplicationShortcut);
-		
-		connect(shortcut, &QShortcut::activated, [=] {
+		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_A));
+		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
 				gui::Tab *tab = this->tab();
@@ -1672,16 +1661,14 @@ void App::RegisterShortcuts()
 				QSet<int> indices;
 				auto &view_files = tab->view_files();
 				MutexGuard guard = view_files.guard();
-				view_files.SelectAllFiles_NoLock(Selected::Yes, indices);
+				view_files.SelectAllFiles(Lock::No, Selected::Yes, indices);
 				tab->table_model()->UpdateIndices(indices);
 			}
 		});
 	}
 	{
-		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_E), this);
-		shortcut->setContext(Qt::ApplicationShortcut);
-		
-		connect(shortcut, &QShortcut::activated, [=] {
+		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_E));
+		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
 				ToggleExecBitOfSelectedFiles();
@@ -1689,10 +1676,8 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
-		shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_T), this);
-		shortcut->setContext(Qt::ApplicationShortcut);
-		
-		connect(shortcut, &QShortcut::activated, [=] {
+		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_T));
+		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
 				OpenNewTab();
@@ -1717,7 +1702,7 @@ void App::Reload()
 {
 	gui::Tab *tab = this->tab();
 	QVector<QString> filenames;
-	tab->view_files().GetSelectedFileNames(filenames, Path::OnlyName);
+	tab->view_files().GetSelectedFileNames(Lock::Yes, filenames, Path::OnlyName);
 	const int vscroll = tab->GetScrollValue();
 	tab->view_files().SelectFilenamesLater(filenames, SameDir::No);
 	tab->GoTo(Action::Reload, {tab->current_dir(), Processed::Yes}, Reload::Yes);
@@ -1752,7 +1737,7 @@ void App::RenameSelectedFile()
 	io::File *file = nullptr;
 	gui::Tab *tab = this->tab();
 	auto &files = tab->view_files();
-	if (files.GetFirstSelectedFile_Lock(&file) == -1)
+	if (files.GetFirstSelectedFile(Lock::Yes, &file, Clone::Yes) == -1)
 		return;
 	
 	AutoDelete ad(file);

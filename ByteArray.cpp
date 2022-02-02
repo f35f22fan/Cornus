@@ -129,7 +129,11 @@ void ByteArray::add_string(const QString &s)
 
 void ByteArray::alloc(const isize n)
 {
-	MakeSure(n);
+// Usage:
+// ByteArray ba;
+// ba.alloc(vallen);
+// vallen = lgetxattr(full_path.constData(), key, ba.data(), ba.size());
+	MakeSure(n, ExactSize::Yes);
 	size_ = n;
 }
 

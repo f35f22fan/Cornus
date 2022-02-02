@@ -93,7 +93,8 @@ void History::Record()
 	int last = index_;
 	if (last >= 0 && last < vec_.size())
 	{
-		app_->tab()->view_files().GetSelectedFileNames(vec_[last].selected_filenames,
+		app_->tab()->view_files().GetSelectedFileNames(Lock::Yes,
+			vec_[last].selected_filenames,
 			Path::OnlyName, StringCase::Lower);
 	}
 }

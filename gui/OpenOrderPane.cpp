@@ -4,6 +4,7 @@
 #include "../ByteArray.hpp"
 #include "../DesktopFile.hpp"
 #include "../ExecInfo.hpp"
+#include "../io/Files.hpp"
 #include "../io/socket.hh"
 #include "../prefs.hh"
 #include "OpenOrderModel.hpp"
@@ -152,9 +153,7 @@ QWidget* OpenOrderPane::CreateAddingCustomItem()
 	}
 	
 	ba.Clear();
-	mtl_trace("%ld", time(NULL));
 	RET_IF(ba.Receive(fd), false, nullptr);
-	mtl_trace("%ld", time(NULL));
 	
 	while (ba.has_more()) {
 		DesktopFile *p = DesktopFile::From(ba);
@@ -279,10 +278,6 @@ void OpenOrderPane::CreateGui()
 		model_ = new OpenOrderModel(app_, this);
 		table_ = new OpenOrderTable(app_, model_);
 		model_->table(table_);
-		mtl_warn("TBD: handle icon_view_ as well.");
-		connect(table_->selectionModel(), &QItemSelectionModel::selectionChanged,
-			this, &OpenOrderPane::TableSelectionChanged);
-		
 		layout->addWidget(table_);
 	}
 	
@@ -401,9 +396,8 @@ void OpenOrderPane::Save()
 
 void OpenOrderPane::TableSelectionChanged()
 {
-	auto *sel_model = table_->selectionModel();
-	auto list = sel_model->selectedIndexes();
-	const bool enabled = !list.isEmpty();
+	io::Files &files = tab_->view_files();
+	const bool enabled = files.HasSelectedFiles(Lock::Yes);
 	
 	up_btn_->setEnabled(enabled);
 	down_btn_->setEnabled(enabled);

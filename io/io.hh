@@ -321,7 +321,8 @@ bool ReadLinkSimple(const char *file_path, QString &result);
 
 bool ReloadMeta(io::File &file, struct statx &stx, QString *dir_path = nullptr);
 
-bool RemoveXAttr(const QString &full_path, const QString &xattr_name);
+bool RemoveXAttr(const QString &full_path, const QString &xattr_name,
+	const PrintErrors pe = PrintErrors::No);
 
 bool SameFiles(const QString &path1, const QString &path2,
 	int *ret_error = nullptr);

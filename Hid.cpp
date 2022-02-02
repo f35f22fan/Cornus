@@ -29,7 +29,7 @@ void Hid::HandleKeySelect(gui::Tab *tab, const VDirection vdir,
 	gui::ShiftSelect *shift_select = tab->ShiftSelect();
 	VOID_RET_IF(shift_select, nullptr);
 	
-	int old_file_index = files.GetFirstSelectedFile_Lock(nullptr);
+	int old_file_index = files.GetFirstSelectedFile(Lock::Yes);
 	if (old_file_index == -1)
 		old_file_index = shift_select->base_row;
 	
@@ -49,7 +49,7 @@ void Hid::HandleKeySelect(gui::Tab *tab, const VDirection vdir,
 	QSet<int> indices;
 	{
 		MutexGuard guard = files.guard();
-		files.SelectAllFiles_NoLock(Selected::No, indices);
+		files.SelectAllFiles(Lock::No, Selected::No, indices);
 		if (was_set_to_zero)
 		{
 			new_file_index = (vdir == VDirection::Up) ? 0 : file_count - 1;
@@ -89,7 +89,7 @@ void Hid::HandleKeyShiftSelect(gui::Tab *tab, const VDirection vdir,
 	const int key)
 {
 	auto &files = tab->view_files();
-	int row = files.GetFirstSelectedFile_Lock(nullptr);
+	int row = files.GetFirstSelectedFile(Lock::Yes);
 	if (row == -1)
 		return;
 	
@@ -117,8 +117,8 @@ void Hid::HandleKeyShiftSelect(gui::Tab *tab, const VDirection vdir,
 		}
 		{
 			MutexGuard guard = files.guard();
-			files.SelectAllFiles_NoLock(Selected::No, indices);
-			files.SelectFileRange_NoLock(shift_select->base_row,
+			files.SelectAllFiles(Lock::No, Selected::No, indices);
+			files.SelectFileRange(Lock::No, shift_select->base_row,
 				shift_select->head_row, indices);
 		}
 	}
@@ -157,8 +157,8 @@ void Hid::HandleMouseSelectionShift(gui::Tab *tab, const QPoint &pos,
 			file->set_selected(true);
 			indices.insert(file_index);
 		} else {
-			files.SelectAllFiles_NoLock(Selected::No, indices);
-			files.SelectFileRange_NoLock(shift_select->base_row, file_index, indices);
+			files.SelectAllFiles(Lock::No, Selected::No, indices);
+			files.SelectFileRange(Lock::No, shift_select->base_row, file_index, indices);
 		}
 	}
 }
@@ -211,14 +211,14 @@ void Hid::HandleMouseSelectionNoModif(gui::Tab *tab, const QPoint &pos, QSet<int
 		if (mouse_pressed)
 		{
 			if (file == nullptr || !file->is_selected())
-				files.SelectAllFiles_NoLock(Selected::No, indices);
+				files.SelectAllFiles(Lock::No, Selected::No, indices);
 			if (file != nullptr && !file->is_selected() && file_index != -1) {
 				file->selected(Selected::Yes);
 				indices.insert(file_index);
 			}
 		}
 	} else {
-		files.SelectAllFiles_NoLock(Selected::No, indices);
+		files.SelectAllFiles(Lock::No, Selected::No, indices);
 	}
 }
 

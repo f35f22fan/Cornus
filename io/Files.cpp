@@ -26,9 +26,9 @@ FilesData::~FilesData()
 	vec.clear();
 }
 
-io::File* Files::GetFileAtIndex_Lock(const int index)
+io::File* Files::GetFileAtIndex(const cornus::Lock l, const int index)
 {
-	MutexGuard guard = this->guard();
+	MutexGuard guard = this->guard(l);
 	auto &vec = data.vec;
 	if (index < 0 | index >= vec.size())
 		return nullptr;
@@ -36,15 +36,17 @@ io::File* Files::GetFileAtIndex_Lock(const int index)
 	return vec[index]->Clone();
 }
 
-int Files::GetFirstSelectedFile_Lock(io::File **ret_cloned_file)
+int Files::GetFirstSelectedFile(const cornus::Lock l, io::File **ret_cloned_file,
+	const Clone c)
 {
-	MutexGuard guard = this->guard();
-	
+	MutexGuard guard = this->guard(l);
 	int i = 0;
-	for (io::File *file: data.vec) {
-		if (file->is_selected()) {
+	for (io::File *file: data.vec)
+	{
+		if (file->is_selected())
+		{
 			if (ret_cloned_file != nullptr)
-				*ret_cloned_file = file->Clone();
+				*ret_cloned_file = (c == Clone::Yes) ? file->Clone() : file;
 			return i;
 		}
 		i++;
@@ -53,9 +55,9 @@ int Files::GetFirstSelectedFile_Lock(io::File **ret_cloned_file)
 	return -1;
 }
 
-QString Files::GetFirstSelectedFileFullPath_Lock(QString *ext)
+QString Files::GetFirstSelectedFileFullPath(const cornus::Lock l, QString *ext)
 {
-	MutexGuard guard = this->guard();
+	MutexGuard guard = this->guard(l);
 	
 	for (io::File *file: data.vec) {
 		if (file->is_selected()) {
@@ -68,9 +70,9 @@ QString Files::GetFirstSelectedFileFullPath_Lock(QString *ext)
 	return QString();
 }
 
-int Files::GetSelectedFilesCount_Lock(QVector<QString> *extensions)
+int Files::GetSelectedFilesCount(const cornus::Lock l, QVector<QString> *extensions)
 {
-	MutexGuard guard = this->guard();
+	MutexGuard guard = this->guard(l);
 	int selected_count = 0;
 	
 	for (io::File *next: data.vec)
@@ -88,11 +90,11 @@ int Files::GetSelectedFilesCount_Lock(QVector<QString> *extensions)
 	return selected_count;
 }
 
-void Files::GetSelectedFileNames(QVector<QString> &names,
+void Files::GetSelectedFileNames(const cornus::Lock l, QVector<QString> &names,
 	const Path path,
 	const StringCase str_case)
 {
-	MutexGuard guard = this->guard();
+	MutexGuard guard = this->guard(l);
 	const bool OnlyName = (path == Path::OnlyName);
 	for (io::File *next: data.vec)
 	{
@@ -116,9 +118,22 @@ void Files::GetSelectedFileNames(QVector<QString> &names,
 	
 }
 
-QPair<int, int> Files::ListSelectedFiles_Lock(QList<QUrl> &list)
+bool Files::HasSelectedFiles(const cornus::Lock l) const
 {
-	MutexGuard guard = this->guard();
+	MutexGuard guard = this->guard(l);
+	
+	for (io::File *next: data.vec)
+	{
+		if (next->is_selected())
+			return true;
+	}
+	
+	return false;
+}
+
+QPair<int, int> Files::ListSelectedFiles(const cornus::Lock l, QList<QUrl> &list)
+{
+	MutexGuard guard = this->guard(l);
 	int num_files = 0;
 	int num_dirs = 0;
 	
@@ -151,8 +166,9 @@ void Files::RemoveThumbnailsFromSelectedFiles()
 	}
 }
 
-void Files::SelectAllFiles_NoLock(const Selected flag, QSet<int> &indices)
+void Files::SelectAllFiles(const cornus::Lock l, const Selected flag, QSet<int> &indices)
 {
+	auto guard = this->guard(l);
 	int i = -1;
 	for (io::File *file: data.vec)
 	{
@@ -176,8 +192,9 @@ void Files::SelectFilenamesLater(const QVector<QString> &names, const SameDir sd
 	}
 }
 
-void Files::SelectFileRange_NoLock(const int row1, const int row2, QSet<int> &indices)
+void Files::SelectFileRange(const cornus::Lock l, const int row1, const int row2, QSet<int> &indices)
 {
+	auto guard = this->guard(l);
 	QVector<io::File*> &vec = data.vec;
 	
 	if (row1 < 0 || row1 >= vec.size() || row2 < 0 || row2 >= vec.size()) {
@@ -197,6 +214,26 @@ void Files::SelectFileRange_NoLock(const int row1, const int row2, QSet<int> &in
 	{
 		vec[i]->set_selected(true);
 		indices.insert(i);
+	}
+}
+
+void Files::SetLastWatched(const cornus::Lock l, io::File *file)
+{
+	VOID_RET_IF(file, nullptr);
+	auto guard = this->guard(l);
+	const auto &key = media::XAttrLastWatched;
+	for (io::File *next: data.vec)
+	{
+		if (next->id() == file->id())
+		{
+			ByteArray value;
+			value.add_i64(time(NULL));
+			io::SetXAttr(next->build_full_path(), key, value);
+			continue;
+		}
+		
+		if (next->has_last_watched_attr())
+			io::RemoveXAttr(next->build_full_path(), key);
 	}
 }
 

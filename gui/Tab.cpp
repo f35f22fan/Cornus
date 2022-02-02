@@ -964,10 +964,10 @@ void Tab::HandleMouseRightClickSelection(const QPoint &pos, QSet<int> &indices)
 	}
 	
 	if (file == nullptr) {
-		files.SelectAllFiles_NoLock(Selected::No, indices);
+		files.SelectAllFiles(Lock::No, Selected::No, indices);
 	} else {
 		if (!file->is_selected()) {
-			files.SelectAllFiles_NoLock(Selected::No, indices);
+			files.SelectAllFiles(Lock::No, Selected::No, indices);
 			file->set_selected(true);
 			if (shift_select)
 				shift_select->base_row = file_index;
@@ -1028,12 +1028,14 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 	
 	if (key == Qt::Key_Delete) {
 		DeleteSelectedFiles(shift ? ShiftPressed::Yes : ShiftPressed::No);
+	} else if (key == Qt::Key_F1) {
+		MarkLastWatchedFile();
 	} else if (key == Qt::Key_F2) {
 		app_->RenameSelectedFile();
 	} else if (key == Qt::Key_Return) {
 		if (!any_modifiers) {
 			io::File *cloned_file = nullptr;
-			int row = files.GetFirstSelectedFile_Lock(&cloned_file);
+			int row = files.GetFirstSelectedFile(Lock::Yes, &cloned_file, Clone::Yes);
 			if (row != -1) {
 				app->FileDoubleClicked(cloned_file, PickBy::VisibleName);
 				indices.insert(row);
@@ -1053,7 +1055,7 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 		if (any_modifiers)
 			return;
 		io::File *cloned_file = nullptr;
-		int row = files.GetFirstSelectedFile_Lock(&cloned_file);
+		int row = files.GetFirstSelectedFile(Lock::Yes, &cloned_file, Clone::Yes);
 		if (row != -1)
 			app_->DisplayFileContents(row, cloned_file);
 		else {
@@ -1098,9 +1100,9 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 		vs->setValue(vs->maximum());
 		const auto count = view_files().cached_files_count;
 		app_->hid()->SelectFileByIndex(this, count - 1, DeselectOthers::Yes);
-	} else if (key == Qt::Key_M && !any_modifiers) {
+	} else if (key == Qt::Key_M && shift) {
 		io::File *cloned_file = nullptr;
-		files.GetFirstSelectedFile_Lock(&cloned_file);
+		files.GetFirstSelectedFile(Lock::Yes, &cloned_file, Clone::Yes);
 		if (cloned_file != nullptr)
 			AttrsDialog attrs_d(app_, cloned_file);
 	}
@@ -1126,6 +1128,16 @@ QString Tab::ListSpeedString() const
 	QString ret = QLatin1String(" [") + num_files + tr(" files=")
 		+ diff_str + QLatin1String("ms]");
 	return ret;
+}
+
+void Tab::MarkLastWatchedFile()
+{
+	auto &files = view_files();
+	auto guard = files.guard(Lock::Yes);
+	io::File *file;
+	const int index = files.GetFirstSelectedFile(Lock::No, &file, Clone::No);
+	if (index != -1)
+		files.SetLastWatched(Lock::No, file);
 }
 
 void Tab::PopulateUndoDelete(QMenu *menu)
@@ -1189,7 +1201,7 @@ void Tab::ProcessAction(const QString &action)
 	auto &files = this->view_files();
 	
 	if (action == actions::DeleteFiles) {
-		int count = files.GetSelectedFilesCount_Lock();
+		int count = files.GetSelectedFilesCount(Lock::Yes);
 		if (count == 0)
 			return;
 		
@@ -1207,7 +1219,7 @@ void Tab::ProcessAction(const QString &action)
 		app->OpenTerminal();
 	} else if (action == actions::RunExecutable) {
 		QString ext;
-		QString full_path = files.GetFirstSelectedFileFullPath_Lock(&ext);
+		QString full_path = files.GetFirstSelectedFileFullPath(Lock::Yes, &ext);
 		if (!full_path.isEmpty()) {
 			ExecInfo info = app->QueryExecInfo(full_path, ext);
 			if (info.is_elf() || info.is_shell_script())
@@ -1378,7 +1390,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 {
 	auto &files = view_files();
 	QVector<QString> extensions;
-	const int selected_count = files.GetSelectedFilesCount_Lock(&extensions);
+	const int selected_count = files.GetSelectedFilesCount(Lock::Yes, &extensions);
 	QMenu *menu = new QMenu();
 	menu->setAttribute(Qt::WA_DeleteOnClose);
 	
@@ -1686,7 +1698,7 @@ void Tab::StartDragOperation()
 	auto &files = view_files();
 	QMimeData *mimedata = new QMimeData();
 	QList<QUrl> urls;
-	QPair<int, int> files_folders = files.ListSelectedFiles_Lock(urls);
+	QPair<int, int> files_folders = files.ListSelectedFiles(Lock::Yes, urls);
 	if (urls.isEmpty())
 		return;
 	

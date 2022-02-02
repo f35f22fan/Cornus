@@ -29,6 +29,11 @@ using TabId = i64;
 using DirId = i32;
 using FileId = i32;
 
+enum class Lock: i8 {
+	Yes,
+	No
+};
+
 enum class TopLevel: i8 {
 	Browser,
 	Editor,

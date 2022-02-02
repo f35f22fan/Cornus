@@ -19,6 +19,7 @@ using HashI32V = QMap<i32, QVector<QString>>;
 
 namespace media {
 static const QString XAttrName = QStringLiteral("user.CornusMas.m");
+static const QString XAttrLastWatched = QStringLiteral("user.CornusMas.lw");
 static const QString XAttrThumbnail = QStringLiteral("user.CornusMas.thmb");
 
 struct Data {

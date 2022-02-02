@@ -1385,13 +1385,8 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 	QHash<QString, ByteArray> &ext_attrs = file.ext_attrs();
 	
 	isize buflen = llistxattr(full_path.data(), NULL, 0);
-	if (buflen == 0)
-		return; /// no attributes
-	
-	if (buflen == -1)
-	{
-		//mtl_warn("%s: %s", full_path.data(), strerror(errno));
-		return;
+	if (buflen <= 0) {
+		return; /// 0 = no attributes, -1 = error
 	}
 	
 	/// Allocate the buffer.
@@ -1482,16 +1477,16 @@ bool ReloadMeta(io::File &file, struct statx &stx, QString *dir_path)
 	return true;
 }
 
-bool RemoveXAttr(const QString &full_path, const QString &xattr_name)
+bool RemoveXAttr(const QString &full_path, const QString &xattr_name, const PrintErrors pe)
 {
 	auto file_path_ba = full_path.toLocal8Bit();
 	auto xattr_name_ba = xattr_name.toLocal8Bit();
-	int status = lremovexattr(file_path_ba.data(), xattr_name_ba.data());
+	const bool ok = lremovexattr(file_path_ba.data(), xattr_name_ba.data()) == 0;
 	
-	if (status != 0)
+	if (!ok && (pe == PrintErrors::Yes))
 		mtl_warn("lremovexattr on %s: %s", xattr_name_ba.data(), strerror(errno));
 	
-	return status == 0;
+	return ok;
 }
 
 bool SameFiles(const QString &path1, const QString &path2, int *ret_error)
@@ -1581,16 +1576,16 @@ bool SetXAttr(const QString &full_path, const QString &xattr_name,
 {
 	auto file_path_ba = full_path.toLocal8Bit();
 	auto xattr_name_ba = xattr_name.toLocal8Bit();
-	int status = lsetxattr(file_path_ba.data(), xattr_name_ba.data(),
-		ba.data(), ba.size(), 0);
+	const bool ok = lsetxattr(file_path_ba.data(), xattr_name_ba.data(),
+		ba.data(), ba.size(), 0) == 0;
 	
-	if (status != 0 && pe == PrintErrors::Yes)
+	if (!ok && pe == PrintErrors::Yes)
 	{
 		mtl_warn("lsetxattr on %s: %s, FILE: %s", xattr_name_ba.data(),
 			strerror(errno), qPrintable(full_path));
 	}
 	
-	return status == 0;
+	return ok;
 }
 
 QString SizeToString(const i64 sz, const StringLength len)

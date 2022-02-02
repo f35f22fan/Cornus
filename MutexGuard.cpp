@@ -27,8 +27,9 @@ mutex_(mutex)
 
 MutexGuard::~MutexGuard()
 {
-	if (mutex_ != nullptr) {
-		int status = pthread_mutex_unlock(mutex_);
+	if (mutex_ != nullptr)
+	{
+		const int status = pthread_mutex_unlock(mutex_);
 		if (status != 0)
 			mtl_status(status);
 	}

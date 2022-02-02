@@ -12,8 +12,9 @@ enum class LockType: i8 {
 
 class MutexGuard {
 public:
+	MutexGuard() {}
 	MutexGuard(pthread_mutex_t *mutex, const LockType lock_type = LockType::Normal);
-	~MutexGuard();
+	virtual ~MutexGuard();
 	
 	bool Signal(pthread_cond_t *cond);
 	

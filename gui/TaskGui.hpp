@@ -6,7 +6,6 @@
 #include <QProgressBar>
 #include <QToolButton>
 #include <QWidget>
-#include <QTimer>
 
 #include "../err.hpp"
 #include "../io/decl.hxx"
@@ -38,6 +37,7 @@ public Q_SLOTS:
 private:
 	TaskGui(io::Task *task);
 	
+	void Continue();
 	QWidget* CreateDeleteFailedPane();
 	QWidget* CreateFileExistsPane();
 	QWidget* CreateWriteFailedPane();
@@ -47,7 +47,6 @@ private:
 	void PresentUserFileExistsQuestion();
 	void PresentUserWriteFailedQuestion();
 	void PresentWindow();
-	void ProcessAction(const QString &action);
 	void SendDeleteFailedAnswer(const io::DeleteFailedAnswer answer);
 	void SendFileExistsAnswer(const io::FileExistsAnswer answer);
 	void SendWriteFailedAnswer(const io::WriteFailedAnswer answer);
@@ -61,7 +60,6 @@ private:
 	bool made_visible_once_ = false;
 	QLabel *info_ = nullptr;
 	QLabel *speed_ = nullptr;
-	QTimer *timer_ = nullptr;
 	QToolButton *work_pause_btn_ = nullptr;
 	cornus::io::Progress progress_ = {};
 	QIcon continue_icon_, pause_icon_;

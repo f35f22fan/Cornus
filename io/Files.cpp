@@ -224,7 +224,7 @@ void Files::SetLastWatched(const cornus::Lock l, io::File *file)
 	const auto &key = media::XAttrLastWatched;
 	for (io::File *next: data.vec)
 	{
-		if (next->id() == file->id())
+		if (next->id() == file->id() && !next->has_last_watched_attr())
 		{
 			ByteArray value;
 			value.add_i64(time(NULL));

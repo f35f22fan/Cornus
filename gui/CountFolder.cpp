@@ -60,12 +60,8 @@ app_(app)
 	data_ = new io::CountFolderData();
 	data_->full_path = full_path_;
 	
-	pthread_t th;
-	int status = pthread_create(&th, NULL, CountFolderTh, data_);
-	if (status != 0) {
-		mtl_status(status);
+	if (!io::NewThread(CountFolderTh, data_))
 		return;
-	}
 	
 	timer_ = new QTimer(this);
 	connect(timer_, &QTimer::timeout, this,

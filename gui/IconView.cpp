@@ -172,10 +172,7 @@ DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
 		pixmap = QPixmap::fromImage(file->thumbnail()->img);
 	} else {
 		QIcon *icon = app_->GetFileIcon(file);
-		if (icon == nullptr)
-			return DrawBorder::No;
-		
-		pixmap = file->cache().icon->pixmap(128, 128);
+		pixmap = icon->pixmap(128, 128);
 	}
 	const double pw = pixmap.width();
 	const double ph = pixmap.height();
@@ -263,6 +260,13 @@ void IconView::Init()
 	
 	// enables receiving ordinary mouse events (when mouse is not down)
 	setMouseTracking(true);
+	{
+		//setDragEnabled(true);
+		setAcceptDrops(true);
+//		setDragDropOverwriteMode(false);
+//		setDropIndicatorShown(true);
+//		setDefaultDropAction(Qt::MoveAction);
+	}
 	connect(vs_, &QScrollBar::valueChanged, [=](int value) {
 		if (repaint_without_delay_)
 			update();
@@ -373,6 +377,12 @@ void IconView::mousePressEvent(QMouseEvent *evt)
 	const bool left_click = evt->button() == Qt::LeftButton;
 	QSet<int> indices;
 	
+	if (left_click) {
+		drag_start_pos_ = evt->pos();
+	} else {
+		drag_start_pos_ = {-1, -1};
+	}
+	
 	if (left_click)
 	{
 		if (ctrl) {
@@ -383,12 +393,6 @@ void IconView::mousePressEvent(QMouseEvent *evt)
 			app_->hid()->HandleMouseSelectionNoModif(tab_, evt->pos(),
 				indices, true, &shift_select_);
 		}
-	}
-	
-	if (left_click) {
-		drag_start_pos_ = evt->pos();
-	} else {
-		drag_start_pos_ = {-1, -1};
 	}
 	
 	if (right_click)
@@ -416,25 +420,6 @@ void IconView::mouseReleaseEvent(QMouseEvent *evt)
 	}
 	
 	UpdateIndices(indices);
-	
-	if (evt->button() == Qt::LeftButton)
-	{
-		const i32 col = (i32)Column::FileName;//columnAt(evt->pos().x());
-		if (col == i32(Column::Icon))
-		{
-			io::Files &files = *app_->files(tab_->files_id());
-			io::File *cloned_file = nullptr;
-			int file_index = -1;
-			{
-				MutexGuard guard = files.guard();
-				cloned_file = GetFileAt_NoLock(evt->pos(), Clone::Yes, &file_index);
-			}
-			if (cloned_file) {
-				app_->hid()->SelectFileByIndex(tab_, file_index, DeselectOthers::Yes);
-				app_->FileDoubleClicked(cloned_file, PickBy::Icon);
-			}
-		}
-	}
 }
 
 void IconView::paintEvent(QPaintEvent *ev)
@@ -459,39 +444,42 @@ void IconView::paintEvent(QPaintEvent *ev)
 	const auto &cell = icon_dim_; // to make sure I don't change any value
 	const int at_row = scroll_y / cell.rh;
 	double remainder = std::fmod(scroll_y, cell.rh);
-	// std::numeric_limits<double>::epsilon() doesn't work here!
-	const double my_epsilon = cell.rh / 1000000.0;
-	if (cornus::DoublesEqual(remainder, cell.rh, my_epsilon)) {
-		//mtl_info("%f vs %f", std::numeric_limits<double>::epsilon(), my_epsilon);
-		remainder = 0;
+	{// std::numeric_limits<double>::epsilon() doesn't work here!
+		const double my_epsilon = cell.rh / 1000000.0;
+		if (cornus::DoublesEqual(remainder, cell.rh, my_epsilon)) {
+			//mtl_info("%f vs %f", std::numeric_limits<double>::epsilon(), my_epsilon);
+			remainder = 0;
+		}
 	}
 	const double y_off = -remainder;
 	const double y_end = remainder + height();
-	const double width = (this->width() < cell.cell_and_gap) ?
-		cell.cell_and_gap : this->width();
-	
-	io::Files &files = tab_->view_files();
-	const int file_count = files.cached_files_count;
+	const double width = std::max((double)this->width(), cell.cell_and_gap);
 	int file_index = at_row * cell.per_row;
 	QTextOption text_options;
 	text_options.setAlignment(Qt::AlignHCenter);
 	text_options.setWrapMode(QTextOption::WrapAnywhere);
 	const QColor gray_color(100, 100, 100);
+	io::Files &files = tab_->view_files();
+	auto guard = files.guard();
+	
 	for (double y = y_off; y < y_end; y += cell.rh)
 	{
+		if (file_index >= files.cached_files_count)
+			break;
+		
 		for (double x = 0.0; (x + cell.w_and_gaps) < width; x += cell.cell_and_gap)
 		{
-			if (file_index >= file_count)
+			if (file_index >= files.cached_files_count)
 				break;
-			
 			const bool mouse_over = (mouse_over_file_ == file_index);
 			QString file_name;
 			const QRect cell_r(x, y, cell.w_and_gaps, cell.h_and_gaps);
 			DrawBorder draw_border = DrawBorder::No;
 			QString img_wh_str;
 			{
-				auto guard = files.guard();
-				io::File *file = files.data.vec[file_index++];
+				// used to lock files here
+				io::File *file = files.data.vec[file_index];
+				file_index++;
 				file_name = file->name();
 				if (mouse_over || file->is_selected())
 				{
@@ -543,9 +531,6 @@ void IconView::paintEvent(QPaintEvent *ev)
 				painter.setPen(pen);
 			}
 		}
-		
-		if (file_index >= file_count)
-			break;
 	}
 }
 
@@ -626,7 +611,8 @@ void IconView::ScrollToFile(const int file_index)
 void IconView::SendLoadingNewThumbnailsBatch()
 {
 	auto &files = tab_->view_files();
-	files.Lock();
+	VOID_RET_IF(files.Lock(), false);
+	
 	const DirId dir_id = files.data.dir_id;
 	files.Unlock();
 	

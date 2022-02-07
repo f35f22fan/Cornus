@@ -163,7 +163,7 @@ static const mode_t FilePermissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_
 
 struct DiskFileId {
 	u64 inode_number;
-	u32 dev_major; // ID of device containing file
+	u32 dev_major; // ID of device containing file, in a LAN it's unique
 	u32 dev_minor;
 	
 	inline static DiskFileId FromStat(const struct stat &st) {

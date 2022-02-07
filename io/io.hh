@@ -300,8 +300,17 @@ MapPosixTypeToLocal(const mode_t mode) {
 	}
 }
 
-QString
-NewNamePattern(const QString &filename, i32 &next);
+QString NewNamePattern(const QString &filename, i32 &next);
+
+inline bool NewThread(void* (*start_routine)(void *), void *arg,
+	const PrintErrors pe = PrintErrors::Yes)
+{
+	pthread_t th;
+	const int status = pthread_create(&th, NULL, start_routine, arg);
+	if (status != 0 && pe == PrintErrors::Yes)
+		mtl_status(status);
+	return (status == 0);
+}
 
 void PasteLinks(const QVector<QString> &full_paths,
 	QString target_dir, QVector<QString> *filenames, QString *err = nullptr);

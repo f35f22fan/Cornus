@@ -64,10 +64,7 @@ void* AutoLoadIODaemonIfNeeded(void *arg)
 
 void AutoLoadRegularIODaemon()
 {
-	pthread_t th;
-	int status = pthread_create(&th, NULL, AutoLoadIODaemonIfNeeded, (void*)cornus::SocketPath);
-	if (status != 0)
-		mtl_status(status);
+	io::NewThread(AutoLoadIODaemonIfNeeded, (void*)cornus::SocketPath);
 }
 
 struct SendData {
@@ -159,19 +156,15 @@ bool SendAsync(ByteArray *ba, const char *socket_path, const bool delete_path)
 	data->ba = ba;
 	data->addr = socket_path;
 	data->delete_addr = delete_path;
-	pthread_t th;
-	int status = pthread_create(&th, NULL, SendTh, data);
-	if (status != 0)
-	{
-		mtl_status(status);
-		delete data->ba;
-		if (data->delete_addr)
-			delete data->addr;
-		
-		delete data;
-	}
+	if (io::NewThread(SendTh, data))
+		return true;
+
+	delete data->ba;
+	if (data->delete_addr)
+		delete data->addr;
+	delete data;
 	
-	return status == 0;
+	return false;
 }
 
 void SendQuitSignalToServer()

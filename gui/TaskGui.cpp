@@ -28,14 +28,13 @@ void* wait_for_signal(void *ptr)
 	
 	do {
 		const io::TaskState state = data.GetState();
-		if (state & TaskIsDoneBits)
-			break;
 		if (state & TaskState::AwaitingAnswer)
 			data.WaitFor(TaskState::Answered);
 		else
 			data.WaitFor(condition);
 		QMetaObject::invokeMethod(task_gui, "CheckTaskState", Qt::QueuedConnection);
-		
+		if (state & TaskIsDoneBits)
+			break;
 	} while (true);
 	
 	return nullptr;
@@ -48,11 +47,7 @@ TaskGui::TaskGui(io::Task *task): task_(task)
 	pause_icon_ = QIcon::fromTheme(QLatin1String("media-playback-pause"));
 	
 	CreateGui();
-	
-	pthread_t th;
-	const int status = pthread_create(&th, NULL, wait_for_signal, this);
-	if (status != 0)
-		mtl_status(status);
+	io::NewThread(wait_for_signal, this);
 }
 
 TaskGui::~TaskGui()

@@ -135,11 +135,11 @@ public:
 		return (l == Lock::Yes) ? MutexGuard(&mutex) : MutexGuard();
 	}
 	
-	inline int Lock() {
-		int status = pthread_mutex_lock(&mutex);
+	inline bool Lock() {
+		const int status = pthread_mutex_lock(&mutex);
 		if (status != 0)
 			mtl_status(status);
-		return status;
+		return (status == 0);
 	}
 	
 	inline void Signal() {

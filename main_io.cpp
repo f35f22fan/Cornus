@@ -167,11 +167,11 @@ void* ListenTh(void *args)
 		return nullptr;
 	}
 	
-	pthread_t th;
-	
-	while (true) {
+	while (true)
+	{
 		int client_fd = accept(daemon_sock_fd, NULL, NULL);
-		if (client_fd == -1) {
+		if (client_fd == -1)
+		{
 			mtl_status(errno);
 			break;
 		}
@@ -180,23 +180,15 @@ void* ListenTh(void *args)
 		{
 			const bool do_exit = life->exit;
 			life->Unlock();
-			
-			if (do_exit) {
-#ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
-				mtl_info("Daemon is quitting");
-#endif
+			if (do_exit)
 				break;
-			}
 		}
 		
 		auto *args = new args_data();
 		args->fd = client_fd;
 		args->daemon = daemon;
-		const int status = pthread_create(&th, NULL, ProcessRequest, args);
-		if (status != 0) {
-			mtl_status(status);
+		if (!io::NewThread(ProcessRequest, args))
 			break;
-		}
 	}
 	
 	close(daemon_sock_fd);
@@ -243,14 +235,8 @@ int main(int argc, char *argv[])
 	auto *daemon = new cornus::io::Daemon();
 	
 	{
-		pthread_t th;
-		int status = pthread_create(&th, NULL, cornus::ListenTh, daemon);
-		if (status != 0)
-			mtl_status(status);
-		
-		status = pthread_create(&th, NULL, cornus::PutTrashInGlobalGitignore, NULL);
-		if (status != 0)
-			mtl_status(status);
+		cornus::io::NewThread(cornus::ListenTh, daemon);
+		cornus::io::NewThread(cornus::PutTrashInGlobalGitignore, NULL);
 	}
 
 	cornus::io::ServerLife *life = daemon->life();

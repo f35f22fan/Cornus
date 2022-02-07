@@ -28,10 +28,11 @@ bool TaskData::ChangeState(const TaskState new_state,
 	MutexGuard guard = cm.guard();
 	if (task_question != nullptr)
 		task_question_ = *task_question;
+	const auto StopRecordingTimeFor = TaskState::Finished | TaskState::Pause
+	| TaskState::Abort | TaskState::AwaitingAnswer;
 	
 	state = new_state;
-	if (new_state & (TaskState::Finished | TaskState::Pause
-		| TaskState::Abort | TaskState::AwaitingAnswer))
+	if (new_state & StopRecordingTimeFor)
 	{
 		work_time_recorder_.Pause();
 	} else if (new_state & (TaskState::Continue | TaskState::Answered)) {
@@ -496,7 +497,7 @@ mtl_trace();
 	auto name = io::GetFileNameOfFullPath(first);
 	QString parent = first.mid(0, first.size() - name.size());
 	const bool pasted = (int)ops_ & (int)Message::Pasted_Hint;
-	mtl_info("pasted: %d", pasted);
+	//mtl_info("pasted: %d", pasted);
 	if (name.isEmpty() || (!pasted && io::SameFiles(parent, to_dir_path_)))
 	{
 mtl_trace();
@@ -512,9 +513,11 @@ mtl_trace();
 		MoveToTrash();
 	} else if (ops_ & (MessageType)Message::Copy) {
 mtl_trace();
-		if (!(ops_ & (MessageType)Message::DontTryAtomicMove)) {
+		const bool can_try_atomic_move = !(ops_ & (MessageType)Message::DontTryAtomicMove);
+		if (can_try_atomic_move) {
 mtl_trace();
-			if (TryAtomicMove()) {
+			if (TryAtomicMove())
+			{
 				data().ChangeState(io::TaskState::Finished);
 				return;
 			}
@@ -551,8 +554,7 @@ bool Task::TryAtomicMove()
 	for (QString &path: file_paths_)
 	{
 		io::File *file = io::FileFromPath(path);
-		if (file == nullptr)
-			return false;
+		RET_IF(file, nullptr, false);
 		
 		QString new_path = to_dir_path_ + file->name();
 		auto new_path_ba = new_path.toLocal8Bit();

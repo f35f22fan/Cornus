@@ -13,6 +13,4 @@ enum class DndType: i8 {
 };
 
 DndType GetDndType(const QMimeData *md);
-
-
 }

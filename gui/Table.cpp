@@ -55,7 +55,7 @@ model_(tm), tab_(tab)
 	setModel(model_);
 	header_ = new TableHeader(this);
 	setHorizontalHeader(header_);
-/// enables receiving ordinary mouse events (when mouse is not down)
+// enables receiving ordinary mouse events (when mouse is not down)
 	setMouseTracking(true);
 	delegate_ = new TableDelegate(this, app_, tab_);
 	setAlternatingRowColors(false);
@@ -84,9 +84,9 @@ model_(tm), tab_(tab)
 		setDefaultDropAction(Qt::MoveAction);
 	}
 	setUpdatesEnabled(true);
-	///setShowGrid(false);
+	//setShowGrid(false);
 	setSelectionMode(QAbstractItemView::NoSelection);//ExtendedSelection);
-	setSelectionBehavior(QAbstractItemView::SelectRows);
+	//setSelectionBehavior(QAbstractItemView::SelectRows);
 	setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
 	SetCustomResizePolicy();
 	auto *vs = verticalScrollBar();

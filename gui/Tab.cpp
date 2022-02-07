@@ -558,7 +558,7 @@ void Tab::DropEvent(QDropEvent *evt, const ForceDropToCurrentDir fdir)
 				to_dir = io::FileFromPath(current_dir());
 			}
 		} else if (view_mode_ == ViewMode::Icons) {
-			to_dir = icon_view_->GetFileAt_NoLock(evt->pos(), Clone::No);
+			to_dir = icon_view_->GetFileAt_NoLock(evt->pos(), Clone::Yes);
 		} else {
 			/// Otherwise drop onto current directory:
 			to_dir = io::FileFromPath(current_dir());
@@ -735,11 +735,7 @@ bool Tab::GoTo(const Action action, DirPath dp, const cornus::Reload r)
 	params->dir_path = dp;
 	params->reload = (r == Reload::Yes);
 	params->action = action;
-	
-	pthread_t th;
-	int status = pthread_create(&th, NULL, cornus::GoToTh, params);
-	if (status != 0)
-		mtl_warn("pthread_create: %s", strerror(errno));
+	io::NewThread(cornus::GoToTh, params);
 	
 	return true;
 }
@@ -1662,7 +1658,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 void Tab::ShutdownLastInotifyThread()
 {
 	io::Files &files = view_files();
-	files.Lock();
+	VOID_RET_IF(files.Lock(), false);
 #ifdef CORNUS_WAITED_FOR_WIDGETS
 	using Clock = std::chrono::steady_clock;
 	auto start_time = Clock::now();
@@ -1699,9 +1695,7 @@ void Tab::StartDragOperation()
 	QMimeData *mimedata = new QMimeData();
 	QList<QUrl> urls;
 	QPair<int, int> files_folders = files.ListSelectedFiles(Lock::Yes, urls);
-	if (urls.isEmpty())
-		return;
-	
+	VOID_RET_IF(urls.isEmpty(), true);
 	mimedata->setUrls(urls);
 	
 /// Set a pixmap that will be shown alongside the cursor during the operation:
@@ -1733,7 +1727,7 @@ void Tab::StartDragOperation()
 	drag->setMimeData(mimedata);
 	drag->setPixmap(pixmap);
 	{
-		/** Warning: changing this to:
+		/** Warning! changing this to:
 		 drag->exec(Qt::CopyAction | Qt::MoveAction);
 		 will break dragging movie files onto the MPV player. */
 		drag->exec(Qt::CopyAction);

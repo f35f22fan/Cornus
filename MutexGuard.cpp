@@ -8,13 +8,13 @@ mutex_(mutex)
 	switch(lock_type) {
 	case LockType::Normal:
 	{
-		int status = pthread_mutex_lock(mutex_);
+		const int status = pthread_mutex_lock(mutex_);
 		if (status != 0)
 			mtl_status(status);
 		break;
 	}
 	case LockType::TryLock: {
-		int status = pthread_mutex_trylock(mutex_);
+		const int status = pthread_mutex_trylock(mutex_);
 		if (status != 0)
 			mutex_ = nullptr;
 		break;

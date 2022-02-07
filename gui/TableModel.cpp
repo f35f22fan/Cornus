@@ -98,6 +98,7 @@ void InsertFile(io::File *new_file, QVector<io::File*> &files_vec,
 void SendCreateEvent(TableModel *model, cornus::io::Files *files,
 	const QString new_name, const i32 dir_id)
 {
+mtl_trace("For file \"%s\"", qPrintable(new_name));
 	io::File *new_file = new io::File(files);
 	new_file->name(new_name);
 	struct statx stx;
@@ -122,7 +123,6 @@ void SendDeleteEvent(TableModel *model, cornus::io::Files *files,
 	}
 	
 	VOID_RET_IF(index, -1);
-	
 	io::FileEvent evt = {};
 	evt.dir_id = dir_id;
 	evt.index = index;
@@ -414,7 +414,8 @@ void* WatchDir(void *void_args)
 			ReinterpretRenames(rename_vec, args->table_model, &files, args->dir_id);
 		}
 		
-		if (rename_vec.isEmpty()) {
+		if (rename_vec.isEmpty())
+		{
 			{
 				MutexGuard guard = files.guard();
 				auto &select_list = files.data.filenames_to_select;
@@ -429,11 +430,12 @@ void* WatchDir(void *void_args)
 				get preserved because inotify events arrive at random pace. */
 				QMetaObject::invokeMethod(model, "InotifyBatchFinished", Qt::QueuedConnection);
 			}
-			
-			if (has_been_unmounted_or_deleted) {
-				arw.RemoveWatch(wd);
-				break;
-			}
+		}
+		
+		if (has_been_unmounted_or_deleted)
+		{
+			arw.RemoveWatch(wd);
+			break;
 		}
 	}
 	
@@ -561,12 +563,13 @@ void TableModel::InotifyBatchFinished()
 	if (!indices.isEmpty())
 	{
 		tab_->UpdateIndices(indices);
-		const int index = *indices.constBegin();
+		const int first_file_index = *indices.constBegin();
 		//mtl_info("scroll to: %d", index);
-		tab_->ScrollToFile(index);
+		tab_->ScrollToFile(first_file_index);
 	}
 }
 
+// #define CORNUS_DEBUG_INOTIFY
 void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 {
 	auto &files = tab_->view_files();
@@ -635,27 +638,29 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 #endif
 			delete file_to_delete;
 			files.data.vec.remove(evt.index);
-			tab_->view_files().cached_files_count = files.data.vec.size();
+			files.cached_files_count = files.data.vec.size();
 		}
 		endRemoveRows();
 		tab_->FilesChanged(FileCountChanged::Yes);
 		break;
 	}
 	case io::FileEventType::Renamed: {
+#ifdef CORNUS_DEBUG_INOTIFY
+		mtl_trace("RENAMED, index: %d", evt.index);
+#endif
 		if (evt.renaming_deleted_file_at != -1)
 		{
 			int real_index = evt.renaming_deleted_file_at;
 			if (real_index > evt.index)
 				real_index--;
-			
 			if (real_index >= 0) {
 				beginRemoveRows(QModelIndex(), real_index, real_index);
 				endRemoveRows();
+				tab_->FilesChanged(FileCountChanged::No, evt.index);
 			}
 		}
 		
 		UpdateSingleRow(evt.index);
-		tab_->FilesChanged(FileCountChanged::No, evt.index);
 		break;
 	}
 	default: {
@@ -738,11 +743,12 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 	beginRemoveRows(QModelIndex(), 0, prev_count - 1);
 	{
 		MutexGuard guard = files.guard();
-		for (auto *file: files.data.vec)
+		auto &old_vec = files.data.vec;
+		for (auto *file: old_vec)
 			delete file;
-		files.data.vec.clear();
+		old_vec.clear();
 		tab_->table()->ClearMouseOver();
-		files.cached_files_count = files.data.vec.size();
+		files.cached_files_count = 0;
 	}
 	endRemoveRows();
 	
@@ -775,12 +781,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 	UpdateHeaderNameColumn();
 	InotifyBatchFinished();
 	tab_->DisplayingNewDirectory(dir_id, reload);
-	
-	pthread_t th;
-	int status = pthread_create(&th, NULL, cornus::gui::WatchDir, args);
-	if (status != 0) {
-		mtl_status(status);
-	}
+	io::NewThread(gui::WatchDir, args);
 }
 
 void TableModel::UpdateIndices(const QSet<int> &indices)

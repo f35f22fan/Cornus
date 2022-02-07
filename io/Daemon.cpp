@@ -499,14 +499,11 @@ void Daemon::LoadDesktopFiles()
 		LoadDesktopFilesFrom(dir);
 	}
 	
-	pthread_t th;
 	DesktopFileWatchArgs *args = new DesktopFileWatchArgs();
 	args->server = this;
 	args->dir_paths = watch_desktop_file_dirs_;
 	
-	int status = pthread_create(&th, NULL, io::WatchDesktopFileDirs, args);
-	if (status != 0)
-		mtl_status(status);
+	io::NewThread(io::WatchDesktopFileDirs, args);
 }
 
 void Daemon::LoadDesktopFilesFrom(QString dir_path)

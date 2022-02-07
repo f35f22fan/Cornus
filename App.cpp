@@ -277,11 +277,7 @@ App::App()
 	media_ = new Media();
 	hid_ = new Hid(this);
 	
-	pthread_t th;
-	int status = pthread_create(&th, NULL, gui::sidepane::LoadItems, this);
-	if (status != 0)
-		mtl_status(status);
-	
+	io::NewThread(gui::sidepane::LoadItems, this);
 	io::socket::AutoLoadRegularIODaemon();
 	setWindowIcon(QIcon(cornus::AppIconPath));
 	prefs_ = new Prefs(this);
@@ -978,23 +974,27 @@ i64 App::GenNextFilesId()
 }
 
 QIcon* App::GetDefaultIcon()
-{
-	if (icon_cache_.unknown == nullptr) {
+{ // this function must not return nullptr
+	if (icon_cache_.unknown == nullptr)
+	{
 		QString full_path = GetIconThatStartsWith(QLatin1String("text"));
-		RET_IF(full_path.isEmpty(), true, nullptr);
-		icon_cache_.unknown = GetIconOrLoadExisting(full_path);
+		if (full_path.isEmpty())
+		{
+			const QIcon ic = QIcon::fromTheme(QLatin1String("text-x-generic"));
+			icon_cache_.unknown = new QIcon(ic);
+		} else {
+			icon_cache_.unknown = GetIconOrLoadExisting(full_path);
+		}
 	}
 	return icon_cache_.unknown;
 }
 
 QIcon* App::GetFileIcon(io::File *file)
 {
-	if (file->cache().icon != nullptr)
-		return file->cache().icon;
+	if (file->cache().icon == nullptr)
+		file->cache().icon = LoadIcon(*file);
 	
-	QIcon *icon = LoadIcon(*file);
-	file->cache().icon = icon;
-	return icon;
+	return file->cache().icon;
 }
 
 QIcon* App::GetFolderIcon()
@@ -1202,27 +1202,22 @@ void App::InitThumbnailPoolIfNeeded()
 		get_policy_range(SCHED_RR);
 	}
 	
-	pthread_t th;
 	// leave a thread for other background tasks
 	const int max_thread_count = std::max(1, AvailableCpuCores()/* - 1*/);
 	for (int i = 0; i < max_thread_count; i++)
 	{
 		ThumbLoaderData *thread_data = new ThumbLoaderData();
 		thread_data->global_data = &global_thumb_loader_data_;
-		status = pthread_create(&th, NULL, ThumbnailLoader, thread_data);
-		if (status != 0)
+		if (!io::NewThread(ThumbnailLoader, thread_data))
 		{
 			delete thread_data;
-			mtl_status(status);
 			return;
 		}
 		
 		global_thumb_loader_data_.threads.append(thread_data);
 	}
 	
-	status = pthread_create(&th, NULL, thumbnail::LoadMonitor, &global_thumb_loader_data_);
-	if (status != 0)
-		mtl_status(status);
+	io::NewThread(thumbnail::LoadMonitor, &global_thumb_loader_data_);
 	
 //	status = pthread_attr_destroy(&th_attr);
 //	if (status != 0)
@@ -1688,10 +1683,7 @@ void App::RegisterShortcuts()
 
 void App::RegisterVolumesListener()
 {
-	pthread_t th;
-	int status = pthread_create(&th, NULL, gui::sidepane::udev_monitor, this);
-	if (status != 0)
-		mtl_status(status);
+	io::NewThread(gui::sidepane::udev_monitor, this);
 	GVolumeMonitor *monitor = g_volume_monitor_get ();
 	g_signal_connect(monitor, "mount-added", (GCallback)MountAdded, this);
 	g_signal_connect(monitor, "mount-removed", (GCallback)MountRemoved, this);
@@ -2199,15 +2191,13 @@ void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 	
 	auto &files = tab->view_files();
 	{
-		files.Lock();
+		VOID_RET_IF(files.Lock(), false);
 		const DirId dir_id = files.data.dir_id;
 		
 		if (thumbnail->dir_id != dir_id)
 		{
 			files.Unlock();
-//			static int wrong_dir = 0;
 			delete thumbnail;
-//			mtl_info("Wrong dir, skipped: %d", ++wrong_dir);
 			return;
 		}
 		

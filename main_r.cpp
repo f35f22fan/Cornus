@@ -81,7 +81,6 @@ void Listen(const QString &hash_str, const IOAction io_action)
 		exit(0);
 	}
 	
-	pthread_t th;
 	int failed_count = 0;
 	// secret_num=u64, msg_type=u32
 	const isize min_size = sizeof(u64) + sizeof(u32);
@@ -123,12 +122,7 @@ void Listen(const QString &hash_str, const IOAction io_action)
 		
 		args->client_fd = client_fd;
 		args->default_action = io_action;
-		int status = pthread_create(&th, NULL, cornus::ProcessRequest, args);
-		if (status != 0)
-		{
-			mtl_status(status);
-		}
-		
+		io::NewThread(cornus::ProcessRequest, args);
 		break;
 	}
 	

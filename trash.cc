@@ -12,12 +12,13 @@ bool AddTrashNameToGitignore(const QString &new_path)
 {
 	io::ReadParams read_params = {};
 	ByteArray contents;
-	RET_IF(io::ReadFile(new_path, contents, read_params), false, false);
+	MTL_CHECK(io::ReadFile(new_path, contents, read_params));
 	const QString trash_line = QLatin1String("\n")
 		+ trash::basename_regex();
 	QString new_data = contents.toString() + trash_line;
 	auto ba = new_data.toLocal8Bit();
-	return (io::WriteToFile(new_path, ba.data(), ba.size()) == 0);
+	
+	return io::WriteToFile(new_path, ba.data(), ba.size());
 }
 
 const QString& basename()
@@ -90,7 +91,7 @@ const QString& gitignore_global_path(const QString *override_data)
 bool ListItems(const QString &dir_path, QMap<i64, QVector<Names> > &hash)
 {
 	QVector<QString> names;
-	RET_IF(io::ListFileNames(dir_path, names), false, false);
+	MTL_CHECK(io::ListFileNames(dir_path, names));
 	
 	for (auto &name: names)
 	{

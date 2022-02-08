@@ -15,7 +15,7 @@ void Reload(App *app)
 {
 	io::ReadParams read_params = {};
 	ByteArray ba;
-	VOID_RET_IF(io::ReadFile(prefs::GetMediaFilePath(), ba, read_params), false);
+	MTL_CHECK_VOID(io::ReadFile(prefs::GetMediaFilePath(), ba, read_params));
 	Media *media = app->media();
 	{
 		auto guard = media->guard();
@@ -544,7 +544,7 @@ i64 Media::SetNTS(const media::Field f, const i64 ID,
 
 void Media::WriteAny(ByteArray &ba, const QVector<QString> &names)
 {
-	VOID_RET_IF((names.size() >= 255), true);
+	MTL_CHECK_VOID(names.size() < 255);
 	const u8 count = names.size();
 	ba.add_u8(count);
 	

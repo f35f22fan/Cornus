@@ -611,7 +611,7 @@ void IconView::ScrollToFile(const int file_index)
 void IconView::SendLoadingNewThumbnailsBatch()
 {
 	auto &files = tab_->view_files();
-	VOID_RET_IF(files.Lock(), false);
+	MTL_CHECK_VOID(files.Lock());
 	
 	const DirId dir_id = files.data.dir_id;
 	files.Unlock();

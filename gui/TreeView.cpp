@@ -100,7 +100,7 @@ void TreeView::AnimateDND(const QPoint &drop_coord)
 
 void TreeView::ExecCommand(TreeItem *item, const PartitionEventType evt)
 {
-	VOID_RET_IF(item->is_partition(), false);
+	MTL_CHECK_VOID(item->is_partition());
 	
 	pending_commands_.vec().append(PendingCommand::New(
 		evt,
@@ -215,7 +215,7 @@ TreeView::GetSelectedBookmark(QModelIndex *index)
 		return nullptr;
 	}
 	TreeItem *node = static_cast<TreeItem*>(indexes[0].internalPointer());
-	RET_IF(node, nullptr, nullptr);
+	MTL_CHECK_ARG(node != nullptr, nullptr);
 	if (node->is_bookmark()) {
 		if (index)
 			*index = indexes[0];
@@ -254,7 +254,7 @@ void TreeView::mousePressEvent(QMouseEvent *evt)
 			return;
 		
 		TreeItem *node = static_cast<TreeItem*>(index.internalPointer());
-		VOID_RET_IF(node, nullptr);
+		MTL_CHECK_VOID(node != nullptr);
 		
 		if (node->mounted() || node->is_bookmark()) {
 			DirPath dp = { node->mount_path(), Processed::No };
@@ -297,9 +297,8 @@ void TreeView::paintEvent(QPaintEvent *evt)
 
 void TreeView::RenameSelectedBookmark()
 {
-	
 	TreeItem *item = GetSelectedBookmark();
-	VOID_RET_IF(item, nullptr);
+	MTL_CHECK_VOID(item != nullptr);
 	QString s = item->bookmark_name();
 	gui::InputDialogParams params;
 	params.initial_value = s;
@@ -319,7 +318,7 @@ void TreeView::RenameSelectedBookmark()
 	
 	QModelIndex index;
 	TreeItem *sel_bkm = GetSelectedBookmark(&index);
-	VOID_RET_IF(sel_bkm, nullptr);
+	MTL_CHECK_VOID(sel_bkm != nullptr);
 	sel_bkm->bookmark_name(ret_val);
 	app_->SaveBookmarks();
 	model_->UpdateIndex(index);
@@ -337,7 +336,7 @@ void TreeView::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_
 		menu_->clear();
 	
 	TreeItem *node = static_cast<TreeItem*>(indexes[0].internalPointer());
-	VOID_RET_IF(node, nullptr);
+	MTL_CHECK_VOID(node != nullptr);
 	
 	if (node->is_bookmark())
 	{

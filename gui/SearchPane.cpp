@@ -371,7 +371,7 @@ bool SearchPane::Matches(io::File *file, const QString *search_str)
 {
 	if (search_by_ == SearchBy::FileName)
 	{
-		RET_IF(search_str, nullptr, false);
+		MTL_CHECK(search_str != nullptr);
 		const QString &s = lower() ? file->name_lower() : file->name();
 		return s.contains(*search_str);
 	} else if (search_by_ == SearchBy::MediaXAttrs) {

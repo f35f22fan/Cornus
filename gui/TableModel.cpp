@@ -122,7 +122,7 @@ void SendDeleteEvent(TableModel *model, cornus::io::Files *files,
 		Find(files->data.vec, name, &index);
 	}
 	
-	VOID_RET_IF(index, -1);
+	MTL_CHECK_VOID(index != -1);
 	io::FileEvent evt = {};
 	evt.dir_id = dir_id;
 	evt.index = index;
@@ -139,9 +139,9 @@ void SendModifiedEvent(TableModel *model, cornus::io::Files *files,
 	{
 		MutexGuard guard = files->guard();
 		found = Find(files->data.vec, name, &index);
-		VOID_RET_IF(found, nullptr);
+		MTL_CHECK_VOID(found != nullptr);
 		struct statx stx;
-		VOID_RET_IF(io::ReloadMeta(*found, stx), false);
+		MTL_CHECK_VOID(io::ReloadMeta(*found, stx));
 	}
 	
 	io::FileEvent evt = {};
@@ -325,7 +325,7 @@ void ReinterpretRenames(QVector<RenameData> &rename_vec,
 void* WatchDir(void *void_args)
 {
 	pthread_detach(pthread_self());
-	RET_IF(void_args, nullptr, nullptr);
+	MTL_CHECK_ARG(void_args != nullptr, nullptr);
 	
 	WatchArgs *args = (WatchArgs*)void_args;
 	TableModel *model = args->table_model;

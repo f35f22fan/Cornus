@@ -457,7 +457,7 @@ void Delete(io::File *file)
 		io::Files files;
 		files.data.processed_dir_path = file->build_full_path() + '/';
 		files.data.show_hidden_files(true);
-		VOID_RET_IF(ListFiles(files.data, &files, CountDirFiles::No), 0);
+		MTL_CHECK_VOID(ListFiles(files.data, &files, CountDirFiles::No));
 		
 		for (io::File *next: files.data.vec) {
 			if (next->is_dir())
@@ -524,7 +524,7 @@ bool EnsureRegularFile(const QString &full_path)
 		if (t == FileType::Regular) {
 			return true;
 		}
-		RET_IF_NOT(remove(ba.data()), 0, false);
+		MTL_CHECK(remove(ba.data()) == 0);
 	}
 	const auto OverwriteFlags = O_CREAT | O_LARGEFILE;
 	int output_fd = ::open(ba.data(), OverwriteFlags, 0644);
@@ -591,9 +591,9 @@ bool FileContentsContains(const QString &full_path,
 	io::ReadParams read_params = {};
 	read_params.print_errors = PrintErrors::Yes;
 	ByteArray buf;
-	RET_IF(io::ReadFile(full_path, buf, read_params), false, false);
-	
+	MTL_CHECK(io::ReadFile(full_path, buf, read_params));
 	QString s = buf.toString();
+	
 	return s.contains(searched_str);
 }
 
@@ -983,13 +983,13 @@ bool ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 	return true;
 }
 
-int ListFiles(io::FilesData &data, io::Files *ptr, const CountDirFiles cdf,
+bool ListFiles(io::FilesData &data, io::Files *ptr, const CountDirFiles cdf,
 	const QHash<QString, Category> *possible_categories,
 	FilterFunc ff)
 {
 	if (!data.unprocessed_dir_path.isEmpty()) {
 		if (!ExpandLinksInDirPath(data.unprocessed_dir_path, data.processed_dir_path))
-			return EINVAL;
+			return false;//EINVAL;
 	}
 	
 	{ // this line is needed for file->CountDirFiles1Level()
@@ -1001,7 +1001,7 @@ int ListFiles(io::FilesData &data, io::Files *ptr, const CountDirFiles cdf,
 	DIR *dp = opendir(dir_path_ba.data());
 	
 	if (dp == NULL)
-		return errno;
+		return false;//errno;
 	
 	const bool hide_hidden_files = !data.show_hidden_files();
 	struct dirent *entry;
@@ -1043,7 +1043,7 @@ int ListFiles(io::FilesData &data, io::Files *ptr, const CountDirFiles cdf,
 	data.can_write_to_dir(can_write);
 	std::sort(data.vec.begin(), data.vec.end(), cornus::io::SortFiles);
 	
-	return 0;
+	return true;
 }
 
 QString NewNamePattern(const QString &filename, i32 &next)
@@ -1283,7 +1283,7 @@ bool ReadLinkSimple(const char *file_path, QString &result)
 		bufsize = PATH_MAX + 1;
 	
 	char *buf = (char*)malloc(bufsize);
-	RET_IF(buf, nullptr, false);
+	MTL_CHECK(buf != nullptr);
 	auto nbytes = readlink(file_path, buf, bufsize);
 	
 	if (nbytes == -1) {
@@ -1391,12 +1391,12 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 	
 	/// Allocate the buffer.
 	char *buf = new char[buflen];
-	VOID_RET_IF(buf, nullptr);
+	MTL_CHECK_VOID(buf != nullptr);
 	
 	AutoDeleteArr ad(buf);
 	/// Copy the list of attribute keys to the buffer.
 	buflen = llistxattr(full_path.data(), buf, buflen);
-	VOID_RET_IF(buflen, -1);
+	MTL_CHECK_VOID(buflen != -1);
 	
 	/** Loop over the list of zero terminated strings with the
 		attribute keys. Use the remaining buffer length to determine
@@ -1551,7 +1551,7 @@ bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx)
 	
 	QString temp_path = io::BuildTempPathFromID(item.id);
 	io::SaveFile save_file(temp_path);
-	if (io::WriteToFile(save_file.GetPathToWorkWith(), ba.data(), ba.size()) != 0)
+	if (!io::WriteToFile(save_file.GetPathToWorkWith(), ba.data(), ba.size()))
 		return false;
 	
 	return save_file.Commit();
@@ -1712,7 +1712,7 @@ isize TryReadFile(const QString &full_path, char *buf, const i64 how_much,
 	return ret;
 }
 
-int WriteToFile(const QString &full_path, const char *data, const i64 size,
+bool WriteToFile(const QString &full_path, const char *data, const i64 size,
 	const PostWrite post_write, mode_t *custom_mode)
 {
 	auto path = full_path.toLocal8Bit();
@@ -1720,7 +1720,7 @@ int WriteToFile(const QString &full_path, const char *data, const i64 size,
 		(custom_mode == nullptr) ? io::FilePermissions : *custom_mode);
 	
 	if (fd == -1)
-		return errno;
+		return false;//errno;
 	
 	i64 written = 0;
 	i64 ret;
@@ -1732,9 +1732,9 @@ int WriteToFile(const QString &full_path, const char *data, const i64 size,
 		if (ret == -1) {
 			if (errno == EAGAIN)
 				continue;
-			const int e = errno;
+			//const int e = errno;
 			close(fd);
-			return e;
+			return false;
 		}
 		
 		written += ret;
@@ -1748,7 +1748,7 @@ int WriteToFile(const QString &full_path, const char *data, const i64 size,
 	
 	close(fd);
 	
-	return 0;
+	return true;
 }
 
 } // cornus::io::

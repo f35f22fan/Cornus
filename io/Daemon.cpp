@@ -172,7 +172,7 @@ void ReadEvent(int inotify_fd, char *buf,
 void* WatchDesktopFileDirs(void *void_args)
 {
 	pthread_detach(pthread_self());
-	RET_IF(void_args, NULL, NULL);
+	MTL_CHECK_ARG(void_args != NULL, NULL);
 	
 	QScopedPointer<DesktopFileWatchArgs> args((DesktopFileWatchArgs*) void_args);
 	Daemon *server = args->server;
@@ -288,7 +288,7 @@ void Daemon::CheckOldThumbnails()
 	QTimer::singleShot(three_days, this, &Daemon::CheckOldThumbnails);
 	
 	const QString &dir_path = io::GetLastingTmpDir();
-	VOID_RET_IF(dir_path.isEmpty(), true);
+	MTL_CHECK_VOID(!dir_path.isEmpty());
 	const i64 ten_days = 60 * 60 * 24 * 10;
 	const i64 now_minus_ten_days = i64(time(NULL)) - ten_days;
 	io::DirStream ds(dir_path);

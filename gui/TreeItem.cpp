@@ -49,7 +49,7 @@ TreeItem* TreeItem::FromDevice(struct udev_device *device,
 	io::DiskInfo *disk_info)
 {
 	PartitionInfo *info = PartitionInfo::FromDevice(device);
-	RET_IF(info, nullptr, nullptr);
+	MTL_CHECK_ARG(info != nullptr, nullptr);
 	
 	TreeItem *item = new TreeItem();
 	item->set_partition();
@@ -59,7 +59,7 @@ TreeItem* TreeItem::FromDevice(struct udev_device *device,
 		item->info_->disk_info = *disk_info;
 	} else {
 		auto *parent_device = udev_device_get_parent(device);
-		RET_IF(parent_device, nullptr, nullptr);
+		MTL_CHECK_ARG(parent_device != nullptr, nullptr);
 		sidepane::ReadDiskInfo(parent_device, item->info_->disk_info);
 	}
 	
@@ -118,8 +118,8 @@ QVariant TreeItem::data(const int column) const
 
 bool TreeItem::DeleteChild(TreeItem *p)
 {
-	int at = children_.indexOf(p);
-	RET_IF(at, -1, false);
+	const int at = children_.indexOf(p);
+	MTL_CHECK(at != -1);
 	children_.remove(at);
 	delete p;
 	return true;

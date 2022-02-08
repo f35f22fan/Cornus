@@ -71,7 +71,7 @@ void LoadAllVolumes(QVector<TreeItem*> &vec)
 	udev_list_partitions(vec);
 	io::ReadParams read_params = {};
 	ByteArray ba;
-	VOID_RET_IF(io::ReadFile(QLatin1String("/proc/mounts"), ba, read_params), false);
+	MTL_CHECK_VOID(io::ReadFile(QLatin1String("/proc/mounts"), ba, read_params));
 	QString data = ba.toString();
 	QVector<QStringRef> lines = data.splitRef('\n');
 	
@@ -99,13 +99,13 @@ bool LoadBookmarks(QVector<TreeItem*> &vec)
 	io::ReadParams read_params = {};
 	read_params.can_rely = CanRelyOnStatxSize::Yes;
 	ByteArray buf;
-	RET_IF(io::ReadFile(full_path, buf, read_params), false, false);
+	MTL_CHECK(io::ReadFile(full_path, buf, read_params));
 	
 	if (!buf.has_more())
 		return false;
 	
 	u16 version = buf.next_u16();
-	RET_IF_NOT(version, prefs::BookmarksFormatVersion, false);
+	MTL_CHECK(version == prefs::BookmarksFormatVersion);
 	
 	while (buf.has_more()) {
 		TreeItem *p = new TreeItem();
@@ -159,7 +159,7 @@ void PrintDev(udev_device *dev)
 {
 	{
 		struct udev_list_entry *first_entry = udev_device_get_properties_list_entry(dev);
-		VOID_RET_IF(first_entry, nullptr);
+		MTL_CHECK_VOID(first_entry != nullptr);
 		struct udev_list_entry *next_entry;
 		mtl_info("===================PROPERTIES:");
 		udev_list_entry_foreach(next_entry, first_entry)
@@ -171,7 +171,7 @@ void PrintDev(udev_device *dev)
 	}
 	{
 		struct udev_list_entry *first_entry = udev_device_get_tags_list_entry(dev);
-		VOID_RET_IF(first_entry, nullptr);
+		MTL_CHECK_VOID(first_entry != nullptr);
 		struct udev_list_entry *next_entry;
 		mtl_info("udev_device_get_tags_list_entry LIST:");
 		udev_list_entry_foreach(next_entry, first_entry)
@@ -220,17 +220,17 @@ bool SortItems(TreeItem *a, TreeItem *b)
 void udev_list_partitions(QVector<TreeItem*> &vec)
 {
 	struct udev *udev = udev_new();
-	VOID_RET_IF(udev, nullptr);
+	MTL_CHECK_VOID(udev != nullptr);
 	UdevAutoUnref auto_unref(udev);
 
 	struct udev_enumerate *enumerate = udev_enumerate_new(udev);
-	VOID_RET_IF(enumerate, nullptr);
+	MTL_CHECK_VOID(enumerate != nullptr);
 	udev_enumerate_add_match_subsystem(enumerate, "block");
 	udev_enumerate_scan_devices(enumerate);
 
 	/// fillup device list
 	struct udev_list_entry *devices = udev_enumerate_get_list_entry(enumerate);
-	VOID_RET_IF(devices, nullptr);
+	MTL_CHECK_VOID(devices != nullptr);
 	const QString loop_str = QLatin1String("loop");
 	const QString partition_str = QLatin1String("partition");
 	const QString disk_str = QLatin1String("disk");
@@ -268,12 +268,13 @@ void udev_list_partitions(QVector<TreeItem*> &vec)
 	udev_enumerate_unref(enumerate);
 }
 
-void* udev_monitor(void *args)
+void* monitor_devices(void *args)
 {
-	App *app = (App*) args;
+	pthread_detach(pthread_self());
 	
+	App *app = (App*) args;
 	struct udev *udev = udev_new();
-	RET_IF(udev, nullptr, nullptr);
+	MTL_CHECK_ARG(udev != nullptr, nullptr);
 	UdevAutoUnref auto_unref_udev(udev);
 
 	struct udev_monitor *monitor = udev_monitor_new_from_netlink(udev, "udev");

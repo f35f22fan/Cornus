@@ -334,7 +334,7 @@ void AttrsDialog::SyncWidgetsToFile()
 		return;
 	was_ = file_->media_attrs();
 	ByteArray &ba = was_;
-	VOID_RET_IF(ba.size() < 4, true);
+	MTL_CHECK_VOID(ba.size() > 4);
 	const i32 magic = ba.next_i32();
 	Media *media = app_->media();
 	const i32 media_magic = media->GetMagicNumber();

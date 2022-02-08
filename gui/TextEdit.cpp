@@ -65,7 +65,7 @@ bool TextEdit::Display(io::File *cloned_file)
 	read_params.read_max = 1024 * 1024 * 5; // 5 MiB
 	
 	ByteArray buf;
-	RET_IF(io::ReadFile(full_path_, buf, read_params), false, false);
+	MTL_CHECK(io::ReadFile(full_path_, buf, read_params));
 	
 	hilite_mode_ = GetHiliteMode(buf, cloned_file);
 	hiliter_->SwitchTo(hilite_mode_);

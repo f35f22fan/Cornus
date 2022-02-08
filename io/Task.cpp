@@ -259,12 +259,12 @@ void Task::CopyXAttr(const int input_fd, const int output_fd)
 	
 	/// Allocate the buffer.
 	char *buf = (char*)malloc(buflen);
-	VOID_RET_IF(buf, nullptr);
+	MTL_CHECK_VOID(buf != nullptr);
 	
 	AutoFree af(buf);
 	/// Copy the list of attribute keys to the buffer.
 	buflen = flistxattr(input_fd, buf, buflen);
-	VOID_RET_IF(buflen, -1);
+	MTL_CHECK_VOID(buflen != -1);
 	
 	/** Loop over the list of zero terminated strings with the
 		attribute keys. Use the remaining buffer length to determine
@@ -488,11 +488,9 @@ void Task::StartIO()
 		to_dir_path_.append('/');
 	if (file_paths_.isEmpty())
 	{
-mtl_trace();
 		data().ChangeState(io::TaskState::Finished);
 		return;
 	}
-mtl_trace();
 	const QString &first = file_paths_[0];
 	auto name = io::GetFileNameOfFullPath(first);
 	QString parent = first.mid(0, first.size() - name.size());
@@ -500,32 +498,22 @@ mtl_trace();
 	//mtl_info("pasted: %d", pasted);
 	if (name.isEmpty() || (!pasted && io::SameFiles(parent, to_dir_path_)))
 	{
-mtl_trace();
 		data().ChangeState(io::TaskState::Finished);
 		return;
 	}
 	
 	if (ops_ == (MessageType)Message::DeleteFiles) {
-mtl_trace();
 		DeleteFiles();
 	} else if (ops_ == (MessageType)Message::MoveToTrash) {
-mtl_trace();
 		MoveToTrash();
 	} else if (ops_ & (MessageType)Message::Copy) {
-mtl_trace();
 		const bool can_try_atomic_move = !(ops_ & (MessageType)Message::DontTryAtomicMove);
-		if (can_try_atomic_move) {
-mtl_trace();
-			if (TryAtomicMove())
-			{
-				data().ChangeState(io::TaskState::Finished);
-				return;
-			}
+		if (can_try_atomic_move && TryAtomicMove()) {
+			data().ChangeState(io::TaskState::Finished);
+			return;
 		}
-mtl_trace();
 		CopyFiles();
 	} else if (ops_ & (MessageType)Message::Move) {
-mtl_trace();
 		if (TryAtomicMove())
 		{
 			data().ChangeState(io::TaskState::Finished);
@@ -537,16 +525,12 @@ mtl_trace();
 			}
 		}
 	} else {
-mtl_trace();
 		CopyFiles();
 	}
 	
-	const auto state = data_.GetState();
-	if (!(state & TaskState::Abort)) {
-mtl_trace();
+	const bool has_abort = data_.GetState() & TaskState::Abort;
+	if (!has_abort)
 		data_.ChangeState(TaskState::Finished);
-	}
-mtl_trace();
 }
 
 bool Task::TryAtomicMove()
@@ -554,7 +538,7 @@ bool Task::TryAtomicMove()
 	for (QString &path: file_paths_)
 	{
 		io::File *file = io::FileFromPath(path);
-		RET_IF(file, nullptr, false);
+		MTL_CHECK(file != nullptr);
 		
 		QString new_path = to_dir_path_ + file->name();
 		auto new_path_ba = new_path.toLocal8Bit();

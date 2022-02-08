@@ -27,7 +27,7 @@ void Hid::HandleKeySelect(gui::Tab *tab, const VDirection vdir,
 	io::Files &files = tab->view_files();
 	const int file_count = files.cached_files_count;
 	gui::ShiftSelect *shift_select = tab->ShiftSelect();
-	VOID_RET_IF(shift_select, nullptr);
+	MTL_CHECK_VOID(shift_select != nullptr);
 	
 	int old_file_index = files.GetFirstSelectedFile(Lock::Yes);
 	if (old_file_index == -1)

@@ -85,7 +85,7 @@ void* ThumbnailLoader (void *args)
 {
 	pthread_detach(pthread_self());
 	cornus::ThumbLoaderData *th_data = (cornus::ThumbLoaderData*) args;
-	RET_IF(th_data->Lock(), false, NULL);
+	MTL_CHECK_ARG(th_data->Lock(), NULL);
 	ZSTD_DCtx *decompress_context = ZSTD_createDCtx();
 	ByteArray temp_ba;
 	io::ReadParams read_params = {};
@@ -767,7 +767,7 @@ void App::DisplaySymlinkInfo(io::File &file)
 		file.ReadLinkTarget();
 	
 	io::LinkTarget *t = file.link_target();
-	VOID_RET_IF(t, nullptr);
+	MTL_CHECK_VOID(t != nullptr);
 	
 	QDialog dialog(this);
 	dialog.setWindowTitle("Symlink path chain");
@@ -1190,7 +1190,7 @@ void App::InitThumbnailPoolIfNeeded()
 		
 		mtl_info("Current policy: %d", current_policy);
 		const Range range = get_policy_range(current_policy);
-		VOID_RET_IF(range.is_valid(), false);
+		MTL_CHECK_VOID(range.is_valid());
 		
 		mtl_info("Policy SCHED_OTHER: %d", SCHED_OTHER);
 		get_policy_range(SCHED_OTHER);
@@ -1253,7 +1253,7 @@ QIcon* App::LoadIcon(io::File &file)
 		if (icon_cache_.folder == nullptr)
 		{
 			QString full_path = GetIconThatStartsWith(QLatin1String("special_folder"));
-			RET_IF(full_path.isEmpty(), true, nullptr);
+			MTL_CHECK_ARG(!full_path.isEmpty(), nullptr);
 			icon_cache_.folder = GetIconOrLoadExisting(full_path);
 		}
 		
@@ -1270,7 +1270,7 @@ QIcon* App::LoadIcon(io::File &file)
 		{
 			if (icon_cache_.lib == nullptr) {
 				QString full_path = GetIconThatStartsWith(QLatin1String("special_sharedlib"));
-				RET_IF(full_path.isEmpty(), true, nullptr);
+				MTL_CHECK_ARG(!full_path.isEmpty(), nullptr);
 				icon_cache_.lib = GetIconOrLoadExisting(full_path);
 			}
 			return icon_cache_.lib;
@@ -1302,7 +1302,7 @@ QIcon* App::LoadIcon(io::File &file)
 	
 	if (ext.startsWith(QLatin1String("blend"))) {
 		QString full_path = GetIconThatStartsWith(QLatin1String("special_blender"));
-		RET_IF(full_path.isEmpty(), true, nullptr);
+		MTL_CHECK_ARG(full_path.size() > 0, nullptr);
 		return GetIconOrLoadExisting(full_path);
 	}
 	
@@ -1372,14 +1372,14 @@ void App::OpenWithDefaultApp(const QString &full_path) const
 	ba.set_msg_id(io::Message::SendDefaultDesktopFileForFullPath);
 	ba.add_string(full_path);
 	int fd = io::socket::Client();
-	VOID_RET_IF(fd, -1);
-	VOID_RET_IF(ba.Send(fd, CloseSocket::No), false);
+	MTL_CHECK_VOID(fd != -1);
+	MTL_CHECK_VOID(ba.Send(fd, CloseSocket::No));
 	ba.Clear();
-	VOID_RET_IF(ba.Receive(fd), false);
-	VOID_RET_IF(ba.is_empty(), true);
+	MTL_CHECK_VOID(ba.Receive(fd));
+	MTL_CHECK_VOID(!ba.is_empty());
 	
 	DesktopFile *p = DesktopFile::From(ba);
-	VOID_RET_IF(p, nullptr);
+	MTL_CHECK_VOID(p != nullptr);
 	DesktopArgs args;
 	args.full_path = full_path;
 	args.working_dir = tab()->current_dir();
@@ -1683,7 +1683,7 @@ void App::RegisterShortcuts()
 
 void App::RegisterVolumesListener()
 {
-	io::NewThread(gui::sidepane::udev_monitor, this);
+	io::NewThread(gui::sidepane::monitor_devices, this);
 	GVolumeMonitor *monitor = g_volume_monitor_get ();
 	g_signal_connect(monitor, "mount-added", (GCallback)MountAdded, this);
 	g_signal_connect(monitor, "mount-removed", (GCallback)MountRemoved, this);
@@ -1820,7 +1820,7 @@ void App::RenameSelectedFile()
 	if (needs_root)
 	{
 		hash_info = WaitForRootDaemon(CanOverwrite::No);
-		VOID_RET_IF(hash_info.valid(), false);
+		MTL_CHECK_VOID(hash_info.valid());
 		
 		auto *ba = new ByteArray();
 		ba->add_u64(hash_info.num);
@@ -1855,7 +1855,7 @@ void App::SaveBookmarks()
 {
 	QVector<gui::TreeItem*> item_vec;
 	gui::TreeItem *bkm_root = tree_data_.GetBookmarksRoot();
-	VOID_RET_IF(bkm_root, nullptr);
+	MTL_CHECK_VOID(bkm_root != nullptr);
 	for (gui::TreeItem *next: bkm_root->children())
 	{
 		item_vec.append(next->Clone());
@@ -1882,12 +1882,7 @@ void App::SaveBookmarks()
 		tree_data_.Unlock();
 	}
 	
-	if (io::WriteToFile(save_file.GetPathToWorkWith(), buf.data(), buf.size()) != 0)
-	{
-		mtl_trace("Failed to save bookmarks");
-		return;
-	}
-	
+	MTL_CHECK_VOID(io::WriteToFile(save_file.GetPathToWorkWith(), buf.data(), buf.size()));
 	save_file.Commit();
 }
 
@@ -2191,7 +2186,7 @@ void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 	
 	auto &files = tab->view_files();
 	{
-		VOID_RET_IF(files.Lock(), false);
+		MTL_CHECK_VOID(files.Lock());
 		const DirId dir_id = files.data.dir_id;
 		
 		if (thumbnail->dir_id != dir_id)

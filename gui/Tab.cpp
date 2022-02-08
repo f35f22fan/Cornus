@@ -37,7 +37,7 @@
 #include <QScrollBar>
 #include <QUrl>
 
-// #define CORNUS_WAITED_FOR_WIDGETS
+#define CORNUS_WAITED_FOR_WIDGETS
 
 namespace cornus {
 
@@ -151,7 +151,7 @@ void* GoToTh(void *p)
 	const auto cdf = app->prefs().show_dir_file_count() ?
 		io::CountDirFiles::Yes : io::CountDirFiles::No;
 	
-	if (io::ListFiles(*new_data, &view_files, cdf, &app->possible_categories()) != 0)
+	if (!io::ListFiles(*new_data, &view_files, cdf, &app->possible_categories()))
 	{
 		delete params;
 		delete new_data;
@@ -221,8 +221,8 @@ Tab::~Tab()
 void Tab::ActionCopy()
 {
 	QStringList list;
-	VOID_RET_IF(CreateMimeWithSelectedFiles(ClipboardAction::Copy, list), false);
-	VOID_RET_IF(SendURLsClipboard(list, io::Message::CopyToClipboard), false);
+	MTL_CHECK_VOID(CreateMimeWithSelectedFiles(ClipboardAction::Copy, list));
+	MTL_CHECK_VOID(SendURLsClipboard(list, io::Message::CopyToClipboard));
 }
 
 void Tab::ActionCut()
@@ -253,7 +253,7 @@ void Tab::ActionPaste()
 	if (needs_root)
 	{
 		hash_info = app_->WaitForRootDaemon(CanOverwrite::Yes);
-		VOID_RET_IF(hash_info.valid(), false);
+		MTL_CHECK_VOID(hash_info.valid());
 	}
 	
 	auto *ba = new ByteArray();
@@ -293,7 +293,7 @@ void Tab::ActionPasteLinks(const LinkType link)
 	if (needs_root)
 	{
 		hash_info = app_->WaitForRootDaemon(CanOverwrite::Yes);
-		VOID_RET_IF(hash_info.valid(), false);
+		MTL_CHECK_VOID(hash_info.valid());
 		
 		auto *ba = new ByteArray();
 		ba->add_u64(hash_info.num);
@@ -504,7 +504,7 @@ void Tab::DeleteSelectedFiles(const ShiftPressed sp)
 	{
 mtl_trace("Starting up root daemon");
 		hash_info = app_->WaitForRootDaemon(CanOverwrite::No);
-		VOID_RET_IF(hash_info.valid(), false);
+		MTL_CHECK_VOID(hash_info.valid());
 	}
 	
 	ByteArray *ba = new ByteArray();
@@ -517,9 +517,7 @@ mtl_trace("Starting up root daemon");
 		ba->add_string(next);
 	}
 	
-mtl_trace();
 	io::socket::SendAsync(ba, socket_path);
-mtl_trace();
 }
 
 void Tab::DisplayingNewDirectory(const DirId dir_id, const Reload r)
@@ -565,7 +563,7 @@ void Tab::DropEvent(QDropEvent *evt, const ForceDropToCurrentDir fdir)
 		}
 	}
 	
-	VOID_RET_IF(to_dir, nullptr);
+	MTL_CHECK_VOID(to_dir != nullptr);
 	AutoDelete ad(to_dir);
 	
 	if (dnd_type == ui::DndType::Ark)
@@ -600,7 +598,7 @@ void Tab::ExecuteDrop(QVector<io::File*> *files_vec,
 	io::File *to_dir, Qt::DropAction drop_action,
 	Qt::DropActions possible_actions)
 {
-	VOID_RET_IF(files_vec, nullptr);
+	MTL_CHECK_VOID(files_vec != nullptr);
 	const QString to_dir_path = to_dir->build_full_path();
 	bool needs_root;
 	const char *socket_path = io::QuerySocketFor(to_dir_path, needs_root);
@@ -608,7 +606,7 @@ void Tab::ExecuteDrop(QVector<io::File*> *files_vec,
 	if (needs_root)
 	{
 		hash_info = app_->WaitForRootDaemon(CanOverwrite::Yes);
-		VOID_RET_IF(hash_info.valid(), false);
+		MTL_CHECK_VOID(hash_info.valid());
 	}
 	
 	io::Message io_operation = io::MessageFor(drop_action)
@@ -744,14 +742,14 @@ void Tab::GoToAndSelect(const QString full_path)
 {
 	QFileInfo info(full_path);
 	QDir parent = info.dir();
-	VOID_RET_IF(parent.exists(), false);
+	MTL_CHECK_VOID(parent.exists());
 	QString parent_dir = parent.absolutePath();
 	const QString name = io::GetFileNameOfFullPath(full_path).toString();
 	const SameDir same_dir = io::SameFiles(parent_dir, current_dir_) ? SameDir::Yes : SameDir::No;
 	view_files().SelectFilenamesLater({name}, same_dir);
 	
 	if (same_dir == SameDir::No) {
-		VOID_RET_IF(GoTo(Action::To, {parent_dir, Processed::No}, Reload::No), false);
+		MTL_CHECK_VOID(GoTo(Action::To, {parent_dir, Processed::No}, Reload::No));
 	}
 }
 
@@ -1064,7 +1062,7 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 		app_->SetTopLevel(TopLevel::Browser);
 	} else if (key == Qt::Key_PageUp) {
 		auto *vs = ViewScrollBar();
-		VOID_RET_IF(vs, nullptr);
+		MTL_CHECK_VOID(vs != nullptr);
 		const int rh = ViewRowHeight();
 		const int page = vs->pageStep() - rh * 2;
 		const int new_val = vs->value() - page;
@@ -1076,7 +1074,7 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 		app_->hid()->SelectFileByIndex(this, row, DeselectOthers::Yes);
 	} else if (key == Qt::Key_PageDown) {
 		auto *vs = ViewScrollBar();
-		VOID_RET_IF(vs, nullptr);
+		MTL_CHECK_VOID(vs != nullptr);
 		const int rh = ViewRowHeight();
 		const int page = vs->pageStep() - rh;
 		const int new_val = vs->value() + page;
@@ -1087,12 +1085,12 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 		app_->hid()->SelectFileByIndex(this, row, DeselectOthers::Yes);
 	} else if (key == Qt::Key_Home) {
 		QScrollBar *vs = ViewScrollBar();
-		VOID_RET_IF(vs, nullptr);
+		MTL_CHECK_VOID(vs != nullptr);
 		vs->setValue(0);
 		app_->hid()->SelectFileByIndex(this, 0, DeselectOthers::Yes);
 	} else if (key == Qt::Key_End) {
 		auto *vs = ViewScrollBar();
-		VOID_RET_IF(vs, nullptr);
+		MTL_CHECK_VOID(vs != nullptr);
 		vs->setValue(vs->maximum());
 		const auto count = view_files().cached_files_count;
 		app_->hid()->SelectFileByIndex(this, count - 1, DeselectOthers::Yes);
@@ -1140,8 +1138,7 @@ void Tab::PopulateUndoDelete(QMenu *menu)
 {
 	menu->clear();
 	QMap<i64, QVector<trash::Names>> all_items;
-	VOID_RET_IF(trash::ListItems(CurrentDirTrashPath(), all_items), false);
-	
+	MTL_CHECK_VOID(trash::ListItems(CurrentDirTrashPath(), all_items));
 	if (all_items.isEmpty())
 		return;
 	
@@ -1347,7 +1344,7 @@ void Tab::SetViewMode(const ViewMode mode)
 	{
 	case ViewMode::Details: {
 		viewmode_stack_->setCurrentIndex(details_view_index_);
-		VOID_RET_IF(table_, nullptr);
+		MTL_CHECK_VOID(table_ != nullptr);
 		break;
 	}
 	case ViewMode::Icons: {
@@ -1658,7 +1655,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 void Tab::ShutdownLastInotifyThread()
 {
 	io::Files &files = view_files();
-	VOID_RET_IF(files.Lock(), false);
+	MTL_CHECK_VOID(files.Lock());
 #ifdef CORNUS_WAITED_FOR_WIDGETS
 	using Clock = std::chrono::steady_clock;
 	auto start_time = Clock::now();
@@ -1695,7 +1692,7 @@ void Tab::StartDragOperation()
 	QMimeData *mimedata = new QMimeData();
 	QList<QUrl> urls;
 	QPair<int, int> files_folders = files.ListSelectedFiles(Lock::Yes, urls);
-	VOID_RET_IF(urls.isEmpty(), true);
+	MTL_CHECK_VOID(!urls.isEmpty());
 	mimedata->setUrls(urls);
 	
 /// Set a pixmap that will be shown alongside the cursor during the operation:

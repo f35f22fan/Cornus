@@ -219,7 +219,7 @@ void Files::SelectFileRange(const cornus::Lock l, const int row1, const int row2
 
 void Files::SetLastWatched(const cornus::Lock l, io::File *file)
 {
-	VOID_RET_IF(file, nullptr);
+	MTL_CHECK_VOID(file != nullptr);
 	auto guard = this->guard(l);
 	const auto &key = media::XAttrLastWatched;
 	for (io::File *next: data.vec)

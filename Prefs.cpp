@@ -71,17 +71,13 @@ bool Prefs::Load()
 		+ prefs::PrefsFileName + QString::number(prefs::PrefsFormatVersion);
 	io::ReadParams read_params = {};
 	read_params.can_rely = CanRelyOnStatxSize::Yes;
-	read_params.print_errors = PrintErrors::No;
+	read_params.print_errors = PrintErrors::Yes;
 	ByteArray buf;
-	RET_IF(io::ReadFile(full_path, buf, read_params), false, false);
-	
-	if (buf.is_empty()) {
-		mtl_warn("Prefs file is empty");
-		return false;
-	}
+	MTL_CHECK(io::ReadFile(full_path, buf, read_params));
+	MTL_CHECK(!buf.is_empty());
 	
 	u16 version = buf.next_u16();
-	RET_IF_NOT(version, prefs::PrefsFormatVersion, false);
+	MTL_CHECK(version == prefs::PrefsFormatVersion);
 	table_size_.pixels = buf.next_i16();
 	table_size_.points = buf.next_i16();
 	const i8 col_start = buf.next_i8();
@@ -110,7 +106,7 @@ void Prefs::Save() const
 {
 	QString parent_dir = prefs::QueryAppConfigPath();
 	parent_dir.append('/');
-	VOID_RET_IF(parent_dir.isEmpty(), true);
+	MTL_CHECK_VOID(!parent_dir.isEmpty());
 	
 	auto filename = prefs::PrefsFileName + QString::number(prefs::PrefsFormatVersion);
 	io::SaveFile save_file(parent_dir, filename);
@@ -144,7 +140,7 @@ void Prefs::Save() const
 	
 	// ABI: this line must be the last one to add data to @buf
 	buf.add(left_bytes_, From::Start);
-	if (io::WriteToFile(save_file.GetPathToWorkWith(), buf.data(), buf.size()) != 0)
+	if (!io::WriteToFile(save_file.GetPathToWorkWith(), buf.data(), buf.size()))
 	{
 		mtl_trace("Failed to save bookmarks");
 	}

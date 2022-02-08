@@ -540,11 +540,11 @@ bool DesktopFile::Init(const QString &full_path,
 		return false;
 	
 	name_ = ref.mid(0, ref.size() - DesktopExt.size()).toString();
-	RET_IF(name_.isEmpty(), true, false);
+	MTL_CHECK(!name_.isEmpty());
 	
 	io::ReadParams param = {};
 	ByteArray ba;
-	RET_IF(io::ReadFile(full_path, ba, param), false, false);
+	MTL_CHECK(io::ReadFile(full_path, ba, param));
 	
 	QString text = QString::fromLocal8Bit(ba.data(), ba.size());
 	QVector<QStringRef> list = text.splitRef('\n', Qt::SkipEmptyParts);
@@ -559,7 +559,7 @@ bool DesktopFile::Init(const QString &full_path,
 		if (line.startsWith('['))
 		{
 			const int end = line.lastIndexOf(']');
-			RET_IF(end, -1, false);
+			MTL_CHECK(end != -1);
 			QStringRef name = line.mid(1, end - 1);
 			group = new desktopfile::Group(name.toString(), this);
 			if (main_group_ == nullptr && name == MainGroupName)

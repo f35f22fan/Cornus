@@ -282,8 +282,7 @@ int ListDirNames(QString dir_path, QVector<QString> &vec,
 bool ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 	FilterFunc ff = nullptr);
 
-// returns 0 on success, errno on error
-int ListFiles(FilesData &data, Files *ptr, const CountDirFiles cdf,
+bool ListFiles(FilesData &data, Files *ptr, const CountDirFiles cdf,
 	const QHash<QString, Category> *possible_categories = nullptr, FilterFunc ff = nullptr);
 
 inline FileType
@@ -353,8 +352,7 @@ QString thread_id_short(const pthread_t &th);
 isize TryReadFile(const QString &full_path, char *buf,
 	const i64 how_much, ExecInfo *info = nullptr);
 
-// returns 0 on success, otherwise errno
-int WriteToFile(const QString &full_path, const char *data, const i64 size,
+bool WriteToFile(const QString &full_path, const char *data, const i64 size,
 	const PostWrite post_write = PostWrite::DoNothing,
 	mode_t *custom_mode = nullptr);
 

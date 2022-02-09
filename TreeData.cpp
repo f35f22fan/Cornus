@@ -13,15 +13,6 @@ TreeData::~TreeData()
 	// .roots deleted by hand in App destructor.
 }
 
-void TreeData::BroadcastPartitionsLoaded()
-{
-	MutexGuard g = guard();
-	partitions_loaded = true;
-	int status = pthread_cond_broadcast(&cond);
-	if (status != 0)
-		mtl_status(status);
-}
-
 gui::TreeItem* TreeData::GetBookmarksRoot(int *index) const
 {
 	int i = -1;

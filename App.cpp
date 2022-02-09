@@ -259,65 +259,7 @@ App::App()
 //	Print(11.0, y);
 //	Print(5.1, y);
 //	Print(4.9, y);
-	
-	
-	qRegisterMetaType<cornus::io::File*>();
-	qRegisterMetaType<cornus::io::FilesData*>();
-	qRegisterMetaType<cornus::io::FileEvent>();
-	qRegisterMetaType<cornus::PartitionEvent*>();
-	qRegisterMetaType<cornus::io::CountRecursiveInfo*>();
-	qRegisterMetaType<QVector<cornus::gui::TreeItem*>>();
-	qDBusRegisterMetaType<QMap<QString, QVariant>>();
-	qRegisterMetaType<cornus::Thumbnail*>();
-//	ElapsedTimer timer;
-//	timer.Continue();
-	env_ = QProcessEnvironment::systemEnvironment();
-//	timer.Pause();
-//	mtl_info("Elapsed (nano) %ld", timer.elapsed_nano());
-	media_ = new Media();
-	hid_ = new Hid(this);
-	
-	io::NewThread(gui::sidepane::LoadItems, this);
-	io::socket::AutoLoadRegularIODaemon();
-	setWindowIcon(QIcon(cornus::AppIconPath));
-	prefs_ = new Prefs(this);
-	if (!prefs_->Load())
-		ApplyDefaultPrefs();
-	
-	{
-		tab_widget_ = new gui::TabsWidget();
-		tab_bar_ = new gui::TabBar(this);
-		tab_widget_->SetTabBar(tab_bar_);
-		connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &App::CloseTabAt);
-		connect(tab_widget_, &QTabWidget::currentChanged, this, &App::TabSelected);
-		OpenNewTab(FirstTime::Yes);
-	}
-	
-	SetupIconNames();
-	io::InitEnvInfo(desktop_, search_icons_dirs_, xdg_data_dirs_, possible_categories_);
-	CreateGui();
-	if (prefs_->remember_window_size())
-	{
-		QSize sz = prefs_->window_size();
-		if (sz.width() > 5 || sz.height() > 5)
-		{
-			resize(sz);
-		}
-	}
-	
-	auto *clipboard = QGuiApplication::clipboard();
-	connect(clipboard, &QClipboard::changed, this, &App::ClipboardChanged);
-	
-	ClipboardChanged(QClipboard::Clipboard);
-	DetectThemeType();
-	RegisterVolumesListener();
-	RegisterShortcuts();
-	ReadMTP();
-/// enables receiving ordinary mouse events (when mouse is not down)
-//	setMouseTracking(true);
-	
-//	TestPolkit(this);
-	//thumbnail::LoadWebpImage("/home/fox/scale_1200.webp", 128, 128);
+	Init();
 }
 
 App::~App()
@@ -592,16 +534,6 @@ void App::CreateGui()
 	top_level_stack_.stack->setCurrentIndex(top_level_stack_.window_index);
 	
 	CreateSidePane();
-	
-	{
-		tree_data_.Lock();
-		tree_data_.widgets_created = true;
-		int status = pthread_cond_broadcast(&tree_data_.cond);
-		tree_data_.Unlock();
-		if (status != 0)
-			mtl_status(status);
-	}
-	
 	CreateFilesViewPane();
 	
 	main_splitter_->setStretchFactor(0, 0);
@@ -612,7 +544,6 @@ void App::CreateGui()
 
 	prefs_->UpdateTableSizes();
 	
-	tab()->FocusView();
 	{
 		QIcon icon = QIcon::fromTheme(QLatin1String("window-new"));
 		QToolButton *btn = new QToolButton();
@@ -622,6 +553,8 @@ void App::CreateGui()
 		});
 		tab_widget_->setCornerWidget(btn, Qt::TopRightCorner);
 	}
+	
+	tab()->FocusView();
 }
 
 void App::CreateFilesViewPane()
@@ -640,7 +573,7 @@ void App::CreateFilesViewPane()
 	
 	main_splitter_->addWidget(table_pane);
 	{
-		MutexGuard guard = gui_bits_.guard();
+		auto g = gui_bits_.guard();
 		gui_bits_.created(true);
 		gui_bits_.Broadcast();
 	}
@@ -719,17 +652,21 @@ void App::CreateSidePane()
 	tree_view_ = new gui::TreeView(this, tree_model_);
 	tree_model_->SetView(tree_view_);
 	main_splitter_->addWidget(tree_view_);
+	{
+		auto guard = tree_data_.guard();
+		tree_data_.widgets_created = true;
+		tree_data_.Broadcast();
+	}
 }
 
-i32 App::current_dir_id() const
+DirId App::current_dir_id() const
 {
-	gui::Tab *tab = this->tab();
-	auto *view_files = files(tab->files_id());
-	auto guard = view_files->guard();
-	return view_files->data.dir_id;
+	auto &files = tab()->view_files();
+	auto g = files.guard();
+	return files.data.dir_id;
 }
 
-void App::DeleteFilesById(const i64 id)
+void App::DeleteFilesById(const FilesId id)
 {
 	io::Files *p = files_.value(id, nullptr);
 	if (p != nullptr)
@@ -961,12 +898,12 @@ void App::FileDoubleClicked(io::File *file, const PickBy pb)
 	}
 }
 
-io::Files* App::files(const i64 files_id) const
+io::Files* App::files(const FilesId id) const
 {
-	return files_.value(files_id, nullptr);
+	return files_.value(id, nullptr);
 }
 
-i64 App::GenNextFilesId()
+FilesId App::GenNextFilesId()
 {
 	next_files_id_++;
 	files_.insert(next_files_id_, new io::Files());
@@ -1155,6 +1092,68 @@ void SetThreadPolicyAndPriority(const pthread_t &th, const int policy,
 	{
 		mtl_status(status);
 	}
+}
+
+void App::Init()
+{
+	qRegisterMetaType<cornus::io::File*>();
+	qRegisterMetaType<cornus::io::FilesData*>();
+	qRegisterMetaType<cornus::io::FileEvent>();
+	qRegisterMetaType<cornus::PartitionEvent*>();
+	qRegisterMetaType<cornus::io::CountRecursiveInfo*>();
+	qRegisterMetaType<QVector<cornus::gui::TreeItem*>>();
+	qDBusRegisterMetaType<QMap<QString, QVariant>>();
+	qRegisterMetaType<cornus::Thumbnail*>();
+//	ElapsedTimer timer;
+//	timer.Continue();
+	env_ = QProcessEnvironment::systemEnvironment();
+//	timer.Pause();
+//	mtl_info("Elapsed (nano) %ld", timer.elapsed_nano());
+	media_ = new Media();
+	hid_ = new Hid(this);
+	
+	io::NewThread(gui::sidepane::LoadItems, this);
+	io::socket::AutoLoadRegularIODaemon();
+	setWindowIcon(QIcon(cornus::AppIconPath));
+	prefs_ = new Prefs(this);
+	if (!prefs_->Load())
+		ApplyDefaultPrefs();
+	
+	{
+		tab_widget_ = new gui::TabsWidget();
+		tab_bar_ = new gui::TabBar(this);
+		tab_widget_->SetTabBar(tab_bar_);
+		connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &App::CloseTabAt);
+		connect(tab_widget_, &QTabWidget::currentChanged, this, &App::TabSelected);
+		OpenNewTab(FirstTime::Yes);
+	}
+	
+	SetupIconNames();
+	io::InitEnvInfo(desktop_, search_icons_dirs_, xdg_data_dirs_, possible_categories_);
+	CreateGui();
+	if (prefs_->remember_window_size())
+	{
+		QSize sz = prefs_->window_size();
+		if (sz.width() > 5 || sz.height() > 5)
+		{
+			resize(sz);
+		}
+	}
+	
+	auto *clipboard = QGuiApplication::clipboard();
+	connect(clipboard, &QClipboard::changed, this, &App::ClipboardChanged);
+	
+	ClipboardChanged(QClipboard::Clipboard);
+	DetectThemeType();
+	RegisterVolumesListener();
+	RegisterShortcuts();
+	ReadMTP();
+/// enables receiving ordinary mouse events (when mouse is not down)
+//	setMouseTracking(true);
+	
+//	TestPolkit(this);
+	//thumbnail::LoadWebpImage("/home/fox/scale_1200.webp", 128, 128);
+	
 }
 
 void App::InitThumbnailPoolIfNeeded()

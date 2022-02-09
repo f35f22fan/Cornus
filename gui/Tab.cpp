@@ -121,9 +121,10 @@ void* GoToTh(void *p)
 	GoToParams *params = (GoToParams*)p;
 	gui::Tab *tab = params->tab;
 	App *app = tab->app();
-
-	if (!params->reload) {
-		if (tab->ViewIsAt(params->dir_path.path)) {
+	if (!params->reload)
+	{
+		if (tab->ViewIsAt(params->dir_path.path))
+		{
 			delete params;
 			return nullptr;
 		}
@@ -134,52 +135,48 @@ void* GoToTh(void *p)
 	
 	io::FilesData *new_data = new io::FilesData();
 	new_data->reloaded(params->reload);
-	io::Files &view_files = *app->files(tab->files_id());
+	io::Files &files = tab->view_files();
 	{
-		MutexGuard guard = view_files.guard();
-		new_data->sorting_order = view_files.data.sorting_order;
+		MutexGuard guard = files.guard();
+		new_data->sorting_order = files.data.sorting_order;
 	}
 
 	new_data->action = params->action;
 	new_data->start_time = std::chrono::steady_clock::now();
-	new_data->show_hidden_files(app->prefs().show_hidden_files());
+	new_data->show_hidden_files(params->show_hidden_files);
 	if (params->dir_path.processed == Processed::Yes)
 		new_data->processed_dir_path = params->dir_path.path;
 	else
 		new_data->unprocessed_dir_path = params->dir_path.path;
 
-	const auto cdf = app->prefs().show_dir_file_count() ?
+	const auto cdf = params->count_dir_files ?
 		io::CountDirFiles::Yes : io::CountDirFiles::No;
 	
-	if (!io::ListFiles(*new_data, &view_files, cdf, &app->possible_categories()))
+	if (!io::ListFiles(*new_data, &files, cdf, &app->possible_categories()))
 	{
 		delete params;
 		delete new_data;
 		return nullptr;
 	}
 	
-	GuiBits &gui_bits = app->gui_bits();
-	gui_bits.Lock();
-	while (!gui_bits.created())
-	{
-#ifdef CORNUS_WAITED_FOR_WIDGETS
+	#ifdef CORNUS_WAITED_FOR_WIDGETS
 		using Clock = std::chrono::steady_clock;
 		auto start_time = Clock::now();
-#endif
-		const int status = gui_bits.CondWait();
-		if (status != 0) {
-			mtl_status(status);
-			break;
+	#endif
+	GuiBits &gui_bits = app->gui_bits();
+	{
+		auto guard = gui_bits.guard();
+		while (!gui_bits.created())
+		{
+			gui_bits.CondWait();
 		}
-#ifdef CORNUS_WAITED_FOR_WIDGETS
+	}
+	#ifdef CORNUS_WAITED_FOR_WIDGETS
 		auto now = std::chrono::steady_clock::now();
 		const float elapsed = std::chrono::duration<float,
 			std::chrono::milliseconds::period>(now - start_time).count();
-		
 		mtl_info("Waited for gui creation: %.1f ms", elapsed);
-#endif
-	}
-	gui_bits.Unlock();
+	#endif
 	QMetaObject::invokeMethod(tab, "GoToFinish",
 		Q_ARG(cornus::io::FilesData*, new_data));
 	delete params;
@@ -733,6 +730,9 @@ bool Tab::GoTo(const Action action, DirPath dp, const cornus::Reload r)
 	params->dir_path = dp;
 	params->reload = (r == Reload::Yes);
 	params->action = action;
+	auto &prefs = app_->prefs();
+	params->show_hidden_files = prefs.show_hidden_files();
+	params->count_dir_files = prefs.show_dir_file_count();
 	io::NewThread(cornus::GoToTh, params);
 	
 	return true;
@@ -1734,9 +1734,9 @@ void Tab::StartDragOperation()
 void Tab::UndeleteFiles(const QMap<i64, QVector<trash::Names>> &items)
 {
 	QVector<QString> filenames;
+	auto &files = view_files();
 	{
-		auto &files = *app_->files(files_id_);
-		MutexGuard guard = files.guard();
+		auto g = files.guard();
 		auto &vec = files.data.vec;
 		
 		for (io::File *next: vec) {
@@ -1881,20 +1881,19 @@ void Tab::UpdateView()
 	}
 }
 
-io::Files& Tab::view_files() const { return *app_->files(files_id()); }
+io::Files& Tab::view_files() const { return *app_->files(files_id_); }
 
 bool Tab::ViewIsAt(const QString &dir_path) const
 {
 	QString old_dir_path;
+	auto &files = view_files();
 	{
-		auto &files = *app_->files(files_id_);
-		MutexGuard guard = files.guard();
+		auto g = files.guard();
 		old_dir_path = files.data.processed_dir_path;
 	}
 	
-	if (old_dir_path.isEmpty()) {
+	if (old_dir_path.isEmpty())
 		return false;
-	}
 	
 	return io::SameFiles(dir_path, old_dir_path);
 }

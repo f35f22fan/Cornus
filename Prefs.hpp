@@ -24,6 +24,7 @@ class Prefs {
 	const u64 RememberWindowSize = 1u << 5;
 	const u64 ShowDirFileCount = 1u << 6;
 	const u64 SyncViewsScrollLocation = 1u << 7;
+	const u64 StoreThumbnailsInExtAttrs = 1u << 8;
 public:
 	Prefs(App *app);
 	virtual ~Prefs();
@@ -60,6 +61,9 @@ public:
 	
 	bool show_link_targets() const { return bool_ & ShowLinkTargets; }
 	void show_link_targets(bool b) { toggle_bool(b, ShowLinkTargets); }
+	
+	bool store_thumbnails_in_ext_attrs() const { return bool_ & StoreThumbnailsInExtAttrs; }
+	void store_thumbnails_in_ext_attrs(bool b) { toggle_bool(b, StoreThumbnailsInExtAttrs); }
 	
 	bool sync_views_scroll_location() const { return bool_ & SyncViewsScrollLocation; }
 	void sync_views_scroll_location(bool b) { toggle_bool(b, SyncViewsScrollLocation); }

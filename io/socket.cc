@@ -1,5 +1,6 @@
 #include "socket.hh"
 
+#include "../AutoDelete.hh"
 #include "../ByteArray.hpp"
 #include "io.hh"
 
@@ -21,7 +22,8 @@ namespace cornus::io::socket {
 void* AutoLoadIODaemonIfNeeded(void *arg)
 {
 	pthread_detach(pthread_self());
-	const char *socket_p = (const char*) arg;
+	
+	const char *socket_p = cornus::SocketPath;
 	ByteArray check_alive_ba;
 	check_alive_ba.set_msg_id(io::Message::CheckAlive);
 	
@@ -32,7 +34,7 @@ void* AutoLoadIODaemonIfNeeded(void *arg)
 	const QString fn = QLatin1String("/.cornus_check_online_excl_");
 	QString excl_file_path = QDir::homePath() + fn;
 	auto excl_ba = excl_file_path.toLocal8Bit();
-	int fd = open(excl_ba.data(), O_EXCL | O_CREAT, 0x777);
+	const int fd = open(excl_ba.data(), O_EXCL | O_CREAT, 0x777);
 	
 	const QString daemon_dir_path = QCoreApplication::applicationDirPath();
 	const QString app_to_execute = daemon_dir_path + QLatin1String("/cornus_io");
@@ -43,6 +45,7 @@ void* AutoLoadIODaemonIfNeeded(void *arg)
 		return nullptr;
 	}
 	
+	close(fd);
 	QStringList arguments;
 	QProcess::startDetached(app_to_execute, arguments, daemon_dir_path);
 
@@ -55,7 +58,7 @@ void* AutoLoadIODaemonIfNeeded(void *arg)
 		sleep(1);
 	}
 
-	int status = remove(excl_ba.data());
+	const int status = remove(excl_ba.data());
 	if (status != 0)
 		mtl_status(errno);
 	
@@ -64,7 +67,7 @@ void* AutoLoadIODaemonIfNeeded(void *arg)
 
 void AutoLoadRegularIODaemon()
 {
-	io::NewThread(AutoLoadIODaemonIfNeeded, (void*)cornus::SocketPath);
+	io::NewThread(AutoLoadIODaemonIfNeeded, NULL);
 }
 
 struct SendData {

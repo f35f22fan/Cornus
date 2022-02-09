@@ -22,8 +22,8 @@ if (DEFINED ENV{PREFER_CLANG})
     SET (CMAKE_CXX_FLAGS "-Wall -ftree-vectorize")
 endif()
 
-set(BUILD_CORNUS_IO "y")
-set(BUILD_CORNUS_R "y")
+#set(BUILD_CORNUS_IO "y")
+#set(BUILD_CORNUS_R "y")
 
 find_package(Qt5 COMPONENTS Core Gui Widgets DBus REQUIRED)
 include(FindPkgConfig)

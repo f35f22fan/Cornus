@@ -75,6 +75,18 @@
 	}\
 }
 
+#define mtl_check_arg(flag, ret) {\
+	if (!(flag)) {\
+		return ret;\
+	}\
+}
+
+#define mtl_check_void(flag) {\
+	if (!(flag)) {\
+		return;\
+	}\
+}
+
 #define MTL_CHECK(flag) {\
 	if (!(flag)) {\
 		mtl_trace();\
@@ -91,20 +103,6 @@
 
 #define MTL_CHECK_VOID(flag) {\
 	if (!(flag)) {\
-		mtl_trace();\
-		return;\
-	}\
-}
-
-#define MTL_RET_IF(lhs, rhs, ret) {\
-	if ((lhs == rhs)) {\
-		mtl_trace();\
-		return ret;\
-	}\
-}
-
-#define MTL_VOID_RET_IF(lhs, rhs) {\
-	if ((lhs == rhs)) {\
 		mtl_trace();\
 		return;\
 	}\

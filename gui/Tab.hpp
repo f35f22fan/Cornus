@@ -37,7 +37,9 @@ struct GoToParams {
 	gui::Tab *tab = nullptr;
 	DirPath dir_path;
 	cornus::Action action = Action::None;
-	bool reload;
+	bool reload = false;
+	bool show_hidden_files = false;
+	bool count_dir_files = false;
 };
 
 namespace gui {
@@ -63,7 +65,7 @@ public:
 	void ExecuteDrop(QVector<io::File *> *files_vec, io::File *to_dir,
 		Qt::DropAction drop_action, Qt::DropActions possible_actions);
 	TabId id() const { return id_; }
-	i64 files_id() const { return files_id_; }
+	FilesId files_id() const { return files_id_; }
 	void FilesChanged(const FileCountChanged fcc, const int row = -1);
 	int GetScrollValue() const;
 	int GetVisibleFileIndex();
@@ -140,7 +142,7 @@ private:
 	
 	gui::Table *table_ = nullptr; // owned by QMainWindow
 	gui::TableModel *table_model_ = nullptr; // owned by table_
-	i64 files_id_ = -1;
+	FilesId files_id_ = -1;
 	TabId id_ = -1;
 	QString title_;
 	QString current_dir_;

@@ -21,16 +21,22 @@ public:
 	bool bookmarks_changed_by_me = false;
 	QVector<gui::TreeItem*> roots;
 	
-	void BroadcastPartitionsLoaded();
+	int Broadcast() { return pthread_cond_broadcast(&cond); }
+	inline int CondWait() {
+		return pthread_cond_wait(&cond, &mutex);
+	}
+	
 	gui::TreeItem* GetBookmarksRoot(int *index = nullptr) const;
 	gui::TreeItem* GetCurrentPartition() const;
 	gui::TreeItem* GetPartitionByMountPath(const QString &full_path);
 	
-	inline int Lock() {
-		int status = pthread_mutex_lock(&mutex);
+	MutexGuard guard() { return MutexGuard(&mutex, LockType::Normal); }
+	
+	inline bool Lock() {
+		const int status = pthread_mutex_lock(&mutex);
 		if (status != 0)
 			mtl_warn("pthreads_mutex_lock: %s", strerror(status));
-		return status;
+		return (status == 0);
 	}
 	
 	void MarkCurrentPartition(const QString &full_path);
@@ -40,7 +46,7 @@ public:
 	}
 	
 private:
-	MutexGuard guard() { return MutexGuard(&mutex, LockType::Normal); }
+	
 	MutexGuard try_guard();
 };
 } // namespace

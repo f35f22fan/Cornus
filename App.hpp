@@ -45,19 +45,19 @@ public:
 	int AvailableCpuCores() const;
 	const Clipboard& clipboard() { return clipboard_; }
 	QMenu* CreateNewMenu();
-	i32 current_dir_id() const;
-	void DeleteFilesById(const i64 id);
+	DirId current_dir_id() const;
+	void DeleteFilesById(const FilesId id);
 	Category desktop() const { return desktop_; }
 	void DisplayFileContents(const int row, io::File *cloned_file = nullptr);
 	void EditSelectedMovieTitle();
 	void ExtractAskDestFolder();
 	void ExtractTo(const QString &to_dir);
 	void FileDoubleClicked(io::File *file, const PickBy pb);
-	io::Files* files(const i64 files_id) const;
+	io::Files* files(const FilesId files_id) const;
 	QIcon* GetIcon(const QString &str);
 	QIcon* GetFileIcon(io::File *file);
 	QString GetPartitionFreeSpace();
-	i64 GenNextFilesId();
+	FilesId GenNextFilesId();
 	
 	void GoUp();
 	GuiBits& gui_bits() { return gui_bits_; }
@@ -137,6 +137,7 @@ private:
 	QIcon* GetFolderIcon();
 	QIcon* GetIconOrLoadExisting(const QString &icon_path);
 	QString GetIconThatStartsWith(const QString &trunc);
+	void Init();
 	void InitThumbnailPoolIfNeeded();
 	QIcon *LoadIcon(io::File &file);
 	void LoadIconsFrom(QString dir_path);
@@ -205,8 +206,8 @@ private:
 	otherwise get deleted with the tabs, hence keep them here and
 	only delete them after the corresponding thread exits */
 	// ==> start
-	QHash<i64, io::Files*> files_;
-	i64 next_files_id_ = 0;
+	QHash<FilesId, io::Files*> files_;
+	FilesId next_files_id_ = 0;
 	// <== end
 	
 	QProcessEnvironment env_;

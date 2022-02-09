@@ -86,7 +86,7 @@ private:
 	
 	MediaSearch media_search_ = {};
 	int select_row_ = -1;
-	i32 last_dir_id_ = -1;
+	DirId last_dir_id_ = -1;
 	SearchBy search_by_ = SearchBy::FileName;
 	
 };

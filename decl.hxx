@@ -28,6 +28,7 @@ static const char *const RootSocketPath = "\0cornus_socket_root";
 using TabId = i64;
 using DirId = i32;
 using FileId = i32;
+using FilesId = i64;
 
 enum class Lock: i8 {
 	Yes,

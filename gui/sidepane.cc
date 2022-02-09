@@ -3,11 +3,13 @@
 #include "../App.hpp"
 #include "../AutoDelete.hh"
 #include "../ByteArray.hpp"
+#include "../ElapsedTimer.hpp"
 #include "../prefs.hh"
 #include "TreeItem.hpp"
 #include "TreeModel.hpp"
 
 #include <string.h>
+#define CORNUS_PRINT_PARTITIONS_LOAD_TIME
 
 namespace cornus::gui::sidepane {
 
@@ -130,26 +132,21 @@ void* LoadItems(void *args)
 	LoadAllVolumes(method_args.partitions);
 #ifdef CORNUS_PRINT_PARTITIONS_LOAD_TIME
 	const i64 mc = timer.elapsed_mc();
-	mtl_info("Directly: %ldmc", mc);
+	mtl_info("Partitions load time: %ld mc", mc);
 #endif
 	
 	LoadBookmarks(method_args.bookmarks);
 	TreeData &tree_data = app->tree_data();
 	{
-		tree_data.Lock();
+		auto guard = tree_data.guard();
 		while (!tree_data.widgets_created)
 		{
-			int status = pthread_cond_wait(&tree_data.cond, &tree_data.mutex);
-			if (status != 0) {
-				mtl_warn("pthread_cond_wait: %s", strerror(status));
-				break;
-			}
+			tree_data.CondWait();
 		}
-		tree_data.Unlock();
 	}
 	
-	auto *model = app->tree_model();
-	QMetaObject::invokeMethod(model, "InsertFromAnotherThread",
+	auto *tree_model = app->tree_model();
+	QMetaObject::invokeMethod(tree_model, "InsertFromAnotherThread",
 		Q_ARG(cornus::gui::InsertArgs, method_args));
 
 	return nullptr;

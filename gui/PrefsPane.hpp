@@ -35,5 +35,6 @@ private:
 	QCheckBox *show_link_targets_ = nullptr;
 	QCheckBox *remember_window_size_ = nullptr;
 	QCheckBox *sync_views_scroll_ = nullptr;
+	QCheckBox *store_thumbnails_in_ext_attrs_ = nullptr;
 };
 }

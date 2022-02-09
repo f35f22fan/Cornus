@@ -378,7 +378,12 @@ void TreeModel::InsertFromAnotherThread(cornus::gui::InsertArgs args)
 	
 	InsertBookmarks(args.bookmarks);
 	InsertPartitions(args.partitions);
-	app_->tree_data().BroadcastPartitionsLoaded();
+	auto &tree_data = app_->tree_data();
+	{
+		auto g = tree_data.guard();
+		tree_data.partitions_loaded = true;
+		tree_data.Broadcast();
+	}
 }
 
 void TreeModel::InsertBookmarks(const QVector<cornus::gui::TreeItem*> &bookmarks)

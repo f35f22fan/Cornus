@@ -1006,14 +1006,14 @@ bool ListFiles(io::FilesData &data, io::Files *ptr, const CountDirFiles cdf,
 	const bool hide_hidden_files = !data.show_hidden_files();
 	struct dirent *entry;
 	struct statx stx;
+	const QString dot = QLatin1String(".");
+	const QString two_dots = QLatin1String("..");
 	
 	while ((entry = readdir(dp)))
 	{
-		const char *n = entry->d_name;
-		if (strcmp(n, ".") == 0 || strcmp(n, "..") == 0)
+		const QString name(entry->d_name);
+		if (name == dot || name == two_dots)
 			continue;
-		
-		QString name(n);
 		
 		if (hide_hidden_files && name.startsWith('.'))
 			continue;
@@ -1025,7 +1025,7 @@ bool ListFiles(io::FilesData &data, io::Files *ptr, const CountDirFiles cdf,
 		file->name(name);
 		file->cache().possible_categories = possible_categories;
 
-		if (ReloadMeta(*file, stx, &data.processed_dir_path))
+		if (ReloadMeta(*file, stx, PrintErrors::Yes, &data.processed_dir_path))
 		{
 			data.vec.append(file);
 			if (cdf == CountDirFiles::Yes && file->is_dir_or_so())
@@ -1433,7 +1433,8 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 	}
 }
 
-bool ReloadMeta(io::File &file, struct statx &stx, QString *dir_path)
+bool ReloadMeta(io::File &file, struct statx &stx,
+	const PrintErrors pe, QString *dir_path)
 {
 	QString full_path_str;
 	if (dir_path != nullptr)
@@ -1448,7 +1449,8 @@ bool ReloadMeta(io::File &file, struct statx &stx, QString *dir_path)
 	const auto fields = STATX_ALL;
 	
 	if (statx(0, full_path.data(), flags, fields, &stx) != 0) {
-		mtl_warn("statx(): %s: \"%s\"", strerror(errno), full_path.data());
+		if (pe == PrintErrors::Yes)
+			mtl_warn("statx(): %s: \"%s\"", strerror(errno), full_path.data());
 		return false;
 	}
 	

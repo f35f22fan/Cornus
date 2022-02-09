@@ -26,12 +26,14 @@ PrefsPane::~PrefsPane()
 {
 	delete button_box_;
 	delete mark_extended_attrs_disabled_;
+	delete show_dir_file_count_;
 	delete show_hidden_files_;
 	delete show_ms_files_loaded_;
 	delete show_free_partition_space_;
 	delete show_link_targets_;
 	delete remember_window_size_;
 	delete sync_views_scroll_;
+	delete store_thumbnails_in_ext_attrs_;
 }
 
 void PrefsPane::ApplyToWidgets(const Prefs &prefs)
@@ -44,6 +46,7 @@ void PrefsPane::ApplyToWidgets(const Prefs &prefs)
 	mark_extended_attrs_disabled_->setCheckState(prefs.mark_extended_attrs_disabled() ? Qt::Checked : Qt::Unchecked);
 	remember_window_size_->setCheckState(prefs.remember_window_size() ? Qt::Checked : Qt::Unchecked);
 	sync_views_scroll_->setCheckState(prefs.sync_views_scroll_location() ? Qt::Checked : Qt::Unchecked);
+	store_thumbnails_in_ext_attrs_->setCheckState(prefs.store_thumbnails_in_ext_attrs() ? Qt::Checked : Qt::Unchecked);
 }
 
 void PrefsPane::ButtonClicked(QAbstractButton *btn)
@@ -88,6 +91,9 @@ void PrefsPane::CreateGui()
 	sync_views_scroll_ = new QCheckBox(tr("Sync scroll location of views"));
 	vert_layout->addWidget(sync_views_scroll_);
 	
+	store_thumbnails_in_ext_attrs_ = new QCheckBox(tr("Store thumbnails in extended file attributes"));
+	vert_layout->addWidget(store_thumbnails_in_ext_attrs_);
+	
 	button_box_ = new QDialogButtonBox (QDialogButtonBox::Ok
 		| QDialogButtonBox::RestoreDefaults | QDialogButtonBox::Cancel);
 	connect(button_box_, &QDialogButtonBox::clicked, this, &PrefsPane::ButtonClicked);
@@ -115,6 +121,8 @@ void PrefsPane::SavePrefs()
 	prefs.mark_extended_attrs_disabled(mark_extended_attrs_disabled_->checkState() == Qt::Checked);
 	prefs.remember_window_size(remember_window_size_->checkState() == Qt::Checked);
 	prefs.sync_views_scroll_location(sync_views_scroll_->checkState() == Qt::Checked);
+	prefs.store_thumbnails_in_ext_attrs(store_thumbnails_in_ext_attrs_->checkState() == Qt::Checked);
+	
 	prefs.Save();
 	
 	if (show_ms_files_loaded != prefs.show_ms_files_loaded() ||

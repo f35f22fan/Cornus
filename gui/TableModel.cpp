@@ -98,12 +98,10 @@ void InsertFile(io::File *new_file, QVector<io::File*> &files_vec,
 void SendCreateEvent(TableModel *model, cornus::io::Files *files,
 	const QString new_name, const i32 dir_id)
 {
-mtl_trace("For file \"%s\"", qPrintable(new_name));
 	io::File *new_file = new io::File(files);
 	new_file->name(new_name);
 	struct statx stx;
-	if (!io::ReloadMeta(*new_file, stx))
-		mtl_trace();
+	mtl_check_void(io::ReloadMeta(*new_file, stx, PrintErrors::No));
 	
 	io::FileEvent evt = {};
 	evt.new_file = new_file;
@@ -141,7 +139,7 @@ void SendModifiedEvent(TableModel *model, cornus::io::Files *files,
 		found = Find(files->data.vec, name, &index);
 		MTL_CHECK_VOID(found != nullptr);
 		struct statx stx;
-		MTL_CHECK_VOID(io::ReloadMeta(*found, stx));
+		mtl_check_void(io::ReloadMeta(*found, stx, PrintErrors::No));
 	}
 	
 	io::FileEvent evt = {};

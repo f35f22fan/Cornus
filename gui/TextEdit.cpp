@@ -172,11 +172,10 @@ bool TextEdit::Save()
 	
 	io::SaveFile save_file(full_path_);
 	auto ba = toPlainText().toLocal8Bit();
-	int status = io::WriteToFile(save_file.GetPathToWorkWith(), ba.data(), ba.size());
-	if (status != 0)
-		return false;
-	
-	return save_file.Commit();
+	if (io::WriteToFile(save_file.GetPathToWorkWith(), ba.data(), ba.size()))
+		return save_file.Commit();
+		
+	return false;
 }
 
 }

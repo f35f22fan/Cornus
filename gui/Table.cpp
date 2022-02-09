@@ -409,7 +409,7 @@ void Table::mouseReleaseEvent(QMouseEvent *evt)
 	if (!ctrl && !shift)
 	{
 		app_->hid()->HandleMouseSelectionNoModif(tab_,
-			evt->pos(), indices, false, &shift_select_);
+			evt->pos(), indices, mouse_down_, &shift_select_);
 	}
 	
 	model_->UpdateIndices(indices);
@@ -418,12 +418,16 @@ void Table::mouseReleaseEvent(QMouseEvent *evt)
 		const i32 col = columnAt(evt->pos().x());
 		if (col == i32(Column::Icon))
 		{
-			io::Files &files = *app_->files(tab_->files_id());
+			io::Files &files = tab_->view_files();
 			io::File *cloned_file = nullptr;
 			int file_index = -1;
 			{
-				MutexGuard guard = files.guard();
-				cloned_file = GetFileAt_NoLock(evt->pos(), Clone::Yes, &file_index);
+				auto g = files.guard();
+				io::File *file = GetFileAt_NoLock(evt->pos(), Clone::No, &file_index);
+				if (file != nullptr) {
+					file->set_selected(true);
+					cloned_file = file->Clone();
+				}
 			}
 			if (cloned_file) {
 				app_->hid()->SelectFileByIndex(tab_, file_index, DeselectOthers::Yes);

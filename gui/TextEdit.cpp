@@ -1,12 +1,15 @@
 #include "TextEdit.hpp"
+
 #include "../App.hpp"
 #include "../AutoDelete.hh"
 #include "../ByteArray.hpp"
 #include "../ExecInfo.hpp"
 #include "../io/File.hpp"
+#include "../io/Files.hpp"
 #include "../io/io.hh"
 #include "../io/SaveFile.hpp"
 #include "Hiliter.hpp"
+#include "Tab.hpp"
 
 #include <QKeyEvent>
 #include <QVector>
@@ -20,8 +23,9 @@ const QVector<QString> Extensions_C_CPP = {
 	QLatin1String("hxx")
 };
 
-TextEdit::TextEdit(App *app): app_(app)
+TextEdit::TextEdit(Tab *tab): tab_(tab)
 {
+	app_ = tab_->app();
 	setEnabled(true);
 	setReadOnly(false);
 	//setAcceptRichText(false);
@@ -52,13 +56,14 @@ TextEdit::~TextEdit() {
 bool TextEdit::Display(io::File *cloned_file)
 {
 	clear();
-	
 	AutoDelete ad(cloned_file);
-
-	if (cloned_file->is_dir_or_so()) {
+	if (cloned_file->is_dir_or_so())
+	{
 		return false;
 	}
 	
+	was_selected_ = cloned_file->selected();
+	filename_ = cloned_file->name();
 	full_path_ = cloned_file->build_full_path();
 	io::ReadParams read_params = {};
 	read_params.print_errors = PrintErrors::Yes;
@@ -71,14 +76,14 @@ bool TextEdit::Display(io::File *cloned_file)
 	hiliter_->SwitchTo(hilite_mode_);
 	
 	QString s;
-	if (hilite_mode_ == HiliteMode::None)
+	const bool read_only = (hilite_mode_ == HiliteMode::None);
+	setReadOnly(read_only);
+	if (read_only)
 	{
-		setReadOnly(true);
-		// fromLatin1() instead of fromLocal8Bit() to avoid crashes
-		// when dealing with blobs that aren't strings:
+		// fromLatin1() instead of fromLocal8Bit() to avoid some rare crashes
+		// when trying to convert to string blobs that aren't strings:
 		s = QString::fromLatin1(buf.data(), buf.size());
 	} else {
-		setReadOnly(false);
 		s = QString::fromLocal8Bit(buf.data(), buf.size());
 	}
 	
@@ -173,8 +178,22 @@ bool TextEdit::Save()
 	io::SaveFile save_file(full_path_);
 	auto ba = toPlainText().toLocal8Bit();
 	if (io::WriteToFile(save_file.GetPathToWorkWith(), ba.data(), ba.size()))
-		return save_file.Commit();
+	{
+		if (!save_file.Commit(PrintErrors::Yes))
+			return false;
 		
+		if (was_selected_ == Selected::Yes)
+		{
+			QVector<QString> names = {filename_};
+			io::Files &files = tab_->view_files();
+			files.SelectFilenamesLater(names, SameDir::Yes);
+		}
+		
+		return true;
+	}
+
+	save_file.CommitCancelled();
+
 	return false;
 }
 

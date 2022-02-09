@@ -168,7 +168,7 @@ void Files::RemoveThumbnailsFromSelectedFiles()
 
 void Files::SelectAllFiles(const cornus::Lock l, const Selected flag, QSet<int> &indices)
 {
-	auto guard = this->guard(l);
+	auto g = this->guard(l);
 	int i = -1;
 	for (io::File *file: data.vec)
 	{

@@ -192,13 +192,16 @@ void Hid::HandleMouseSelectionNoModif(gui::Tab *tab, const QPoint &pos, QSet<int
 {
 	const gui::ViewMode view_mode = tab->view_mode();
 	io::Files &files = tab->view_files();
-	MutexGuard guard = files.guard();
+	auto g = files.guard();
 	
 	io::File *file = nullptr;
 	int file_index = -1;
 	if (view_mode == gui::ViewMode::Details)
 	{
 		file_index = tab->table()->GetFileAt_NoLock(pos, PickBy::VisibleName, &file);
+		if (file_index == -1) {
+			file_index = tab->table()->GetFileAt_NoLock(pos, PickBy::Icon, &file);
+		}
 	} else if (view_mode == gui::ViewMode::Icons) {
 		file = tab->icon_view()->GetFileAt_NoLock(pos, Clone::No, &file_index);
 	}
@@ -210,8 +213,9 @@ void Hid::HandleMouseSelectionNoModif(gui::Tab *tab, const QPoint &pos, QSet<int
 	{
 		if (mouse_pressed)
 		{
-			if (file == nullptr || !file->is_selected())
+			if (file == nullptr || !file->is_selected()) {
 				files.SelectAllFiles(Lock::No, Selected::No, indices);
+			}
 			if (file != nullptr && !file->is_selected() && file_index != -1) {
 				file->selected(Selected::Yes);
 				indices.insert(file_index);
@@ -233,15 +237,15 @@ void Hid::SelectFileByIndex(gui::Tab *tab, const int file_index,
 		
 		if (des == DeselectOthers::Yes)
 		{
-			int i = 0;
+			int i = -1;
 			for (io::File *next: vec)
 			{
-				if (next->is_selected())
+				i++;
+				if (i != file_index && next->is_selected())
 				{
 					next->toggle_selected();
 					indices.insert(i);
 				}
-				i++;
 			}
 		}
 		

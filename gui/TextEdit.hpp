@@ -11,7 +11,7 @@ namespace cornus::gui {
 
 class TextEdit: public QPlainTextEdit {
 public:
-	TextEdit(App *app);
+	TextEdit(Tab *tab);
 	virtual ~TextEdit();
 	
 	bool Display(io::File *cloned_file);
@@ -24,9 +24,12 @@ private:
 	bool Save();
 	
 	App *app_ = nullptr;
+	Tab *tab_ = nullptr;
 	HiliteMode hilite_mode_ = HiliteMode::None;
 	QString full_path_;
 	gui::Hiliter *hiliter_ = nullptr;
+	Selected was_selected_ = Selected::No;
+	QString filename_; // only name, no path
 };
 
 }

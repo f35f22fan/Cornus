@@ -46,10 +46,10 @@ bool SaveFile::Commit(const PrintErrors pe)
 	return false;
 }
 
-const QString &SaveFile::GetPathToWorkWith()
+const QString& SaveFile::GetPathToWorkWith()
 {
-	if (temp_path_.isEmpty())
-		InitTempPath();
+	if (!InitTempPath())
+		temp_path_.clear();
 	
 	return temp_path_;
 }

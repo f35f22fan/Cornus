@@ -1003,39 +1003,6 @@ QString App::GetPartitionFreeSpace()
 
 void App::GoUp() { tab()->GoUp(); }
 
-void App::SetTopLevel(const TopLevel tl, io::File *cloned_file)
-{
-	if (top_level_stack_.level == tl)
-		return;
-	
-	if (tl == TopLevel::Browser)
-	{
-		top_level_stack_.level = tl;
-		if (top_level_stack_.stack->currentIndex() == top_level_stack_.window_index)
-			return;
-		
-		setWindowTitle(top_level_stack_.saved_window_title);
-		toolbar_->setVisible(true);
-		top_level_stack_.stack->setCurrentIndex(top_level_stack_.window_index);
-	} else if (tl == TopLevel::Editor) {
-		if (top_level_stack_.editor == nullptr)
-		{
-			top_level_stack_.editor = new gui::TextEdit(this);
-			top_level_stack_.editor_index = top_level_stack_.stack->addWidget(top_level_stack_.editor);
-		}
-		
-		top_level_stack_.saved_window_title = windowTitle();
-		if (top_level_stack_.editor->Display(cloned_file))
-		{
-			setWindowTitle(tr("Esc => Exit, Ctrl+S => Save & Exit"));
-			toolbar_->setVisible(false);
-			top_level_stack_.stack->setCurrentIndex(top_level_stack_.editor_index);
-			tab()->table()->ClearMouseOver();
-			top_level_stack_.level = tl;
-		}
-	}
-}
-
 QColor App::hover_bg_color_gray(const QColor &c) const
 {
 	if (theme_type_ == ThemeType::Dark)
@@ -1913,6 +1880,40 @@ void App::SelectTabAt(const int tab_index, const FocusView fv)
 	if (fv == FocusView::Yes)
 	{
 		tab()->FocusView();
+	}
+}
+
+
+void App::SetTopLevel(const TopLevel tl, io::File *cloned_file)
+{
+	if (top_level_stack_.level == tl)
+		return;
+	
+	if (tl == TopLevel::Browser)
+	{
+		top_level_stack_.level = tl;
+		if (top_level_stack_.stack->currentIndex() == top_level_stack_.window_index)
+			return;
+		
+		setWindowTitle(top_level_stack_.saved_window_title);
+		toolbar_->setVisible(true);
+		top_level_stack_.stack->setCurrentIndex(top_level_stack_.window_index);
+	} else if (tl == TopLevel::Editor) {
+		if (top_level_stack_.editor == nullptr)
+		{
+			top_level_stack_.editor = new gui::TextEdit(tab());
+			top_level_stack_.editor_index = top_level_stack_.stack->addWidget(top_level_stack_.editor);
+		}
+		
+		top_level_stack_.saved_window_title = windowTitle();
+		if (top_level_stack_.editor->Display(cloned_file))
+		{
+			setWindowTitle(tr("Esc => Exit, Ctrl+S => Save & Exit"));
+			toolbar_->setVisible(false);
+			top_level_stack_.stack->setCurrentIndex(top_level_stack_.editor_index);
+			tab()->table()->ClearMouseOver();
+			top_level_stack_.level = tl;
+		}
 	}
 }
 

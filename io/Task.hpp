@@ -47,18 +47,16 @@ struct TaskData {
 		
 		return state;
 	}
-	
 	inline i64 GetTimeWorked() {
 		cm.Lock();
 		i64 ret = work_time_recorder_.elapsed_ms();
 		cm.Unlock();
 		return ret;
 	}
+	void ChangeState(const TaskState new_state, TaskQuestion *task_question = nullptr);
 	
-	bool ChangeState(const TaskState new_state,
-		TaskQuestion *task_question = nullptr);
-	
-	bool WaitFor(const TaskState new_state);
+	void RemoveBits(const TaskState states);
+	TaskState WaitFor(const TaskState new_state, const Lock l = Lock::Yes);
 };
 
 struct Progress {
@@ -91,13 +89,13 @@ struct TaskProgress {
 	}
 	
 	inline void AddProgress(const i64 progress, const i64 time_worked,
-		i64 *total = nullptr)
+		i64 *new_total = nullptr)
 	{
 		MutexGuard guard(&mutex);
 		data.at += progress;
 		data.time_worked = time_worked;
-		if (total != nullptr)
-			data.total = *total;
+		if (new_total != nullptr)
+			data.total = *new_total;
 	}
 	
 	inline void SetDetails(const QString &in_details) {

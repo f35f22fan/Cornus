@@ -4,6 +4,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QProgressBar>
+#include <QTimer>
 #include <QToolButton>
 #include <QWidget>
 
@@ -29,7 +30,7 @@ public:
 //	virtual QSize minimumSizeHint() const override;
 	
 	io::Task* task() const { return task_; }
-	void TaskStateChanged(const io::TaskState new_state);
+	void UpdateStartPauseIcon(const io::TaskState new_state);
 	
 public Q_SLOTS:
 	void CheckTaskState();
@@ -37,7 +38,7 @@ public Q_SLOTS:
 private:
 	TaskGui(io::Task *task);
 	
-	void Continue();
+	void ContinueOrPause();
 	QWidget* CreateDeleteFailedPane();
 	QWidget* CreateFileExistsPane();
 	QWidget* CreateWriteFailedPane();
@@ -57,13 +58,15 @@ private:
 	io::Task *task_ = nullptr;
 	QProgressBar *progress_bar_ = nullptr;
 	TasksWin *tasks_win_ = nullptr;
-	bool made_visible_once_ = false;
 	QLabel *info_ = nullptr;
 	QLabel *speed_ = nullptr;
 	QToolButton *work_pause_btn_ = nullptr;
 	cornus::io::Progress progress_ = {};
 	QIcon continue_icon_, pause_icon_;
 	io::TaskQuestion task_question_ = {};
+	QTimer *timer_ = nullptr;
+	bool gui_created_ = false;
+	bool made_visible_once_ = false;
 	
 	struct Stack {
 		QStackedLayout *layout = nullptr;

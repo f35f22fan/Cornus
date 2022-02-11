@@ -8,6 +8,7 @@
 
 #include <QBoxLayout>
 #include <QPushButton>
+#include <QTimer>
 
 namespace cornus::gui {
 using io::TaskState;
@@ -17,24 +18,78 @@ const QString IconCancel = QLatin1String("edit-delete");
 const int ProgressMin = 0;
 const int ProgressMax = 100;
 
+QByteArray ToStr(const io::TaskState state)
+{
+	QString s;
+	if (state & io::TaskState::Abort)
+		s.append("Abort|");
+	if (state & io::TaskState::Answered)
+		s.append("Answered|");
+	if (state & io::TaskState::AwaitingAnswer)
+		s.append("AwaitingAnswer|");
+	if (state & io::TaskState::Continue)
+		s.append("Continue|");
+	if (state & io::TaskState::Finished)
+		s.append("Finished|");
+	if (state & io::TaskState::Pause)
+		s.append("Pause|");
+	if (state & io::TaskState::Working)
+		s.append("Working|");
+	
+	return s.toLocal8Bit();
+}
+
+void Invoke(TaskGui *task_gui)
+{
+	QMetaObject::invokeMethod(task_gui, "CheckTaskState", Qt::QueuedConnection);
+}
+
 void* wait_for_signal(void *ptr)
 {
 	pthread_detach(pthread_self());
 	
 	TaskGui *task_gui = (TaskGui*)ptr;
 	auto &data = task_gui->task()->data();
-	const auto condition = io::TaskState::InternalError | TaskState::Continue
-		| TaskState::Pause | TaskState::AwaitingAnswer | TaskIsDoneBits;
-	
 	do {
-		const io::TaskState state = data.GetState();
-		if (state & TaskState::AwaitingAnswer)
-			data.WaitFor(TaskState::Answered);
-		else
-			data.WaitFor(condition);
-		QMetaObject::invokeMethod(task_gui, "CheckTaskState", Qt::QueuedConnection);
+		auto g = data.cm.guard();
+		if (data.state & TaskState::AwaitingAnswer)
+		{
+			Invoke(task_gui);
+			auto wait_for_bits = TaskState::Answered | TaskIsDoneBits;
+			const auto str = ToStr(wait_for_bits);
+			mtl_info("Waiting for %s", str.data());
+			data.WaitFor(wait_for_bits, Lock::No);
+			mtl_info("Waiting for %s ... Done", str.data());
+			if (data.state & TaskState::Answered)
+			{
+				Invoke(task_gui);
+			}
+		} else {
+			auto wait_for_bits = TaskState::AwaitingAnswer | TaskIsDoneBits | TaskState::Working;
+			const auto str = ToStr(wait_for_bits);
+			mtl_info("Waiting for %s", str.data());
+			data.WaitFor(wait_for_bits, Lock::No);
+			mtl_info("Waiting for %s .. Done", str.data());
+			if (data.state & TaskState::Working)
+			{
+				mtl_info("TaskState::Working (Sleep 300ms)");
+				data.cm.Unlock();
+				usleep(300 * 1000); // 300ms
+				data.cm.Lock();
+				Invoke(task_gui);
+				continue;
+			} else {
+				Invoke(task_gui);
+			}
+		}
+		
+		const auto state = data.state;
 		if (state & TaskIsDoneBits)
+		{
+			auto ba = ToStr(state);
+			mtl_info("Task done: %s", ba.data());
 			break;
+		}
 	} while (true);
 	
 	return nullptr;
@@ -43,66 +98,70 @@ void* wait_for_signal(void *ptr)
 TaskGui::TaskGui(io::Task *task): task_(task)
 {
 	//mtl_printq2("TaskGui thread: ", io::thread_id_short(pthread_self()));
-	continue_icon_ = QIcon::fromTheme(QLatin1String("media-playback-start"));
-	pause_icon_ = QIcon::fromTheme(QLatin1String("media-playback-pause"));
-	
-	CreateGui();
 	io::NewThread(wait_for_signal, this);
+	//const int timeout = 3000; // 3 seconds
+	//QTimer::singleShot(timeout, this, &TaskGui::CheckTaskState);
+	
+	timer_ = new QTimer(this);
+	timer_->setInterval(3000);
+	timer_->setSingleShot(true);
+	connect(timer_, &QTimer::timeout, this, &TaskGui::CheckTaskState);
+	timer_->start();
 }
 
 TaskGui::~TaskGui()
 {
-	if (task_->data().WaitFor(TaskState::Finished | TaskState::Abort))
-		delete task_;
+	mtl_info("Destructing");
+	timer_->stop();
+	delete timer_;
+	timer_ = nullptr;
+	task_->data().WaitFor(TaskIsDoneBits);
+	delete task_;
+	mtl_info("Destructed");
 }
 
 void TaskGui::CheckTaskState()
 {
-	//mtl_printq2("in method", io::thread_id_short(pthread_self()));
-	static io::TaskState last_state = io::TaskState::None;
-	const io::TaskState state = task_->data().GetState(&task_question_);
+	auto thread_ba = io::thread_id_short(pthread_self()).toLocal8Bit();
+	mtl_info("Thread: %s", thread_ba.data());
+	const TaskState state = task_->data().GetState(&task_question_);
+	
 	if (state & TaskIsDoneBits)
 	{
 		tasks_win_->TaskDone(this, state);
 		return;
 	}
+	
+	if (!gui_created_)
+		CreateGui();
 
-	if (!made_visible_once_) {
+	if (!made_visible_once_)
+	{
+		made_visible_once_ = true;
 		tasks_win_->adjustSize();
 		tasks_win_->setVisible(true);
-		made_visible_once_ = true;
 	}
 	
-	if (state & io::TaskState::InternalError)
+	if (state & TaskState::Working)
 	{
-		info_->setText(tr("An error occurred"));
-		setVisible(true);
-		return;
-	}
-	
-	if (state & io::TaskState::Continue) {
+static int n = 0;
+mtl_info("TaskState::Working %d", n++);
 		auto prev_id = progress_.details_id;
 		task_->progress().Get(progress_);
 		
-		if (progress_.total != 0) { /// to avoid division by zero
+		if (progress_.total != 0) /// checking==0 to avoid division by zero
+		{
 			UpdateSpeedLabel();
 			int at = progress_.at / (progress_.total / 100);
 			progress_bar_->setValue(at);
 		}
-		if (prev_id != progress_.details_id) {
+		
+		if (prev_id != progress_.details_id)
+		{
 			info_->setText(progress_.details);
 		}
-		if (last_state != state) {
-			work_pause_btn_->setIcon(pause_icon_);
-			last_state = state;
-		}
-	} else if (state & io::TaskState::Pause) {
-		if (last_state != state) {
-			work_pause_btn_->setIcon(continue_icon_);
-			last_state = state;
-		}
 	}
-	if (state & io::TaskState::AwaitingAnswer) {
+	if (state & TaskState::AwaitingAnswer) {
 		switch (task_question_.question) {
 		case io::Question::FileExists: {
 			PresentUserFileExistsQuestion();
@@ -122,23 +181,39 @@ void TaskGui::CheckTaskState()
 		}
 		}
 	}
+	
+	if (state & TaskState::Answered)
+	{
+		auto &data = task_->data();
+		//auto state = data.GetState();
+		//auto state_ba = ToStr(state);
+		//mtl_info("RESTORING PROGRESS DISPLAY PANE: %s", state_ba.data());
+		
+		stack_.layout->setCurrentIndex(stack_.progress_index);
+		const auto new_state = TaskState::Working;
+		data.ChangeState(new_state);
+		UpdateStartPauseIcon(new_state);
+	}
 }
 
-void TaskGui::Continue()
+void TaskGui::ContinueOrPause()
 {
 	auto &data = task_->data();
-	auto state = data.GetState(nullptr);
+	auto old_state = data.GetState(nullptr);
 	io::TaskState new_state;
-	if (state & io::TaskState::Continue) {
-		new_state = io::TaskState::Pause;
-	} else if (state & io::TaskState::Pause) {
-		new_state = io::TaskState::Continue;
+	if (old_state & TaskState::Working) {
+		//mtl_info("New state : pause");
+		new_state = TaskState::Pause;
+	} else if (old_state & TaskState::Pause) {
+		//mtl_info("New state : working");
+		new_state = TaskState::Working;
 	} else {
-		new_state = io::TaskState::None;
 		mtl_trace();
+		return;
 	}
+	
+	UpdateStartPauseIcon(new_state);
 	data.ChangeState(new_state);
-	TaskStateChanged(new_state);
 }
 
 QWidget* TaskGui::CreateDeleteFailedPane()
@@ -189,8 +264,7 @@ QWidget* TaskGui::CreateDeleteFailedPane()
 	return pane;
 }
 
-QWidget*
-TaskGui::CreateFileExistsPane()
+QWidget* TaskGui::CreateFileExistsPane()
 {
 	QWidget *pane = new QWidget();
 	auto *vert_layout = new QBoxLayout(QBoxLayout::TopToBottom);
@@ -264,11 +338,14 @@ TaskGui::CreateFileExistsPane()
 
 void TaskGui::CreateGui()
 {
+	mtl_info("Created GUI");
+	gui_created_ = true;
+	continue_icon_ = QIcon::fromTheme(QLatin1String("media-playback-start"));
+	pause_icon_ = QIcon::fromTheme(QLatin1String("media-playback-pause"));
 	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 	
 	stack_.layout = new QStackedLayout();
 	setLayout(stack_.layout);
-	
 	stack_.progress_index = stack_.layout->addWidget(CreateProgressPane());
 	adjustSize();
 }
@@ -299,12 +376,12 @@ QWidget* TaskGui::CreateProgressPane()
 	
 	{
 		auto state = task_->data().GetState(&task_question_);
-		QIcon &icon = (state == io::TaskState::Continue) ?
+		QIcon &icon = (state & TaskState::Working) ?
 			pause_icon_ : continue_icon_;
 		work_pause_btn_ = new QToolButton();
 		work_pause_btn_->setIcon(icon);
 		connect(work_pause_btn_, &QToolButton::clicked, [=] {
-			Continue();
+			ContinueOrPause();
 		});
 		layout->addWidget(work_pause_btn_);
 	}
@@ -321,8 +398,7 @@ QWidget* TaskGui::CreateProgressPane()
 	return pane;
 }
 
-QWidget*
-TaskGui::CreateWriteFailedPane()
+QWidget* TaskGui::CreateWriteFailedPane()
 {
 	QWidget *pane = new QWidget();
 	auto *vert_layout = new QBoxLayout(QBoxLayout::TopToBottom);
@@ -370,8 +446,7 @@ TaskGui::CreateWriteFailedPane()
 	return pane;
 }
 
-TaskGui*
-TaskGui::From(io::Task *task, TasksWin *tw)
+TaskGui* TaskGui::From(io::Task *task, TasksWin *tw)
 {
 	auto *g = new TaskGui(task);
 	g->tasks_win_ = tw;
@@ -425,44 +500,25 @@ void TaskGui::PresentWindow()
 	setFocus(Qt::MouseFocusReason);
 }
 
-//QSize TaskGui::minimumSizeHint() const { return sizeHint(); }
-
-void
-TaskGui::SendDeleteFailedAnswer(const io::DeleteFailedAnswer answer)
+void TaskGui::SendDeleteFailedAnswer(const io::DeleteFailedAnswer answer)
 {
 	auto &data = task_->data();
 	task_question_.delete_failed_answer = answer;
 	data.ChangeState(TaskState::Answered, &task_question_);
 }
 
-void
-TaskGui::SendFileExistsAnswer(const io::FileExistsAnswer answer)
+void TaskGui::SendFileExistsAnswer(const io::FileExistsAnswer answer)
 {
 	auto &data = task_->data();
 	task_question_.file_exists_answer = answer;
 	data.ChangeState(TaskState::Answered, &task_question_);
 }
 
-void
-TaskGui::SendWriteFailedAnswer(const io::WriteFailedAnswer answer)
+void TaskGui::SendWriteFailedAnswer(const io::WriteFailedAnswer answer)
 {
 	auto &data = task_->data();
 	task_question_.write_failed_answer = answer;
 	data.ChangeState(TaskState::Answered, &task_question_);
-}
-
-//QSize TaskGui::sizeHint() const {
-//	int rh = fontMetrics().boundingRect("Aj").height();
-//	return QSize(-1, rh * 3);
-//}
-
-void TaskGui::TaskStateChanged(const io::TaskState new_state)
-{
-	if (new_state & io::TaskState::Continue) {
-		work_pause_btn_->setIcon(pause_icon_);
-	} else if (new_state & io::TaskState::Pause) {
-		work_pause_btn_->setIcon(continue_icon_);
-	}
 }
 
 void TaskGui::UpdateSpeedLabel()
@@ -477,6 +533,15 @@ void TaskGui::UpdateSpeedLabel()
 	const i64 n = double(progress_.at) / seconds;
 	QString s = io::SizeToString(n) + QLatin1String("/s");
 	speed_->setText(s);
+}
+
+void TaskGui::UpdateStartPauseIcon(const io::TaskState new_state)
+{
+	if (new_state & TaskState::Working) {
+		work_pause_btn_->setIcon(pause_icon_);
+	} else if (new_state & TaskState::Pause) {
+		work_pause_btn_->setIcon(continue_icon_);
+	}
 }
 
 }

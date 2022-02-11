@@ -48,14 +48,14 @@ struct ServerLife
 	bool exit = false;
 	
 	bool Lock() {
-		int status = pthread_mutex_lock(&mutex);
+		const int status = pthread_mutex_lock(&mutex);
 		if (status != 0)
 			mtl_status(status);
 		return status == 0;
 	}
 	
 	void Unlock() {
-		int status = pthread_mutex_unlock(&mutex);
+		const int status = pthread_mutex_unlock(&mutex);
 		if (status != 0)
 			mtl_status(status);
 	}
@@ -95,23 +95,28 @@ enum class WriteFailedAnswer: i8 {
 	Abort,
 };
 
-enum class TaskState: u16 {
-	None = 1u << 0,
-	Continue = 1u << 1,
-	Pause = 1u << 2,
-	Abort = 1u << 3,
-	InternalError = 1u << 4,
-	Finished = 1u << 5,
+using TaskStateT = u16;
+enum class TaskState: TaskStateT {
+	None =           0,
+	Continue =       1u << 1,
+	Working =        1u << 2,
+	Pause =          1u << 3,
+	Abort =          1u << 4,
+	Finished =       1u << 5,
 	AwaitingAnswer = 1u << 6,
-	Answered = 1u << 7,
+	Answered =       1u << 7,
 };
 
 inline TaskState operator | (TaskState a, TaskState b) {
-	return static_cast<TaskState>(static_cast<u16>(a) | static_cast<u16>(b));
+	return static_cast<TaskState>(static_cast<TaskStateT>(a) | static_cast<TaskStateT>(b));
 }
 
 inline bool operator & (TaskState a, TaskState b) {
-	return (static_cast<u16>(a) & static_cast<u16>(b));
+	return (static_cast<TaskStateT>(a) & static_cast<TaskStateT>(b));
+}
+
+inline TaskState operator ~ (TaskState a) {
+	return static_cast<TaskState>(~static_cast<TaskStateT>(a));
 }
 
 enum class FileBits: u8 {

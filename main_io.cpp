@@ -146,7 +146,7 @@ void* ProcessRequest(void *ptr)
 	if (task != nullptr)
 	{
 		QMetaObject::invokeMethod(tasks_win, "add",
-			ConnectionType, Q_ARG(cornus::io::Task*, task));
+			Qt::QueuedConnection, Q_ARG(cornus::io::Task*, task));
 		task->StartIO();
 	}
 	
@@ -245,11 +245,10 @@ int main(int argc, char *argv[])
 	{
 		ret = qapp.exec();
 		life->Lock();
-		const bool do_exit = life->exit;
+		const bool should_exit = life->exit;
 		life->Unlock();
-		if (do_exit) {
+		if (should_exit)
 			break;
-		}
 	}
 	delete daemon;
 

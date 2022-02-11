@@ -66,10 +66,12 @@ void TasksWin::TaskDone(TaskGui *gui_task, const io::TaskState state)
 	layout_->removeWidget(gui_task);
 	delete gui_task;
 	
-	if (layout_->count() == 0) {
+	if (layout_->count() == 0)
+	{
 		//mtl_info("No more tasks! hiding");
 		setVisible(false);
 	}
+	
 	adjustSize();
 }
 

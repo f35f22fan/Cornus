@@ -1,5 +1,6 @@
 #pragma once
 
+#include "decl.hxx"
 #include "err.hpp"
 #include "MutexGuard.hpp"
 
@@ -23,8 +24,8 @@ public:
 		return pthread_cond_wait(&cond, &mutex);
 	}
 	
-	MutexGuard guard() const {
-		return MutexGuard(&mutex);
+	MutexGuard guard(const Lock l = Lock::Yes) const {
+		return (l == Lock::Yes) ? MutexGuard(&mutex) : MutexGuard();
 	}
 	
 	inline bool Lock() {

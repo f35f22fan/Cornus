@@ -300,9 +300,8 @@ void Daemon::CheckOldThumbnails()
 		auto ba = (dir_path + next->name).toLocal8Bit();
 		mtl_info("Removing %s", next->name);
 		int status = ::remove(ba.data());
-		if (status == -1) {
+		if (status != 0)
 			mtl_status(errno);
-		}
 	}
 }
 

@@ -44,6 +44,7 @@ public:
 	char *data() const { return data_; }
 	const char *constData() const { return data_; }
 	
+	bool has_more(const isize n) const { return at_ + n < size_; }
 	bool has_more() const { return at_ < size_; }
 	bool is_empty() const { return size_ == 0; }
 	void next(char *p, const isize sz);

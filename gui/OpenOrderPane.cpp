@@ -110,7 +110,7 @@ void OpenOrderPane::AskAddCustomExecutable()
 		return;
 	}
 	
-	DesktopFile *p = DesktopFile::JustExePath(full_path);
+	DesktopFile *p = DesktopFile::JustExePath(full_path, app_->env());
 	MTL_CHECK_VOID(p != nullptr);
 	model_->AppendItem(p);
 }
@@ -143,20 +143,27 @@ void OpenOrderPane::ClearData()
 
 QWidget* OpenOrderPane::CreateAddingCustomItem()
 {
-	ByteArray ba;
-	ba.set_msg_id(io::Message::SendAllDesktopFiles);
+	ByteArray query_ba;
+	query_ba.set_msg_id(io::Message::SendAllDesktopFiles);
 	const int fd = io::socket::Client();
-	if (fd == -1 || !ba.Send(fd, CloseSocket::No))
+	if (fd == -1 || !query_ba.Send(fd, CloseSocket::No))
 	{
 		mtl_trace();
 		return nullptr;
 	}
 	
-	ba.Clear();
-	MTL_CHECK_ARG(ba.Receive(fd), nullptr);
-	while (ba.has_more())
+	query_ba.Clear();
+	MTL_CHECK_ARG(query_ba.Receive(fd), nullptr);
+	
+	if (!io::CheckDesktopFileABI(query_ba))
 	{
-		DesktopFile *p = DesktopFile::From(ba);
+		app_->TellUserDesktopFileABIDoesntMatch();
+		return nullptr;
+	}
+	
+	while (query_ba.has_more())
+	{
+		DesktopFile *p = DesktopFile::From(query_ba, app_->env());
 		if (p == nullptr)
 			return nullptr;
 		all_desktop_files_.append(p);
@@ -168,8 +175,6 @@ QWidget* OpenOrderPane::CreateAddingCustomItem()
 	add_custom_cb_ = new QComboBox();
 	const QString two_points = QLatin1String("..");
 	const int max_len = 40;
-	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-	
 	for (DesktopFile *p: all_desktop_files_)
 	{
 		QString s = p->GetName();
@@ -187,8 +192,7 @@ QWidget* OpenOrderPane::CreateAddingCustomItem()
 			s.append(two_points);
 		}
 		
-		add_custom_cb_->addItem(p->CreateQIcon(env), s,
-			QVariant::fromValue((void*)p));
+		add_custom_cb_->addItem(p->CreateQIcon(), s, QVariant::fromValue((void*)p));
 	}
 	
 	QFrame *p = new QFrame();

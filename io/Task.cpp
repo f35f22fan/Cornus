@@ -232,7 +232,6 @@ void Task::CopyRegularFile(const QString &from_path, const QString &new_dir_path
 		
 		auto state = data_.GetState(nullptr, &time_worked);
 		progress_.AddProgress(count, time_worked);
-		//mtl_info("Progress: %ld", count);
 		if (state & TaskState::Pause)
 		{
 			state = data_.WaitFor(TaskState::Continue | TaskState::Working | TaskState::Abort);

@@ -24,6 +24,7 @@
 #include <QHash>
 #include <QMetaType> /// Q_DECLARE_METATYPE()
 #include <QMimeData>
+#include <QProcessEnvironment>
 #include <QStringRef>
 #include <QVector>
 #include <QUrl>
@@ -170,6 +171,8 @@ QString BuildTempPathFromID(const DiskFileId &id);
 
 bool CanWriteToDir(const QString &dir_path);
 
+bool CheckDesktopFileABI(ByteArray &ba);
+
 int CompareStrings(const QString &a, const QString &b);
 
 // returns a negative number on error
@@ -213,7 +216,7 @@ int CreateAutoRenamedFile(QString dir_path, QString filename,
 
 media::ShortData* DecodeShort(ByteArray &ba);
 
-void Delete(io::File *file);
+void Delete(io::File *file, const QProcessEnvironment &env);
 
 int DeleteFolder(QString dir_path); // returns 0 on success
 
@@ -271,7 +274,7 @@ Bool HasExecBit(const QString &full_path);
 
 void InitEnvInfo(Category &desktop, QVector<QString> &search_icons_dirs,
 	QVector<QString> &xdg_data_dirs,
-	QHash<QString, Category> &possible_categories);
+	QHash<QString, Category> &possible_categories, QProcessEnvironment &env);
 
 inline bool IsNearlyEqual(double x, double y);
 
@@ -282,7 +285,7 @@ int ListDirNames(QString dir_path, QVector<QString> &vec,
 bool ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 	FilterFunc ff = nullptr);
 
-bool ListFiles(FilesData &data, Files *ptr, const CountDirFiles cdf,
+bool ListFiles(FilesData &data, Files *ptr, const QProcessEnvironment &env, const CountDirFiles cdf,
 	const QHash<QString, Category> *possible_categories = nullptr, FilterFunc ff = nullptr);
 
 inline FileType
@@ -327,7 +330,7 @@ bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &par
 
 bool ReadLinkSimple(const char *file_path, QString &result);
 
-bool ReloadMeta(io::File &file, struct statx &stx,
+bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &env,
 	const PrintErrors pe, QString *dir_path = nullptr);
 
 bool RemoveXAttr(const QString &full_path, const QString &xattr_name,
@@ -336,7 +339,8 @@ bool RemoveXAttr(const QString &full_path, const QString &xattr_name,
 bool SameFiles(const QString &path1, const QString &path2,
 	int *ret_error = nullptr);
 
-bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx);
+bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx,
+	const bool ok_to_store_thumbnails_in_ext_attrs);
 
 bool sd_nvme(const QString &name);
 bool valid_dev_path(const QString &name);

@@ -82,8 +82,9 @@ Group::Clone(DesktopFile *new_parent) const
 	return p;
 }
 
-QString Group::ExpandEnvVars(QString s, QProcessEnvironment &my_env)
+QString Group::ExpandEnvVars(QString s)
 {
+	MTL_CHECK_ARG(parent_ != nullptr, QString());
 	QRegularExpressionMatch match;
 	while (true)
 	{
@@ -103,13 +104,13 @@ QString Group::ExpandEnvVars(QString s, QProcessEnvironment &my_env)
 		//mtl_printq2("var_name: ", var_name);
 		//mtl_printq2("value: ", my_env.value(var_name));
 		QString new_val = s.mid(0, index);
-		QString var_value = my_env.value(var_name);
+		QString var_value = parent_->env_.value(var_name);
 		if (var_value.isEmpty())
 		{
 			var_value = kv_map_.value(var_name);
 			//mtl_printq2("var_value was empty, now: ", var_value);
-			if (var_value.isEmpty() && parent_ != nullptr) {
-				var_value = parent_->kv().value(var_name);
+			if (var_value.isEmpty()) {
+				var_value = parent_->env_.value(var_name);
 			}
 		}
 		new_val += var_value;
@@ -163,13 +164,13 @@ Group::From(ByteArray &ba, DesktopFile *parent)
 }
 
 QString
-Group::Get(const QString &key, QProcessEnvironment &env)
+Group::Get(const QString &key)
 {
 	QString val = value(key);
 	if (val.isEmpty())
 		return val;
 
-	return ExpandEnvVars(val, env);
+	return ExpandEnvVars(val);
 }
 
 bool Group::IsMain() const {
@@ -182,7 +183,6 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 	if (exec.isEmpty())
 		return;
 
-	QProcessEnvironment custom_env = QProcessEnvironment::systemEnvironment();
 	QStringList args = exec.split(' ', Qt::SkipEmptyParts);
 	const QString env_key = QLatin1String("env");
 	const int arg_count = args.size();
@@ -200,7 +200,7 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 			auto env_pair = args[i].split('=');
 			if (env_pair.size() == 2) {
 				//mtl_info("Env vars: \"%s\"=\"%s\"", qPrintable(env_pair[0]), qPrintable(env_pair[1]));
-				custom_env.insert(env_pair[0], env_pair[1]);
+				parent_->env_.insert(env_pair[0], env_pair[1]);
 			}
 		} else if (next.startsWith('%')) {
 			if (next == QLatin1String("%f") || next == QLatin1String("%F"))
@@ -215,7 +215,7 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 				app_args.append(url_str);
 			}
 		} else {
-			QString s = ExpandEnvVars(next, custom_env);
+			QString s = ExpandEnvVars(next);
 			app_args.append(s);
 		}
 	}
@@ -229,7 +229,7 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 	{
 // Path description in .desktop spec:
 // If entry is of type Application, the working directory to run the program in.
-		work_dir = GetPath(custom_env);
+		work_dir = GetPath();
 	}
 	
 	QString exe_str = app_args.takeFirst();
@@ -237,7 +237,7 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 	process->setProgram(exe_str);
 	process->setArguments(app_args);
 	process->setWorkingDirectory(work_dir);
-	process->setProcessEnvironment(custom_env);
+	process->setProcessEnvironment(parent_->env_);
 	process->startDetached();
 	
 ///"/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=ghb --file-forwarding fr.handbrake.ghb @@ %f @@"
@@ -360,7 +360,7 @@ void Group::WriteTo(ByteArray &ba)
 
 } // namespace
 
-DesktopFile::DesktopFile() {}
+DesktopFile::DesktopFile(const QProcessEnvironment &env): env_(env){}
 
 DesktopFile::~DesktopFile() {
 	
@@ -376,33 +376,34 @@ DesktopFile::~DesktopFile() {
 DesktopFile*
 DesktopFile::Clone() const
 {
-	DesktopFile *new_desktop_file = new DesktopFile();
-	new_desktop_file->type_ = type_;
-	new_desktop_file->priority_ = priority_;
+	DesktopFile *new_df = new DesktopFile(env_);
+	new_df->type_ = type_;
+	new_df->priority_ = priority_;
+	new_df->custom_env_ = custom_env_;
 	
 	if (is_desktop_file()) {
-		new_desktop_file->name_ = name_;
-		new_desktop_file->full_path_ = full_path_;
+		new_df->name_ = name_;
+		new_df->full_path_ = full_path_;
 		
 		QMapIterator<QString, desktopfile::Group*> it(groups_);
 		while (it.hasNext()) {
 			it.next();
-			desktopfile::Group *group = it.value()->Clone(new_desktop_file);
+			desktopfile::Group *group = it.value()->Clone(new_df);
 			if (group->IsMain())
-				new_desktop_file->main_group_ = group;
-			new_desktop_file->groups_.insert(it.key(), group);
+				new_df->main_group_ = group;
+			new_df->groups_.insert(it.key(), group);
 		}
 	} else {
-		new_desktop_file->full_path_ = full_path_;
+		new_df->full_path_ = full_path_;
 	}
 	
-	return new_desktop_file;
+	return new_df;
 }
 
 QIcon
-DesktopFile::CreateQIcon(QProcessEnvironment &env)
+DesktopFile::CreateQIcon()
 {
-	QString s = GetIcon(env);
+	QString s = GetIcon();
 	if (s.isEmpty())
 		return QIcon::fromTheme(QLatin1String("application-x-executable"));
 	
@@ -413,40 +414,50 @@ DesktopFile::CreateQIcon(QProcessEnvironment &env)
 }
 
 DesktopFile*
-DesktopFile::From(ByteArray &ba)
+DesktopFile::From(ByteArray &ba, const QProcessEnvironment &env)
 {
-	DesktopFile *new_desktop_file = new DesktopFile();
-	new_desktop_file->type_ = (Type) ba.next_i8();
-	new_desktop_file->priority_ = (Priority) ba.next_i8();
+	DesktopFile *new_df = new DesktopFile(env);
+	new_df->type_ = (Type) ba.next_i8();
+	new_df->priority_ = (Priority) ba.next_i8();
 	
-	if (new_desktop_file->is_desktop_file())
+	const u16 custom_env_count = ba.next_u16();
+	for (u16 i = 0; i < custom_env_count; i++)
 	{
-		new_desktop_file->full_path_ = ba.next_string();
-		new_desktop_file->name_ = ba.next_string();
+		QString k = ba.next_string();
+		QString v = ba.next_string();
+		new_df->custom_env_.insert(k, v);
+		new_df->env_.insert(k, v);
+	}
+	
+	if (new_df->is_desktop_file())
+	{
+		new_df->full_path_ = ba.next_string();
+		new_df->name_ = ba.next_string();
 		const i32 group_count = ba.next_i32();
 		
 		for (i32 i = 0; i < group_count; i++) {
-			desktopfile::Group *group = desktopfile::Group::From(ba, new_desktop_file);
+			auto *group = desktopfile::Group::From(ba, new_df);
 			if (group == nullptr)
 				continue;
 			
-			new_desktop_file->groups_.insert(group->name(), group);
+			new_df->groups_.insert(group->name(), group);
 			if (group->IsMain())
-				new_desktop_file->main_group_ = group;
+				new_df->main_group_ = group;
 		}
-	} else if (new_desktop_file->is_just_exe_path()) {
-		new_desktop_file->full_path_ = ba.next_string();
+	} else if (new_df->is_just_exe_path()) {
+		new_df->full_path_ = ba.next_string();
 	} else {
 		mtl_trace();
 	}
 	
-	return new_desktop_file;
+	return new_df;
 }
 
 DesktopFile*
-DesktopFile::FromPath(const QString &full_path, const QHash<QString, Category> &h)
+DesktopFile::FromPath(const QString &full_path, const QHash<QString,
+	Category> &h, const QProcessEnvironment &env)
 {
-	DesktopFile *p = new DesktopFile();
+	DesktopFile *p = new DesktopFile(env);
 	
 	if (p->Init(full_path, h))
 		return p;
@@ -456,16 +467,15 @@ DesktopFile::FromPath(const QString &full_path, const QHash<QString, Category> &
 }
 
 DesktopFile*
-DesktopFile::JustExePath(const QString &full_path)
+DesktopFile::JustExePath(const QString &full_path, const QProcessEnvironment &env)
 {
-	auto *p = new DesktopFile();
+	auto *p = new DesktopFile(env);
 	p->type_ = Type::JustExePath;
 	p->full_path_ = full_path;
 	return p;
 }
 
-MimeInfo
-DesktopFile::GetForMime(const QString &mime)
+MimeInfo DesktopFile::GetForMime(const QString &mime)
 {
 	if (mime.startsWith(QLatin1String("text/")) || mime == QLatin1String("application/x-desktop"))
 		return MimeInfo::Text;
@@ -478,8 +488,7 @@ DesktopFile::GetForMime(const QString &mime)
 	return MimeInfo::None;
 }
 
-QString
-DesktopFile::GetId() const
+QString DesktopFile::GetId() const
 {
 	if (is_just_exe_path())
 		return full_path_;
@@ -500,25 +509,22 @@ DesktopFile::GetId() const
 	return id_cached_;
 }
 
-QString
-DesktopFile::GetIcon(QProcessEnvironment &env) const
+QString DesktopFile::GetIcon() const
 {
 	if (!is_desktop_file() || !main_group_)
 		return QString();
 	
-	return main_group_->GetIcon(env);
+	return main_group_->GetIcon();
 }
 
-QString
-DesktopFile::GetGenericName() const {
+QString DesktopFile::GetGenericName() const {
 	if (is_desktop_file() && main_group_)
 		return main_group_->value(QLatin1String("GenericName"));
 	
 	return QString();
 }
 
-QString
-DesktopFile::GetName() const
+QString DesktopFile::GetName() const
 {
 	if (is_just_exe_path())
 		return io::GetFileNameOfFullPath(full_path_).toString();
@@ -579,7 +585,10 @@ bool DesktopFile::Init(const QString &full_path,
 			if (key.isEmpty())
 				continue;
 			
-			kv_.insert(key.toString(), value.toString());
+			const auto k = key.toString();
+			const auto v = value.toString();
+			env_.insert(k, v);
+			custom_env_.insert(k, v);
 		} else {
 			group->ParseLine(line, possible_categories);
 			groups_.insert(group->name(), group);
@@ -664,7 +673,18 @@ void DesktopFile::WriteTo(ByteArray &ba) const
 	ba.add_i8(i8(type_));
 	ba.add_i8(i8(priority_));
 	
-	if (is_desktop_file()) {
+	const u16 count = custom_env_.count();
+	ba.add_u16(count);
+	auto it = custom_env_.constBegin();
+	while (it != custom_env_.constEnd())
+	{
+		ba.add_string(it.key());
+		ba.add_string(it.value());
+		it++;
+	}
+	
+	if (is_desktop_file())
+	{
 		ba.add_string(full_path_);
 		ba.add_string(name_);
 		ba.add_i32(groups_.size());

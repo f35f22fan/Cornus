@@ -55,24 +55,24 @@ void* wait_for_signal(void *ptr)
 		if (data.state & TaskState::AwaitingAnswer)
 		{
 			Invoke(task_gui);
-			auto wait_for_bits = TaskState::Answered | TaskIsDoneBits;
-			const auto str = ToStr(wait_for_bits);
-			mtl_info("Waiting for %s", str.data());
+			const auto wait_for_bits = TaskState::Answered | TaskIsDoneBits;
+//			const auto str = ToStr(wait_for_bits);
+//			mtl_info("Waiting for %s", str.data());
 			data.WaitFor(wait_for_bits, Lock::No);
-			mtl_info("Waiting for %s ... Done", str.data());
+//			mtl_info("Waiting for %s ... Done", str.data());
 			if (data.state & TaskState::Answered)
 			{
 				Invoke(task_gui);
 			}
 		} else {
-			auto wait_for_bits = TaskState::AwaitingAnswer | TaskIsDoneBits | TaskState::Working;
-			const auto str = ToStr(wait_for_bits);
-			mtl_info("Waiting for %s", str.data());
+			const auto wait_for_bits = TaskState::AwaitingAnswer | TaskIsDoneBits | TaskState::Working;
+//			const auto str = ToStr(wait_for_bits);
+//			mtl_info("Waiting for %s", str.data());
 			data.WaitFor(wait_for_bits, Lock::No);
-			mtl_info("Waiting for %s .. Done", str.data());
+//			mtl_info("Waiting for %s .. Done", str.data());
 			if (data.state & TaskState::Working)
 			{
-				mtl_info("TaskState::Working (Sleep 300ms)");
+//				mtl_info("TaskState::Working (Sleep 300ms)");
 				data.cm.Unlock();
 				usleep(300 * 1000); // 300ms
 				data.cm.Lock();

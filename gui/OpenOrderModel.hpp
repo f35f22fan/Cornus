@@ -45,6 +45,5 @@ private:
 	OpenOrderTable *table_ = nullptr;
 	QVector<DesktopFile*> vec_;
 	OpenOrderPane *oop_ = nullptr;
-	mutable QProcessEnvironment env_;
 };
 }

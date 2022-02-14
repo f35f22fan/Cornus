@@ -101,7 +101,8 @@ void SendCreateEvent(TableModel *model, cornus::io::Files *files,
 	io::File *new_file = new io::File(files);
 	new_file->name(new_name);
 	struct statx stx;
-	mtl_check_void(io::ReloadMeta(*new_file, stx, PrintErrors::No));
+	auto &env = model->app()->env();
+	mtl_check_void(io::ReloadMeta(*new_file, stx, env, PrintErrors::No));
 	
 	io::FileEvent evt = {};
 	evt.new_file = new_file;
@@ -139,7 +140,7 @@ void SendModifiedEvent(TableModel *model, cornus::io::Files *files,
 		found = Find(files->data.vec, name, &index);
 		MTL_CHECK_VOID(found != nullptr);
 		struct statx stx;
-		mtl_check_void(io::ReloadMeta(*found, stx, PrintErrors::No));
+		mtl_check_void(io::ReloadMeta(*found, stx, model->app()->env(), PrintErrors::No));
 	}
 	
 	io::FileEvent evt = {};

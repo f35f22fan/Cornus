@@ -253,12 +253,52 @@ void Print(const double x, const double y)
 
 App::App()
 {
-//	const double y = 5.0;
-//	Print(6.2, y);
-//	Print(1.0, y);
-//	Print(11.0, y);
-//	Print(5.1, y);
-//	Print(4.9, y);
+	/* const double y = 5.0;
+	Print(6.2, y);
+	Print(1.0, y);
+	Print(11.0, y);
+	Print(5.1, y);
+	Print(4.9, y); */
+	/*
+	ElapsedTimer t;
+	
+	t.Continue();
+	auto env = QProcessEnvironment::systemEnvironment();
+	auto n1 = t.elapsed_mc();
+	
+	t.Continue(Reset::Yes);
+	env = QProcessEnvironment::systemEnvironment();
+	auto n2 = t.elapsed_mc();
+	
+	t.Continue(Reset::Yes);
+	env = QProcessEnvironment::systemEnvironment();
+	auto n3 = t.elapsed_mc();
+	
+	t.Continue(Reset::Yes);
+	env = QProcessEnvironment::systemEnvironment();
+	auto n4 = t.elapsed_mc();
+	
+	mtl_info("%ld %ld %ld, %ld", n1, n2, n3, n4);
+	
+	t.Continue(Reset::Yes);
+	auto env1 = env;
+	auto c1 = t.elapsed_mc();
+	
+	t.Continue(Reset::Yes);
+	auto env2 = env;
+	auto c2 = t.elapsed_mc();
+	
+	t.Continue(Reset::Yes);
+	auto env3 = env;
+	auto c3 = t.elapsed_mc();
+	
+	t.Continue(Reset::Yes);
+	auto env4 = env;
+	auto c4 = t.elapsed_mc();
+	
+	mtl_info("%ld %ld %ld, %ld", c1, c2, c3, c4);
+	*/
+	
 	Init();
 }
 
@@ -316,6 +356,7 @@ void App::ApplyDefaultPrefs()
 	prefs_->show_free_partition_space(true);
 	prefs_->show_dir_file_count(true);
 	prefs_->show_link_targets(true);
+	prefs_->store_thumbnails_in_ext_attrs(true);
 	
 	auto &cols = prefs_->cols_visibility();
 	cols[(int)gui::Column::Size] = 1;
@@ -1071,11 +1112,6 @@ void App::Init()
 	qRegisterMetaType<QVector<cornus::gui::TreeItem*>>();
 	qDBusRegisterMetaType<QMap<QString, QVariant>>();
 	qRegisterMetaType<cornus::Thumbnail*>();
-//	ElapsedTimer timer;
-//	timer.Continue();
-	env_ = QProcessEnvironment::systemEnvironment();
-//	timer.Pause();
-//	mtl_info("Elapsed (nano) %ld", timer.elapsed_nano());
 	media_ = new Media();
 	hid_ = new Hid(this);
 	
@@ -1095,8 +1131,10 @@ void App::Init()
 		OpenNewTab(FirstTime::Yes);
 	}
 	
+	env_ = QProcessEnvironment::systemEnvironment();
+	io::InitEnvInfo(desktop_, search_icons_dirs_, xdg_data_dirs_,
+		possible_categories_, env_);
 	SetupIconNames();
-	io::InitEnvInfo(desktop_, search_icons_dirs_, xdg_data_dirs_, possible_categories_);
 	CreateGui();
 	if (prefs_->remember_window_size())
 	{
@@ -1191,7 +1229,7 @@ void App::InitThumbnailPoolIfNeeded()
 }
 
 void App::LaunchOrOpenDesktopFile(const QString &full_path,
-	const bool has_exec_bit, const RunAction action) const
+	const bool has_exec_bit, const RunAction action)
 {
 	bool open = action == RunAction::Open;
 	if (!open)
@@ -1203,7 +1241,7 @@ void App::LaunchOrOpenDesktopFile(const QString &full_path,
 		return;
 	}
 	
-	DesktopFile *df = DesktopFile::FromPath(full_path, possible_categories_);
+	DesktopFile *df = DesktopFile::FromPath(full_path, possible_categories_, env_);
 	if (df == nullptr)
 		return;
 	DesktopArgs args;
@@ -1250,7 +1288,7 @@ QIcon* App::LoadIcon(io::File &file)
 	{
 		if (file.cache().desktop_file != nullptr)
 		{
-			QIcon icon = file.cache().desktop_file->CreateQIcon(env_);
+			QIcon icon = file.cache().desktop_file->CreateQIcon();
 			// just testing icon.isNull() doesn't test if the image
 			// can be loaded, so:
 			if (!icon.pixmap(QSize(32, 32)).isNull())
@@ -1332,7 +1370,7 @@ void App::OpenTerminal() {
 	QProcess::startDetached(*path, arguments, tab()->current_dir());
 }
 
-void App::OpenWithDefaultApp(const QString &full_path) const
+void App::OpenWithDefaultApp(const QString &full_path)
 {
 	ByteArray ba;
 	ba.set_msg_id(io::Message::SendDefaultDesktopFileForFullPath);
@@ -1342,9 +1380,14 @@ void App::OpenWithDefaultApp(const QString &full_path) const
 	MTL_CHECK_VOID(ba.Send(fd, CloseSocket::No));
 	ba.Clear();
 	MTL_CHECK_VOID(ba.Receive(fd));
-	MTL_CHECK_VOID(!ba.is_empty());
 	
-	DesktopFile *p = DesktopFile::From(ba);
+	if (!io::CheckDesktopFileABI(ba))
+	{
+		TellUserDesktopFileABIDoesntMatch();
+		return;
+	}
+	
+	DesktopFile *p = DesktopFile::From(ba, env_);
 	MTL_CHECK_VOID(p != nullptr);
 	DesktopArgs args;
 	args.full_path = full_path;
@@ -1858,7 +1901,8 @@ void App::SaveThumbnail()
 		compress_ctx_ = ZSTD_createCCtx();
 	
 	if (!thumbnails_to_save_.isEmpty())
-		io::SaveThumbnailToDisk(thumbnails_to_save_.takeLast(), compress_ctx_);
+		io::SaveThumbnailToDisk(thumbnails_to_save_.takeLast(), compress_ctx_,
+			prefs_->store_thumbnails_in_ext_attrs());
 }
 
 void App::SelectCurrentTab()
@@ -1882,7 +1926,6 @@ void App::SelectTabAt(const int tab_index, const FocusView fv)
 		tab()->FocusView();
 	}
 }
-
 
 void App::SetTopLevel(const TopLevel tl, io::File *cloned_file)
 {
@@ -2140,8 +2183,14 @@ void App::TabSelected(const int index)
 	setWindowTitle(title_str);
 }
 
-void App::TellUser(const QString &msg, const QString title) {
+void App::TellUser(const QString &msg, const QString title)
+{
 	QMessageBox::warning(this, title, msg);
+}
+
+void App::TellUserDesktopFileABIDoesntMatch()
+{
+	TellUser(tr("Please restart IO daemon: desktop file ABI doesn't match."));
 }
 
 void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)

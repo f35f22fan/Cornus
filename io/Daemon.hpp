@@ -41,12 +41,15 @@ public:
 	int signal_quit_fd() const { return signal_quit_fd_; }
 	gui::TasksWin* tasks_win() const { return tasks_win_; }
 	
+	 // must return a copy cause it's accessed from another thread
+	QProcessEnvironment env() { return env_; }
+	
 public Q_SLOTS:
 	void CutURLsToClipboard(ByteArray *ba);
 	void CopyURLsToClipboard(ByteArray *ba);
 	bool EmptyTrashRecursively(QString dir_path, const bool notify_user);
 	void LoadDesktopFiles();
-	void LoadDesktopFilesFrom(QString dir_path);
+	void LoadDesktopFilesFrom(QString dir_path, const QProcessEnvironment &env);
 	void QuitGuiApp();
 	void SendAllDesktopFiles(const int fd);
 	void SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd);
@@ -78,6 +81,7 @@ private:
 	io::ServerLife *life_ = nullptr;
 	Category category_ = Category::None;
 	QHash<QString, Category> possible_categories_;
+	QProcessEnvironment env_;
 	int signal_quit_fd_ = -1;
 };
 }

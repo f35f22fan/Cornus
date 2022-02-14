@@ -45,6 +45,13 @@ bool CanWriteToDir(const QString &dir_path)
 	return access(ba.data(), W_OK) == 0;
 }
 
+bool CheckDesktopFileABI(ByteArray &ba)
+{
+	if (!ba.has_more(2) || ba.next_i16() != DesktopFileABI)
+		return false;
+	return true;
+}
+
 int CompareDigits(QStringRef a, QStringRef b)
 {
 	int i = 0;
@@ -450,18 +457,18 @@ int CountSizeRecursiveTh(const QString &path,
 	return 0;
 }
 
-void Delete(io::File *file)
+void Delete(io::File *file, const QProcessEnvironment &env)
 {
 	if (file->is_dir())
 	{
 		io::Files files;
 		files.data.processed_dir_path = file->build_full_path() + '/';
 		files.data.show_hidden_files(true);
-		MTL_CHECK_VOID(ListFiles(files.data, &files, CountDirFiles::No));
+		MTL_CHECK_VOID(ListFiles(files.data, &files, env, CountDirFiles::No));
 		
 		for (io::File *next: files.data.vec) {
 			if (next->is_dir())
-				Delete(next);
+				Delete(next, env);
 			else
 				next->Delete();
 			delete next;
@@ -842,12 +849,11 @@ Bool HasExecBit(const QString &full_path)
 }
 
 void InitEnvInfo(Category &desktop, QVector<QString> &search_icons_dirs,
-QVector<QString> &xdg_data_dirs,
-QHash<QString, Category> &possible_categories)
+QVector<QString> &xdg_data_dirs, QHash<QString, Category> &possible_categories,
+	QProcessEnvironment &env)
 {
 	xdg_data_dirs.clear();
 	category::InitAll(possible_categories);
-	auto env = QProcessEnvironment::systemEnvironment();
 	QString str = env.value(QLatin1String("XDG_CURRENT_DESKTOP")).toLower();
 	///workaround Ubuntu's "ubuntu:GNOME" $XDG_CURRENT_DESKTOP value.
 	if (str.indexOf(str::Gnome) != -1) {
@@ -983,7 +989,9 @@ bool ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 	return true;
 }
 
-bool ListFiles(io::FilesData &data, io::Files *ptr, const CountDirFiles cdf,
+bool ListFiles(io::FilesData &data, io::Files *ptr,
+	const QProcessEnvironment &env,
+	const CountDirFiles cdf,
 	const QHash<QString, Category> *possible_categories,
 	FilterFunc ff)
 {
@@ -1025,7 +1033,7 @@ bool ListFiles(io::FilesData &data, io::Files *ptr, const CountDirFiles cdf,
 		file->name(name);
 		file->cache().possible_categories = possible_categories;
 
-		if (ReloadMeta(*file, stx, PrintErrors::Yes, &data.processed_dir_path))
+		if (ReloadMeta(*file, stx, env, PrintErrors::Yes, &data.processed_dir_path))
 		{
 			data.vec.append(file);
 			if (cdf == CountDirFiles::Yes && file->is_dir_or_so())
@@ -1433,7 +1441,7 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 	}
 }
 
-bool ReloadMeta(io::File &file, struct statx &stx,
+bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &env,
 	const PrintErrors pe, QString *dir_path)
 {
 	QString full_path_str;
@@ -1469,7 +1477,8 @@ bool ReloadMeta(io::File &file, struct statx &stx,
 	if (file.is_regular() && (cache.possible_categories != nullptr)
 		&& cache.ext == DesktopExt)
 	{
-		DesktopFile *df = DesktopFile::FromPath(full_path_str, *cache.possible_categories);
+		DesktopFile *df = DesktopFile::FromPath(full_path_str,
+			*cache.possible_categories, env);
 		if (cache.desktop_file != nullptr)
 			delete cache.desktop_file;
 		
@@ -1523,7 +1532,8 @@ bool SameFiles(const QString &path1, const QString &path2, int *ret_error)
 	return id1 == id2;
 }
 
-bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx)
+bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx,
+	const bool ok_to_store_thumbnails_in_ext_attrs)
 {
 	ByteArray ba;
 	ba.MakeSure(thumbnail::HeaderSize, ExactSize::Yes);
@@ -1546,7 +1556,8 @@ bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx)
 	ba.add(dst_buf, compressed_size, ExactSize::Yes);
 	free(dst_buf);
 	
-	if (item.dir == TempDir::No) {
+	if (ok_to_store_thumbnails_in_ext_attrs && (item.dir == TempDir::No))
+	{
 		if (io::SetXAttr(item.full_path, media::XAttrThumbnail, ba, PrintErrors::No))
 			return true;
 	}

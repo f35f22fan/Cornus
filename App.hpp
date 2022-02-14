@@ -50,6 +50,7 @@ public:
 	Category desktop() const { return desktop_; }
 	void DisplayFileContents(const int row, io::File *cloned_file = nullptr);
 	void EditSelectedMovieTitle();
+	const QProcessEnvironment& env() const { return env_; }
 	void ExtractAskDestFolder();
 	void ExtractTo(const QString &to_dir);
 	void FileDoubleClicked(io::File *file, const PickBy pb);
@@ -70,7 +71,7 @@ public:
 	QColor hover_bg_color() const { return (theme_type_ == ThemeType::Light)
 		? QColor(150, 255, 150) : QColor(0, 80, 0); }
 	QColor hover_bg_color_gray(const QColor &c) const;
-	void LaunchOrOpenDesktopFile(const QString &full_path, const bool has_exec_bit, const RunAction action) const;
+	void LaunchOrOpenDesktopFile(const QString &full_path, const bool has_exec_bit, const RunAction action);
 	bool level_browser() const { return top_level_stack_.level == TopLevel::Browser; }
 	gui::Location* location() { return location_; }
 	QSplitter* main_splitter() const { return main_splitter_; }
@@ -104,6 +105,7 @@ public:
 	
 	void ToggleExecBitOfSelectedFiles();
 	void TellUser(const QString &msg, const QString title = QString());
+	void TellUserDesktopFileABIDoesntMatch();
 	void TestExecBuf(const char *buf, const isize size, ExecInfo &ret);
 	ThemeType theme_type() const { return theme_type_; }
 	gui::ToolBar *toolbar() const { return toolbar_; }
@@ -141,7 +143,7 @@ private:
 	void InitThumbnailPoolIfNeeded();
 	QIcon *LoadIcon(io::File &file);
 	void LoadIconsFrom(QString dir_path);
-	void OpenWithDefaultApp(const QString &full_path) const;
+	void OpenWithDefaultApp(const QString &full_path);
 	int ReadMTP();
 	inline QShortcut* Register(const QKeySequence ks);
 	void RegisterShortcuts();
@@ -198,6 +200,7 @@ private:
 	HashInfo root_hash_ = {};
 	QVector<io::SaveThumbnail> thumbnails_to_save_;
 	ZSTD_CCtx *compress_ctx_ = nullptr;
+	QProcessEnvironment env_;
 	
 	GlobalThumbLoaderData global_thumb_loader_data_ = {};
 	
@@ -209,8 +212,6 @@ private:
 	QHash<FilesId, io::Files*> files_;
 	FilesId next_files_id_ = 0;
 	// <== end
-	
-	QProcessEnvironment env_;
 	
 //	friend class cornus::gui::Table;
 //	friend class cornus::gui::Tab;

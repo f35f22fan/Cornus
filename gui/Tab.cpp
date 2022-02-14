@@ -152,7 +152,7 @@ void* GoToTh(void *p)
 	const auto cdf = params->count_dir_files ?
 		io::CountDirFiles::Yes : io::CountDirFiles::No;
 	
-	if (!io::ListFiles(*new_data, &files, cdf, &app->possible_categories()))
+	if (!io::ListFiles(*new_data, &files, app->env(), cdf, &app->possible_categories()))
 	{
 		delete params;
 		delete new_data;
@@ -440,8 +440,6 @@ Tab::CreateOpenWithList(const QString &full_path)
 	open_with_.mime = app_->QueryMimeType(full_path);
 	ReloadOpenWith();
 	QVector<QAction*> ret;
-	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-	
 	for (DesktopFile *next: open_with_.show_vec)
 	{
 		QString name = next->GetName();
@@ -455,7 +453,7 @@ Tab::CreateOpenWithList(const QString &full_path)
 		QAction *action = new QAction(name);
 		QVariant v = QVariant::fromValue((void *) next);
 		action->setData(v);
-		action->setIcon(next->CreateQIcon(env));
+		action->setIcon(next->CreateQIcon());
 		connect(action, &QAction::triggered, this, &Tab::LaunchFromOpenWithMenu);
 		ret.append(action);
 	}
@@ -1232,21 +1230,27 @@ bool Tab::ReloadOpenWith()
 	if (fd == -1)
 		return false;
 	
-	ByteArray send_ba;
-	send_ba.set_msg_id(io::Message::SendOpenWithList);
-	send_ba.add_string(open_with_.mime);
+	ByteArray query_ba;
+	query_ba.set_msg_id(io::Message::SendOpenWithList);
+	query_ba.add_string(open_with_.mime);
 	
-	if (!send_ba.Send(fd, CloseSocket::No))
+	if (!query_ba.Send(fd, CloseSocket::No))
 		return false;
 	
-	ByteArray receive_ba;
-	if (!receive_ba.Receive(fd))
+	ByteArray received_ba;
+	if (!received_ba.Receive(fd))
 		return false;
 	
-	while (receive_ba.has_more())
+	if (!io::CheckDesktopFileABI(received_ba))
 	{
-		const Present present = (Present)receive_ba.next_i8();
-		DesktopFile *next = DesktopFile::From(receive_ba);
+		app_->TellUserDesktopFileABIDoesntMatch();
+		return false;
+	}
+	
+	while (received_ba.has_more())
+	{
+		const Present present = (Present)received_ba.next_i8();
+		DesktopFile *next = DesktopFile::From(received_ba, app_->env());
 		if (next != nullptr) {
 			if (present == Present::Yes)
 				open_with_.show_vec.append(next);
@@ -1400,13 +1404,12 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 			}
 		}
 	}
-	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
 	if (selected_count == 1 && !file_under_mouse_full_path.isEmpty())
 	{
 		if (file->is_desktop_file())
 		{
 			DesktopFile *df = DesktopFile::FromPath(file_under_mouse_full_path,
-				app_->possible_categories());
+				app_->possible_categories(), app_->env());
 			if (df != nullptr)
 			{
 				{
@@ -1415,7 +1418,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 						app_->LaunchOrOpenDesktopFile(file_under_mouse_full_path,
 							false, RunAction::Run);
 					});
-					action->setIcon(df->CreateQIcon(env));
+					action->setIcon(df->CreateQIcon());
 				}
 				{
 					QAction *action = menu->addAction(tr("Open For Editing"));
@@ -1423,7 +1426,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 						app_->LaunchOrOpenDesktopFile(file_under_mouse_full_path,
 							false, RunAction::Open);
 					});
-					action->setIcon(df->CreateQIcon(env));
+					action->setIcon(df->CreateQIcon());
 				}
 				delete df;
 			}

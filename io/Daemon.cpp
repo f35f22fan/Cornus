@@ -43,7 +43,7 @@ struct DesktopFileWatchArgs {
 };
 
 void ReadEvent(int inotify_fd, char *buf,
-	bool &has_been_unmounted_or_deleted, io::Daemon *server,
+	bool &has_been_unmounted_or_deleted, io::Daemon *daemon,
 	QHash<int, QString> &fd_to_path)
 {
 	const ssize_t num_read = read(inotify_fd, buf, kInotifyEventBufLen);
@@ -55,7 +55,7 @@ void ReadEvent(int inotify_fd, char *buf,
 		return;
 	}
 	
-	DesktopFiles &desktop_files = server->desktop_files();
+	DesktopFiles &desktop_files = daemon->desktop_files();
 	ssize_t add = 0;
 	const QString desktop = QLatin1String(".desktop");
 	
@@ -72,7 +72,8 @@ void ReadEvent(int inotify_fd, char *buf,
 			if (is_dir || !name.endsWith(desktop))
 				continue;
 			QString full_path = dir_path + name;
-			DesktopFile *p = DesktopFile::FromPath(full_path, server->possible_categories());
+			DesktopFile *p = DesktopFile::FromPath(full_path,
+				daemon->possible_categories(), daemon->env());
 			if (p != nullptr)
 			{
 				auto guard = desktop_files.guard();
@@ -129,7 +130,8 @@ void ReadEvent(int inotify_fd, char *buf,
 			if (is_dir || !name.endsWith(desktop))
 				continue;
 			QString full_path = dir_path + name;
-			DesktopFile *p = DesktopFile::FromPath(full_path, server->possible_categories());
+			DesktopFile *p = DesktopFile::FromPath(full_path,
+				daemon->possible_categories(), daemon->env());
 			if (p != nullptr)
 			{
 				auto guard = desktop_files.guard();
@@ -255,7 +257,8 @@ Daemon::Daemon()
 	cm_ = new CondMutex();
 	life_ = new ServerLife();
 	notify_.Init();
-	io::InitEnvInfo(category_, search_icons_dirs_, xdg_data_dirs_, possible_categories_);
+	env_ = QProcessEnvironment::systemEnvironment();
+	io::InitEnvInfo(category_, search_icons_dirs_, xdg_data_dirs_, possible_categories_, env_);
 	tasks_win_ = new gui::TasksWin();
 	LoadDesktopFiles();
 	InitTrayIcon();
@@ -266,13 +269,11 @@ Daemon::~Daemon() {
 	{
 		{ // wake up epoll() to not wait till it times out
 			const i64 n = 1;
-			int status = ::write(signal_quit_fd_, &n, sizeof n);
+			const int status = ::write(signal_quit_fd_, &n, sizeof n);
 			if (status == -1)
 				mtl_status(errno);
 		}
-		const int status = ::close(signal_quit_fd_);
-		if (status != 0)
-			mtl_status(errno);
+		::close(signal_quit_fd_);
 	}
 	notify_.Close();
 	delete life_;
@@ -441,7 +442,7 @@ void Daemon::GetPreferredOrder(QString mime,
 		DesktopFile *p = nullptr;
 		
 		if (id.startsWith('/')) {
-			p = DesktopFile::JustExePath(id);
+			p = DesktopFile::JustExePath(id, env_);
 		} else {
 			p = desktop_files_.hash.value(id, nullptr);
 		}
@@ -489,13 +490,14 @@ void Daemon::InitTrayIcon()
 
 void Daemon::LoadDesktopFiles()
 {
+	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
 	for (const auto &next: xdg_data_dirs_)
 	{
 		QString dir = next;
 		if (!dir.endsWith('/'))
 			dir.append('/');
 		dir.append(QLatin1String("applications/"));
-		LoadDesktopFilesFrom(dir);
+		LoadDesktopFilesFrom(dir, env);
 	}
 	
 	DesktopFileWatchArgs *args = new DesktopFileWatchArgs();
@@ -505,7 +507,7 @@ void Daemon::LoadDesktopFiles()
 	io::NewThread(io::WatchDesktopFileDirs, args);
 }
 
-void Daemon::LoadDesktopFilesFrom(QString dir_path)
+void Daemon::LoadDesktopFilesFrom(QString dir_path, const QProcessEnvironment &env)
 {
 	if (!dir_path.endsWith('/'))
 		dir_path.append('/');
@@ -528,12 +530,13 @@ void Daemon::LoadDesktopFilesFrom(QString dir_path)
 			continue;
 		
 		if (S_ISDIR(stx.stx_mode)) {
-			LoadDesktopFilesFrom(full_path);
+			LoadDesktopFilesFrom(full_path, env);
 			continue;
 		}
 		
-		auto *p = DesktopFile::FromPath(full_path, possible_categories_);
-		if (p != nullptr) {
+		auto *p = DesktopFile::FromPath(full_path, possible_categories_, env);
+		if (p != nullptr)
+		{
 			auto guard = desktop_files_.guard();
 			desktop_files_.hash.insert(p->GetId(), p);
 		}
@@ -550,7 +553,8 @@ void Daemon::QuitGuiApp()
 
 void Daemon::SendAllDesktopFiles(const int fd)
 {
-	ByteArray ba;
+	ByteArray reply;
+	reply.add_i16(DesktopFileABI);
 	{
 		auto guard = desktop_files_.guard();
 		auto it = desktop_files_.hash.constBegin();
@@ -558,22 +562,25 @@ void Daemon::SendAllDesktopFiles(const int fd)
 		{
 			DesktopFile *p = it.value();
 			//mtl_printq(p->GetName());
-			p->WriteTo(ba);
+			p->WriteTo(reply);
 			it++;
 		}
 	}
-	ba.Send(fd);
+	reply.Send(fd);
 }
 
 void Daemon::SendDesktopFilesById(ByteArray *ba, const int fd)
 {
 	ByteArray reply;
+	reply.add_i16(DesktopFileABI);
 	{
 		auto guard = desktop_files_.guard();
-		while (ba->has_more()) {
+		while (ba->has_more())
+		{
 			QString id = ba->next_string();
 			DesktopFile *p = desktop_files_.hash.value(id, nullptr);
-			if (p == nullptr) {
+			if (p == nullptr)
+			{
 				mtl_printq2("Not found by ID: ", id);
 				continue;
 			}
@@ -594,11 +601,9 @@ void Daemon::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 	QVector<DesktopFile*> show_vec;
 	QVector<DesktopFile*> hide_vec;
 	GetDesktopFilesForMime(mime, show_vec, hide_vec);
-//	mtl_info("show_vec: %d, hide_vec: %d", show_vec.size(), hide_vec.size());
-//	const int cnt = desktop_files_.hash.count();
-//	mtl_info("Total: %d", cnt);
 	
 	ByteArray reply;
+	reply.add_i16(DesktopFileABI);
 	if (!show_vec.isEmpty())
 	{
 		DesktopFile *p = show_vec[0];
@@ -614,19 +619,20 @@ void Daemon::SendOpenWithList(QString mime, const int fd)
 	QVector<DesktopFile*> hide_vec;
 	GetDesktopFilesForMime(mime, show_vec, hide_vec);
 	
-	ByteArray ba;
+	ByteArray reply;
+	reply.add_i16(DesktopFileABI);
 	for (DesktopFile *next: show_vec)
 	{
-		ba.add_i8((i8)Present::Yes);
-		next->WriteTo(ba);
+		reply.add_i8((i8)Present::Yes);
+		next->WriteTo(reply);
 	}
 	
 	for (DesktopFile *next: hide_vec) {
-		ba.add_i8((i8)Present::No);
-		next->WriteTo(ba);
+		reply.add_i8((i8)Present::No);
+		next->WriteTo(reply);
 	}
 	
-	ba.Send(fd);
+	reply.Send(fd);
 }
 
 void Daemon::SysTrayClicked()

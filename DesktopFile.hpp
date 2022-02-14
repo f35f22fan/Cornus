@@ -10,6 +10,8 @@
 
 namespace cornus {
 
+const i16 DesktopFileABI = 1;
+
 struct DesktopArgs {
 	QString working_dir;
 	QString full_path;
@@ -40,11 +42,11 @@ public:
 	~Group();
 	
 	Group* Clone(DesktopFile *new_parent) const;
-	QString ExpandEnvVars(QString s, QProcessEnvironment &my_env);
+	QString ExpandEnvVars(QString s);
 	static Group* From(ByteArray &ba, DesktopFile *parent);
-	QString Get(const QString &key, QProcessEnvironment &env);
-	QString GetIcon(QProcessEnvironment &env) { return Get(QLatin1String("Icon"), env); }
-	QString GetPath(QProcessEnvironment &env) { return Get(QLatin1String("Path"), env); }
+	QString Get(const QString &key);
+	QString GetIcon() { return Get(QLatin1String("Icon")); }
+	QString GetPath() { return Get(QLatin1String("Path")); }
 	bool IsMain() const;
 	void Launch(const QString &working_dir, const QString &full_path);
 	const QString& name() const { return name_; }
@@ -90,13 +92,14 @@ public:
 
 	virtual ~DesktopFile();
 	
-	static DesktopFile* From(ByteArray &ba);
-	static DesktopFile* FromPath(const QString &full_path, const QHash<QString, Category> &h);
-	static DesktopFile* JustExePath(const QString &full_path);
+	static DesktopFile* From(ByteArray &ba, const QProcessEnvironment &env);
+	static DesktopFile* FromPath(const QString &full_path, const QHash<QString, Category> &h, const QProcessEnvironment &env);
+	static DesktopFile* JustExePath(const QString &full_path, const QProcessEnvironment &env);
+	
 	DesktopFile* Clone() const;
 	
 	static MimeInfo GetForMime(const QString &mime);
-	QIcon CreateQIcon(QProcessEnvironment &env);
+	QIcon CreateQIcon();
 	
 	const QString& full_path() const { return full_path_; }
 	void full_path(const QString &s) { full_path_ = s; }
@@ -107,8 +110,6 @@ public:
 		return main_group_ != nullptr &&
 		main_group_->is_text_editor();
 	}
-	
-	const QHash<QString, QString>& kv() const { return kv_; }
 	
 	void Launch(const DesktopArgs &args);
 	desktopfile::Group* main_group() const { return main_group_; }
@@ -123,7 +124,7 @@ public:
 	Type type() const { return type_; }
 	void WriteTo(ByteArray &ba) const;
 	
-	QString GetIcon(QProcessEnvironment &env) const;
+	QString GetIcon() const;
 	QString GetName() const;
 	QString GetGenericName() const;
 	
@@ -134,7 +135,7 @@ public:
 	
 private:
 	NO_ASSIGN_COPY_MOVE(DesktopFile);
-	DesktopFile();
+	DesktopFile(const QProcessEnvironment &env);
 	
 	bool Init(const QString &full_path, const QHash<QString, Category> &possible_categories);
 	
@@ -146,7 +147,10 @@ private:
 	QMap<QString, desktopfile::Group*> groups_;
 	desktopfile::Group *main_group_ = nullptr;
 	const QHash<QString, Category> *possible_categories_ = nullptr;
-	QHash<QString, QString> kv_;
+	QHash<QString, QString> custom_env_;
+	QProcessEnvironment env_;
+	
+	friend class desktopfile::Group;
 };
 
 bool ContainsDesktopFile(QVector<DesktopFile*> &vec, DesktopFile *p, int *ret_index = nullptr);

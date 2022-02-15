@@ -445,7 +445,7 @@ Tab::CreateOpenWithList(const QString &full_path)
 	for (DesktopFile *next: open_with_.show_vec)
 	{
 		QString name = next->GetName(locale);
-		QString generic = next->GetGenericName();
+		QString generic = next->GetGenericName(locale);
 		if (!generic.isEmpty()) {
 			name += QLatin1String(" (") + generic + ')';
 		}

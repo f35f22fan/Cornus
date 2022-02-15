@@ -182,7 +182,7 @@ QWidget* OpenOrderPane::CreateAddingCustomItem()
 	for (DesktopFile *p: all_desktop_files_)
 	{
 		QString s = p->GetName(locale_);
-		QString generic = p->GetGenericName();
+		QString generic = p->GetGenericName(locale_);
 		
 		if (!generic.isEmpty()) {
 			s.append(QLatin1String(" ("));

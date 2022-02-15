@@ -106,7 +106,6 @@ QString Group::ExpandEnvVars(QString s)
 			break;
 		
 		QString var_name = match.captured();
-		//mtl_printq2("var_name initial: ", var_name);
 		const int initial_var_len = var_name.size();
 		if (var_name.at(1) == QChar('{') && var_name.endsWith('}'))
 		{
@@ -114,24 +113,21 @@ QString Group::ExpandEnvVars(QString s)
 		} else {
 			var_name = var_name.mid(1);
 		}
-		//mtl_printq2("var_name: ", var_name);
-		//mtl_printq2("value: ", my_env.value(var_name));
+
 		QString new_val = s.mid(0, index);
-		QString var_value = parent_->env_.value(var_name);
+		QString var_value = parent_->custom_env_.value(var_name);
 		if (var_value.isEmpty())
 		{
 			var_value = kv_.value(var_name);
-			//mtl_printq2("var_value was empty, now: ", var_value);
-			if (var_value.isEmpty()) {
+			if (var_value.isEmpty())
 				var_value = parent_->env_.value(var_name);
-			}
 		}
+		
 		new_val += var_value;
 		new_val += s.mid(index + initial_var_len);
 		s = new_val;
 	}
 	
-	//mtl_printq2("Returning: ", s);
 	return s;
 }
 
@@ -328,9 +324,7 @@ inline i16 Score(const QLocale &lhs, const QLocale &rhs)
 		score += 32;
 	
 	if (lhs.country() == rhs.country())
-	{
 		score += 16;
-	}
 	
 	return score;
 }
@@ -675,7 +669,7 @@ bool DesktopFile::Init(const QString &full_path,
 			
 			const auto k = key.toString();
 			const auto v = value.toString();
-			env_.insert(k, v);
+//			env_.insert(k, v);
 			custom_env_.insert(k, v);
 		} else {
 			group->ParseLine(line, possible_categories);

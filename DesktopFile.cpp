@@ -100,11 +100,9 @@ QStringList SplitIntoArgs(const QString &str)
 			continue;
 		}
 		
-		bool inside_quote = last_quote != -1;
-		if (!inside_quote && (c == ' ' || c == '\t'))
+		if (last_quote == -1 && (c == ' ' || c == '\t'))
 		{
-			if (!arg.isEmpty())
-			{
+			if (!arg.isEmpty()) {
 				args.append(arg);
 				arg.clear();
 			}
@@ -118,9 +116,9 @@ QStringList SplitIntoArgs(const QString &str)
 	if (!arg.isEmpty())
 		args.append(arg);
 	
-	for (auto &next: args) {
-		mtl_printq(next);
-	}
+//	for (auto &next: args) {
+//		mtl_printq(next);
+//	}
 	
 	return args;
 }
@@ -280,15 +278,39 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 		} else if (next.startsWith('%')) {
 			if (next == QLatin1String("%f") || next == QLatin1String("%F"))
 			{
+// %f: a single file path, %F: a list of file paths
 				if (full_path.isEmpty())
 					continue;
 				app_args.append(full_path);
 			} else if (next == QLatin1String("%u") || next == QLatin1String("%U")) {
+// %u: a single URL, %U: a list of URLs
 				if (full_path.isEmpty())
 				{
 					continue;
 				}
 				auto url_str = QUrl::fromLocalFile(full_path).toString();
+				app_args.append(url_str);
+			} else if (next == QLatin1String("%c")) {
+// %c: The translated name of the application as listed in the
+// appropriate Name key in the desktop entry.
+				auto s = parent_->GetName(QLocale::system());
+				if (!s.isEmpty())
+					app_args.append(s);
+			} else if (next == QLatin1String("%i")) {
+// %i: The Icon key of the desktop entry expanded as two arguments,
+// first --icon and then the value of the Icon key. Should not expand to
+// any arguments if the Icon key is empty or missing.
+				auto s = parent_->GetIcon();
+				if (!s.isEmpty())
+				{
+					app_args.append(QLatin1String("--icon"));
+					app_args.append(s);
+				}
+			} else if (next == QLatin1String("%k")) {
+// %k: The location of the desktop file as either a URI (if for example
+// gotten from the vfolder system) or a local filename or empty if no
+// location is known.
+				auto url_str = QUrl::fromLocalFile(parent_->full_path_).toString();
 				app_args.append(url_str);
 			}
 		} else {

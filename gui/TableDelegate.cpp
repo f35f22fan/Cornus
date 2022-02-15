@@ -91,7 +91,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	if (file->is_regular() && file->cache().desktop_file != nullptr)
 	{
 		DesktopFile *df = file->cache().desktop_file;
-		QString desktop_fn = df->GetName();
+		QString desktop_fn = df->GetName(app_->locale());
 		if (!desktop_fn.isEmpty())
 		{
 			desktop_fn = QLatin1String(" (") + desktop_fn + ')';

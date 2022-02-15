@@ -49,12 +49,13 @@ public:
 	QString GetPath() { return Get(QLatin1String("Path")); }
 	bool IsMain() const;
 	void Launch(const QString &working_dir, const QString &full_path);
-	const QString& name() const { return name_; }
+	QHash<QString, QString>& map() { return kv_; }
+	const QString& name() const { return group_name_; }
 	void ParseLine(const QStringRef &line, const QHash<QString, Category> &possible_categories);
-	QMap<QString, QString>& map() { return kv_map_; }
+	QString PickByLocale(const QLocale &match_locale, const QString &key);
 	Priority Supports(const QString &mime, const MimeInfo info, const Category desktop) const;
 	void WriteTo(ByteArray &ba);
-	QString value(const QString &key) const { return kv_map_.value(key); }
+	QString value(const QString &key) const { return kv_.value(key); }
 	void ListKV();
 	
 	const QVector<Category>& categories() const { return categories_; }
@@ -71,13 +72,20 @@ public:
 	
 private:
 	NO_ASSIGN_COPY_MOVE(Group);
-	QString name_;
-	QMap<QString, QString> kv_map_;
+	
+	void AddLocaleKV(QString key, const QString value);
+	
+	QString group_name_;
+	QHash<QString, QString> kv_;
+	QHash<QString, QVector<QPair<QLocale, QString>>> locale_strings_;
+	QHash<QLocale, QHash<QString, QString>> locale_cache_;
+	
 	QStringList mimetypes_;
 	QVector<Category> categories_;
 	QVector<Category> only_show_in_;
 	QVector<Category> not_show_in_;
 	DesktopFile *parent_ = nullptr;
+	
 	friend class DesktopFile;
 };
 } // namespace
@@ -124,11 +132,9 @@ public:
 	Type type() const { return type_; }
 	void WriteTo(ByteArray &ba) const;
 	
-	QString GetIcon() const;
-	QString GetName() const;
-	QString GetGenericName() const;
-	
-	const QString& name() const { return name_; }
+	QString GetIcon();
+	QString GetName(const QLocale &locale);
+	QString GetGenericName(const QLocale &locale);
 	
 	Priority priority() const { return priority_; }
 	void priority(const Priority n) { priority_ = n; }
@@ -138,13 +144,13 @@ private:
 	DesktopFile(const QProcessEnvironment &env);
 	
 	bool Init(const QString &full_path, const QHash<QString, Category> &possible_categories);
-	
+
 	Type type_ = Type::None;
 	Priority priority_ = Priority::Ignore;
 	QString full_path_;
 	QString name_;
 	mutable QString id_cached_;
-	QMap<QString, desktopfile::Group*> groups_;
+	QHash<QString, desktopfile::Group*> groups_;
 	desktopfile::Group *main_group_ = nullptr;
 	const QHash<QString, Category> *possible_categories_ = nullptr;
 	QHash<QString, QString> custom_env_;

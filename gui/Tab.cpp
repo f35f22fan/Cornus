@@ -30,6 +30,7 @@
 #include <QDBusMessage>
 #include <QDir>
 #include <QDrag>
+#include <QLocale>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QPainter>
@@ -440,9 +441,10 @@ Tab::CreateOpenWithList(const QString &full_path)
 	open_with_.mime = app_->QueryMimeType(full_path);
 	ReloadOpenWith();
 	QVector<QAction*> ret;
+	const QLocale locale = QLocale::system();
 	for (DesktopFile *next: open_with_.show_vec)
 	{
-		QString name = next->GetName();
+		QString name = next->GetName(locale);
 		QString generic = next->GetGenericName();
 		if (!generic.isEmpty()) {
 			name += QLatin1String(" (") + generic + ')';

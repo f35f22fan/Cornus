@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QDialog>
+#include <QLocale>
 
 #include "../decl.hxx"
 #include "decl.hxx"
@@ -66,5 +67,6 @@ private:
 	QComboBox *add_custom_cb_ = nullptr;
 	QLineEdit *removed_tf_ = nullptr;
 	gui::Tab *tab_ = nullptr;
+	QLocale locale_;
 };
 }

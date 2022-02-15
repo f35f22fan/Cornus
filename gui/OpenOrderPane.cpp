@@ -36,16 +36,20 @@ QString GetFullFilePathForMime(QString mime)
 	return save_dir + filename;
 }
 
-bool SortDesktopFiles(DesktopFile *a, DesktopFile *b)
-{
-	int n = a->GetName().toLower().compare(b->GetName().toLower());
-	return n >= 0 ? false : true;
-}
+struct LocalSort {
+	LocalSort(const QLocale &lc): locale_(lc) {}
+	bool operator () (DesktopFile *a, DesktopFile *b) {
+		const int n = a->GetName(locale_).toLower().compare(b->GetName(locale_).toLower());
+		return n >= 0 ? false : true;
+	}
+	
+	QLocale locale_;
+};
 
 OpenOrderPane::OpenOrderPane(App *app, gui::Tab *tab):
 QDialog(app), app_(app), tab_(tab)
-
 {
+	locale_ = QLocale::system();
 	CreateGui();
 	QueryData();
 	TableSelectionChanged();
@@ -170,14 +174,14 @@ QWidget* OpenOrderPane::CreateAddingCustomItem()
 	}
 	
 	std::sort(all_desktop_files_.begin(), all_desktop_files_.end(),
-		cornus::gui::SortDesktopFiles);
+		cornus::gui::LocalSort(locale_));
 	
 	add_custom_cb_ = new QComboBox();
 	const QString two_points = QLatin1String("..");
 	const int max_len = 40;
 	for (DesktopFile *p: all_desktop_files_)
 	{
-		QString s = p->GetName();
+		QString s = p->GetName(locale_);
 		QString generic = p->GetGenericName();
 		
 		if (!generic.isEmpty()) {
@@ -435,7 +439,8 @@ bool OpenOrderPane::WasOrderModified() const
 		return true;
 	
 	for (int i = 0; i < count; i++) {
-		if (model_vec[i]->GetName() != open_with_original_vec_[i]->GetName())
+		if (model_vec[i]->GetName(locale_)
+			!= open_with_original_vec_[i]->GetName(locale_))
 			return true;
 	}
 	

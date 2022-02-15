@@ -15,6 +15,7 @@
 
 #include <QHash>
 #include <QIcon>
+#include <QLocale>
 #include <QMainWindow>
 #include <QMap>
 #include <QMenu>
@@ -73,6 +74,7 @@ public:
 	QColor hover_bg_color_gray(const QColor &c) const;
 	void LaunchOrOpenDesktopFile(const QString &full_path, const bool has_exec_bit, const RunAction action);
 	bool level_browser() const { return top_level_stack_.level == TopLevel::Browser; }
+	const QLocale& locale() const { return locale_; }
 	gui::Location* location() { return location_; }
 	QSplitter* main_splitter() const { return main_splitter_; }
 	Media* media() const { return media_; }
@@ -201,6 +203,7 @@ private:
 	QVector<io::SaveThumbnail> thumbnails_to_save_;
 	ZSTD_CCtx *compress_ctx_ = nullptr;
 	QProcessEnvironment env_;
+	QLocale locale_;
 	
 	GlobalThumbLoaderData global_thumb_loader_data_ = {};
 	

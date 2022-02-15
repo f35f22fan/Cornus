@@ -3,6 +3,7 @@
 #include "ByteArray.hpp"
 #include "io/io.hh"
 
+#include <QLocale>
 #include <QProcess>
 #include <QRegularExpression>
 
@@ -66,15 +67,27 @@ const auto KeyExec = QLatin1String("Exec");
 namespace desktopfile {
 
 Group::Group(const QString &name, DesktopFile *parent)
-	: name_(name), parent_(parent) {}
+	: group_name_(name), parent_(parent) {}
 Group::~Group() {}
 
-Group*
-Group::Clone(DesktopFile *new_parent) const
+void Group::AddLocaleKV(QString key, const QString value)
 {
-	Group *p = new Group(name_, new_parent);
+	const int index = key.indexOf('[');
+	MTL_CHECK_VOID(index != -1);
+	
+	auto base = key.mid(0, index);
+	const int at = index + 1;
+	auto loc_str = key.mid(at, key.size() - at - 1);
+	QLocale locale(loc_str);
+	//mtl_info("\"%s\" - \"%s\"", qPrintable(base), qPrintable(loc.toString()));
+	locale_strings_[base].append({locale, value});
+}
+
+Group* Group::Clone(DesktopFile *new_parent) const
+{
+	Group *p = new Group(group_name_, new_parent);
 	p->mimetypes_ = mimetypes_;
-	p->kv_map_ = kv_map_;
+	p->kv_ = kv_;
 	p->categories_ = categories_;
 	p->only_show_in_ = only_show_in_;
 	p->not_show_in_ = not_show_in_;
@@ -107,7 +120,7 @@ QString Group::ExpandEnvVars(QString s)
 		QString var_value = parent_->env_.value(var_name);
 		if (var_value.isEmpty())
 		{
-			var_value = kv_map_.value(var_name);
+			var_value = kv_.value(var_name);
 			//mtl_printq2("var_value was empty, now: ", var_value);
 			if (var_value.isEmpty()) {
 				var_value = parent_->env_.value(var_name);
@@ -122,8 +135,7 @@ QString Group::ExpandEnvVars(QString s)
 	return s;
 }
 
-Group*
-Group::From(ByteArray &ba, DesktopFile *parent)
+Group* Group::From(ByteArray &ba, DesktopFile *parent)
 {
 	Group *p = new Group(ba.next_string(), parent);
 	
@@ -156,15 +168,14 @@ Group::From(ByteArray &ba, DesktopFile *parent)
 		{
 			QString key = ba.next_string();
 			QString val = ba.next_string();
-			p->kv_map_.insert(key, val);
+			p->kv_.insert(key, val);
 		}
 	}
 	
 	return p;
 }
 
-QString
-Group::Get(const QString &key)
+QString Group::Get(const QString &key)
 {
 	QString val = value(key);
 	if (val.isEmpty())
@@ -173,9 +184,7 @@ Group::Get(const QString &key)
 	return ExpandEnvVars(val);
 }
 
-bool Group::IsMain() const {
-	return name_ == MainGroupName;
-}
+bool Group::IsMain() const { return group_name_ == MainGroupName; }
 
 void Group::Launch(const QString &working_dir, const QString &full_path)
 {
@@ -245,35 +254,45 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 
 void Group::ListKV()
 {
-	QMapIterator<QString, QString> it(kv_map_);
-	mtl_info("kv_map size: %d",  kv_map_.size());
-	while (it.hasNext())
+	auto it = kv_.constBegin();
+	mtl_info("kv_map size: %d",  kv_.size());
+	while (it != kv_.constEnd())
 	{
-		it.next();
 		auto key = it.key().toLocal8Bit();
 		auto val = it.value().toLocal8Bit();
 		mtl_info("\"%s\": \"%s\"", key.data(), val.data());
+		it++;
 	}
 }
 
 void Group::ParseLine(const QStringRef &line,
 	const QHash<QString, Category> &possible_categories)
 {
-	int sep = line.indexOf('=');
+	const int sep = line.indexOf('=');
 	if (sep == -1)
 		return;
 	
 	QString key = line.mid(0, sep).trimmed().toString();
-	QString value = line.mid(sep + 1).trimmed().toString();
-	
 	if (key.isEmpty())
 		return;
 	
-	kv_map_.insert(key, value);
+	QString value = line.mid(sep + 1).trimmed().toString();
+	kv_.insert(key, value);
 	
-	if (mimetypes_.isEmpty() && key == str::MimeType) {
+	if (key.endsWith(']'))
+	{
+		AddLocaleKV(key, value);
+		return;
+	}
+	
+	if (mimetypes_.isEmpty() && key == str::MimeType)
+	{
 		mimetypes_ = value.split(';', Qt::SkipEmptyParts);
-	} else if (key == str::Categories) {
+		return;
+	}
+	
+	if (key == str::Categories)
+	{
 		auto categories = value.splitRef(';', Qt::SkipEmptyParts);
 		for (QStringRef &next: categories)
 		{
@@ -281,13 +300,18 @@ void Group::ParseLine(const QStringRef &line,
 			if (c != Category::None)
 				categories_.append(c);
 		}
-	} else if (key == str::OnlyShowIn || key == str::NotShowIn) {
-		const bool only_show_in = key == str::OnlyShowIn;
+		return;
+	}
+	const bool only_show_in = key == str::OnlyShowIn;
+	if (only_show_in || key == str::NotShowIn)
+	{
 		auto categories = value.splitRef(';', Qt::SkipEmptyParts);
 		for (QStringRef &next: categories)
 		{
-			Category c = possible_categories.value(next.toString().toLower(), Category::None);
-			if (c != Category::None) {
+			const QString key = next.toString().toLower();
+			Category c = possible_categories.value(key, Category::None);
+			if (c != Category::None)
+			{
 				if (only_show_in)
 					only_show_in_.append(c);
 				else
@@ -295,6 +319,58 @@ void Group::ParseLine(const QStringRef &line,
 			}
 		}
 	}
+}
+
+inline i16 Score(const QLocale &lhs, const QLocale &rhs)
+{
+	i16 score = 0;
+	if (lhs.language() == rhs.language())
+		score += 32;
+	
+	if (lhs.country() == rhs.country())
+	{
+		score += 16;
+	}
+	
+	return score;
+}
+
+QString Group::PickByLocale(const QLocale &match_locale, const QString &key)
+{
+	if (locale_cache_.contains(match_locale))
+	{
+		auto &h = locale_cache_[match_locale];
+		if (h.contains(key))
+			return h.value(key);
+	}
+	
+	if (!locale_strings_.contains(key))
+		return QString();
+	
+	const QPair<QLocale, QString> *best_pair = nullptr;
+	i16 best_score = -1;
+	auto &vec = locale_strings_.value(key);
+	for (auto &pair: vec)
+	{
+		const int score = Score(pair.first, match_locale);
+		if (score > best_score)
+		{
+			best_pair = &pair;
+			best_score = score;
+		}
+	}
+	
+	if (best_pair == nullptr)
+		return QString();
+	
+	{
+		auto &h = locale_cache_[match_locale];
+//		mtl_info("Caching \"%s\" -> \"%s\"", qPrintable(key),
+//			qPrintable(best_pair->second));
+		h.insert(key, best_pair->second);
+	}
+	
+	return best_pair->second;
 }
 
 Priority Group::Supports(const QString &mime, const MimeInfo info,
@@ -329,7 +405,7 @@ Priority Group::Supports(const QString &mime, const MimeInfo info,
 
 void Group::WriteTo(ByteArray &ba)
 {
-	ba.add_string(name_);
+	ba.add_string(group_name_);
 	ba.add_u8((u8)only_show_in_.size());
 	for (const auto &next: only_show_in_)
 		ba.add_u8(static_cast<u8>(next));
@@ -348,13 +424,14 @@ void Group::WriteTo(ByteArray &ba)
 	{
 		ba.add_string(mime);
 	}
-	ba.add_i32(kv_map_.size());
-	QMapIterator<QString, QString> it(kv_map_);
-	while (it.hasNext())
+	ba.add_i32(kv_.size());
+	
+	auto it = kv_.constBegin();
+	while (it != kv_.constEnd())
 	{
-		it.next();
 		ba.add_string(it.key());
 		ba.add_string(it.value());
+		it++;
 	}
 }
 
@@ -381,17 +458,19 @@ DesktopFile::Clone() const
 	new_df->priority_ = priority_;
 	new_df->custom_env_ = custom_env_;
 	
-	if (is_desktop_file()) {
+	if (is_desktop_file())
+	{
 		new_df->name_ = name_;
 		new_df->full_path_ = full_path_;
 		
-		QMapIterator<QString, desktopfile::Group*> it(groups_);
-		while (it.hasNext()) {
-			it.next();
+		auto it = groups_.constBegin();
+		while (it != groups_.constEnd())
+		{
 			desktopfile::Group *group = it.value()->Clone(new_df);
 			if (group->IsMain())
 				new_df->main_group_ = group;
 			new_df->groups_.insert(it.key(), group);
+			it++;
 		}
 	} else {
 		new_df->full_path_ = full_path_;
@@ -400,8 +479,7 @@ DesktopFile::Clone() const
 	return new_df;
 }
 
-QIcon
-DesktopFile::CreateQIcon()
+QIcon DesktopFile::CreateQIcon()
 {
 	QString s = GetIcon();
 	if (s.isEmpty())
@@ -509,7 +587,7 @@ QString DesktopFile::GetId() const
 	return id_cached_;
 }
 
-QString DesktopFile::GetIcon() const
+QString DesktopFile::GetIcon()
 {
 	if (!is_desktop_file() || !main_group_)
 		return QString();
@@ -517,20 +595,30 @@ QString DesktopFile::GetIcon() const
 	return main_group_->GetIcon();
 }
 
-QString DesktopFile::GetGenericName() const {
+QString DesktopFile::GetGenericName(const QLocale &locale)
+{
 	if (is_desktop_file() && main_group_)
-		return main_group_->value(QLatin1String("GenericName"));
+	{
+		const QString key = QLatin1String("GenericName");
+		QString s = main_group_->PickByLocale(locale, key);
+		return s.isEmpty() ? main_group_->value(key) : s;
+	}
 	
 	return QString();
 }
 
-QString DesktopFile::GetName() const
+QString DesktopFile::GetName(const QLocale &locale)
 {
 	if (is_just_exe_path())
 		return io::GetFileNameOfFullPath(full_path_).toString();
 	
 	if (main_group_)
-		return main_group_->value(QLatin1String("Name"));
+	{
+		//QLocale lc(QLocale::Russian, QLocale::AnyScript, QLocale::Belarus);
+		const QString key = QLatin1String("Name");
+		QString s = main_group_->PickByLocale(locale, key);
+		return s.isEmpty() ? main_group_->value(key) : s;
+	}
 	
 	return QString();
 }

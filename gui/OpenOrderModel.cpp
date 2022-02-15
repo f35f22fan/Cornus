@@ -11,7 +11,9 @@ namespace cornus::gui {
 
 OpenOrderModel::OpenOrderModel(App *app, OpenOrderPane *oop)
 : oop_(oop)
-{}
+{
+	locale_ = QLocale::system();
+}
 
 OpenOrderModel::~OpenOrderModel()
 {
@@ -54,7 +56,7 @@ OpenOrderModel::data(const QModelIndex &index, int role) const
 	
 	if (role == Qt::DisplayRole)
 	{
-		return item->GetName();
+		return item->GetName(locale_);
 	} else if (role == Qt::FontRole) {
 //		QStyleOptionViewItem option = table_->option();
 //		if (item->selected()) {

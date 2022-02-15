@@ -1112,6 +1112,7 @@ void App::Init()
 	qRegisterMetaType<QVector<cornus::gui::TreeItem*>>();
 	qDBusRegisterMetaType<QMap<QString, QVariant>>();
 	qRegisterMetaType<cornus::Thumbnail*>();
+	locale_ = QLocale::system();
 	media_ = new Media();
 	hid_ = new Hid(this);
 	

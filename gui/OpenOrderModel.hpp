@@ -5,6 +5,7 @@
 #include "../err.hpp"
 
 #include <QAbstractTableModel>
+#include <QLocale>
 #include <QProcessEnvironment>
 #include <QVector>
 
@@ -45,5 +46,6 @@ private:
 	OpenOrderTable *table_ = nullptr;
 	QVector<DesktopFile*> vec_;
 	OpenOrderPane *oop_ = nullptr;
+	QLocale locale_;
 };
 }

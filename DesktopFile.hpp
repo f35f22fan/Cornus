@@ -42,7 +42,7 @@ public:
 	~Group();
 	
 	Group* Clone(DesktopFile *new_parent) const;
-	QString ExpandEnvVars(QString s);
+	QString ExpandEnvVars(QString s, const QHash<QString, QString> *primary = nullptr);
 	static Group* From(ByteArray &ba, DesktopFile *parent);
 	QString Get(const QString &key);
 	QString GetIcon() { return Get(QLatin1String("Icon")); }

@@ -53,8 +53,7 @@
 }
 
 #define mtl_printq2(msg, s) {\
-	auto __FILE____LINE__ = s.toLocal8Bit();\
-	mtl_info("%s\"%s\"", msg, __FILE____LINE__.data());\
+	mtl_info("%s\"%s\"", msg, qPrintable(s));\
 }
 
 #define mtl_tbd() {\

@@ -227,7 +227,7 @@ int DoStat(const QString &full_path, const QString &name,
 
 bool EnsureDir(QString dir_path, const QString &subdir, QString *result = nullptr);
 
-bool EnsureRegularFile(const QString &full_path);
+bool EnsureRegularFile(const QString &full_path, const mode_t *mode = nullptr);
 
 enum class AppendSlash: i8 {
 	Yes,

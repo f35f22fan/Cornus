@@ -2,6 +2,9 @@
 
 #include "io.hh"
 
+#include <fcntl.h>
+#include <sys/stat.h>
+
 namespace cornus::io {
 
 SaveFile::SaveFile(const QString &dir_path, const QString &filename)
@@ -56,9 +59,20 @@ const QString& SaveFile::GetPathToWorkWith()
 
 bool SaveFile::InitTempPath()
 {
-	temp_path_ = original_path_ + QLatin1String(".tmp_cornus_mas");
+	struct statx stx;
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_MODE;
+	auto source_ba = original_path_.toLocal8Bit();
+	if (statx(0, source_ba.data(), flags, fields, &stx) != 0)
+	{
+		mtl_status(errno);
+		return false;
+	}
 	
-	return io::EnsureRegularFile(temp_path_);
+	temp_path_ = original_path_ + QLatin1String(".tmp_cornus_mas");
+	const mode_t mode = stx.stx_mode;
+	
+	return io::EnsureRegularFile(temp_path_, &mode);
 }
 
 }

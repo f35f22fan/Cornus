@@ -30,6 +30,9 @@ static const QString MimeType = QStringLiteral("MimeType");
 static const QString NotShowIn = QStringLiteral("NotShowIn");
 static const QString OnlyShowIn = QStringLiteral("OnlyShowIn");
 }
+const QRegularExpression regex("\\$\\{?\\w+\\}?");
+const auto MainGroupName = QLatin1String("Desktop Entry");
+const auto KeyExec = QLatin1String("Exec");
 
 bool ContainsDesktopFile(QVector<DesktopFile*> &vec,
 	DesktopFile *p, int *ret_index)
@@ -60,9 +63,67 @@ Category GetToolkitFor(const Category desktop)
 	}
 }
 
-const QRegularExpression regex("\\$\\{?\\w+\\}?");
-const auto MainGroupName = QLatin1String("Desktop Entry");
-const auto KeyExec = QLatin1String("Exec");
+QStringList SplitIntoArgs(const QString &str)
+{
+	const QChar bs('\\');
+	QString s = str;
+	mtl_printq2("BS (Y): ", s);
+	const QChar quote('\"');
+	QStringList args;
+	int last_quote = -1;
+	QString arg;
+	bool last_was_ctrl_bs = false;
+	for (int i = 0; i < s.size(); i++)
+	{
+		const QChar c = s.at(i);
+		if (c == bs)
+		{
+			bool bs_behind = (i - 1 >= 0) && (s.at(i - 1) == bs);
+			if (bs_behind && last_was_ctrl_bs) {
+				arg.append(c);
+				last_was_ctrl_bs = false;
+			} else {
+				last_was_ctrl_bs = true;
+			}
+			continue;
+		}
+		
+		if (c == quote)
+		{
+			const bool last_was_bs = last_was_ctrl_bs && (i - 1 >= 0) && (s.at(i - 1) == bs);
+			if (last_was_bs) {
+				arg.append(c);
+				continue;
+			}
+			
+			last_quote = (last_quote == -1) ? i : -1;
+			continue;
+		}
+		
+		bool inside_quote = last_quote != -1;
+		if (!inside_quote && (c == ' ' || c == '\t'))
+		{
+			if (!arg.isEmpty())
+			{
+				args.append(arg);
+				arg.clear();
+			}
+			
+			continue;
+		}
+		
+		arg.append(c);
+	}
+	
+	if (!arg.isEmpty())
+		args.append(arg);
+	
+	for (auto &next: args) {
+		mtl_printq(next);
+	}
+	
+	return args;
+}
 
 namespace desktopfile {
 
@@ -95,7 +156,7 @@ Group* Group::Clone(DesktopFile *new_parent) const
 	return p;
 }
 
-QString Group::ExpandEnvVars(QString s)
+QString Group::ExpandEnvVars(QString s, const QHash<QString, QString> *primary)
 {
 	MTL_CHECK_ARG(parent_ != nullptr, QString());
 	QRegularExpressionMatch match;
@@ -115,7 +176,13 @@ QString Group::ExpandEnvVars(QString s)
 		}
 
 		QString new_val = s.mid(0, index);
-		QString var_value = parent_->custom_env_.value(var_name);
+		QString var_value;
+		if (primary != nullptr && primary->contains(var_name))
+		{
+			var_value = primary->value(var_name);
+		}
+		
+		var_value = parent_->custom_env_.value(var_name);
 		if (var_value.isEmpty())
 		{
 			var_value = kv_.value(var_name);
@@ -187,8 +254,10 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 	QString exec = value(KeyExec);
 	if (exec.isEmpty())
 		return;
-
-	QStringList args = exec.split(' ', Qt::SkipEmptyParts);
+	
+	QHash<QString,QString> primary;
+//	QStringList args = exec.split(' ', Qt::SkipEmptyParts);
+	QStringList args = SplitIntoArgs(exec);
 	const QString env_key = QLatin1String("env");
 	const int arg_count = args.size();
 	QStringList app_args;
@@ -203,8 +272,9 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 				continue;
 			
 			auto env_pair = args[i].split('=');
-			if (env_pair.size() == 2) {
-				//mtl_info("Env vars: \"%s\"=\"%s\"", qPrintable(env_pair[0]), qPrintable(env_pair[1]));
+			if (env_pair.size() == 2)
+			{
+				mtl_info("Env vars: \"%s\"=\"%s\"", qPrintable(env_pair[0]), qPrintable(env_pair[1]));
 				parent_->env_.insert(env_pair[0], env_pair[1]);
 			}
 		} else if (next.startsWith('%')) {
@@ -215,19 +285,21 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 				app_args.append(full_path);
 			} else if (next == QLatin1String("%u") || next == QLatin1String("%U")) {
 				if (full_path.isEmpty())
+				{
 					continue;
+				}
 				auto url_str = QUrl::fromLocalFile(full_path).toString();
 				app_args.append(url_str);
 			}
 		} else {
-			QString s = ExpandEnvVars(next);
+			QString s = ExpandEnvVars(next, &primary);
 			app_args.append(s);
 		}
 	}
 	
-//	for (auto &next: app_args) {
-//		mtl_printq2("App arg: ", next);
-//	}
+	for (auto &next: app_args) {
+		mtl_printq2("App arg: ", next);
+	}
 	
 	QString work_dir = working_dir;
 	if (work_dir.isEmpty())

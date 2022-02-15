@@ -47,9 +47,7 @@ bool CanWriteToDir(const QString &dir_path)
 
 bool CheckDesktopFileABI(ByteArray &ba)
 {
-	if (!ba.has_more(2) || ba.next_i16() != DesktopFileABI)
-		return false;
-	return true;
+	return ba.has_more(2) && ba.next_i16() == DesktopFileABI;
 }
 
 int CompareDigits(QStringRef a, QStringRef b)
@@ -522,20 +520,22 @@ bool EnsureDir(QString dir_path, const QString &subdir, QString *result)
 	return false;
 }
 
-bool EnsureRegularFile(const QString &full_path)
+bool EnsureRegularFile(const QString &full_path, const mode_t *mode)
 {
 	const QByteArray ba = full_path.toLocal8Bit();
 	FileType t;
 	if (FileExistsCstr(ba.data(), &t))
 	{
-		if (t == FileType::Regular) {
+		if (t == FileType::Regular)
 			return true;
-		}
 		MTL_CHECK(remove(ba.data()) == 0);
 	}
+	
+	const mode_t file_mode = (mode) ? *mode : 0644;
 	const auto OverwriteFlags = O_CREAT | O_LARGEFILE;
-	int output_fd = ::open(ba.data(), OverwriteFlags, 0644);
-	if (output_fd == -1) {
+	const int output_fd = ::open(ba.data(), OverwriteFlags, file_mode);
+	if (output_fd == -1)
+	{
 		mtl_status(errno);
 		return false;
 	}

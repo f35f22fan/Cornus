@@ -183,7 +183,7 @@ void Files::SelectAllFiles(const cornus::Lock l, const Selected flag, QSet<int> 
 
 void Files::SelectFilenamesLater(const QVector<QString> &names, const SameDir sd)
 {
-	MutexGuard guard = this->guard();
+	auto g = this->guard();
 	auto dir_to_skip = (sd == SameDir::Yes) ? -1 : data.dir_id;
 	data.skip_dir_id = dir_to_skip;
 	for (const auto &name: names)
@@ -235,6 +235,17 @@ void Files::SetLastWatched(const cornus::Lock l, io::File *file)
 		if (next->has_last_watched_attr())
 			io::RemoveXAttr(next->build_full_path(), key);
 	}
+}
+
+void Files::WakeUpInotify(const enum Lock l)
+{
+	auto g = guard(l);
+	data.signalled_from_event_fd(true);
+	// wake up epoll() to not wait till it times out
+	const i64 n = 1;
+	const int status = ::write(data.signal_quit_fd, &n, sizeof n);
+	if (status == -1)
+		mtl_status(errno);
 }
 
 } // cornus::io:

@@ -326,7 +326,8 @@ const char* QuerySocketFor(const QString &dir_path, bool &needs_root);
 bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	const ReadParams &params);
 
-bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_dir);
+bool ReadLink(const char *file_path, LinkTarget &link_target,
+	const QString &parent_dir, const PrintErrors pe = PrintErrors::Yes);
 
 bool ReadLinkSimple(const char *file_path, QString &result);
 

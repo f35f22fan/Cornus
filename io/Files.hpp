@@ -19,6 +19,7 @@ class FilesData {
 	static const u16 CanWriteToDir = 1u << 3;
 	static const u16 CountDirFiles1Level = 1u << 4;
 	static const u16 Reloaded = 1u << 5;
+	static const u16 SignalledFromEventFd = 1u << 6;
 	
 public:
 	FilesData();
@@ -81,6 +82,14 @@ public:
 			bits_ &= ~ShowHiddenFiles;
 	}
 	
+	bool signalled_from_event_fd() const { return bits_ & SignalledFromEventFd; }
+	void signalled_from_event_fd(const bool flag) {
+		if (flag)
+			bits_ |= SignalledFromEventFd;
+		else
+			bits_ &= ~SignalledFromEventFd;
+	}
+	
 	bool thread_must_exit() const { return bits_ & ThreadMustExit; }
 	void thread_must_exit(const bool flag) {
 		if (flag)
@@ -125,13 +134,15 @@ public:
 	void SelectFileRange(const cornus::Lock l, const int row1, const int row2, QSet<int> &indices);
 	void SetLastWatched(const cornus::Lock l, io::File *file);
 	
+	void WakeUpInotify(const enum Lock l);
+	
 	inline void Broadcast() {
 		int status = pthread_cond_broadcast(&cond);
 		if (status != 0)
 			mtl_status(status);
 	}
 	
-	MutexGuard guard(const Lock l = Lock::Yes) const {
+	MutexGuard guard(const enum Lock l = Lock::Yes) const {
 		return (l == Lock::Yes) ? MutexGuard(&mutex) : MutexGuard();
 	}
 	

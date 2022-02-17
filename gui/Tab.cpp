@@ -746,10 +746,13 @@ void Tab::GoToAndSelect(const QString full_path)
 	QString parent_dir = parent.absolutePath();
 	const QString name = io::GetFileNameOfFullPath(full_path).toString();
 	const SameDir same_dir = io::SameFiles(parent_dir, current_dir_) ? SameDir::Yes : SameDir::No;
-	view_files().SelectFilenamesLater({name}, same_dir);
+	auto &files = view_files();
+	files.SelectFilenamesLater({name}, same_dir);
 	
 	if (same_dir == SameDir::No) {
 		MTL_CHECK_VOID(GoTo(Action::To, {parent_dir, Processed::No}, Reload::No));
+	} else {
+		files.WakeUpInotify(Lock::Yes);
 	}
 }
 
@@ -881,9 +884,12 @@ void Tab::GoToInitialDir()
 		}
 		if (file_type == io::FileType::Dir) {
 			QString name = cmds.select;
-			if (name.startsWith('/'))
-				name = io::GetFileNameOfFullPath(name).toString();
-			view_files().SelectFilenamesLater({name});
+			if (!name.isEmpty())
+			{
+				if (name.startsWith('/'))
+					name = io::GetFileNameOfFullPath(name).toString();
+				view_files().SelectFilenamesLater({name});
+			}
 			GoTo(Action::To, {cmds.go_to_path, Processed::No}, Reload::No);
 		} else {
 			QDir parent_dir(cmds.go_to_path);
@@ -1666,22 +1672,12 @@ void Tab::ShutdownLastInotifyThread()
 	auto start_time = Clock::now();
 #endif
 	files.data.thread_must_exit(true);
-	{ // wake up epoll() to not wait till it times out
-		const i64 n = 1;
-		int status = ::write(files.data.signal_quit_fd, &n, sizeof n);
-		if (status == -1)
-			mtl_status(errno);
-	}
+	files.WakeUpInotify(Lock::No);
 	
 	while (!files.data.thread_exited())
 	{
-		int status = files.CondWait();
-		if (status != 0) {
-			mtl_status(status);
-			break;
-		}
+		files.CondWait();
 	}
-	
 	files.Unlock();
 #ifdef CORNUS_WAITED_FOR_WIDGETS
 	auto now = Clock::now();

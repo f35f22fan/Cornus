@@ -394,6 +394,8 @@ void* WatchDir(void *void_args)
 	poll_event.events = EPOLLIN;
 	poll_event.data.fd = notify_fd;
 	
+//mtl_info("notify_fd: %d, signal_quit_fd: %d", notify_fd, files.data.signal_quit_fd);
+	
 	if (epoll_ctl(poll_fd, EPOLL_CTL_ADD, notify_fd, &poll_event)) {
 		mtl_status(errno);
 		return nullptr;
@@ -410,8 +412,8 @@ void* WatchDir(void *void_args)
 	while (true)
 	{
 		{
-			MutexGuard guard = files.guard();
-			
+			auto g = files.guard();
+			files.data.signalled_from_event_fd(false);
 			if (files.data.thread_must_exit())
 				break;
 			
@@ -419,13 +421,15 @@ void* WatchDir(void *void_args)
 				break;
 		}
 		
-		const int ms = rename_vec.isEmpty() ? 5000 : 20;
+		const int ms = rename_vec.isEmpty() ? 50000 : 20;
 		const int num_file_descriptors = epoll_wait(poll_fd, &poll_event, 1, ms);
+//mtl_info("Woke up from epoll_wait(), fd: %d", poll_event.data.fd);
 		bool with_hidden_files;
+		bool signalled_from_event_fd;
 		{
-			MutexGuard guard = files.guard();
+			auto g = files.guard();
 			with_hidden_files = files.data.show_hidden_files();
-			
+			signalled_from_event_fd = files.data.signalled_from_event_fd();
 			if (files.data.thread_must_exit())
 				break;
 			
@@ -434,8 +438,11 @@ void* WatchDir(void *void_args)
 		}
 		
 		bool has_been_unmounted_or_deleted = false;
-		if (num_file_descriptors > 0)
-		{
+		if (signalled_from_event_fd) {
+			// must read 8 bytes:
+			i64 num;
+			read(files.data.signal_quit_fd, &num, sizeof num);
+		} else if (num_file_descriptors > 0) {
 			ReadEvent(poll_event.data.fd, buf, &files,
 				has_been_unmounted_or_deleted, with_hidden_files,
 				model, args->dir_id, wd, rename_vec, env);
@@ -449,13 +456,20 @@ void* WatchDir(void *void_args)
 		if (rename_vec.isEmpty())
 		{
 			{
-				MutexGuard guard = files.guard();
+				auto g = files.guard();
 				auto &select_list = files.data.filenames_to_select;
+//				auto it = select_list.constBegin();
+//				while (it != select_list.constEnd())
+//				{
+//					mtl_printq2("File: ", it.key());
+//					it++;
+//				}
 				call_event_func = !select_list.isEmpty() && !files.data.should_skip_selecting();
 			}
-			
+//mtl_info("call_event_func: %s", call_event_func ? "true" : "false");
 			if (call_event_func)
 			{
+//mtl_info("Calling InotifyBatchFinished()");
 				/* This must be dispatched as "QueuedConnection" (low priority)
 				to allow the previous
 				inotify events to be processed first, otherwise file selection doesn't
@@ -472,11 +486,14 @@ void* WatchDir(void *void_args)
 	}
 	
 	{
-		MutexGuard guard = files.guard();
+		auto g = files.guard();
 		if (args->dir_id == files.data.dir_id)
 		{
+//mtl_trace("Same dir");
 			files.data.thread_exited(true);
 			files.Broadcast();
+		} else {
+//mtl_trace("Not Same dir");
 		}
 	}
 	

@@ -1169,24 +1169,28 @@ const char* QuerySocketFor(const QString &dir_path, bool &needs_root)
 	return needs_root ? cornus::RootSocketPath : cornus::SocketPath;
 }
 
-bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &parent_dir)
+bool ReadLink(const char *file_path, LinkTarget &link_target,
+	const QString &parent_dir, const PrintErrors pe)
 {
-	if (link_target.cycles == LinkTarget::MaxCycles) {
+	if (link_target.cycles == LinkTarget::MaxCycles)
+	{
 		link_target.cycles *= -1;
 		mtl_warn("Symlink chain too large");
 		return false;
 	}
 	
 	link_target.chain_paths_.append(file_path);
-	
-	struct stat st;
-	
-	if (lstat(file_path, &st) == -1) {
-		mtl_trace("lstat: %s, file: \"%s\"", strerror(errno), file_path);
+	struct statx stx;
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_TYPE | STATX_MODE | STATX_SIZE;
+	if (statx(0, file_path, flags, fields, &stx) != 0)
+	{
+		if (pe == PrintErrors::Yes)
+			mtl_warn("statx(): %s: \"%s\"", strerror(errno), file_path);
 		return false;
 	}
 	
-	DiskFileId file_id = DiskFileId::FromStat(st);
+	DiskFileId file_id = DiskFileId::FromStx(stx);
 	if (link_target.chain_ids_.contains(file_id)) {
 		link_target.cycles *= -1;
 		return false;
@@ -1196,24 +1200,23 @@ bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &par
 	
 	/* Add one to the link size, so that we can determine whether
 	the buffer returned by readlink() was truncated. */
-	i64 bufsize = st.st_size + 1;
+	i64 bufsize = stx.stx_size + 1;
 	
 	/* Some magic symlinks under (for example) /proc and /sys
-	report 'st_size' as zero. In that case, take PATH_MAX as
-	a "good enough" estimate. */
-	if (st.st_size == 0)
+	report size=0. In that case, take PATH_MAX as a "good enough" estimate. */
+	if (stx.stx_size == 0)
 		bufsize = PATH_MAX;
 	
 	char *buf = (char*)malloc(bufsize);
-	
-	if (buf == NULL) {
+	if (buf == NULL)
+	{
 		mtl_trace("malloc: %s", strerror(errno));
 		return false;
 	}
 	
 	auto nbytes = readlink(file_path, buf, bufsize);
-	
-	if (nbytes == -1) {
+	if (nbytes == -1)
+	{
 		free(buf);
 		mtl_trace("readlink: %s, file_path: \"%s\"", strerror(errno), file_path);
 		return false;
@@ -1231,7 +1234,8 @@ bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &par
 	buf[nbytes] = 0;
 	QString full_target_path = QString::fromLocal8Bit(buf, nbytes);
 	bool is_relative = false;
-	if (!full_target_path.startsWith('/')) {
+	if (!full_target_path.startsWith('/'))
+	{
 		is_relative = true;
 		QString s = parent_dir;
 		if (!parent_dir.endsWith('/'))
@@ -1239,32 +1243,35 @@ bool ReadLink(const char *file_path, LinkTarget &link_target, const QString &par
 		s.append(full_target_path);
 		full_target_path = s;
 	}
+	
 	free(buf);
 	buf = NULL;
 	full_target_path = QDir::cleanPath(full_target_path);
 	auto ba = full_target_path.toLocal8Bit();
 	
-	if (lstat(ba.data(), &st) != -1) {
-		if ((st.st_mode & S_IFMT) == S_IFLNK) {
+	if (statx(0, ba.data(), flags, fields, &stx) == 0)
+	{
+		if ((stx.stx_mode & S_IFMT) == S_IFLNK)
+		{
 			QDir dir(full_target_path);
-			if (!dir.cdUp()) {
+			if (!dir.cdUp())
+			{
 				mtl_trace();
 				return false;
 			}
+			
 			QString parent_dir2 = dir.absolutePath();
 			link_target.cycles++;
+			
 			return ReadLink(ba.data(), link_target, parent_dir2);
 		}
-	} else {
-//		mtl_trace("lstat: %s, file: \"%s\"", strerror(errno), ba.data());
-//		return;
 	}
 	
 	link_target.chain_paths_.append(full_target_path);
 	link_target.path = full_target_path;
 	link_target.is_relative = is_relative;
-	link_target.mode = st.st_mode;
-	link_target.type = MapPosixTypeToLocal(st.st_mode);
+	link_target.mode = stx.stx_mode;
+	link_target.type = MapPosixTypeToLocal(stx.stx_mode);
 	
 	return true;
 }
@@ -1466,7 +1473,8 @@ bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &en
 	FillInStx(file, stx, nullptr);
 	ReadXAttrs(file, full_path);
 	
-	if (file.is_symlink()) {
+	if (file.is_symlink())
+	{
 		auto *target = new LinkTarget();
 		ReadLink(full_path.data(), *target,
 			(dir_path != nullptr) ? *dir_path : file.dir_path());

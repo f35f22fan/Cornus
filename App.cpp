@@ -1844,7 +1844,7 @@ void App::RenameSelectedFile()
 		QMessageBox::warning(this, "Failed", err);
 	}
 	
-	tab->view_files().SelectFilenamesLater({value});
+	tab->view_files().SelectFilenamesLater({value}, SameDir::Yes);
 }
 
 void App::RunExecutable(const QString &full_path, const ExecInfo &info)

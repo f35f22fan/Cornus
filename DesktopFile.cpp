@@ -63,11 +63,10 @@ Category GetToolkitFor(const Category desktop)
 	}
 }
 
-QStringList SplitIntoArgs(const QString &str)
+QStringList SplitIntoArgs(QString s)
 {
 	const QChar bs('\\');
-	QString s = str;
-	mtl_printq2("BS (Y): ", s);
+	//mtl_printq2("BS (Y): ", s);
 	const QChar quote('\"');
 	QStringList args;
 	int last_quote = -1;
@@ -319,9 +318,9 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 		}
 	}
 	
-	for (auto &next: app_args) {
-		mtl_printq2("App arg: ", next);
-	}
+//	for (auto &next: app_args) {
+//		mtl_printq2("App arg: ", next);
+//	}
 	
 	QString work_dir = working_dir;
 	if (work_dir.isEmpty())
@@ -632,13 +631,16 @@ DesktopFile::FromPath(const QString &full_path, const QHash<QString,
 	return nullptr;
 }
 
-DesktopFile*
-DesktopFile::JustExePath(const QString &full_path, const QProcessEnvironment &env)
+QString DesktopFile::GetComment(const QLocale &locale)
 {
-	auto *p = new DesktopFile(env);
-	p->type_ = Type::JustExePath;
-	p->full_path_ = full_path;
-	return p;
+	if (is_desktop_file() && main_group_)
+	{
+		const QString key = QLatin1String("Comment");
+		QString s = main_group_->PickByLocale(locale, key);
+		return s.isEmpty() ? main_group_->value(key) : s;
+	}
+	
+	return QString();
 }
 
 MimeInfo DesktopFile::GetForMime(const QString &mime)
@@ -780,6 +782,15 @@ bool DesktopFile::IsApp() const
 		return false;
 	
 	return main_group_->value(QLatin1String("Type")) == QLatin1String("Application");
+}
+
+DesktopFile*
+DesktopFile::JustExePath(const QString &full_path, const QProcessEnvironment &env)
+{
+	auto *p = new DesktopFile(env);
+	p->type_ = Type::JustExePath;
+	p->full_path_ = full_path;
+	return p;
 }
 
 void DesktopFile::Launch(const DesktopArgs &desk_args)

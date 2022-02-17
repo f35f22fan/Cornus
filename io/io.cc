@@ -1456,7 +1456,8 @@ bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &en
 	const auto flags = AT_SYMLINK_NOFOLLOW;
 	const auto fields = STATX_ALL;
 	
-	if (statx(0, full_path.data(), flags, fields, &stx) != 0) {
+	if (statx(0, full_path.data(), flags, fields, &stx) != 0)
+	{
 		if (pe == PrintErrors::Yes)
 			mtl_warn("statx(): %s: \"%s\"", strerror(errno), full_path.data());
 		return false;

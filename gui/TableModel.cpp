@@ -133,6 +133,7 @@ void SendDeleteEvent(TableModel *model, cornus::io::Files *files,
 void SendModifiedEvent(TableModel *model, cornus::io::Files *files,
 	const QString name, const i32 dir_id)
 {
+//mtl_printq(name);
 	int index = -1;
 	io::File *found = nullptr;
 	{
@@ -140,7 +141,14 @@ void SendModifiedEvent(TableModel *model, cornus::io::Files *files,
 		found = Find(files->data.vec, name, &index);
 		MTL_CHECK_VOID(found != nullptr);
 		struct statx stx;
-		mtl_check_void(io::ReloadMeta(*found, stx, model->app()->env(), PrintErrors::No));
+		PrintErrors pe = PrintErrors::No;
+#ifdef CORNUS_DEBUG_INOTIFY
+		pe = PrintErrors::Yes;
+#endif
+		if (!io::ReloadMeta(*found, stx, model->app()->env(), pe))
+		{
+			found->size(-1);
+		}
 	}
 	
 	io::FileEvent evt = {};
@@ -157,12 +165,14 @@ void ReadEvent(const int inotify_fd, char *buf, cornus::io::Files *files,
 	cornus::gui::TableModel *model,
 	const int dir_id,
 	const int wd,
-	QVector<RenameData> &rename_vec)
+	QVector<RenameData> &rename_vec,
+	const QProcessEnvironment &env)
 {
 #ifdef CORNUS_DEBUG_INOTIFY
 	QString num_str = QString::number(i64(pthread_self()), 36);
 	mtl_info("Thread %s, wd: %d, dir_id: %d", qPrintable(num_str), wd, dir_id);
 #endif
+	struct statx stx;
 	const ssize_t num_read = read(inotify_fd, buf, kInotifyEventBufLen);
 	if (num_read <= 0) {
 		if (num_read == -1)
@@ -240,12 +250,14 @@ mtl_info("IN_MOVED_FROM cookie %d, %s", ev->cookie, ev->name);
 				continue;
 			
 			QString from_name;
-			int rename_data_index = FindTheOtherNameByCookie(rename_vec, ev->cookie, from_name);
+			const int rename_data_index = FindTheOtherNameByCookie(
+				rename_vec, ev->cookie, from_name);
 #ifdef CORNUS_DEBUG_INOTIFY
 mtl_info("IN_MOVED_TO cookie %d, new_name: %s, from_name: %s", ev->cookie, ev->name,
 	qPrintable(from_name));
 #endif
-			if (rename_data_index == -1) {
+			if (rename_data_index == -1)
+			{
 				SendCreateEvent(model, files, new_name, dir_id);
 			} else {
 				rename_vec.remove(rename_data_index);
@@ -253,20 +265,40 @@ mtl_info("IN_MOVED_TO cookie %d, new_name: %s, from_name: %s", ev->cookie, ev->n
 				int deleted_file_index = -1;
 				{
 					MutexGuard guard = files->guard();
-					auto &vec = files->data.vec;
-					io::File *file_to_delete = Find(vec, new_name, &deleted_file_index);
-					
-					if (file_to_delete != nullptr) {
-						vec.remove(deleted_file_index);
+					auto &files_vec = files->data.vec;
+					io::File *file_to_delete = Find(files_vec, new_name, &deleted_file_index);
+					QIcon *new_icon = nullptr;
+					bool selected = false;
+					if (file_to_delete != nullptr)
+					{
+						selected = file_to_delete->is_selected();
+						new_icon = file_to_delete->cache().icon;
+						files_vec.remove(deleted_file_index);
 						delete file_to_delete;
 					}
 					
-					io::File *old_file = Find(vec, from_name, &removed_at);
+					io::File *old_file = Find(files_vec, from_name, &removed_at);
 					old_file->name(new_name);
-					old_file->ClearCache();// to update the icon later when needed,
-					// because currently it has the icon of the previous file name.
-					std::sort(vec.begin(), vec.end(), cornus::io::SortFiles);
-					Find(vec, new_name, &index);
+					old_file->set_selected(selected);
+					if (new_icon != nullptr)
+					{
+						old_file->cache().icon = new_icon;
+					}
+					
+					if (old_file->size() == -1)
+					{
+						PrintErrors pe = PrintErrors::No;
+#ifdef CORNUS_DEBUG_INOTIFY
+	pe = PrintErrors::Yes;
+#endif
+						bool ok = io::ReloadMeta(*old_file, stx, env, pe);
+						Q_UNUSED(ok);
+#ifdef CORNUS_DEBUG_INOTIFY
+						mtl_info("Reloaded meta: %s: %d", qPrintable(old_file->name()), ok);
+#endif
+					}
+					std::sort(files_vec.begin(), files_vec.end(), cornus::io::SortFiles);
+					Find(files_vec, new_name, &index);
 				}
 				io::FileEvent evt = {};
 				evt.dir_id = dir_id;
@@ -336,6 +368,7 @@ void* WatchDir(void *void_args)
 	AutoDeleteArr ad_arr(buf);
 	io::Notify &notify = tab->notify();
 	const int notify_fd = notify.fd;
+	QProcessEnvironment env = app->env();
 	
 	const auto path = args->dir_path.toLocal8Bit();
 	const auto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE
@@ -405,7 +438,7 @@ void* WatchDir(void *void_args)
 		{
 			ReadEvent(poll_event.data.fd, buf, &files,
 				has_been_unmounted_or_deleted, with_hidden_files,
-				model, args->dir_id, wd, rename_vec);
+				model, args->dir_id, wd, rename_vec, env);
 		}
 		
 		if (!rename_vec.isEmpty())

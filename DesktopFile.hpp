@@ -132,6 +132,7 @@ public:
 	Type type() const { return type_; }
 	void WriteTo(ByteArray &ba) const;
 	
+	QString GetComment(const QLocale &locale);
 	QString GetIcon();
 	QString GetName(const QLocale &locale);
 	QString GetGenericName(const QLocale &locale);

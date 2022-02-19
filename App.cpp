@@ -969,6 +969,7 @@ QIcon* App::GetDefaultIcon()
 
 QIcon* App::GetFileIcon(io::File *file)
 {
+	MTL_CHECK_ARG(file != nullptr, nullptr);
 	if (file->cache().icon == nullptr)
 		file->cache().icon = LoadIcon(*file);
 	
@@ -2105,13 +2106,11 @@ void App::SubmitThumbLoaderBatchFromTab(QVector<ThumbLoaderArgs*> *new_work_vec,
 		InitThumbnailPoolIfNeeded();
 		auto &work_queue = global_thumb_loader_data_.work_queue;
 		const int count = work_queue.size();
-		int removed_count = 0;
 		for (int i = count - 1; i >= 0; i--)
 		{
 			ThumbLoaderArgs *arg = work_queue[i];
 			if (arg->tab_id != tab_id || arg->dir_id != dir_id)
 			{
-				removed_count++;
 				delete arg;
 				work_queue.remove(i);
 			}
@@ -2132,6 +2131,24 @@ void App::SubmitThumbLoaderBatchFromTab(QVector<ThumbLoaderArgs*> *new_work_vec,
 	}
 	
 	delete new_work_vec;
+}
+
+void App::SubmitThumbLoaderFromTab(ThumbLoaderArgs *arg)
+{
+	mtl_check_void(arg != nullptr);
+	{
+		auto global_guard = global_thumb_loader_data_.guard();
+		InitThumbnailPoolIfNeeded();
+		auto &work_queue = global_thumb_loader_data_.work_queue;
+		
+// Iteration happens from last to first on purpose because the user needs
+// the thumbnails to be loaded from top to bottom and since the thumbnails
+// monitor picks from the bottom of the vector queue with vector->takeLast()
+// (because it's more efficient than vector->takeFirst()) one must submit
+// the items from last to first.
+		work_queue.append(arg);
+		global_thumb_loader_data_.Broadcast();
+	}
 }
 
 gui::Tab* App::tab() const
@@ -2227,9 +2244,11 @@ void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 
 void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 {
+	//mtl_info("Thumbnail ID: %lu", thumbnail->file_id);
 	gui::Tab *tab = this->tab(thumbnail->tab_id);
 	if (tab == nullptr || tab->icon_view() == nullptr)
 	{
+		mtl_trace();
 		delete thumbnail;
 		return;
 	}
@@ -2252,9 +2271,11 @@ void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 			if (file->id_num() != thumbnail->file_id)
 				continue;
 			
+			//mtl_printq2("Found file: ", file->name());
 			file->thumbnail(thumbnail);
 			const io::DiskFileId file_id = file->id();
 			QString full_path = file->build_full_path();
+			//mtl_printq2("Full path: ", full_path);
 			files.Unlock();
 			tab->icon_view()->RepaintLater();
 			

@@ -20,6 +20,11 @@ class Notify;
 class SaveFile;
 class Task;
 
+enum class CloseWriteEvent: i8 {
+	Yes,
+	No
+};
+
 enum class CountDirFiles: i8 {
 	Yes,
 	No

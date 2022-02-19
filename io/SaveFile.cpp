@@ -22,7 +22,7 @@ original_path_(full_path)
 SaveFile::~SaveFile()
 {
 	if (!commit_cancelled_ && !committed_) {
-		mtl_warn("You forgot to commit()");
+		mtl_warn("You forgot to commit(): %s", qPrintable(original_path_));
 	}
 }
 

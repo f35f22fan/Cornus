@@ -213,13 +213,13 @@ void File::ReadLinkTarget()
 	link_target_ = target;
 }
 
-bool File::ShouldTryLoadingThumbnail(bool &is_webp)
+bool File::ShouldTryLoadingThumbnail()
 {
 	if (!is_regular() || cache_.tried_loading_thumbnail)
 		return false;
 	
 	static const auto formats = QImageReader::supportedImageFormats();
-	is_webp = (cache_.ext == QLatin1String("webp"));
+	const bool is_webp = (cache_.ext == QLatin1String("webp"));
 	const auto ext_ba = cache_.ext.toLocal8Bit();
 	if (!is_webp && !formats.contains(ext_ba))
 		return false;

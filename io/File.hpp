@@ -153,7 +153,7 @@ public:
 	void files(io::Files *ptr) { files_ = ptr; dp_.clear(); }
 	
 	void id(const DiskFileId d) { id_ = d; }
-	DiskFileId id() const { return id_; }
+	const DiskFileId& id() const { return id_; }
 	u64 id_num() const { return id_.inode_number; }
 	
 	QString SizeToString() const;
@@ -161,7 +161,7 @@ public:
 	i64 size() const { return size_; }
 	void size(const i64 n) { size_ = n; }
 	
-	bool ShouldTryLoadingThumbnail(bool &is_webp);
+	bool ShouldTryLoadingThumbnail();
 	
 	Thumbnail* thumbnail() const { return cache_.thumbnail; }
 	void thumbnail(Thumbnail *p)

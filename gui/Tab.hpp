@@ -66,7 +66,7 @@ public:
 		Qt::DropAction drop_action, Qt::DropActions possible_actions);
 	TabId id() const { return id_; }
 	FilesId files_id() const { return files_id_; }
-	void FilesChanged(const FileCountChanged fcc, const int row = -1);
+	void FileChanged(const io::FileEventType evt, io::File *cloned_file = nullptr);
 	int GetScrollValue() const;
 	int GetVisibleFileIndex();
 	void MarkLastWatchedFile();

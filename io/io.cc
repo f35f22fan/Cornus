@@ -643,7 +643,7 @@ FileFromPath(const QString &full_path, int *ret_error)
 	auto ba = full_path.toLocal8Bit();
 	
 	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
-		mtl_warn("statx(): %s", strerror(errno));
+		mtl_warn("statx(): %s: %s", strerror(errno), ba.data());
 		if (ret_error != nullptr)
 			*ret_error = errno;
 		return nullptr;
@@ -1571,10 +1571,15 @@ bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx,
 			return true;
 	}
 	
-	QString temp_path = io::BuildTempPathFromID(item.id);
-	io::SaveFile save_file(temp_path);
+	QString file_path = io::BuildTempPathFromID(item.id);
+	io::SaveFile save_file(file_path);
 	if (!io::WriteToFile(save_file.GetPathToWorkWith(), ba.data(), ba.size()))
+	{
+		save_file.CommitCancelled();
+		mtl_printq(file_path);
+		mtl_printq2("File path to work with: ", save_file.GetPathToWorkWith());
 		return false;
+	}
 	
 	return save_file.Commit();
 }
@@ -1740,9 +1745,12 @@ bool WriteToFile(const QString &full_path, const char *data, const i64 size,
 	auto path = full_path.toLocal8Bit();
 	const int fd = open(path.data(), O_LARGEFILE | O_WRONLY | O_CREAT | O_TRUNC,
 		(custom_mode == nullptr) ? io::FilePermissions : *custom_mode);
-	
 	if (fd == -1)
-		return false;//errno;
+	{
+		mtl_status(errno);
+		mtl_info("%s", path.data());
+		return false;
+	}
 	
 	i64 written = 0;
 	i64 ret;
@@ -1754,7 +1762,8 @@ bool WriteToFile(const QString &full_path, const char *data, const i64 size,
 		if (ret == -1) {
 			if (errno == EAGAIN)
 				continue;
-			//const int e = errno;
+			mtl_status(errno);
+			mtl_info("%s", path.data());
 			close(fd);
 			return false;
 		}

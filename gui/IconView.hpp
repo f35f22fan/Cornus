@@ -66,13 +66,14 @@ public:
 	QSize maximumSize() const { return size(); }
 	int CellIndexInNextRow(const int file_index, const VDirection vdir);
 	void SendLoadingNewThumbnailsBatch();
+	void SendLoadingNewThumbnail(io::File *cloned_file);
 	QSize size() const;
 	virtual QSize sizeHint() const override { return size(); }
 	
 	void ScrollByWheel(const VDirection d, const ScrollBy sb);
 	void ScrollToAndSelect(const int file_index, const DeselectOthers des);
 	void ScrollToFile(const int file_index);
-	void FilesChanged(const FileCountChanged fcc, const int file_index);
+	void FileChanged(const io::FileEventType evt, io::File *cloned_file = nullptr);
 	bool is_current_view() const;
 	io::File* GetFileAt_NoLock(const QPoint &pos, const Clone c, int *ret_index = nullptr);
 	void RepaintLater(const int custom_ms = -1);

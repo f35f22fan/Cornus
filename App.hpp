@@ -96,6 +96,7 @@ public:
 	bool ShowInputDialog(const gui::InputDialogParams &params, QString &ret_val);
 	
 	void SubmitThumbLoaderBatchFromTab(QVector<ThumbLoaderArgs*> *new_work_vec, const TabId tab_id, const DirId dir_id);
+	void SubmitThumbLoaderFromTab(ThumbLoaderArgs *arg);
 	gui::Tab* tab() const; // returns current tab
 	gui::Tab* tab(const TabId id, int *ret_index = nullptr);
 	gui::Tab* tab_at(const int tab_index) const;

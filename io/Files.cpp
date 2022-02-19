@@ -16,8 +16,7 @@ FilesData::FilesData()
 
 FilesData::~FilesData()
 {
-	const int status = ::close(signal_quit_fd);
-	if (status != 0)
+	if (::close(signal_quit_fd) != 0)
 		mtl_status(errno);
 	
 	for (auto *next: vec) {

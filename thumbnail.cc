@@ -2,7 +2,9 @@
 
 #include "ByteArray.hpp"
 
+#include "io/File.hpp"
 #include "io/io.hh"
+#include "gui/Tab.hpp"
 
 #include <QImageReader>
 
@@ -14,8 +16,28 @@ void CornusFreeQImageMemory(void *data)
 	//free(m);
 }
 
-namespace cornus::thumbnail {
+namespace cornus {
 
+ThumbLoaderArgs* ThumbLoaderArgs::FromFile(gui::Tab *tab,
+	io::File *file, const DirId dir_id,
+	const int max_img_w, const int max_img_h)
+{
+	MTL_CHECK_ARG(file != nullptr, nullptr);
+	ThumbLoaderArgs *p = new ThumbLoaderArgs();
+	p->app = tab->app();
+	p->ba = file->thumbnail_attrs();
+	p->full_path = file->build_full_path();
+	p->file_id = file->id();
+	p->ext = file->cache().ext.toLocal8Bit();
+	p->tab_id = tab->id();
+	p->dir_id = dir_id;
+	p->icon_w = max_img_w;
+	p->icon_h = max_img_h;
+	
+	return p;
+}
+
+namespace thumbnail {
 bool GetOriginalImageSize(ByteArray &ba, i32 &w, i32 &h)
 {
 	const auto at = ba.at();
@@ -219,4 +241,4 @@ QImage LoadWebpImage(const QString &full_path, const int max_img_w,
 	return img;
 }
 
-} // cornus::thumbnail::
+}} // cornus::thumbnail::

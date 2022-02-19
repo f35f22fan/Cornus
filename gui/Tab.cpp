@@ -626,7 +626,7 @@ void Tab::ExecuteDrop(QVector<io::File*> *files_vec,
 	io::socket::SendAsync(ba, socket_path);
 }
 
-void Tab::FilesChanged(const FileCountChanged fcc, const int row)
+void Tab::FileChanged(const io::FileEventType evt, io::File *cloned_file)
 {
 	// File changes are monitored only in TableModel.cpp which represents
 	// the detailed view, which is why the detailed view uses
@@ -634,7 +634,7 @@ void Tab::FilesChanged(const FileCountChanged fcc, const int row)
 	auto *iv = icon_view();
 	if (iv != nullptr)
 	{
-		iv->FilesChanged(fcc, row);
+		iv->FileChanged(evt, cloned_file);
 	}
 }
 

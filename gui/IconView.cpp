@@ -1,6 +1,7 @@
 #include "IconView.hpp"
 
 #include "../App.hpp"
+#include "../AutoDelete.hh"
 #include "../Hid.hpp"
 #include "../io/File.hpp"
 #include "../io/Files.hpp"
@@ -224,11 +225,22 @@ void IconView::DisplayingNewDirectory(const DirId dir_id, const Reload r)
 	}
 }
 
-void IconView::FilesChanged(const FileCountChanged fcc, const int file_index)
+void IconView::FileChanged(const io::FileEventType evt, io::File *cloned_file)
 {
+	//auto &id = cloned_file->id();
+	//mtl_info("File ID: %lu, %u, %u", id.inode_number, id.dev_major, id.dev_minor);
+	
+	if (cloned_file != nullptr)
+	{
+		SendLoadingNewThumbnail(cloned_file);
+		delete cloned_file;
+	}
+	
 	if (is_current_view())
 	{
-		if (fcc == FileCountChanged::Yes)
+		const bool file_count_changed = (evt == io::FileEventType::Created)
+			|| (evt == io::FileEventType::Deleted);
+		if (file_count_changed)
 		{
 			UpdateScrollRange();
 		}
@@ -627,30 +639,46 @@ void IconView::SendLoadingNewThumbnailsBatch()
 	
 	QVector<ThumbLoaderArgs*> *work_stack = new QVector<ThumbLoaderArgs*>();
 	{
-		auto guard = files.guard();
+		auto g = files.guard();
 		for (io::File *file: files.data.vec)
 		{
-			bool is_webp;
-			if (!file->ShouldTryLoadingThumbnail(is_webp))
+			if (!file->ShouldTryLoadingThumbnail())
 				continue;
 			
 			file->cache().tried_loading_thumbnail = true;
-			ThumbLoaderArgs *arg = new ThumbLoaderArgs();
-			arg->app = app_;
-			arg->ba = file->thumbnail_attrs();
-			arg->full_path = file->build_full_path();
-			arg->file_id = file->id();
-			arg->ext = file->cache().ext.toLocal8Bit();
-			arg->tab_id = tab_->id();
-			arg->dir_id = dir_id;
-			arg->icon_w = max_img_w;
-			arg->icon_h = max_img_h;
-			//mtl_info("w: %d, h: %d", max_img_w, max_img_h);
+			auto *arg = ThumbLoaderArgs::FromFile(tab_, file, dir_id,
+				max_img_w, max_img_h);
 			work_stack->append(arg);
 		}
 	}
 	
 	app_->SubmitThumbLoaderBatchFromTab(work_stack, tab_->id(), dir_id);
+}
+
+void IconView::SendLoadingNewThumbnail(io::File *cloned_file)
+{
+	if (cloned_file == nullptr || !cloned_file->ShouldTryLoadingThumbnail())
+	{
+		if (cloned_file == nullptr)
+			mtl_trace();
+		return;
+	}
+	
+	auto &files = tab_->view_files();
+	MTL_CHECK_VOID(files.Lock());
+	const DirId dir_id = files.data.dir_id;
+	files.Unlock();
+	
+	//ComputeProportions(icon_dim_);
+	const auto &cell = icon_dim_; // to make sure I don't change any value
+	const int max_img_h = cell.h_and_gaps - cell.text_h;
+	const int max_img_w = cell.w_and_gaps;
+	
+	cloned_file->cache().tried_loading_thumbnail = true;
+	auto *arg = ThumbLoaderArgs::FromFile(tab_, cloned_file, dir_id,
+		max_img_w, max_img_h);
+	
+	app_->SubmitThumbLoaderFromTab(arg);
 }
 
 void IconView::SetAsCurrentView(const NewState ns)

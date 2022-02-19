@@ -24,6 +24,25 @@
 
 namespace cornus::gui {
 
+static ThumbLoaderArgs* ThumbLoaderArgsFromFile(Tab *tab,
+	io::File *file, const DirId dir_id,
+	const int max_img_w, const int max_img_h)
+{
+	MTL_CHECK_ARG(file != nullptr, nullptr);
+	ThumbLoaderArgs *p = new ThumbLoaderArgs();
+	p->app = tab->app();
+	p->ba = file->thumbnail_attrs();
+	p->full_path = file->build_full_path();
+	p->file_id = file->id();
+	p->ext = file->cache().ext.toLocal8Bit();
+	p->tab_id = tab->id();
+	p->dir_id = dir_id;
+	p->icon_w = max_img_w;
+	p->icon_h = max_img_h;
+	
+	return p;
+}
+
 IconView::IconView(App *app, Tab *tab, QScrollBar *vs):
 	app_(app), tab_(tab), vs_(vs)
 {
@@ -646,7 +665,7 @@ void IconView::SendLoadingNewThumbnailsBatch()
 				continue;
 			
 			file->cache().tried_loading_thumbnail = true;
-			auto *arg = ThumbLoaderArgs::FromFile(tab_, file, dir_id,
+			auto *arg = ThumbLoaderArgsFromFile(tab_, file, dir_id,
 				max_img_w, max_img_h);
 			work_stack->append(arg);
 		}
@@ -675,7 +694,7 @@ void IconView::SendLoadingNewThumbnail(io::File *cloned_file)
 	const int max_img_w = cell.w_and_gaps;
 	
 	cloned_file->cache().tried_loading_thumbnail = true;
-	auto *arg = ThumbLoaderArgs::FromFile(tab_, cloned_file, dir_id,
+	auto *arg = ThumbLoaderArgsFromFile(tab_, cloned_file, dir_id,
 		max_img_w, max_img_h);
 	
 	app_->SubmitThumbLoaderFromTab(arg);

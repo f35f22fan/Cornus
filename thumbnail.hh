@@ -59,8 +59,8 @@ public:
 	int icon_w = -1;
 	int icon_h = -1;
 	
-	static ThumbLoaderArgs* FromFile(gui::Tab *tab,
-		io::File *file, const DirId dir_id, const int max_img_w, const int max_img_h);
+//	static ThumbLoaderArgs* FromFile(gui::Tab *tab,
+//		io::File *file, const DirId dir_id, const int max_img_w, const int max_img_h);
 };
 
 struct GlobalThumbLoaderData;

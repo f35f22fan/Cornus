@@ -539,13 +539,13 @@ void Task::StartIO()
 	
 	const bool has_abort = data_.GetState() & TaskState::Abort;
 	if (!has_abort) {
-		mtl_trace("Doesn't have abort");
+//		mtl_trace("Doesn't have abort");
 		data_.ChangeState(TaskState::Finished);
 	} else {
-		mtl_info("Does have abort");
+//		mtl_info("Does have abort");
 	}
 	
-	mtl_info("Returning from Task::StartIO()");
+//	mtl_info("Returning from Task::StartIO()");
 }
 
 bool Task::TryAtomicMove()

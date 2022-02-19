@@ -111,19 +111,17 @@ TaskGui::TaskGui(io::Task *task): task_(task)
 
 TaskGui::~TaskGui()
 {
-	mtl_info("Destructing");
 	timer_->stop();
 	delete timer_;
 	timer_ = nullptr;
 	task_->data().WaitFor(TaskIsDoneBits);
 	delete task_;
-	mtl_info("Destructed");
 }
 
 void TaskGui::CheckTaskState()
 {
-	auto thread_ba = io::thread_id_short(pthread_self()).toLocal8Bit();
-	mtl_info("Thread: %s", thread_ba.data());
+//	auto thread_ba = io::thread_id_short(pthread_self()).toLocal8Bit();
+//	mtl_info("Thread: %s", thread_ba.data());
 	const TaskState state = task_->data().GetState(&task_question_);
 	
 	if (state & TaskIsDoneBits)
@@ -144,8 +142,8 @@ void TaskGui::CheckTaskState()
 	
 	if (state & TaskState::Working)
 	{
-static int n = 0;
-mtl_info("TaskState::Working %d", n++);
+//static int n = 0;
+//mtl_info("TaskState::Working %d", n++);
 		auto prev_id = progress_.details_id;
 		task_->progress().Get(progress_);
 		
@@ -338,7 +336,7 @@ QWidget* TaskGui::CreateFileExistsPane()
 
 void TaskGui::CreateGui()
 {
-	mtl_info("Created GUI");
+//	mtl_info("Created GUI");
 	gui_created_ = true;
 	continue_icon_ = QIcon::fromTheme(QLatin1String("media-playback-start"));
 	pause_icon_ = QIcon::fromTheme(QLatin1String("media-playback-pause"));

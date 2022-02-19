@@ -151,7 +151,9 @@ message(STATUS "BUILD_CORNUS_IO defined!")
 		io/File.cpp io/File.hpp
 		io/Files.cpp io/Files.hpp
 		io/io.cc io/io.hh
+		io/ListenThread.cpp io/ListenThread.hpp
 		io/Notify.cpp io/Notify.hpp
+		io/ProcessRequest.cpp io/ProcessRequest.hpp
 		io/SaveFile.cpp io/SaveFile.hpp
 		io/socket.cc io/socket.hh
 		io/Task.cpp io/Task.hpp

@@ -16,9 +16,16 @@ class DirStream;
 class File;
 class Files;
 class FilesData;
+class ListenThread;
 class Notify;
+class ProcessRequest;
 class SaveFile;
 class Task;
+
+struct args_data {
+	io::Daemon *daemon = nullptr;
+	int fd = -1;
+};
 
 enum class CloseWriteEvent: i8 {
 	Yes,

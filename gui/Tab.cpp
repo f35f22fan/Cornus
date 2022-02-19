@@ -809,8 +809,8 @@ void Tab::GoToFinish(cornus::io::FilesData *new_data)
 void Tab::GoToInitialDir()
 {
 	const QStringList args = QCoreApplication::arguments();
-	
-	if (args.size() <= 1) {
+	if (args.size() <= 1)
+	{
 		GoHome();
 		return;
 	}
@@ -827,7 +827,6 @@ void Tab::GoToInitialDir()
 	ViewMode view = ViewMode::None;
 	const QString IconsViewStr = QLatin1String("--view=icons");
 	const QString DetailsViewStr = QLatin1String("--view=details");
-	
 	QString *next_command = nullptr;
 	for (int i = 1; i < arg_count; i++)
 	{
@@ -876,7 +875,8 @@ void Tab::GoToInitialDir()
 	FigureOutSelectPath(cmds.select, cmds.go_to_path);
 	
 	io::FileType file_type;
-	if (!io::FileExists(cmds.go_to_path, &file_type)) {
+	if (!io::FileExists(cmds.go_to_path, &file_type))
+	{
 		QString name = cmds.select;
 		if (name.startsWith('/'))
 			name = io::GetFileNameOfFullPath(name).toString();
@@ -884,7 +884,9 @@ void Tab::GoToInitialDir()
 		GoTo(Action::To, {QDir::homePath(), Processed::No}, Reload::No);
 		return;
 	}
-	if (file_type == io::FileType::Dir) {
+	
+	if (file_type == io::FileType::Dir)
+	{
 		QString name = cmds.select;
 		if (!name.isEmpty())
 		{
@@ -892,16 +894,19 @@ void Tab::GoToInitialDir()
 				name = io::GetFileNameOfFullPath(name).toString();
 			view_files().SelectFilenamesLater({name});
 		}
+		
 		GoTo(Action::To, {cmds.go_to_path, Processed::No}, Reload::No);
 	} else {
 		QDir parent_dir(cmds.go_to_path);
-		if (!parent_dir.cdUp()) {
-			QString msg = "Can't access parent dir of file:\n\"" +
-			cmds.go_to_path + QChar('\"');
+		if (!parent_dir.cdUp())
+		{
+			QString msg = "Can't access parent dir of file:\n\""
+				+ cmds.go_to_path + QChar('\"');
 			mtl_printq(msg);
 			GoHome();
 			return;
 		}
+		
 		QString name = io::GetFileNameOfFullPath(cmds.go_to_path).toString();
 		view_files().SelectFilenamesLater({name});
 		GoTo(Action::To, {parent_dir.absolutePath(), Processed::No}, Reload::No);

@@ -1344,7 +1344,8 @@ gui::Tab* App::OpenNewTab(const cornus::FirstTime ft)
 	static TabId tab_id = 0;
 	gui::Tab *tab = new gui::Tab(this, ++tab_id);
 	tab_widget_->addTab(tab, QString());
-	if (ft == FirstTime::Yes) {
+	if (ft == FirstTime::Yes)
+	{
 		tab->GoToInitialDir();
 	} else {
 		QString dir_path = this->tab()->current_dir();

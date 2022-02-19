@@ -311,12 +311,17 @@ void Daemon::CopyURLsToClipboard(ByteArray *ba)
 	QMimeData *mime = new QMimeData();
 	
 	QList<QUrl> urls;
-	while (ba->has_more()) {
-		urls.append(QUrl(ba->next_string()));
+	while (ba->has_more())
+	{
+		QString s = ba->next_string();
+		mtl_printq2("URL: ", s);
+		urls.append(QUrl(s));
 	}
 	
 	mime->setUrls(urls);
-	QApplication::clipboard()->setMimeData(mime);
+	QClipboard *clip = QApplication::clipboard();
+	clip->setMimeData(mime);
+	mtl_info("Done");
 }
 
 void Daemon::CutURLsToClipboard(ByteArray *ba)

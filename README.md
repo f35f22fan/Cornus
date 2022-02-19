@@ -2,6 +2,11 @@
 
 ##### Requirements: Linux 5.5+, Qt 5.15.2+
 ---
+
+##### Warning: the Qt <u>Wayland</u> backend is broken, i.e. the clipboard doesn't work.
+The Qt devs have to fix their toolkit.
+
+---
 Building on Ubuntu, install Qt5 (used to be called qt5-default):
 * sudo apt-get install qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools
 

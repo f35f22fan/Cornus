@@ -253,7 +253,6 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 		return;
 	
 	QHash<QString,QString> primary;
-//	QStringList args = exec.split(' ', Qt::SkipEmptyParts);
 	QStringList args = SplitIntoArgs(exec);
 	const QString env_key = QLatin1String("env");
 	const int arg_count = args.size();
@@ -271,7 +270,7 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 			auto env_pair = args[i].split('=');
 			if (env_pair.size() == 2)
 			{
-				mtl_info("Env vars: \"%s\"=\"%s\"", qPrintable(env_pair[0]), qPrintable(env_pair[1]));
+// mtl_info("Env vars: \"%s\"=\"%s\"", qPrintable(env_pair[0]), qPrintable(env_pair[1]));
 				parent_->env_.insert(env_pair[0], env_pair[1]);
 			}
 		} else if (next.startsWith('%')) {
@@ -318,11 +317,7 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 		}
 	}
 	
-//	for (auto &next: app_args) {
-//		mtl_printq2("App arg: ", next);
-//	}
-	
-// Path description in .desktop spec:
+// "Path" description in .desktop spec:
 // If entry is of type Application, the working directory to run the program in.
 	QString work_dir = GetPath();
 	if (work_dir.isEmpty())

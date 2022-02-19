@@ -870,41 +870,42 @@ void Tab::GoToInitialDir()
 		SetViewMode(view);
 	}
 	
+	if (cmds.go_to_path.isEmpty())
+		cmds.go_to_path = QDir::homePath();
+	
 	FigureOutSelectPath(cmds.select, cmds.go_to_path);
-	if (!cmds.go_to_path.isEmpty())
-	{
-		io::FileType file_type;
-		if (!io::FileExists(cmds.go_to_path, &file_type)) {
-			QString name = cmds.select;
+	
+	io::FileType file_type;
+	if (!io::FileExists(cmds.go_to_path, &file_type)) {
+		QString name = cmds.select;
+		if (name.startsWith('/'))
+			name = io::GetFileNameOfFullPath(name).toString();
+		view_files().SelectFilenamesLater({name});
+		GoTo(Action::To, {QDir::homePath(), Processed::No}, Reload::No);
+		return;
+	}
+	if (file_type == io::FileType::Dir) {
+		QString name = cmds.select;
+		if (!name.isEmpty())
+		{
 			if (name.startsWith('/'))
 				name = io::GetFileNameOfFullPath(name).toString();
 			view_files().SelectFilenamesLater({name});
-			GoTo(Action::To, {QDir::homePath(), Processed::No}, Reload::No);
+		}
+		GoTo(Action::To, {cmds.go_to_path, Processed::No}, Reload::No);
+	} else {
+		QDir parent_dir(cmds.go_to_path);
+		if (!parent_dir.cdUp()) {
+			QString msg = "Can't access parent dir of file:\n\"" +
+			cmds.go_to_path + QChar('\"');
+			mtl_printq(msg);
+			GoHome();
 			return;
 		}
-		if (file_type == io::FileType::Dir) {
-			QString name = cmds.select;
-			if (!name.isEmpty())
-			{
-				if (name.startsWith('/'))
-					name = io::GetFileNameOfFullPath(name).toString();
-				view_files().SelectFilenamesLater({name});
-			}
-			GoTo(Action::To, {cmds.go_to_path, Processed::No}, Reload::No);
-		} else {
-			QDir parent_dir(cmds.go_to_path);
-			if (!parent_dir.cdUp()) {
-				QString msg = "Can't access parent dir of file:\n\"" +
-					cmds.go_to_path + QChar('\"');
-				mtl_printq(msg);
-				GoHome();
-				return;
-			}
-			QString name = io::GetFileNameOfFullPath(cmds.go_to_path).toString();
-			view_files().SelectFilenamesLater({name});
-			GoTo(Action::To, {parent_dir.absolutePath(), Processed::No}, Reload::No);
-			return;
-		}
+		QString name = io::GetFileNameOfFullPath(cmds.go_to_path).toString();
+		view_files().SelectFilenamesLater({name});
+		GoTo(Action::To, {parent_dir.absolutePath(), Processed::No}, Reload::No);
+		return;
 	}
 }
 

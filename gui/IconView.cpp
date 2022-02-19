@@ -24,11 +24,10 @@
 
 namespace cornus::gui {
 
-static ThumbLoaderArgs* ThumbLoaderArgsFromFile(Tab *tab,
+inline ThumbLoaderArgs* ThumbLoaderArgsFromFile(Tab *tab,
 	io::File *file, const DirId dir_id,
 	const int max_img_w, const int max_img_h)
 {
-	MTL_CHECK_ARG(file != nullptr, nullptr);
 	ThumbLoaderArgs *p = new ThumbLoaderArgs();
 	p->app = tab->app();
 	p->ba = file->thumbnail_attrs();

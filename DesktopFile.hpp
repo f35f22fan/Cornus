@@ -134,6 +134,7 @@ public:
 	
 	QString GetComment(const QLocale &locale);
 	QString GetIcon();
+	QString GetPath();
 	QString GetName(const QLocale &locale);
 	QString GetGenericName(const QLocale &locale);
 	

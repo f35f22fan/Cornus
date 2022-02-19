@@ -322,13 +322,11 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 //		mtl_printq2("App arg: ", next);
 //	}
 	
-	QString work_dir = working_dir;
-	if (work_dir.isEmpty())
-	{
 // Path description in .desktop spec:
 // If entry is of type Application, the working directory to run the program in.
-		work_dir = GetPath();
-	}
+	QString work_dir = GetPath();
+	if (work_dir.isEmpty())
+		work_dir = working_dir;
 	
 	QString exe_str = app_args.takeFirst();
 	QProcess *process = new QProcess();
@@ -711,6 +709,15 @@ QString DesktopFile::GetName(const QLocale &locale)
 	}
 	
 	return QString();
+}
+
+// If entry is of type Application, the working directory to run the program in. 
+QString DesktopFile::GetPath()
+{
+	if (!is_desktop_file() || !main_group_)
+		return QString();
+	
+	return main_group_->GetPath();
 }
 
 bool DesktopFile::Init(const QString &full_path,

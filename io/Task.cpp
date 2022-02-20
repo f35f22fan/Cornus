@@ -29,11 +29,11 @@ void TaskData::ChangeState(const TaskState new_state,
 	auto g = cm.guard();
 	if (task_question != nullptr)
 		task_question_ = *task_question;
-	const auto StopRecordingTimeFor = TaskState::Finished | TaskState::Pause
+	const auto StopRecordingTime = TaskState::Finished | TaskState::Pause
 	| TaskState::Abort | TaskState::AwaitingAnswer;
 	
 	state = new_state;
-	if (new_state & StopRecordingTimeFor)
+	if (new_state & StopRecordingTime)
 	{
 		work_time_recorder_.Pause();
 	} else if (new_state & (TaskState::Continue | TaskState::Answered)) {

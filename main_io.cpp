@@ -20,7 +20,6 @@
 #include "io/decl.hxx"
 #include "io/io.hh"
 #include "io/Daemon.hpp"
-#include "io/ListenThread.hpp"
 #include "io/socket.hh"
 #include "io/Task.hpp"
 #include "trash.hh"
@@ -32,8 +31,154 @@ Q_DECLARE_METATYPE(cornus::io::Task*);
 ///#define CORNUS_DEBUG_SERVER_SHUTDOWN
 
 namespace cornus {
+const auto ConnectionType = Qt::BlockingQueuedConnection;
+void* ProcessRequestTh(void *ptr);
+struct Args
+{
+	io::Daemon *daemon = nullptr;
+	int fd = -1;
+};
 
-void* PutTrashInGlobalGitignore(void *args)
+void* ListenTh(void *ptr)
+{
+	pthread_detach(pthread_self());
+	
+	auto *daemon = (io::Daemon*)ptr;
+	io::ServerLife *life = daemon->life();
+	
+	int daemon_sock_fd = io::socket::Daemon(cornus::SocketPath, PrintErrors::No);
+	if (daemon_sock_fd == -1)
+	{
+		mtl_info("Another cornus_io is running. Exiting.");
+		QMetaObject::invokeMethod(daemon, "QuitGuiApp", ConnectionType);
+		return nullptr;
+	}
+	
+	while (true)
+	{
+		const int client_fd = accept(daemon_sock_fd, NULL, NULL);
+		if (client_fd == -1)
+		{
+			mtl_status(errno);
+			break;
+		}
+		
+		if (life->Lock())
+		{
+			const bool do_exit = life->exit;
+			life->Unlock();
+			if (do_exit)
+				break;
+		}
+		
+		auto *args = new Args();
+		args->fd = client_fd;
+		args->daemon = daemon;
+		if (!io::NewThread(ProcessRequestTh, args))
+			break;
+	}
+	
+	close(daemon_sock_fd);
+	QMetaObject::invokeMethod(daemon, "QuitGuiApp", ConnectionType);
+	
+	return nullptr;
+}
+
+void* ProcessRequestTh(void *ptr)
+{
+	pthread_detach(pthread_self());
+	cornus::ByteArray ba;
+	auto *args = (Args*)ptr;
+	const int fd = args->fd;
+	cornus::io::Daemon *daemon = args->daemon;
+	delete args;
+	args = nullptr;
+	
+	gui::TasksWin *tasks_win = daemon->tasks_win();
+	MTL_CHECK_ARG(ba.Receive(fd, CloseSocket::No), nullptr);
+	const auto msg_int = ba.next_u32() & ~(io::MessageBitsMask << io::MessageBitsStartAt);
+	const auto msg = static_cast<io::Message>(msg_int);
+	switch (msg)
+	{
+	case io::Message::CheckAlive: {
+		close(fd);
+		return nullptr;
+	}
+	case io::Message::CopyToClipboard: {
+		close(fd);
+		QMetaObject::invokeMethod(daemon, "CopyURLsToClipboard",
+		ConnectionType, Q_ARG(ByteArray*, &ba));
+		return nullptr;
+	}
+	case io::Message::CutToClipboard: {
+		close(fd);
+		QMetaObject::invokeMethod(daemon, "CutURLsToClipboard",
+		ConnectionType, Q_ARG(ByteArray*, &ba));
+		return nullptr;
+	}
+	case io::Message::EmptyTrashRecursively: {
+		close(fd);
+		QString dir_path = ba.next_string();
+		QMetaObject::invokeMethod(daemon, "EmptyTrashRecursively",
+		ConnectionType, Q_ARG(QString, dir_path), Q_ARG(bool, true));
+		return nullptr;
+	}
+	case io::Message::SendOpenWithList: {
+		QString mime = ba.next_string();
+		QMetaObject::invokeMethod(daemon, "SendOpenWithList",
+		ConnectionType, Q_ARG(QString, mime), Q_ARG(int, fd));
+		return nullptr;
+	}
+	case io::Message::SendDefaultDesktopFileForFullPath: {
+		QMetaObject::invokeMethod(daemon, "SendDefaultDesktopFileForFullPath",
+		ConnectionType, Q_ARG(ByteArray*, &ba), Q_ARG(int, fd));
+		return nullptr;
+	}
+	case io::Message::SendDesktopFilesById: {
+		QMetaObject::invokeMethod(daemon, "SendDesktopFilesById",
+		ConnectionType, Q_ARG(ByteArray*, &ba), Q_ARG(int, fd));
+		return nullptr;
+	}
+	case io::Message::SendAllDesktopFiles: {
+		QMetaObject::invokeMethod(daemon, "SendAllDesktopFiles",
+		ConnectionType, Q_ARG(int, fd));
+		return nullptr;
+	}
+	case io::Message::QuitServer: {
+#ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
+		mtl_info("Received QuitServer signal over socket");
+#endif
+		close(fd);
+		
+		cornus::io::ServerLife *life = daemon->life();
+		life->Lock();
+		life->exit = true;
+		life->Unlock();
+		
+		ByteArray ba;
+		ba.set_msg_id(io::Message::Empty);
+#ifdef CORNUS_DEBUG_SERVER_SHUTDOWN
+		mtl_info("Waking up daemon to process it...");
+#endif
+		io::socket::SendSync(ba);
+		return nullptr;
+	}
+	default: {}
+	} // switch()
+	close(fd);
+	ba.to(0);
+	auto *task = cornus::io::Task::From(ba, HasSecret::No);
+	if (task != nullptr)
+	{
+		QMetaObject::invokeMethod(tasks_win, "add",
+		Qt::QueuedConnection, Q_ARG(cornus::io::Task*, task));
+		task->StartIO();
+	}
+	
+	return nullptr;
+}
+
+void* PutTrashInGlobalGitignoreTh(void *args)
 {
 	pthread_detach(pthread_self());
 	
@@ -54,7 +199,6 @@ void* PutTrashInGlobalGitignore(void *args)
 	}
 	
 	return nullptr;
-}
 }
 
 /* static int setup_unix_signal_handlers()
@@ -80,28 +224,22 @@ void* PutTrashInGlobalGitignore(void *args)
 	return 0;
 }
 */
+} // cornus::
 
 int main(int argc, char *argv[])
 {
 	QApplication qapp(argc, argv);
-	pid_t pid = getpid();
-	printf("%s PID: %ld\n", argv[0], i64(pid));
-	
 	qRegisterMetaType<cornus::io::Task*>();
 	qRegisterMetaType<cornus::ByteArray*>();
+	
+//	pid_t pid = getpid();
+//	printf("%s PID: %ld\n", argv[0], i64(pid));
+	
 	//setup_unix_signal_handlers();
 	//new cornus::MyDaemon();
 	auto *daemon = new cornus::io::Daemon();
-	{
-		//cornus::io::NewThread(cornus::ListenTh, daemon);
-		auto *workerThread = new cornus::io::ListenThread(daemon);
-//		connect(workerThread, &WorkerThread::resultReady, this, &MyObject::handleResults);
-//		connect(workerThread, &WorkerThread::finished, workerThread, &QObject::deleteLater);
-		workerThread->start();
-	}
-	
-	cornus::io::NewThread(cornus::PutTrashInGlobalGitignore, NULL);
-	
+	cornus::io::NewThread(cornus::ListenTh, daemon);
+	cornus::io::NewThread(cornus::PutTrashInGlobalGitignoreTh, NULL);
 	cornus::io::ServerLife *life = daemon->life();
 	int ret;
 	while (true)

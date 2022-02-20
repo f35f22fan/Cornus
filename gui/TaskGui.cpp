@@ -50,31 +50,35 @@ void* wait_for_signal(void *ptr)
 	
 	TaskGui *task_gui = (TaskGui*)ptr;
 	auto &data = task_gui->task()->data();
+	bool first_time = true;
 	do {
 		auto g = data.cm.guard();
 		if (data.state & TaskState::AwaitingAnswer)
 		{
 			Invoke(task_gui);
-			const auto wait_for_bits = TaskState::Answered | TaskIsDoneBits;
+			const auto condition = TaskState::Answered | TaskIsDoneBits;
 //			const auto str = ToStr(wait_for_bits);
 //			mtl_info("Waiting for %s", str.data());
-			data.WaitFor(wait_for_bits, Lock::No);
+			data.WaitFor(condition, Lock::No);
 //			mtl_info("Waiting for %s ... Done", str.data());
 			if (data.state & TaskState::Answered)
 			{
 				Invoke(task_gui);
 			}
 		} else {
-			const auto wait_for_bits = TaskState::AwaitingAnswer | TaskIsDoneBits | TaskState::Working;
+			const auto condition = TaskState::AwaitingAnswer | TaskIsDoneBits | TaskState::Working;
 //			const auto str = ToStr(wait_for_bits);
 //			mtl_info("Waiting for %s", str.data());
-			data.WaitFor(wait_for_bits, Lock::No);
+			data.WaitFor(condition, Lock::No);
 //			mtl_info("Waiting for %s .. Done", str.data());
 			if (data.state & TaskState::Working)
 			{
 //				mtl_info("TaskState::Working (Sleep 300ms)");
 				data.cm.Unlock();
-				usleep(300 * 1000); // 300ms
+				const useconds_t ms = first_time ? 3000 * 1000 : 300 * 1000;
+				usleep(ms);
+				if (first_time)
+					first_time = false;
 				data.cm.Lock();
 				Invoke(task_gui);
 				continue;
@@ -99,21 +103,13 @@ TaskGui::TaskGui(io::Task *task): task_(task)
 {
 	//mtl_printq2("TaskGui thread: ", io::thread_id_short(pthread_self()));
 	io::NewThread(wait_for_signal, this);
-	//const int timeout = 3000; // 3 seconds
-	//QTimer::singleShot(timeout, this, &TaskGui::CheckTaskState);
 	
-	timer_ = new QTimer(this);
-	timer_->setInterval(3000);
-	timer_->setSingleShot(true);
-	connect(timer_, &QTimer::timeout, this, &TaskGui::CheckTaskState);
-	timer_->start();
+//	const int timeout = 3000; // 3 seconds
+//	QTimer::singleShot(timeout, this, &TaskGui::CheckTaskState);
 }
 
 TaskGui::~TaskGui()
 {
-	timer_->stop();
-	delete timer_;
-	timer_ = nullptr;
 	task_->data().WaitFor(TaskIsDoneBits);
 	delete task_;
 }

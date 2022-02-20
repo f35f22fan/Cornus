@@ -4,7 +4,6 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QProgressBar>
-#include <QTimer>
 #include <QToolButton>
 #include <QWidget>
 
@@ -15,20 +14,11 @@
 
 namespace cornus::gui {
 
-struct ThreadExit {
-	
-	bool must_exit = false;
-};
-
 class TaskGui: public QWidget {
 	Q_OBJECT
 public:
 	~TaskGui();
 	static TaskGui* From(io::Task *task, gui::TasksWin *tw);
-	
-//	virtual QSize sizeHint() const override;
-//	virtual QSize minimumSizeHint() const override;
-	
 	io::Task* task() const { return task_; }
 	void UpdateStartPauseIcon(const io::TaskState new_state);
 	
@@ -64,7 +54,6 @@ private:
 	cornus::io::Progress progress_ = {};
 	QIcon continue_icon_, pause_icon_;
 	io::TaskQuestion task_question_ = {};
-	QTimer *timer_ = nullptr;
 	bool gui_created_ = false;
 	bool made_visible_once_ = false;
 	

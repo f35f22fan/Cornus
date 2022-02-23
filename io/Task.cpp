@@ -19,7 +19,7 @@
 #endif
 #include <unistd.h>
 
-#define CORNUS_THROTTLE_IO
+// #define CORNUS_THROTTLE_IO
 
 namespace cornus::io {
 

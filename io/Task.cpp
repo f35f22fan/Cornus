@@ -19,7 +19,7 @@
 #endif
 #include <unistd.h>
 
-//#define CORNUS_THROTTLE_IO
+#define CORNUS_THROTTLE_IO
 
 namespace cornus::io {
 
@@ -70,11 +70,7 @@ Task::~Task() {}
 
 void Task::CopyFiles()
 {
-	i64 total_size = CountTotalSize();
-	if (total_size < 0)
-		return;
-	
-	progress_.AddProgress(0, 0, &total_size);
+	CountTotalSize();
 	for (const auto &path: file_paths_)
 	{
 		CopyFileToDir(path, to_dir_path_);
@@ -120,10 +116,11 @@ void Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 		
 		new_dir_path.append(file_name);
 		auto dir_ba = new_dir_path.toLocal8Bit();
-		
-		int status = mkdir(dir_ba.data(), mode);
-		if (status != 0) {
-			if (errno != EEXIST) {
+		const int status = mkdir(dir_ba.data(), mode);
+		if (status != 0)
+		{
+			if (errno != EEXIST)
+			{
 				mtl_status(errno);
 				data_.ChangeState(TaskState::Abort);
 				return;
@@ -328,20 +325,32 @@ i64 Task::CountTotalSize()
 		}
 	}
 	
+	const i64 total_progress = info.size + info.file_count + info.dir_count;
+	progress_.AddProgress(0, 0, &total_progress);
+	
 	return info.size;
 }
 
-void Task::DeleteFiles()
+void Task::DeleteFiles(const InitTotalSize its)
 {
+	if (its == InitTotalSize::Yes)
+		CountTotalSize();
+	
+	i64 time_worked = 0;
 	QString problematic_file;
-	int status;
 	for (const auto &path: file_paths_)
 	{
-		for(;;)
+		while(true)
 		{
-			status = DeleteFile(path, stx_, problematic_file);
+			const int status = DeleteFile(path, stx_, problematic_file);
 			if (status == 0)
+			{
+				auto state = data_.GetState(nullptr, &time_worked);
+				Q_UNUSED(state);
+				progress_.AddProgress(1, time_worked);
+				
 				break;
+			}
 			
 			data_.cm.Lock();
 			const auto delete_failed_answer = data_.task_question_.delete_failed_answer;
@@ -355,11 +364,10 @@ void Task::DeleteFiles()
 			question.explanation = strerror(status);
 			question.file_path_in_question = path;
 			question.question = io::Question::DeleteFailed;
-			mtl_info("Changing state to AwaitingAnswer");
 			data_.ChangeState(TaskState::AwaitingAnswer, &question);
-			mtl_info("Changing state to AwaitingAnswer ... Done");
 			ActUponAnswer answer = DealWithDeleteFailedAnswer(stx_.stx_size);
-			if (answer == ActUponAnswer::Retry) {
+			if (answer == ActUponAnswer::Retry)
+			{
 				mtl_trace("Retry");
 				continue;
 			} else if (answer == ActUponAnswer::Skip) {
@@ -379,7 +387,7 @@ int Task::DeleteFile(const QString &full_path, struct statx &stx,
 	QString &problematic_file)
 {
 	const auto flags = AT_SYMLINK_NOFOLLOW;
-	const auto fields = STATX_SIZE | STATX_MODE;
+	const auto fields = STATX_MODE; //STATX_SIZE | ;
 	auto ba = full_path.toLocal8Bit();
 	
 	if (statx(0, ba.data(), flags, fields, &stx) != 0)
@@ -388,7 +396,8 @@ int Task::DeleteFile(const QString &full_path, struct statx &stx,
 		return errno;
 	}
 	
-	if (S_ISDIR(stx.stx_mode))
+	const bool is_dir = S_ISDIR(stx.stx_mode);
+	if (is_dir)
 	{
 		QString dir_path = full_path;
 		if (!dir_path.endsWith('/'))
@@ -396,17 +405,17 @@ int Task::DeleteFile(const QString &full_path, struct statx &stx,
 		
 		QVector<QString> names;
 		io::ListFileNames(dir_path, names);
-		int status;
 		for (const auto &name: names)
 		{
-			auto fp = dir_path + name;
-			status = DeleteFile(fp, stx, problematic_file);
+			const auto fp = dir_path + name;
+			const int status = DeleteFile(fp, stx, problematic_file);
 			if (status != 0)
 				return status;
 		}
 	}
 	
-	if (remove(ba.data()) == 0)
+	const int status = is_dir ? rmdir(ba.data()) : unlink(ba.data());
+	if (status == 0)
 		return 0;
 	
 	problematic_file = full_path;
@@ -491,27 +500,29 @@ void Task::SetDefaultAction(const IOAction action)
 
 void Task::StartIO()
 {
-	data_.ChangeState(TaskState::Continue | TaskState::Working);
-	if (to_dir_path_.startsWith('/') && !to_dir_path_.endsWith('/'))
-		to_dir_path_.append('/');
 	if (file_paths_.isEmpty())
 	{
 		data().ChangeState(io::TaskState::Finished);
 		return;
 	}
-	const QString &first = file_paths_[0];
-	auto name = io::GetFileNameOfFullPath(first);
-	QString parent = first.mid(0, first.size() - name.size());
+	
+	data_.ChangeState(TaskState::Continue | TaskState::Working);
+	if (to_dir_path_.startsWith('/') && !to_dir_path_.endsWith('/'))
+		to_dir_path_.append('/');
+	
+	const QString &first_file_path = file_paths_[0];
+	auto fn = io::GetFileNameOfFullPath(first_file_path);
+	const auto parent_dir = io::GetParentDirPath(first_file_path).toString();
 	const bool pasted = (int)ops_ & (int)Message::Pasted_Hint;
 	//mtl_info("pasted: %d", pasted);
-	if (name.isEmpty() || (!pasted && io::SameFiles(parent, to_dir_path_)))
+	if (fn.isEmpty() || (!pasted && io::SameFiles(parent_dir, to_dir_path_)))
 	{
 		data().ChangeState(io::TaskState::Finished);
 		return;
 	}
 	
 	if (ops_ == (MessageType)Message::DeleteFiles) {
-		DeleteFiles();
+		DeleteFiles(InitTotalSize::Yes);
 	} else if (ops_ == (MessageType)Message::MoveToTrash) {
 		MoveToTrash();
 	} else if (ops_ & (MessageType)Message::Copy) {
@@ -530,7 +541,7 @@ void Task::StartIO()
 			const auto state = data_.GetState();
 			if (!(state & TaskState::Abort))
 			{
-				DeleteFiles();
+				DeleteFiles(InitTotalSize::No);
 			}
 		}
 	} else {
@@ -539,10 +550,7 @@ void Task::StartIO()
 	
 	const bool has_abort = data_.GetState() & TaskState::Abort;
 	if (!has_abort) {
-//		mtl_trace("Doesn't have abort");
 		data_.ChangeState(TaskState::Finished);
-	} else {
-//		mtl_info("Does have abort");
 	}
 	
 //	mtl_info("Returning from Task::StartIO()");

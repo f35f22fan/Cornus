@@ -283,40 +283,44 @@ bool CopyFileFromTo(const QString &from_full_path, QString to_dir)
 }
 
 bool CountSizeRecursive(const QString &path, struct statx &stx,
-	CountRecursiveInfo &info)
+	CountRecursiveInfo &info, const FirstTime ft)
 {
 	const auto flags = AT_SYMLINK_NOFOLLOW;
 	const auto fields = STATX_SIZE | STATX_MODE;
 	auto ba = path.toLocal8Bit();
-	
-	if (statx(0, ba.data(), flags, fields, &stx) != 0) {
+	if (statx(0, ba.data(), flags, fields, &stx) != 0)
+	{
 		mtl_warn("statx(): %s", strerror(errno));
 		return false;
 	}
 	
 	const bool is_dir = S_ISDIR(stx.stx_mode);
 	info.size += stx.stx_size;
-	
-	if (!is_dir) {
+	if (!is_dir)
+	{
 		info.file_count++;
 		return true;
 	}
 	
-	info.dir_count++;
-	QVector<QString> names;
+	if (ft == FirstTime::No) // don't count top dir itself
+		info.dir_count++;
 	
-	if (!ListFileNames(path, names)) {
+	QVector<QString> names;
+	if (!ListFileNames(path, names))
+	{
 		mtl_printq(path);
 		return false;
 	}
 	
-	for (const auto &name: names) {
+	for (const auto &name: names)
+	{
 		QString full_path = path;
 		if (!full_path.endsWith('/'))
 			full_path.append('/');
 		full_path.append(name);
 		
-		if (!CountSizeRecursive(full_path, stx, info)) {
+		if (!CountSizeRecursive(full_path, stx, info, FirstTime::No))
+		{
 			mtl_printq2("Failed at full_path: ", full_path);
 			return false;
 		}

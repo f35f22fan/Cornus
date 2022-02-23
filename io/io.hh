@@ -159,7 +159,7 @@ struct CountRecursiveInfo {
 	i32 file_count = 0;
 	i32 trash_file_count = 0;
 	
-	i32 dir_count = -1; // -1 to exclude counting parent folder
+	i32 dir_count = 0;
 	i32 trash_dir_count = 0;
 };
 }
@@ -205,7 +205,7 @@ struct CountFolderData {
 };
 
 bool CountSizeRecursive(const QString &path, struct statx &stx,
-	CountRecursiveInfo &info);
+	CountRecursiveInfo &info, const FirstTime ft = FirstTime::Yes);
 
 // returns errno, or zero for success
 int CountSizeRecursiveTh(const QString &path, CountFolderData &data, const bool inside_trash);

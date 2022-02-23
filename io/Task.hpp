@@ -38,8 +38,8 @@ struct TaskData {
 	
 	inline TaskState GetState(TaskQuestion *question = nullptr, i64 *ret_time_worked = nullptr)
 	{
-		MutexGuard guard = cm.guard();
-		if (state == TaskState::AwaitingAnswer && question != nullptr)
+		auto g = cm.guard();
+		if (question != nullptr && state == TaskState::AwaitingAnswer)
 			*question = task_question_;
 		
 		if (ret_time_worked != nullptr)
@@ -89,9 +89,9 @@ struct TaskProgress {
 	}
 	
 	inline void AddProgress(const i64 progress, const i64 time_worked,
-		i64 *new_total = nullptr)
+		const i64 *new_total = nullptr)
 	{
-		MutexGuard guard(&mutex);
+		MutexGuard g(&mutex);
 		data.at += progress;
 		data.time_worked = time_worked;
 		if (new_total != nullptr)
@@ -120,6 +120,12 @@ struct TaskProgress {
 };
 
 class Task {
+	
+	enum class InitTotalSize: i8 {
+		Yes,
+		No
+	};
+	
 public:
 	~Task();
 	static Task* From(cornus::ByteArray &ba, const HasSecret hs);
@@ -149,7 +155,7 @@ private:
 	
 	// returns 0 on success, errno otherwise
 	int DeleteFile(const QString &full_path, struct statx &stx, QString &problematic_file);
-	void DeleteFiles();
+	void DeleteFiles(const InitTotalSize its);
 	void MoveToTrash();
 	bool TryAtomicMove();
 	int TryCreateRegularFile(const QString &new_dir_path,

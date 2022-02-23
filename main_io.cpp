@@ -232,8 +232,8 @@ int main(int argc, char *argv[])
 	qRegisterMetaType<cornus::io::Task*>();
 	qRegisterMetaType<cornus::ByteArray*>();
 	
-//	pid_t pid = getpid();
-//	printf("%s PID: %ld\n", argv[0], i64(pid));
+	const pid_t pid = getpid();
+	printf("PID: %ld\n", i64(pid));
 	
 	//setup_unix_signal_handlers();
 	//new cornus::MyDaemon();

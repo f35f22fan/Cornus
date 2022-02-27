@@ -76,6 +76,8 @@ public:
 	bool level_browser() const { return top_level_stack_.level == TopLevel::Browser; }
 	const QLocale& locale() const { return locale_; }
 	gui::Location* location() { return location_; }
+	float magnify_value() const { return 2.5f; }
+	float magnify_opacity() const { return 0.7f; }
 	QSplitter* main_splitter() const { return main_splitter_; }
 	Media* media() const { return media_; }
 	gui::Tab *OpenNewTab(const cornus::FirstTime ft = FirstTime::No);

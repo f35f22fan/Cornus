@@ -83,7 +83,7 @@ void ToolBar::CreateGui()
 	
 	Add(prefs_menu_, tr("Preferences.."), actions::Preferences,
 		QLatin1String("preferences-other"));
-	Add(prefs_menu_, tr("Show &Shortcuts.."), actions::ShowShortcuts,
+	Add(prefs_menu_, tr("&Shortcuts.."), actions::ShowShortcuts,
 		QLatin1String("go-next"));
 	Add(prefs_menu_, tr("Media Database"), NewMediaEntryAction,
 		QLatin1String("contact-new"));
@@ -153,29 +153,31 @@ void ToolBar::ShowAboutThisAppDialog()
 
 void ToolBar::ShowShortcuts()
 {
-	QString s;
+	QString s(QLatin1String("<html>"));
 	
-	s += QLatin1String("Ctrl + T => ")  + tr("Open a new tab");
-	s += QLatin1String("\nCtrl + W => ") + tr("Close current tab");
-	s += QLatin1String("\n1 to 9 => ") + tr("Select and focus tab 1 to 9");
-	s += QLatin1String("\nCtrl + R => ") + tr("Reload tab view (list files anew)");
-	s += QLatin1String("\nAlt + Up => ") + tr("Go one directory up");
-	s += QLatin1String("\nCtrl + H => ") + tr("Toggle showing of hidden files");
-	s += QLatin1String("\nCtrl + Q => ") + tr("Quit app");
-	s += QLatin1String("\nShift + Delete => ") + tr("Delete selected files permanently, no confirmation asked.");
-	s += QLatin1String("\nF2 => ") + tr("Rename selected file");
-	s += QLatin1String("\nCtrl + I => ") + tr("Focus table");
-	s += QLatin1String("\nCtrl + L => ") + tr("Focus address bar");
-	s += QLatin1String("\nCtrl + A => ") + tr("Select all files");
-	s += QLatin1String("\nCtrl + E => ") + tr("Toggle exec bit of selected file(s)");
-	s += QLatin1String("\nD => ") + tr("Display contents of selected file");
-	s += QLatin1String("\nF => ") + tr("Switch view");
-	s += QLatin1String("\nCtrl + F => ") + tr("Search for file by name (then hit Enter to search forward or Ctrl+Enter for backwards)");
-	s += QLatin1String("\nCtrl + M => ") + tr("Search by (movie) file's metadata (see bottom of page)");
-	s += QLatin1String("\nShift + M => ") + tr("Show media dialog for selected file");
-	s += QLatin1String("\nCtrl + Shift + U => ") + tr("Remove thumbnail from selected files' extended attributes");
-	s += QLatin1String("\nF1 => ") + tr("Mark last watched file (with a red dot in Details View)");
+	s += QLatin1String("<b>Ctrl + T</b> => ")  + tr("Open a new tab");
+	s += QLatin1String("<br/><b>Ctrl + W</b> => ") + tr("Close current tab");
+	s += QLatin1String("<br/><b>1 to 9</b> => ") + tr("Select and focus tab 1 to 9");
+	s += QLatin1String("<br/><b>G</b> => ") + tr("Toggle <big>magnified</big> mode");
+	s += QLatin1String("<br/><b>Ctrl + R</b> => ") + tr("Reload tab view (list files anew)");
+	s += QLatin1String("<br/><b>Alt + Up</b> => ") + tr("Go one directory up");
+	s += QLatin1String("<br/><b>Ctrl + H</b> => ") + tr("Toggle showing of hidden files");
+	s += QLatin1String("<br/><b>Ctrl + Q</b> => ") + tr("Quit app");
+	s += QLatin1String("<br/><b>Shift + Delete</b> => ") + tr("Delete selected files permanently, no confirmation asked.");
+	s += QLatin1String("<br/><b>F2</b> => ") + tr("Rename selected file");
+	s += QLatin1String("<br/><b>Ctrl + I</b> => ") + tr("Focus table");
+	s += QLatin1String("<br/><b>Ctrl + L</b> => ") + tr("Focus address bar");
+	s += QLatin1String("<br/><b>Ctrl + A</b> => ") + tr("Select all files");
+	s += QLatin1String("<br/><b>Ctrl + E</b> => ") + tr("Toggle exec bit of selected file(s)");
+	s += QLatin1String("<br/><b>D</b> => ") + tr("Display contents of selected file");
+	s += QLatin1String("<br/><b>F</b> => ") + tr("Switch view");
+	s += QLatin1String("<br/><b>Ctrl + F</b> => ") + tr("Search for file by name (then hit Enter to search forward or Ctrl+Enter for backwards)");
+	s += QLatin1String("<br/><b>Ctrl + M</b> => ") + tr("Search by (movie) file's metadata (see bottom of page)");
+	s += QLatin1String("<br/><b>Shift + M</b> => ") + tr("Show media dialog for selected file");
+	s += QLatin1String("<br/><b>Ctrl + Shift + U</b> => ") + tr("Remove thumbnail from selected files' extended attributes");
+	s += QLatin1String("<br/><b>F1</b> => ") + tr("Mark last watched file (with a red dot in Details View)");
 	
+	s += QLatin1String("</html>");
 	app_->TellUser(s, tr("App Shortcuts"));
 }
 

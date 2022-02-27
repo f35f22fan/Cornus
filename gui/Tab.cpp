@@ -1012,6 +1012,10 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 			app_->SelectTabAt(index, FocusView::Yes);
 			return;
 		}
+		
+		if (key == Qt::Key_G) {
+			ToggleMagnifiedMode();
+		}
 	}
 	
 	if (ctrl) {
@@ -1144,6 +1148,44 @@ void Tab::MarkLastWatchedFile()
 	const int index = files.GetFirstSelectedFile(Lock::No, &file, Clone::No);
 	if (index != -1)
 		files.SetLastWatched(Lock::No, file);
+}
+
+void Tab::PaintMagnified(QWidget *viewport, const QStyleOptionViewItem &option)
+{
+	io::Files &files = view_files();
+	io::File *file;
+	if (files.GetFirstSelectedFile(Lock::Yes, &file, Clone::Yes) == -1)
+		return;
+	
+	AutoDelete file_ad(file);
+	QPainter p(viewport);
+	QPainter *painter = &p;
+	painter->setRenderHint(QPainter::Antialiasing);
+	QFont fnt = option.font;
+	if (fnt.pixelSize() == -1)
+	{
+		fnt.setPointSize(fnt.pointSize() * app_->magnify_value());
+	} else {
+		fnt.setPixelSize(fnt.pixelSize() * app_->magnify_value());
+	}
+	
+	painter->setFont(fnt);
+	QFontMetrics fm(fnt);
+	const int h = fm.height() * 2 + 4;
+	int y = (height() - h) / 2;
+	QRect text_rect(2, y, width(), h);
+	auto color_role = QPalette::Base;
+	
+	// Opacity: the value should be in the range 0.0 to 1.0, where 0.0 is fully
+	// transparent and 1.0 is fully opaque.
+	const int saved_opacity = painter->opacity();
+	painter->setOpacity(app_->magnify_opacity());
+	painter->fillRect(text_rect, option.palette.brush(color_role));
+	painter->setOpacity(saved_opacity);
+	
+	painter->setBrush(option.palette.text());
+	const int flags = Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop;
+	painter->drawText(text_rect, flags, file->name());
 }
 
 void Tab::PopulateUndoDelete(QMenu *menu)
@@ -1736,6 +1778,12 @@ void Tab::StartDragOperation()
 		 will break dragging movie files onto the MPV player. */
 		drag->exec(Qt::CopyAction);
 	}
+}
+
+void Tab::ToggleMagnifiedMode()
+{
+	magnified(!magnified());
+	UpdateView();
 }
 
 void Tab::UndeleteFiles(const QMap<i64, QVector<trash::Names>> &items)

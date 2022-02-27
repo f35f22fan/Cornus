@@ -38,7 +38,7 @@ io::File* Files::GetFileAtIndex(const cornus::Lock l, const int index)
 int Files::GetFirstSelectedFile(const cornus::Lock l, io::File **ret_cloned_file,
 	const Clone c)
 {
-	MutexGuard guard = this->guard(l);
+	auto g = this->guard(l);
 	int i = 0;
 	for (io::File *file: data.vec)
 	{
@@ -90,8 +90,7 @@ int Files::GetSelectedFilesCount(const cornus::Lock l, QVector<QString> *extensi
 }
 
 void Files::GetSelectedFileNames(const cornus::Lock l, QVector<QString> &names,
-	const Path path,
-	const StringCase str_case)
+	const Path path, const StringCase str_case)
 {
 	MutexGuard guard = this->guard(l);
 	const bool OnlyName = (path == Path::OnlyName);

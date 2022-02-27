@@ -15,6 +15,7 @@
 #include "../io/socket.hh"
 #include "../MutexGuard.hpp"
 #include "../Prefs.hpp"
+#include "RestorePainter.hpp"
 #include "../str.hxx"
 #include "Tab.hpp"
 #include "TableDelegate.hpp"
@@ -437,9 +438,15 @@ void Table::mouseReleaseEvent(QMouseEvent *evt)
 	}
 }
 
-void Table::paintEvent(QPaintEvent *event)
+void Table::paintEvent(QPaintEvent *evt)
 {
-	QTableView::paintEvent(event);
+	QRect r(0, 0, viewport()->width(), viewport()->height());
+	const bool magnify = tab_->magnified();
+	QPaintEvent pe = magnify ? QPaintEvent(r) : *evt;
+	QTableView::paintEvent(&pe);
+	
+	if (magnify)
+		tab_->PaintMagnified(viewport(), view_options());
 }
 
 bool Table::ScrollToAndSelect(QString full_path)

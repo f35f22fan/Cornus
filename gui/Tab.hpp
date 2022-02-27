@@ -9,6 +9,7 @@
 #include "../trash.hh"
 
 #include <QMenu>
+#include <QStyleOptionViewItem>
 #include <QTabBar>
 #include <QStackedWidget>
 
@@ -87,8 +88,11 @@ public:
 	void KeyPressEvent(QKeyEvent *evt);
 	float list_speed() const { return list_speed_; }
 	QString ListSpeedString() const;
+	bool magnified() const { return magnified_; }
+	void magnified(const bool b) { magnified_ = b; }
 	io::Notify& notify() { return notify_; }
 	const OpenWith& open_with() const { return open_with_; }
+	void PaintMagnified(QWidget *viewport, const QStyleOptionViewItem &option);
 	void PopulateUndoDelete(QMenu *menu);
 	bool ReloadOpenWith();
 	void ScrollToFile(const int file_index);
@@ -97,6 +101,8 @@ public:
 	
 	gui::Table* table() const { return table_; }
 	gui::TableModel* table_model() const { return table_model_; }
+	
+	void ToggleMagnifiedMode();
 	
 	bool ViewIsAt(const QString &dir_path) const;
 	ViewMode view_mode() const { return view_mode_; }
@@ -153,6 +159,8 @@ private:
 	
 	ViewMode view_mode_ = ViewMode::Details;
 	gui::IconView *icon_view_ = nullptr;
+	
+	bool magnified_ = false;
 	
 	QMenu *undo_delete_menu_ = nullptr;
 	OpenWith open_with_ = {};

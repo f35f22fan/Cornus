@@ -490,7 +490,7 @@ void IconView::paintEvent(QPaintEvent *ev)
 	text_options.setWrapMode(QTextOption::WrapAnywhere);
 	const QColor gray_color(100, 100, 100);
 	io::Files &files = tab_->view_files();
-	auto guard = files.guard();
+	files.Lock();
 	
 	for (double y = y_off; y < y_end; y += cell.rh)
 	{
@@ -562,6 +562,11 @@ void IconView::paintEvent(QPaintEvent *ev)
 			}
 		}
 	}
+	
+	files.Unlock();
+	
+	if (tab_->magnified())
+		tab_->PaintMagnified(this, option);
 }
 
 void IconView::RepaintLater(const int custom_ms)

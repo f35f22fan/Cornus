@@ -61,12 +61,14 @@ public:
 	int GetRowHeight() const { return icon_dim_.rh; }
 	i32 GetVisibleFileIndex();
 	void HiliteFileUnderMouse();
-	void SetAsCurrentView(const NewState ns);
+	bool magnified() const { return magnified_; }
+	void magnified(const bool b) { magnified_ = b; }
 	QSize minimumSize() const { return size(); }
 	QSize maximumSize() const { return size(); }
 	int CellIndexInNextRow(const int file_index, const VDirection vdir);
 	void SendLoadingNewThumbnailsBatch();
 	void SendLoadingNewThumbnail(io::File *cloned_file);
+	void SetAsCurrentView(const NewState ns);
 	QSize size() const;
 	virtual QSize sizeHint() const override { return size(); }
 	
@@ -122,6 +124,7 @@ private:
 	bool delayed_repaint_pending_ = false;
 	const i64 delay_repaint_ms_ = 100;
 	bool repaint_without_delay_ = false;
+	bool magnified_ = false;
 	int scroll_page_step_ = -1;
 	DirId last_cancelled_except_ = -1;
 	DirId last_thumbnail_submission_for_ = -1;

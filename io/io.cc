@@ -492,6 +492,29 @@ bool DirExists(const QString &full_path)
 	return (S_ISDIR(stx.stx_mode));
 }
 
+DirType GetDirType(const QString &full_path)
+{
+	auto ba = full_path.toLocal8Bit();
+	struct statx stx;
+	const auto flags = AT_SYMLINK_NOFOLLOW;
+	const auto fields = STATX_MODE;
+	
+	if (statx(0, ba.data(), flags, fields, &stx) != 0)
+		return DirType::Error;
+	
+	if (S_ISDIR(stx.stx_mode))
+		return DirType::Dir;
+	
+	if (!S_ISLNK(stx.stx_mode))
+		return DirType::Neither;
+	
+	LinkTarget target;
+	if (!io::ReadLink(ba.data(), target))
+		return DirType::Error;
+	
+	return (target.type == FileType::Dir) ? DirType::LinkToDir : DirType::Neither;
+}
+
 bool EnsureDir(QString dir_path, const QString &subdir, QString *result)
 {
 	if (!dir_path.endsWith('/'))
@@ -1242,8 +1265,20 @@ bool ReadLink(const char *file_path, LinkTarget &link_target,
 	{
 		is_relative = true;
 		QString s = parent_dir;
-		if (!parent_dir.endsWith('/'))
+		
+		if (s.isEmpty())
+		{
+			auto s = io::GetParentDirPath(file_path);
+			if (s.isEmpty())
+			{
+				free(buf);
+				return false;
+			}
+		}
+		
+		if (!s.endsWith('/'))
 			s.append('/');
+		
 		s.append(full_target_path);
 		full_target_path = s;
 	}

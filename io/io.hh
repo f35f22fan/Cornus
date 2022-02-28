@@ -248,27 +248,23 @@ FileExists(const QString &path, FileType *file_type = nullptr) {
 	return FileExistsCstr(ba.data(), file_type);
 }
 
-io::File*
-FileFromPath(const QString &full_path, int *ret_error = nullptr);
+io::File* FileFromPath(const QString &full_path, int *ret_error = nullptr);
 
-void
-FillInStx(io::File &file, const struct statx &st, const QString *name);
+void FillInStx(io::File &file, const struct statx &st, const QString *name);
 
-QString
-FloatToString(const float number, const int precision);
+QString FloatToString(const float number, const int precision);
 
 void GetClipboardFiles(const QMimeData &mime, Clipboard &cl);
 
-QStringRef
-GetFileNameExtension(const QString &name, QStringRef *base_name = nullptr);
+DirType GetDirType(const QString &full_path);
 
-QStringRef
-GetFileNameOfFullPath(const QString &full_path);
+QStringRef GetFileNameExtension(const QString &name, QStringRef *base_name = nullptr);
+
+QStringRef GetFileNameOfFullPath(const QString &full_path);
 
 QString GetLastingTmpDir();
 
-QStringRef
-GetParentDirPath(const QString &full_path);
+QStringRef GetParentDirPath(const QString &full_path);
 
 Bool HasExecBit(const QString &full_path);
 
@@ -327,7 +323,7 @@ bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	const ReadParams &params);
 
 bool ReadLink(const char *file_path, LinkTarget &link_target,
-	const QString &parent_dir, const PrintErrors pe = PrintErrors::Yes);
+	const QString &parent_dir = QString(), const PrintErrors pe = PrintErrors::Yes);
 
 bool ReadLinkSimple(const char *file_path, QString &result);
 

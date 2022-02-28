@@ -1741,7 +1741,7 @@ void Tab::StartDragOperation()
 	QMimeData *mimedata = new QMimeData();
 	QList<QUrl> urls;
 	QPair<int, int> files_folders = files.ListSelectedFiles(Lock::Yes, urls);
-	MTL_CHECK_VOID(!urls.isEmpty());
+	mtl_check_void(!urls.isEmpty());
 	mimedata->setUrls(urls);
 	
 /// Set a pixmap that will be shown alongside the cursor during the operation:

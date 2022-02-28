@@ -30,6 +30,11 @@ using DirId = i32;
 using FileId = i32;
 using FilesId = i64;
 
+enum class Exists: i8 {
+	Yes,
+	No
+};
+
 enum class Lock: i8 {
 	Yes,
 	No

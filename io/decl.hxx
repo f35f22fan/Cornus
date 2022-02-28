@@ -215,7 +215,14 @@ struct SortingOrder {
 	bool ascending = true;
 };
 
-enum class FileType : u8 {
+enum class DirType: i8 {
+	Dir,
+	LinkToDir,
+	Neither,
+	Error,
+};
+
+enum class FileType: i8 {
 	Unknown = 0,
 	Regular,
 	Dir,

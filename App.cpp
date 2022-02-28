@@ -1160,7 +1160,6 @@ void App::Init()
 	
 //	TestPolkit(this);
 	//thumbnail::LoadWebpImage("/home/fox/scale_1200.webp", 128, 128);
-	
 }
 
 void App::InitThumbnailPoolIfNeeded()
@@ -2204,7 +2203,46 @@ void App::TabSelected(const int index)
 
 void App::TellUser(const QString &msg, const QString title)
 {
-	QMessageBox::warning(this, title, msg);
+	QDialog dialog(this);
+	dialog.setWindowTitle(title);
+	dialog.setModal(true);
+	QBoxLayout *vert_layout = new QBoxLayout(QBoxLayout::TopToBottom);
+	dialog.setLayout(vert_layout);
+	
+	{
+		QBoxLayout *row = new QBoxLayout(QBoxLayout::LeftToRight);
+		
+//		const QIcon *icon = nullptr;
+//		if (icon != nullptr)
+//		{
+//			QLabel *icon_label = new QLabel();
+//			QPixmap pixmap = icon->pixmap(QSize(64, 64));
+//			icon_label->setPixmap(pixmap);
+//			row->addWidget(icon_label);
+//		}
+
+		QLabel *text_label = new QLabel();
+		text_label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+		text_label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+		text_label->setText(msg);
+		row->addWidget(text_label, 2);
+		
+		vert_layout->addLayout(row);
+	}
+	
+	{
+		auto *button_box = new QDialogButtonBox
+			(QDialogButtonBox::Ok);// | QDialogButtonBox::Cancel);
+		connect(button_box, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+		//connect(button_box, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+		vert_layout->addWidget(button_box);
+	}
+	
+	QFontMetrics fm = fontMetrics();
+	int w = fm.horizontalAdvance(msg);
+	w = std::min(800, std::max(w + 100, 400)); // between 300 and 800
+	dialog.resize(w, 100);
+	dialog.exec();
 }
 
 void App::TellUserDesktopFileABIDoesntMatch()

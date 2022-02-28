@@ -506,6 +506,25 @@ void Task::StartIO()
 		return;
 	}
 	
+	const DirType dt = io::GetDirType(to_dir_path_);
+	
+	if (dt == DirType::Error)
+	{
+		data().ChangeState(io::TaskState::Abort);
+		return;
+	}
+	
+	if (dt == DirType::Neither)
+	{
+		to_dir_path_ = io::GetParentDirPath(to_dir_path_).toString();
+		
+		if (to_dir_path_.isEmpty())
+		{
+			data().ChangeState(io::TaskState::Abort);
+			return;
+		}
+	}
+	
 	data_.ChangeState(TaskState::Continue | TaskState::Working);
 	if (to_dir_path_.startsWith('/') && !to_dir_path_.endsWith('/'))
 		to_dir_path_.append('/');
@@ -515,6 +534,7 @@ void Task::StartIO()
 	const auto parent_dir = io::GetParentDirPath(first_file_path).toString();
 	const bool pasted = (int)ops_ & (int)Message::Pasted_Hint;
 	//mtl_info("pasted: %d", pasted);
+	//mtl_info("%s, %s", qPrintable(parent_dir), qPrintable(to_dir_path_));
 	if (fn.isEmpty() || (!pasted && io::SameFiles(parent_dir, to_dir_path_)))
 	{
 		data().ChangeState(io::TaskState::Finished);
@@ -592,7 +612,7 @@ int Task::TryCreateRegularFile(const QString &new_dir_path,
 			return fd;
 		}
 		const int Error = errno;
-		mtl_status(Error);
+		//mtl_status(Error);
 		bool go_to_loop_start = false;
 		if (Error == EEXIST)
 		{
@@ -669,6 +689,8 @@ mtl_trace("ActUponAnswer::Abort");
 				return -1;
 			}
 			}
+		} else {
+			return -1;
 		}
 	}
 

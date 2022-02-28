@@ -422,6 +422,22 @@ int Task::DeleteFile(const QString &full_path, struct statx &stx,
 	return errno;
 }
 
+bool Task::FixDestDir()
+{
+	const DirType dt = io::GetDirType(to_dir_path_);
+	
+	if (dt == DirType::Error)
+		return false;
+	
+	if (dt == DirType::Neither)
+	{
+		to_dir_path_ = io::GetParentDirPath(to_dir_path_).toString();
+		return !to_dir_path_.isEmpty();
+	}
+	
+	return true;
+}
+
 Task* Task::From(cornus::ByteArray &ba, const HasSecret hs)
 {
 	if (hs == HasSecret::Yes)
@@ -506,25 +522,6 @@ void Task::StartIO()
 		return;
 	}
 	
-	const DirType dt = io::GetDirType(to_dir_path_);
-	
-	if (dt == DirType::Error)
-	{
-		data().ChangeState(io::TaskState::Abort);
-		return;
-	}
-	
-	if (dt == DirType::Neither)
-	{
-		to_dir_path_ = io::GetParentDirPath(to_dir_path_).toString();
-		
-		if (to_dir_path_.isEmpty())
-		{
-			data().ChangeState(io::TaskState::Abort);
-			return;
-		}
-	}
-	
 	data_.ChangeState(TaskState::Continue | TaskState::Working);
 	if (to_dir_path_.startsWith('/') && !to_dir_path_.endsWith('/'))
 		to_dir_path_.append('/');
@@ -537,15 +534,22 @@ void Task::StartIO()
 	//mtl_info("%s, %s", qPrintable(parent_dir), qPrintable(to_dir_path_));
 	if (fn.isEmpty() || (!pasted && io::SameFiles(parent_dir, to_dir_path_)))
 	{
+mtl_trace();
 		data().ChangeState(io::TaskState::Finished);
 		return;
 	}
 	
-	if (ops_ == (MessageType)Message::DeleteFiles) {
+	if (ops_ == (MessageType)Message::DeleteFiles)
+	{
 		DeleteFiles(InitTotalSize::Yes);
 	} else if (ops_ == (MessageType)Message::MoveToTrash) {
 		MoveToTrash();
 	} else if (ops_ & (MessageType)Message::Copy) {
+		if (!FixDestDir())
+		{
+			data().ChangeState(io::TaskState::Finished);
+			return;
+		}
 		const bool can_try_atomic_move = !(ops_ & (MessageType)Message::DontTryAtomicMove);
 		if (can_try_atomic_move && TryAtomicMove()) {
 			data().ChangeState(io::TaskState::Finished);
@@ -553,6 +557,11 @@ void Task::StartIO()
 		}
 		CopyFiles();
 	} else if (ops_ & (MessageType)Message::Move) {
+		if (!FixDestDir())
+		{
+			data().ChangeState(io::TaskState::Finished);
+			return;
+		}
 		if (TryAtomicMove())
 		{
 			data().ChangeState(io::TaskState::Finished);
@@ -565,6 +574,11 @@ void Task::StartIO()
 			}
 		}
 	} else {
+		if (!FixDestDir())
+		{
+			data().ChangeState(io::TaskState::Finished);
+			return;
+		}
 		CopyFiles();
 	}
 	
@@ -608,7 +622,7 @@ int Task::TryCreateRegularFile(const QString &new_dir_path,
 		const int fd = ::open(dest_ba.data(), file_flags, mode);
 		if (fd != -1)
 		{
-			mtl_info("SUCCESS");
+			//mtl_info("SUCCESS");
 			return fd;
 		}
 		const int Error = errno;

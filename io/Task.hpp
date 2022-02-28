@@ -156,6 +156,7 @@ private:
 	// returns 0 on success, errno otherwise
 	int DeleteFile(const QString &full_path, struct statx &stx, QString &problematic_file);
 	void DeleteFiles(const InitTotalSize its);
+	bool FixDestDir();
 	void MoveToTrash();
 	bool TryAtomicMove();
 	int TryCreateRegularFile(const QString &new_dir_path,

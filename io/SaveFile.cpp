@@ -59,6 +59,8 @@ const QString& SaveFile::GetPathToWorkWith()
 
 bool SaveFile::InitTempPath()
 {
+	MTL_CHECK(io::EnsureRegularFile(original_path_));
+	
 	struct statx stx;
 	const auto flags = AT_SYMLINK_NOFOLLOW;
 	const auto fields = STATX_MODE;

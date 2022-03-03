@@ -1873,7 +1873,6 @@ void App::SaveBookmarks()
 	}
 	
 	io::SaveFile save_file(prefs::GetBookmarksFilePath());
-	
 	ByteArray buf;
 	buf.add_u16(prefs::BookmarksFormatVersion);
 	

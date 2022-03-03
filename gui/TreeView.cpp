@@ -118,8 +118,7 @@ void TreeView::ExecCommand(TreeItem *item, const PartitionEventType evt)
 	QProcess::startDetached(QLatin1String("udisksctl"), args, QDir::homePath());
 }
 
-void
-TreeView::dragEnterEvent(QDragEnterEvent *event)
+void TreeView::dragEnterEvent(QDragEnterEvent *event)
 {
 	mouse_down_ = true;
 	dragging_ = true;
@@ -131,8 +130,7 @@ TreeView::dragEnterEvent(QDragEnterEvent *event)
 	}
 }
 
-void
-TreeView::dragLeaveEvent(QDragLeaveEvent *evt)
+void TreeView::dragLeaveEvent(QDragLeaveEvent *evt)
 {
 	AnimateDND(mouse_pos_);
 	mouse_down_ = false;
@@ -140,8 +138,7 @@ TreeView::dragLeaveEvent(QDragLeaveEvent *evt)
 	//setCursor(Qt::ArrowCursor);
 }
 
-void
-TreeView::dragMoveEvent(QDragMoveEvent *evt)
+void TreeView::dragMoveEvent(QDragMoveEvent *evt)
 {
 	mouse_pos_ = evt->pos();
 	dragging_ = true;
@@ -208,8 +205,7 @@ void TreeView::dropEvent(QDropEvent *evt)
 	AnimateDND(evt->pos());
 }
 
-TreeItem*
-TreeView::GetSelectedBookmark(QModelIndex *index)
+TreeItem* TreeView::GetSelectedBookmark(QModelIndex *index)
 {
 	auto indexes = selectedIndexes();
 	if (indexes.isEmpty() || indexes.size() > 1) {

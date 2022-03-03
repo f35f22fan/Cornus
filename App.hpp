@@ -41,6 +41,7 @@ public:
 	App();
 	virtual ~App();
 	
+	int app_quitting_fd() const { return app_quitting_fd_; }
 	void ArchiveTo(const QString &target_dir_path, const QString &ext);
 	void AskCreateNewFile(io::File *file, const QString &title);
 	int AvailableCpuCores() const;
@@ -207,6 +208,7 @@ private:
 	ZSTD_CCtx *compress_ctx_ = nullptr;
 	QProcessEnvironment env_;
 	QLocale locale_;
+	int app_quitting_fd_ = -1;
 	
 	GlobalThumbLoaderData global_thumb_loader_data_ = {};
 	

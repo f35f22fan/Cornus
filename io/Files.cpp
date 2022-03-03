@@ -238,7 +238,6 @@ void Files::SetLastWatched(const cornus::Lock l, io::File *file)
 void Files::WakeUpInotify(const enum Lock l)
 {
 	auto g = guard(l);
-	data.signalled_from_event_fd(true);
 	// wake up epoll() to not wait till it times out
 	const i64 n = 1;
 	const int status = ::write(data.signal_quit_fd, &n, sizeof n);

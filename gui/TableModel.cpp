@@ -165,8 +165,7 @@ void ReadEvent(const int inotify_fd, char *buf, cornus::io::Files *files,
 	bool &has_been_unmounted_or_deleted,
 	const bool with_hidden_files,
 	cornus::gui::TableModel *model,
-	const int dir_id,
-	const int wd,
+	const int dir_id, const int wd,
 	QVector<RenameData> &rename_vec,
 	const QProcessEnvironment &env)
 {
@@ -390,38 +389,40 @@ void* WatchDir(void *void_args)
 	}
 	
 	io::AutoRemoveWatch arw(notify, wd);
-	const int poll_fd = epoll_create(1);
+	const int epoll_fd = epoll_create(1);
 	
-	if (poll_fd == -1) {
+	if (epoll_fd == -1) {
 		mtl_status(errno);
 		return 0;
 	}
-	AutoCloseFd poll_fd_ac(poll_fd);
+	AutoCloseFd epoll_fd_(epoll_fd);
 	io::Files &files = *app->files(files_id);
-	struct epoll_event poll_event = {};
-	poll_event.events = EPOLLIN;
-	poll_event.data.fd = notify_fd;
+	const int signal_quit_fd = files.data.signal_quit_fd;
 	
-//mtl_info("notify_fd: %d, signal_quit_fd: %d", notify_fd, files.data.signal_quit_fd);
+	QVector<struct epoll_event> evt_vec(2);
+	evt_vec[0].events = EPOLLIN;
+	evt_vec[0].data.fd = notify_fd;
+	evt_vec[1].events = EPOLLIN;
+	evt_vec[1].data.fd = signal_quit_fd;
 	
-	if (epoll_ctl(poll_fd, EPOLL_CTL_ADD, notify_fd, &poll_event)) {
-		mtl_status(errno);
-		return nullptr;
-	}
-	
-	if (epoll_ctl(poll_fd, EPOLL_CTL_ADD, files.data.signal_quit_fd, &poll_event)) {
-		mtl_status(errno);
-		return nullptr;
+	for (struct epoll_event &evt: evt_vec)
+	{
+		if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, evt.data.fd, &evt))
+		{
+			mtl_status(errno);
+			return nullptr;
+		}
 	}
 	
 	QVector<RenameData> rename_vec;
 	bool call_event_func = false;
 	
+//	mtl_info("notify_fd: %d, signal_quit_fd: %d", notify_fd, signal_quit_fd);
+	
 	while (true)
 	{
 		{
 			auto g = files.guard();
-			files.data.signalled_from_event_fd(false);
 			if (files.data.thread_must_exit())
 				break;
 			
@@ -430,30 +431,51 @@ void* WatchDir(void *void_args)
 		}
 		
 		const int ms = rename_vec.isEmpty() ? 50000 : 20;
-		const int num_file_descriptors = epoll_wait(poll_fd, &poll_event, 1, ms);
-//mtl_info("Woke up from epoll_wait(), fd: %d", poll_event.data.fd);
-		bool with_hidden_files;
-		bool signalled_from_event_fd;
+		const int num_fds = epoll_wait(epoll_fd, evt_vec.data(), evt_vec.size(), ms);
+//		mtl_info("num_fds: %d, thread: %lX", num_fds, i64(pthread_self()));
+		if (num_fds == -1)
+		{
+			mtl_status(errno);
+			break;
+		}
+		
+		bool signalled_from_event_fd = false;
+		bool has_been_unmounted_or_deleted = false;
+		bool with_hidden_files = false;
+		for (int i = 0; i < num_fds; i++)
+		{
+			auto &evt = evt_vec[i];
+			if (!(evt.events & EPOLLIN))
+				continue;
+			
+			if (evt.data.fd == notify_fd)
+			{
+				//mtl_info("ReadEvent() %d", notify_fd);
+				ReadEvent(evt.data.fd, buf, &files,
+					has_been_unmounted_or_deleted, with_hidden_files,
+					model, args->dir_id, wd, rename_vec, env);
+			} else if (evt.data.fd == signal_quit_fd) {
+				//mtl_info("Quit fd!");
+				signalled_from_event_fd = true;
+				// must read 8 bytes:
+				i64 num;
+				read(evt.data.fd, &num, sizeof num);
+			} else {
+				mtl_trace();
+			}
+		}
+		
+		if (signalled_from_event_fd)
+			break;
+		
 		{
 			auto g = files.guard();
 			with_hidden_files = files.data.show_hidden_files();
-			signalled_from_event_fd = files.data.signalled_from_event_fd();
 			if (files.data.thread_must_exit())
 				break;
 			
 			if (args->dir_id != files.data.dir_id)
 				break;
-		}
-		
-		bool has_been_unmounted_or_deleted = false;
-		if (signalled_from_event_fd) {
-			// must read 8 bytes:
-			i64 num;
-			read(files.data.signal_quit_fd, &num, sizeof num);
-		} else if (num_file_descriptors > 0) {
-			ReadEvent(poll_event.data.fd, buf, &files,
-				has_been_unmounted_or_deleted, with_hidden_files,
-				model, args->dir_id, wd, rename_vec, env);
 		}
 		
 		if (!rename_vec.isEmpty())
@@ -466,18 +488,10 @@ void* WatchDir(void *void_args)
 			{
 				auto g = files.guard();
 				auto &select_list = files.data.filenames_to_select;
-//				auto it = select_list.constBegin();
-//				while (it != select_list.constEnd())
-//				{
-//					mtl_printq2("File: ", it.key());
-//					it++;
-//				}
 				call_event_func = !select_list.isEmpty() && !files.data.should_skip_selecting();
 			}
-//mtl_info("call_event_func: %s", call_event_func ? "true" : "false");
 			if (call_event_func)
 			{
-//mtl_info("Calling InotifyBatchFinished()");
 				/* This must be dispatched as "QueuedConnection" (low priority)
 				to allow the previous
 				inotify events to be processed first, otherwise file selection doesn't
@@ -497,15 +511,12 @@ void* WatchDir(void *void_args)
 		auto g = files.guard();
 		if (args->dir_id == files.data.dir_id)
 		{
-//mtl_trace("Same dir");
 			files.data.thread_exited(true);
 			files.Broadcast();
-		} else {
-//mtl_trace("Not Same dir");
 		}
 	}
 	
-//	mtl_trace("Thread %ld exited", i64(pthread_self()));
+	//mtl_trace("Thread %lX exited", i64(pthread_self()));
 	return nullptr;
 }
 
@@ -797,9 +808,13 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 	io::Files &files = tab_->view_files();
 	int prev_count, new_count;
 	{
-		MutexGuard guard = files.guard();
+		auto g = files.guard();
 		prev_count = files.data.vec.size();
 		new_count = new_data->vec.size();
+		if (files.first_time)
+			files.first_time = false;
+		else
+			files.WakeUpInotify(Lock::No);
 	}
 	
 	beginRemoveRows(QModelIndex(), 0, prev_count - 1);

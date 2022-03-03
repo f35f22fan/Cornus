@@ -555,7 +555,13 @@ bool EnsureRegularFile(const QString &full_path, const mode_t *mode)
 	{
 		if (t == FileType::Regular)
 			return true;
-		MTL_CHECK(remove(ba.data()) == 0);
+		
+		if (t == FileType::Dir)
+		{
+			MTL_CHECK(rmdir(ba.data()) == 0);
+		} else {
+			MTL_CHECK(unlink(ba.data()) == 0);
+		}
 	}
 	
 	const mode_t file_mode = (mode) ? *mode : 0644;

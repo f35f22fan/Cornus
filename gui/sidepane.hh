@@ -26,6 +26,7 @@ void LoadAllVolumes(QVector<TreeItem*> &vec);
 bool LoadBookmarks(QVector<TreeItem*> &vec);
 void* LoadItems(void *args);
 void ReadDiskInfo(struct udev_device *device, io::DiskInfo &info);
+void ReadDeviceEvent(udev_monitor *monitor, App *app);
 bool SortItems(TreeItem *a, TreeItem *b);
 void* monitor_devices(void *args);
 void udev_list_partitions(QVector<TreeItem*> &vec);

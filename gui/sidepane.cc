@@ -5,10 +5,13 @@
 #include "../ByteArray.hpp"
 #include "../ElapsedTimer.hpp"
 #include "../prefs.hh"
+#include "TableModel.hpp"
 #include "TreeItem.hpp"
 #include "TreeModel.hpp"
 
 #include <string.h>
+#include <sys/epoll.h>
+
 #define CORNUS_PRINT_PARTITIONS_LOAD_TIME
 
 namespace cornus::gui::sidepane {
@@ -281,47 +284,91 @@ void* monitor_devices(void *args)
 	udev_monitor_filter_add_match_subsystem_devtype(monitor, subsys, "disk");
 	udev_monitor_filter_add_match_subsystem_devtype(monitor, subsys, "partition");
 	udev_monitor_enable_receiving(monitor);
-	int fd = udev_monitor_get_fd(monitor);
-	struct timeval tv;
-	
-	while (1)
+	const int monitor_fd = udev_monitor_get_fd(monitor);
+	const int epoll_fd = epoll_create(1);
+	if (epoll_fd == -1)
 	{
-		fd_set fds;
-		FD_ZERO(&fds);
-		FD_SET(fd, &fds);
-		tv.tv_sec = 0;
-		tv.tv_usec = 0;
-
-		int ret = select(fd + 1, &fds, NULL, NULL, &tv);
-		if (ret > 0 && FD_ISSET(fd, &fds))
+		mtl_status(errno);
+		return 0;
+	}
+	
+	AutoCloseFd epoll_fd_(epoll_fd);
+	const int app_quitting_fd = app->app_quitting_fd();
+	
+	QVector<struct epoll_event> evt_vec(2);
+	evt_vec[0].events = EPOLLIN;
+	evt_vec[0].data.fd = monitor_fd;
+	evt_vec[1].events = EPOLLIN;
+	evt_vec[1].data.fd = app_quitting_fd;
+	
+	for (struct epoll_event &evt: evt_vec)
+	{
+		if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, evt.data.fd, &evt))
 		{
-			struct udev_device *device = udev_monitor_receive_device(monitor);
-			if (!device) {
-				mtl_trace();
+			mtl_status(errno);
+			return nullptr;
+		}
+	}
+	
+	const int ms = 100 * 1000; // 100sec
+	while (true)
+	{
+		const int num_fds = epoll_wait(epoll_fd, evt_vec.data(), evt_vec.size(), ms);
+		if (num_fds == -1)
+		{
+			mtl_status(errno);
+			break;
+		}
+		
+		if (num_fds == 0)
+			continue;
+		
+		bool do_exit = false;
+		for (int i = 0; i < num_fds; i++)
+		{
+			auto &evt = evt_vec[i];
+			if (!(evt.events & EPOLLIN))
 				continue;
-			}
 			
-			UdevDeviceAutoUnref udau(device);
-			QString sys_path = udev_device_get_syspath(device);
-			auto *device_action_str = udev_device_get_action(device);
-			//mtl_info("Device action: %s", device_action_str);
-			const DeviceAction device_action = DeviceActionFromStr(device_action_str);
-			const Device device_enum = DeviceFromStr(udev_device_get_devtype(device));
-			if (device_enum != Device::None && device_action != DeviceAction::None)
+			if (evt.data.fd == monitor_fd)
 			{
-				const QString dev_path = udev_device_get_devnode(device);
-				TreeModel *model = app->tree_model();
-				QMetaObject::invokeMethod(model, "DeviceEvent",
-					Q_ARG(const cornus::Device, device_enum),
-					Q_ARG(const cornus::DeviceAction, device_action),
-					Q_ARG(const QString, dev_path),
-					Q_ARG(const QString, sys_path));
+				ReadDeviceEvent(monitor, app);
+			} else if (evt.data.fd == app_quitting_fd) {
+				do_exit = true;
+				// must read 8 bytes:
+				i64 num;
+				read(evt.data.fd, &num, sizeof num);
 			}
 		}
-		usleep(500 * 1000); /// 500 ms
+		
+		if (do_exit)
+			break;
 	}
 	
 	return NULL;
+}
+
+void ReadDeviceEvent(struct udev_monitor *monitor, App *app)
+{
+	struct udev_device *device = udev_monitor_receive_device(monitor);
+	MTL_CHECK_VOID(device != NULL);
+	
+	UdevDeviceAutoUnref udau(device);
+	QString sys_path = udev_device_get_syspath(device);
+	auto *device_action_str = udev_device_get_action(device);
+	//mtl_info("Device action: %s", device_action_str);
+	const DeviceAction device_action = DeviceActionFromStr(device_action_str);
+	const Device device_enum = DeviceFromStr(udev_device_get_devtype(device));
+	if (device_enum != Device::None && device_action != DeviceAction::None)
+	{
+		const QString dev_path = udev_device_get_devnode(device);
+		TreeModel *model = app->tree_model();
+		QMetaObject::invokeMethod(model, "DeviceEvent",
+			Q_ARG(const cornus::Device, device_enum),
+			Q_ARG(const cornus::DeviceAction, device_action),
+			Q_ARG(const QString, dev_path),
+			Q_ARG(const QString, sys_path));
+	}
 }
 
 }

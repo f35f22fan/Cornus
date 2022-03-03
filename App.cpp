@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
+#include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <stdio.h>
@@ -304,6 +305,16 @@ App::App()
 
 App::~App()
 {
+	if (app_quitting_fd_ != -1)
+	{
+		// wake up epoll() to not wait till it times out
+		const i64 n = 1;
+		if (::write(app_quitting_fd_, &n, sizeof n) == -1)
+			mtl_status(errno);
+		
+		::close(app_quitting_fd_);
+	}
+	
 	ShutdownThumbnailThreads();
 	prefs_->Save();
 	
@@ -1113,6 +1124,11 @@ void App::Init()
 	qRegisterMetaType<QVector<cornus::gui::TreeItem*>>();
 	qDBusRegisterMetaType<QMap<QString, QVariant>>();
 	qRegisterMetaType<cornus::Thumbnail*>();
+	
+	app_quitting_fd_ = ::eventfd(0, 0);
+	if (app_quitting_fd_ == -1)
+		mtl_status(errno);
+	
 	locale_ = QLocale::system();
 	media_ = new Media();
 	hid_ = new Hid(this);

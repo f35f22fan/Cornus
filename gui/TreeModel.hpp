@@ -29,6 +29,7 @@ public:
 
 	// returns num bookmarks added or -1 on error
 	int AddBookmarks(QVector<io::File *> &files_vec, const QPoint &pos);
+	App* app() const { return app_; }
 	void DeleteSelectedBookmark();
 	void MountEvent(const QString &path, const QString &fs_uuid, const PartitionEventType evt);
 	void MoveBookmarks(QStringList str_list, const QPoint &pos);

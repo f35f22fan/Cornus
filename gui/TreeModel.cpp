@@ -25,6 +25,57 @@ TreeModel::TreeModel(cornus::App *app, QObject *parent)
 TreeModel::~TreeModel()
 {}
 
+int TreeModel::AddBookmarks(QVector<io::File*> &files_vec,
+	const QPoint &widget_pos)
+{
+	AutoDeleteVec adv(files_vec);
+	QModelIndex target;
+	const int start_at = GetDropLocation(widget_pos, target);
+	if (start_at == -1)
+		return -1;
+	
+	TreeData &data = app_->tree_data();
+	{
+		TreeItem *item = static_cast<TreeItem*>(target.internalPointer());
+		if (!item->is_bookmark() && !item->is_bookmarks_root()) {
+			mtl_trace();
+			return -1;
+		}
+		
+	}
+	
+	for (int i = files_vec.size() - 1; i >= 0; i--)
+	{
+		io::File *next = files_vec[i];
+		if (!next->is_dir_or_so())
+			delete files_vec.takeAt(i);
+	}
+	
+	if (files_vec.isEmpty())
+		return 0;
+	
+	TreeItem *bookmarks_root = data.GetBookmarksRoot();
+	MTL_CHECK(bookmarks_root != nullptr);
+	QModelIndex root_index = createIndex(bookmarks_root->Row(), 0, bookmarks_root);
+	
+	const int num_added = files_vec.size();
+	const int start_row = start_at;
+	for (int i = 0; i < num_added; i++)
+	{
+		const int at = start_row + i;
+		beginInsertRows(root_index, at, at);
+		{
+			TreeItem *new_item = TreeItem::NewBookmark(*files_vec[i]);
+			bookmarks_root->InsertChild(new_item, at);
+		}
+		endInsertRows();
+	}
+	
+	app_->SaveBookmarks();
+	
+	return num_added;
+}
+
 int TreeModel::columnCount(const QModelIndex &parent_index) const
 {
 	return 1;
@@ -187,63 +238,6 @@ void TreeModel::DeviceEvent(const Device device, const DeviceAction action,
 			}
 		}
 	}
-}
-
-bool TreeModel::FinishDropOperation(QVector<io::File*> *files_vec,
-	const QPoint &widget_pos)
-{
-	AutoDeleteVecP advp(files_vec);
-	QModelIndex target;
-	const int start_at = GetDropLocation(widget_pos, target);
-	if (start_at == -1)
-		return false;
-	
-	TreeData &data = app_->tree_data();
-	{
-		TreeItem *item = static_cast<TreeItem*>(target.internalPointer());
-		if (!item->is_bookmark() && !item->is_bookmarks_root()) {
-			mtl_trace();
-			return false;
-		}
-		
-	}
-	
-	for (int i = files_vec->size() - 1; i >= 0; i--)
-	{
-		io::File *next = (*files_vec)[i];
-		if (!next->is_dir_or_so()) {
-			delete files_vec->takeAt(i);
-		}
-	}
-	
-	if (files_vec->isEmpty())
-		return false;
-	
-	TreeItem *bookmarks_root = data.GetBookmarksRoot();
-	MTL_CHECK(bookmarks_root != nullptr);
-	QModelIndex root_index = createIndex(bookmarks_root->Row(), 0, bookmarks_root);
-	
-	const int count = files_vec->size();
-	const int start_row = start_at;
-	
-	for (int i = 0; i < count; i++)
-	{
-		io::File *next = (*files_vec)[i];
-		const int at = start_row + i;
-		beginInsertRows(root_index, at, at);
-		{
-			if (next->is_dir_or_so())
-			{
-				TreeItem *new_item = TreeItem::NewBookmark(*next);
-				bookmarks_root->InsertChild(new_item, at);
-			}
-		}
-		endInsertRows();
-	}
-	
-	app_->SaveBookmarks();
-	
-	return true;
 }
 
 Qt::ItemFlags TreeModel::flags(const QModelIndex &index) const

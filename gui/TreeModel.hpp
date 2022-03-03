@@ -24,12 +24,12 @@ public:
 	QModelIndex index(int row, int column,
 	const QModelIndex &parent = QModelIndex()) const override;
 	QModelIndex parent(const QModelIndex &index) const override;
-	
 	int rowCount(const QModelIndex &parent) const override;
 	int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 
+	// returns num bookmarks added or -1 on error
+	int AddBookmarks(QVector<io::File *> &files_vec, const QPoint &pos);
 	void DeleteSelectedBookmark();
-	bool FinishDropOperation(QVector<io::File*> *files_vec, const QPoint &pos);
 	void MountEvent(const QString &path, const QString &fs_uuid, const PartitionEventType evt);
 	void MoveBookmarks(QStringList str_list, const QPoint &pos);
 	void SetView(TreeView *p);

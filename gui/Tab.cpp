@@ -19,6 +19,7 @@
 #include "Table.hpp"
 #include "TableModel.hpp"
 #include "TabsWidget.hpp"
+#include "TreeModel.hpp"
 #include "TreeView.hpp"
 #include "../ui.hh"
 
@@ -1450,44 +1451,71 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 	const QString current_dir = this->current_dir();
 	QString dir_full_path;
 	QString file_under_mouse_full_path;
-	io::File *file = nullptr;
-	cornus::AutoDelete ad(file);
+	io::File *file_under_mouse = nullptr;
+	if (GetFileUnderMouse(local_pos, &file_under_mouse) != -1)
 	{
-		if (GetFileUnderMouse(local_pos, &file) != -1) {
-			file_under_mouse_full_path = file->build_full_path();
-			if (file->is_dir()) {
-				dir_full_path = file_under_mouse_full_path;
-			}
+		file_under_mouse_full_path = file_under_mouse->build_full_path();
+		if (file_under_mouse->is_dir()) {
+			dir_full_path = file_under_mouse_full_path;
 		}
 	}
-	if (selected_count == 1 && !file_under_mouse_full_path.isEmpty())
+	
+	cornus::AutoDelete ad(file_under_mouse);
+	
+	if (selected_count == 1)
 	{
-		if (file->is_desktop_file())
+		io::File *first_file = nullptr;
+		files.GetFirstSelectedFile(Lock::Yes, &first_file, Clone::Yes);
+		if (first_file != nullptr && first_file->is_dir_or_so())
 		{
-			DesktopFile *df = DesktopFile::FromPath(file_under_mouse_full_path,
-				app_->possible_categories(), app_->env());
-			if (df != nullptr)
-			{
+			QAction *action = menu->addAction(tr("Add To Bookmarks"));
+			QIcon *icon = app_->GetFileIcon(first_file);
+			if (icon)
+				action->setIcon(*icon);
+			connect(action, &QAction::triggered, [=] {
+				auto &files = view_files();
+				io::File *otf = nullptr;
+				files.GetFirstSelectedFile(Lock::Yes, &otf, Clone::Yes);
+				if (otf)
 				{
-					QAction *action = menu->addAction(tr("Run as a Program"));
-					connect(action, &QAction::triggered, [=] {
-						app_->LaunchOrOpenDesktopFile(file_under_mouse_full_path,
-							false, RunAction::Run);
-					});
-					action->setIcon(df->CreateQIcon());
+					QVector<io::File*> vec = { otf };
+					app_->tree_model()->AddBookmarks(vec, QPoint(1, 1));
 				}
-				{
-					QAction *action = menu->addAction(tr("Open For Editing"));
-					connect(action, &QAction::triggered, [=] {
-						app_->LaunchOrOpenDesktopFile(file_under_mouse_full_path,
-							false, RunAction::Open);
-					});
-					action->setIcon(df->CreateQIcon());
-				}
-				delete df;
-			}
+			});
 		}
-		AddOpenWithMenuTo(menu, file_under_mouse_full_path);
+		
+		delete first_file;
+		first_file = nullptr;
+		
+		if (file_under_mouse != nullptr)
+		{
+			if (file_under_mouse->is_desktop_file())
+			{
+				DesktopFile *df = DesktopFile::FromPath(file_under_mouse_full_path,
+					app_->possible_categories(), app_->env());
+				if (df != nullptr)
+				{
+					{
+						QAction *action = menu->addAction(tr("Run as a Program"));
+						connect(action, &QAction::triggered, [=] {
+							app_->LaunchOrOpenDesktopFile(file_under_mouse_full_path,
+								false, RunAction::Run);
+						});
+						action->setIcon(df->CreateQIcon());
+					}
+					{
+						QAction *action = menu->addAction(tr("Open For Editing"));
+						connect(action, &QAction::triggered, [=] {
+							app_->LaunchOrOpenDesktopFile(file_under_mouse_full_path,
+								false, RunAction::Open);
+						});
+						action->setIcon(df->CreateQIcon());
+					}
+					delete df;
+				}
+			}
+			AddOpenWithMenuTo(menu, file_under_mouse_full_path);
+		}
 	}
 	
 	QMenu *new_menu = app_->CreateNewMenu();
@@ -1585,10 +1613,10 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 		{
 			QVector<QString> videos = { QLatin1String("mkv"), QLatin1String("webm") };
 			
-			if (videos.contains(file->cache().ext.toString())) {
+			if (videos.contains(file_under_mouse->cache().ext.toString())) {
 				QAction *action = menu->addAction(tr("Edit movie title") + QLatin1String(" [mkvpropedit]"));
 				connect(action, &QAction::triggered, [=] {ProcessAction(actions::EditMovieTitle);});
-				QIcon *icon = app_->GetIcon(file->cache().ext.toString());
+				QIcon *icon = app_->GetIcon(file_under_mouse->cache().ext.toString());
 				if (icon != nullptr) {
 					action->setIcon(*icon);
 				}

@@ -182,17 +182,18 @@ void TreeView::dropEvent(QDropEvent *evt)
 	mouse_down_ = false;
 	dragging_ = false;
 	
-	if (evt->mimeData()->hasUrls()) {
-		QVector<io::File*> *files_vec = new QVector<io::File*>();
+	if (evt->mimeData()->hasUrls())
+	{
+		QVector<io::File*> files_vec;
 		
 		for (const QUrl &url: evt->mimeData()->urls())
 		{
 			io::File *file = io::FileFromPath(url.path());
 			if (file != nullptr)
-				files_vec->append(file);
+				files_vec.append(file);
 		}
 		
-		model_->FinishDropOperation(files_vec, evt->pos());
+		model_->AddBookmarks(files_vec, evt->pos());
 	} else {
 		QByteArray ba = evt->mimeData()->data(BookmarkMime);
 		if (ba.isEmpty())

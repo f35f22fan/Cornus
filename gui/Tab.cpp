@@ -139,7 +139,7 @@ void* GoToTh(void *p)
 	new_data->reloaded(params->reload);
 	io::Files &files = tab->view_files();
 	{
-		MutexGuard guard = files.guard();
+		auto g = files.guard();
 		new_data->sorting_order = files.data.sorting_order;
 	}
 
@@ -174,14 +174,18 @@ void* GoToTh(void *p)
 		}
 	}
 	#ifdef CORNUS_WAITED_FOR_WIDGETS
-		auto now = std::chrono::steady_clock::now();
-		const float elapsed = std::chrono::duration<float,
-			std::chrono::milliseconds::period>(now - start_time).count();
-		mtl_info("Waited for gui creation: %.1f ms", elapsed);
+		if (files.first_time)
+		{
+			auto now = std::chrono::steady_clock::now();
+			const float elapsed = std::chrono::duration<float,
+				std::chrono::milliseconds::period>(now - start_time).count();
+			mtl_info("Waited for gui creation: %.1f ms", elapsed);
+		}
 	#endif
 	QMetaObject::invokeMethod(tab, "GoToFinish",
 		Q_ARG(cornus::io::FilesData*, new_data));
 	delete params;
+	
 	return nullptr;
 }
 
@@ -1741,20 +1745,21 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 
 void Tab::ShutdownLastInotifyThread()
 {
-	io::Files &files = view_files();
-	MTL_CHECK_VOID(files.Lock());
 #ifdef CORNUS_WAITED_FOR_WIDGETS
 	using Clock = std::chrono::steady_clock;
 	auto start_time = Clock::now();
 #endif
-	files.data.thread_must_exit(true);
-	files.WakeUpInotify(Lock::No);
-	
-	while (!files.data.thread_exited())
 	{
-		files.CondWait();
+		io::Files &files = view_files();
+		auto g = files.guard();
+		files.data.thread_must_exit(true);
+		files.WakeUpInotify(Lock::No);
+		
+		while (!files.data.thread_exited())
+		{
+			files.CondWait();
+		}
 	}
-	files.Unlock();
 #ifdef CORNUS_WAITED_FOR_WIDGETS
 	auto now = Clock::now();
 	const float elapsed = std::chrono::duration<float,

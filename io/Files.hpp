@@ -124,7 +124,7 @@ public:
 	void SelectAllFiles(const cornus::Lock l, const Selected flag, QSet<int> &indices);
 	void SelectFilenamesLater(const QVector<QString> &names, const SameDir sd = SameDir::No);
 	void SelectFileRange(const cornus::Lock l, const int row1, const int row2, QSet<int> &indices);
-	void SetLastWatched(const cornus::Lock l, io::File *file);
+	void SetLastWatched(const enum Lock l, io::File *file);
 	
 	void WakeUpInotify(const enum Lock l);
 	

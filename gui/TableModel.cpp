@@ -417,7 +417,8 @@ void* WatchDir(void *void_args)
 	QVector<RenameData> rename_vec;
 	bool call_event_func = false;
 	
-//	mtl_info("notify_fd: %d, signal_quit_fd: %d", notify_fd, signal_quit_fd);
+//	mtl_info("thread: %lX, notify_fd: %d, signal_quit_fd: %d",
+//		i64(pthread_self()), notify_fd, signal_quit_fd);
 	
 	while (true)
 	{
@@ -432,7 +433,6 @@ void* WatchDir(void *void_args)
 		
 		const int ms = rename_vec.isEmpty() ? 50000 : 20;
 		const int num_fds = epoll_wait(epoll_fd, evt_vec.data(), evt_vec.size(), ms);
-//		mtl_info("num_fds: %d, thread: %lX", num_fds, i64(pthread_self()));
 		if (num_fds == -1)
 		{
 			mtl_status(errno);
@@ -466,16 +466,17 @@ void* WatchDir(void *void_args)
 		}
 		
 		if (signalled_from_event_fd)
+		{
 			break;
+		}
 		
 		{
 			auto g = files.guard();
 			with_hidden_files = files.data.show_hidden_files();
-			if (files.data.thread_must_exit())
+			if (files.data.thread_must_exit() || (args->dir_id != files.data.dir_id))
+			{
 				break;
-			
-			if (args->dir_id != files.data.dir_id)
-				break;
+			}
 		}
 		
 		if (!rename_vec.isEmpty())
@@ -509,11 +510,8 @@ void* WatchDir(void *void_args)
 	
 	{
 		auto g = files.guard();
-		if (args->dir_id == files.data.dir_id)
-		{
-			files.data.thread_exited(true);
-			files.Broadcast();
-		}
+		files.data.thread_exited(true);
+		files.Broadcast();
 	}
 	
 	//mtl_trace("Thread %lX exited", i64(pthread_self()));

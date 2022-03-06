@@ -47,9 +47,13 @@ struct ShortData {
 	
 	QVector<i16> rips;
 	QVector<i16> video_codecs;
+	i32 video_w = -1;
+	i32 video_h = -1;
+	i32 magic_number = -1;
+	f32 fps = -1;
 	i16 year = -1;
 	i16 year_end = -1;
-	i32 magic_number = -1;
+	i16 bit_depth = -1;
 };
 
 enum class Check: i8 {

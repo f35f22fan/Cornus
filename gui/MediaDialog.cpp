@@ -65,7 +65,7 @@ void MediaDialog::ButtonClicked(QAbstractButton *btn)
 	if (btn == button_box_->button(QDialogButtonBox::Save)) {
 		Save();
 	} else if (btn == button_box_->button(QDialogButtonBox::Close)) {
-		close();
+		this->close();
 	}
 }
 
@@ -83,10 +83,9 @@ i64 MediaDialog::GetCurrentID() const
 void MediaDialog::Init()
 {
 	Media *media = app_->media();
+	if (!media->loaded())
+		media->Reload();
 	
-	if (!media->loaded()) {
-		cornus::media::Reload(app_);
-	}
 	QFormLayout *layout = new QFormLayout();
 	setLayout(layout);
 	

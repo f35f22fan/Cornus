@@ -136,7 +136,7 @@ void AttrsDialog::Init()
 {
 	Media *media = app_->media();
 	if (!media->loaded())
-		cornus::media::Reload(app_);
+		media->Reload();
 	
 	const int a_size = fontMetrics().boundingRect('a').width();
 	fixed_width_ = a_size * 30;
@@ -314,10 +314,9 @@ void AttrsDialog::SaveAssignedAttrs()
 		return;
 	}
 	
-///	mtl_info("%ld vs %ld", was_.size(), ba.size());
-	
 	auto &h = file_->ext_attrs();
-	if (ba.size() > sizeof magic_num) {
+	if (ba.size() > sizeof magic_num)
+	{
 		h.insert(media::XAttrName, ba);
 		io::SetXAttr(file_->build_full_path(), media::XAttrName, ba);
 	} else {

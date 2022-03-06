@@ -52,7 +52,8 @@ public:
 	QHash<QString, ByteArray>& ext_attrs() { return ext_attrs_; }
 	bool has_ext_attrs() const { return ext_attrs_.size() > 0; }
 	bool has_media_attrs() const { return ext_attrs_.contains(media::XAttrName);}
-	ByteArray media_attrs() const { return ext_attrs_.value(media::XAttrName); }
+	ByteArray& media_attrs() { return ext_attrs_[media::XAttrName]; }
+	media::ShortData* media_attrs_decoded();
 	bool has_last_watched_attr() const { return ext_attrs_.contains(media::XAttrLastWatched); }
 	bool has_thumbnail_attr() const { return ext_attrs_.contains(media::XAttrThumbnail); }
 	ByteArray thumbnail_attrs() const { return ext_attrs_.value(media::XAttrThumbnail); }
@@ -60,9 +61,8 @@ public:
 	bool is_desktop_file() const { return is_regular() &&
 		cache_.ext == str::Desktop; }
 	bool IsThumbnailMarkedFailed();
-	void MarkThumbnailFailed();
-	media::ShortData* media_attrs_decoded();
 	void ClearXAttrs();
+	void MarkThumbnailFailed();
 	void ReadLinkTarget();
 	
 	bool is_dir() const { return type_ == FileType::Dir; }

@@ -193,7 +193,8 @@ QWidget* SearchPane::CreateByMediaXattrPane()
 	using media::Field;
 	Media *media = app_->media();
 	if (!media->loaded())
-		cornus::media::Reload(app_);
+		media->Reload();
+	
 	connect(media, &cornus::Media::Changed, [=] { MediaFileWasUpdated(); });
 	
 	{

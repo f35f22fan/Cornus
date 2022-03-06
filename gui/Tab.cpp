@@ -1115,7 +1115,7 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 		vs->setValue(vs->maximum());
 		const auto count = view_files().cached_files_count;
 		app_->hid()->SelectFileByIndex(this, count - 1, DeselectOthers::Yes);
-	} else if (key == Qt::Key_M && shift) {
+	} else if (key == Qt::Key_M && !any_modifiers) {
 		io::File *cloned_file = nullptr;
 		files.GetFirstSelectedFile(Lock::Yes, &cloned_file, Clone::Yes);
 		if (cloned_file != nullptr)

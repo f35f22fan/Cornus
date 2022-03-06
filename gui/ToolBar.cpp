@@ -173,7 +173,7 @@ void ToolBar::ShowShortcuts()
 	s += QLatin1String("<br/><b>F</b> => ") + tr("Switch view");
 	s += QLatin1String("<br/><b>Ctrl + F</b> => ") + tr("Search for file by name (then hit Enter to search forward or Ctrl+Enter for backwards)");
 	s += QLatin1String("<br/><b>Ctrl + M</b> => ") + tr("Search by (movie) file's metadata (see bottom of page)");
-	s += QLatin1String("<br/><b>Shift + M</b> => ") + tr("Show media dialog for selected file");
+	s += QLatin1String("<br/><b>M</b> => ") + tr("Show media dialog for selected file");
 	s += QLatin1String("<br/><b>Ctrl + Shift + U</b> => ") + tr("Remove thumbnail from selected files' extended attributes");
 	s += QLatin1String("<br/><b>F1</b> => ") + tr("Mark last watched file (with a red dot in Details View)");
 	

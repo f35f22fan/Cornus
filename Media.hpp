@@ -12,7 +12,6 @@
 namespace cornus {
 
 namespace media {
-void Reload(App *app);
 media::ShortData* DecodeShort(Media *media, ByteArray &ba);
 }
 
@@ -45,11 +44,10 @@ public:
 			mtl_status(status);
 		return status == 0;
 	}
-	
+	void Reload();
 	bool TryLock() {
 		return pthread_mutex_trylock(&mutex) == 0;
 	}
-	
 	void Unlock() {
 		int status = pthread_mutex_unlock(&mutex);
 		if (status != 0)

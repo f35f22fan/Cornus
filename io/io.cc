@@ -164,11 +164,19 @@ media::ShortData* DecodeShort(ByteArray &ba)
 			p->year = ba.next_i16();
 		} else if (f == media::Field::YearEnded) {
 			p->year_end = ba.next_i16();
+		} else if (f == media::Field::VideoCodecBitDepth) {
+			p->bit_depth = ba.next_i16();
+		} else if (f == media::Field::VideoResolution) {
+			p->video_w = ba.next_i32();
+			p->video_h = ba.next_i32();
+		} else if (f == media::Field::FPS) {
+			p->fps = ba.next_f32();
 		} else {
 			/// other fields not needed by media::ShortData
 		}
 	}
 	
+	ba.to(0);
 	return p;
 }
 

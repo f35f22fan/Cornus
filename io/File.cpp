@@ -156,8 +156,7 @@ File::media_attrs_decoded()
 	if (!has_media_attrs())
 		return nullptr;
 	
-	ByteArray ba = media_attrs();
-	cache_.short_data = io::DecodeShort(ba);
+	cache_.short_data = io::DecodeShort(media_attrs());
 	if (cache_.short_data == nullptr)
 		ext_attrs_.remove(media::XAttrName);
 	

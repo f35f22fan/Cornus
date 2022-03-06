@@ -38,6 +38,10 @@ private:
 		const QStyleOptionViewItem &option, QFontMetrics &fm,
 		const QRect &text_rect) const;
 	
+	void DrawMediaAttrs(io::File *file, QPainter *painter,
+		const QStyleOptionViewItem &option, const QRect &text_rect,
+		const int filename_w) const;
+	
 	void DrawSize(QPainter *painter, io::File *file,
 		const QStyleOptionViewItem &option, QFontMetrics &fm,
 		const QRect &text_rect) const;
@@ -49,6 +53,7 @@ private:
 	App *app_ = nullptr;
 	gui::Table *table_ = nullptr;
 	gui::Tab *tab_ = nullptr;
+	Media *media_ = nullptr;
 	Qt::Alignment text_alignment_ = Qt::AlignLeft | Qt::AlignVCenter;
 	
 	mutable int min_name_w_ = -1;

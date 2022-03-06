@@ -5,6 +5,7 @@
 #include "../io/io.hh"
 #include "../io/File.hpp"
 #include "../io/Files.hpp"
+#include "../Media.hpp"
 #include "../MutexGuard.hpp"
 #include "../Prefs.hpp"
 #include "RestorePainter.hpp"
@@ -35,6 +36,9 @@ void ClipboardIcons::init_if_needed() {
 TableDelegate::TableDelegate(gui::Table *table, App *app, gui::Tab *tab): app_(app),
 table_(table), tab_(tab)
 {
+	media_ = app_->media();
+	if (!media_->loaded())
+		media_->Reload();
 }
 
 TableDelegate::~TableDelegate() {
@@ -103,20 +107,17 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 			painter->drawText(drect, text_alignment_, desktop_fn);
 		}
 	} else if (file->thumbnail() != nullptr || file->has_thumbnail_attr()) {
-		
-		i32 w, h;
-		bool proceed;
+		i32 w = -1, h = -1;
 		Thumbnail *thmb = file->thumbnail();
 		if (thmb != nullptr) {
 			w = thmb->original_image_w;
 			h = thmb->original_image_h;
-			proceed = true;
 		} else {
 			ByteArray &ba = file->thumbnail_attrs_ref();
-			proceed = thumbnail::GetOriginalImageSize(ba, w, h);
+			thumbnail::GetOriginalImageSize(ba, w, h);
 		}
 		
-		if (proceed)
+		if (w != -1 && h != -1)
 		{
 			const QString img_wh_str = QChar(' ')
 				+ thumbnail::SizeToString(w, h, ViewMode::Details);
@@ -129,6 +130,8 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 			painter->drawText(img_dim_rect, text_alignment_, img_wh_str);
 			painter->setPen(saved_pen);
 		}
+	} else if (file->is_regular() && file->has_media_attrs()) {
+		DrawMediaAttrs(file, painter, option, text_rect, filename_width);
 	}
 	
 	if (!app_->prefs().show_link_targets())
@@ -261,6 +264,78 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 		if (action_icon != nullptr)
 			action_icon->paint(painter, icon_rect);
 	}
+}
+
+void TableDelegate::DrawMediaAttrs(io::File *file, QPainter *painter,
+	const QStyleOptionViewItem &option, const QRect &text_rect,
+	const int filename_w) const
+{
+	media::ShortData *m = file->media_attrs_decoded();
+	mtl_check_void(m != nullptr);
+	
+	QString s = QLatin1String(" ");
+	const bool has_year = m->year > 0;
+	if (has_year)
+		s.append('(').append(QString::number(m->year));
+	
+	if (m->year_end > 0)
+		s.append('-').append(QString::number(m->year_end));
+	
+	if (has_year)
+		s.append(QLatin1String(") "));
+	
+	bool rip_added = false;
+	if (!m->rips.isEmpty())
+	{
+		const i16 rip = m->rips[0];
+		QString rs = media_->data_.rips[rip];
+		if (!rs.isEmpty())
+		{
+			rip_added = true;
+			s.append(rs);
+		}
+	}
+	
+	if (!m->video_codecs.isEmpty())
+	{
+		const i16 rip = m->video_codecs[0];
+		QString cs = media_->data_.video_codecs[rip];
+		if (!cs.isEmpty())
+		{
+			if (rip_added)
+				s.append('-');
+//			else if (!has_year)
+//				s.append(' ');
+			s.append(cs);
+			
+			if (m->bit_depth > 0) {
+				s.append(' ');
+				s.append(QString::number(m->bit_depth))
+				.append(QLatin1String("bit"));
+			}
+			
+			s.append(' ');
+		}
+	}
+	
+	if (m->video_w > 0 && m->video_h > 0) {
+		s.append(QString::number(m->video_w)).append('x')
+		.append(QString::number(m->video_h)).append(' ');
+	}
+	
+	if (m->fps > 0.0) {
+		s.append(QString::number(m->fps, 'f', 2));
+		s.append(QLatin1String("fps "));
+	}
+	
+	QPen saved_pen = painter->pen();
+	QRect img_dim_rect = text_rect;
+	img_dim_rect.setX(text_rect.x() + filename_w);
+	QBrush brush = option.palette.brush(QPalette::PlaceholderText);
+	QPen pen(brush.color());
+	painter->setPen(pen);
+	painter->drawText(img_dim_rect, text_alignment_, s);
+	painter->setPen(saved_pen);
 }
 
 void

@@ -10,19 +10,6 @@
 #include <time.h>
 
 namespace cornus {
-namespace media {
-void Reload(App *app)
-{
-	io::ReadParams read_params = {};
-	ByteArray ba;
-	MTL_CHECK_VOID(io::ReadFile(prefs::GetMediaFilePath(), ba, read_params));
-	Media *media = app->media();
-	{
-		auto guard = media->guard();
-		media->ReloadDatabaseNTS(ba, media->data());
-	}
-}
-} /// media::
 
 void Media::AddNTS(const QVector<QString> &names, const media::Field field)
 {
@@ -241,6 +228,18 @@ void Media::NewMagicNumber()
 	}
 }
 
+void Media::Reload()
+{
+	io::ReadParams rp = {};
+	rp.can_rely = CanRelyOnStatxSize::Yes;
+	ByteArray ba;
+	MTL_CHECK_VOID(io::ReadFile(prefs::GetMediaFilePath(), ba, rp));
+	{
+		auto g = guard();
+		ReloadDatabaseNTS(ba, data());
+	}
+}
+
 void Media::ReloadDatabaseNTS(ByteArray &ba, media::Data &data)
 {
 	Clear();
@@ -274,7 +273,7 @@ void Media::ReloadDatabaseNTS(ByteArray &ba, media::Data &data)
 		data.rips.insert((i16)Rip::UHD_BDRip, QLatin1String("UHD_BDRip"));
 		data.rips.insert((i16)Rip::BDRemux, QLatin1String("BDRemux"));
 		data.rips.insert((i16)Rip::HDDVDRemux, QLatin1String("HDDVDRemux"));
-		data.rips.insert((i16)Rip::Blu_Ray, QLatin1String("Blu_Ray"));
+		data.rips.insert((i16)Rip::Blu_Ray, QLatin1String("BluRay"));
 		data.rips.insert((i16)Rip::HDDVD, QLatin1String("HDDVD"));
 		data.rips.insert((i16)Rip::UHD_Blu_Ray, QLatin1String("UHD_Blu_Ray"));
 		data.rips.insert((i16)Rip::UHD_BDRemux, QLatin1String("UHD_BDRemux"));
@@ -284,9 +283,9 @@ void Media::ReloadDatabaseNTS(ByteArray &ba, media::Data &data)
 		data.video_codecs.insert((i16)VideoCodec::VP8, QLatin1String("VP8"));
 		data.video_codecs.insert((i16)VideoCodec::VP9, QLatin1String("VP9"));
 		data.video_codecs.insert((i16)VideoCodec::H263, QLatin1String("H263"));
-		data.video_codecs.insert((i16)VideoCodec::H264, QLatin1String("H.264/AVC"));
-		data.video_codecs.insert((i16)VideoCodec::H265, QLatin1String("H.265/HEVC"));
-		data.video_codecs.insert((i16)VideoCodec::H266, QLatin1String("H.266/VVC"));
+		data.video_codecs.insert((i16)VideoCodec::H264, QLatin1String("H264"));
+		data.video_codecs.insert((i16)VideoCodec::H265, QLatin1String("HEVC"));
+		data.video_codecs.insert((i16)VideoCodec::H266, QLatin1String("H266"));
 		data.video_codecs.insert((i16)VideoCodec::DivX, QLatin1String("DivX"));
 		data.video_codecs.insert((i16)VideoCodec::Xvid, QLatin1String("Xvid"));
 		data.video_codecs.insert((i16)VideoCodec::Other, QLatin1String("Other"));
@@ -344,7 +343,7 @@ void Media::Save()
 {
 	ByteArray ba;
 	{
-		MutexGuard g = guard();
+		auto g = guard();
 		changed_by_myself_ = true;
 		
 		if (data_.magic_number == -1) {

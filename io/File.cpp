@@ -44,9 +44,9 @@ void File::ClearXAttrs()
 {
 	ext_attrs_.clear();
 	
-	if (cache_.short_data != nullptr) {
-		delete cache_.short_data;
-		cache_.short_data = nullptr;
+	if (cache_.media_preview != nullptr) {
+		delete cache_.media_preview;
+		cache_.media_preview = nullptr;
 	}
 }
 
@@ -61,12 +61,13 @@ File* File::Clone() const
 	file->id_ = id_;
 	file->cache_ = cache_;
 	file->cache_.thumbnail = nullptr;
-	file->cache_.short_data = nullptr;
+	file->cache_.media_preview = nullptr;
 	file->cache_.desktop_file = (cache_.desktop_file != nullptr)
 		? cache_.desktop_file->Clone() : nullptr;
 	file->bits_ = bits_;
 	file->time_created_ = time_created_;
 	file->time_modified_ = time_modified_;
+	file->dir_file_count_ = dir_file_count_;
 	
 	if (link_target_ != nullptr)
 		file->link_target_ = link_target_->Clone();
@@ -79,15 +80,15 @@ void File::ClearCache()
 	cache_.icon = nullptr;
 	cache_.mime.clear();
 	
-	if (cache_.short_data != nullptr) {
-		delete cache_.short_data;
-		cache_.short_data = nullptr;
+	if (cache_.media_preview != nullptr) {
+		delete cache_.media_preview;
+		cache_.media_preview = nullptr;
 	}
 }
 
-void File::CountDirFiles1Level()
+void File::CountDirFiles()
 {
-	if (!is_dir_or_so())
+	if (!is_dir_or_so() || dir_file_count_ == -2)
 		return;
 	
 	QByteArray ba;
@@ -103,7 +104,7 @@ void File::CountDirFiles1Level()
 	
 	if (dp == NULL)
 	{
-		dir_file_count_1_level_ = -1;
+		dir_file_count_ = -2;
 		return;// errno;
 	}
 	
@@ -114,7 +115,7 @@ void File::CountDirFiles1Level()
 	}
 	
 	closedir(dp);
-	dir_file_count_1_level_ = std::max(0, n - 2);
+	dir_file_count_ = std::max(0, n - 2);
 }
 
 int File::Delete() {
@@ -147,20 +148,20 @@ void File::MarkThumbnailFailed()
 	ext_attrs_.insert(media::XAttrThumbnail, ba);
 }
 
-media::ShortData*
+media::MediaPreview*
 File::media_attrs_decoded()
 {
-	if (cache_.short_data != nullptr)
-		return cache_.short_data;
+	if (cache_.media_preview != nullptr)
+		return cache_.media_preview;
 	
 	if (!has_media_attrs())
 		return nullptr;
 	
-	cache_.short_data = io::DecodeShort(media_attrs());
-	if (cache_.short_data == nullptr)
+	cache_.media_preview = io::CreateMediaPreview(media_attrs());
+	if (cache_.media_preview == nullptr)
 		ext_attrs_.remove(media::XAttrName);
 	
-	return cache_.short_data;
+	return cache_.media_preview;
 }
 
 void File::name(const QString &s)
@@ -239,10 +240,10 @@ QString File::SizeToString() const
 	if (!is_dir_or_so())
 		return io::SizeToString(size_);
 	
-	if (dir_file_count_1_level_ <= 0)
+	if (dir_file_count_ <= 0)
 		return QString();
 	
-	const QString s = QString::number(dir_file_count_1_level_);
+	const QString s = QString::number(dir_file_count_);
 	return QChar('(') + s + QChar(')');
 }
 

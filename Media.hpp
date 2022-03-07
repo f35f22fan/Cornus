@@ -12,7 +12,7 @@
 namespace cornus {
 
 namespace media {
-media::ShortData* DecodeShort(Media *media, ByteArray &ba);
+media::MediaPreview* DecodeShort(Media *media, ByteArray &ba);
 }
 
 class Media: public QObject {

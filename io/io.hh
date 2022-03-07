@@ -214,7 +214,7 @@ int CountSizeRecursiveTh(const QString &path, CountFolderData &data, const bool 
 int CreateAutoRenamedFile(QString dir_path, QString filename,
 	const int file_flags, const mode_t mode);
 
-media::ShortData* DecodeShort(ByteArray &ba);
+media::MediaPreview* CreateMediaPreview(ByteArray &ba);
 
 void Delete(io::File *file, const QProcessEnvironment &env);
 

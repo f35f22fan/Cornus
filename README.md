@@ -18,40 +18,12 @@ And build it:
 * cmake ..
 * make -j4
 
-The file browser executable is "cornus", "cornus_io" is the IO daemon that is started automatically when needed, "cornus_r" is for privileged I/O.
-To have a desktop launcher for this app - update the file at export/cornus_mas.desktop (specifically its "Icon" and "Exec" fields) according to where you have the "cornus" executable and copy this file to your desktop folder.
-
-##### Install:
-You can use Cornus as is, no need to install it. However, Cornus can also perform root (privileged) I/O when needed, you can enable this feature in 2 simple steps:
-* Update exec.path from the file export/org.kde.cornus.policy to the corresponding value.
-* Copy this file to /usr/share/polkit-1/actions/
+The file browser executable is "cornus", "cornus_io" is the IO daemon that is started automatically when needed.
+To have a .desktop launcher on your desktop - update the file at export/cornus_mas.desktop (the "Icon" and "Exec" fields) accordingly and copy this file to your desktop folder.
 
 ##### Major TODO items:
 * Icons View mode (currently in development)
 * MTP to deal with Android devices
-
-##### Application Shortcuts:
-* Ctrl + T => Open a new tab
-* Ctrl + W => Close current tab
-* 1 to 9 => Select and focus tab 1 to 9
-* G => Toggle "magnified" mode
-* Ctrl + R => Reload tab view (list files anew)
-* Alt + Up => Go one directory up
-* Ctrl + H => Toggle showing of hidden files
-* Ctrl + Q => Quit app
-* Shift + Delete => Delete selected files permanently, no confirmation asked.
-* F2 => Rename selected file
-* Ctrl + I => Focus table
-* Ctrl + L => Focus address bar
-* Ctrl + A => Select all files
-* Ctrl + E => Toggle exec bit of selected file(s)
-* D => Display contents of selected file
-* F => Switch view
-* Ctrl + F => Search for file by name (then hit Enter to search forward or Ctrl+Enter for backwards)
-* Ctrl + M => Search by (movie) file's metadata (see bottom of page)
-* M => Show media dialog for selected file
-* Ctrl + Shift + U => Remove thumbnail from selected files' extended attributes
-* F1 => Mark last watched file (with a red dot in Details View)
 
 ---
 ### Screenshot with dark theme:
@@ -64,23 +36,22 @@ You can use Cornus as is, no need to install it. However, Cornus can also perfor
 #### Things you should know:
 * Files with the executable bit set are marked green.
 * To set a default app to open a given type of file right click a file -> Open With -> Preferences...
-* To see the tree of links of a symbolic link click the icon of the link.
+* To see the tree of links of a symbolic link - when in details view click the icon of the link.
 * Press 'D' after selecting a non-folder to display its contents (or click its icon). The built-in text editor is meant for a quick update of its contents or a glean into the file, not as a full blown text editor. Files' contents unrecognized as text files are opened in read-only mode.
 * Shift+Delete = delete permanently, Delete = move to trash.
 * A grey dot near the icon of the file means the file has extended attributes,
 a blue one means it has media related extended attributes.
-* Launching Cornus from the command line and getting it to select a folder at startup, examples:<br/>
-To select the folder "Documents" from ${HOME} execute:<br/>
+* To launch Cornus from the command line and get it to select a folder at startup:<br/>
+To select the folder "Documents" from ${HOME}:<br/>
 `cornus ${HOME} --select Documents`<br/>
 or<br/>
 `cornus ${HOME} --select "My Folder With Whitespaces"`<br/>
-To select "File.txt" from ${HOME} execute:</br>
+To select "File.txt" from ${HOME}:</br>
 `cornus ${HOME}/File.txt`<br/>
 or:<br/>
 `cornus ${HOME} --select File.txt`<br/>
 or:<br/>
 `cornus ${HOME} --select "My File With Whitespaces.txt"`<br/>
 * You can easily set your own icons for files of different types by dropping an icon into the "file_icons" folder with the proper extension as its name, browse the folder "file_icons" to see what I mean, probably located at "/usr/share/cornus/file_icons".
-* "cornus_io" is the I/O daemon that is started automatically, keep it in the same folder as "cornus".
-* File icons are loaded from "$HOME/.config/CornusMas/file_icons", then from "/usr/share/cornus/file_icons", the icons from the former folder are used if both folders contain files with equal names.
+* File icons are loaded from "$HOME/.config/CornusMas/file_icons", then if not found from "/usr/share/cornus/file_icons".
 

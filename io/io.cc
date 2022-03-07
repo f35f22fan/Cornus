@@ -109,13 +109,13 @@ int CountDirFilesSkippingSubdirs(const QString &dir_path)
 	return count;
 }
 
-media::ShortData* DecodeShort(ByteArray &ba)
+media::MediaPreview* CreateMediaPreview(ByteArray &ba)
 {
 	ba.to(0);
 	if (ba.size() < sizeof(i32))
 		return nullptr;
 	
-	media::ShortData *p = new media::ShortData();
+	media::MediaPreview *p = new media::MediaPreview();
 	p->magic_number = ba.next_i32();
 	
 	while (ba.has_more())
@@ -1078,9 +1078,7 @@ bool ListFiles(io::FilesData &data, io::Files *ptr,
 		{
 			data.vec.append(file);
 			if (cdf == CountDirFiles::Yes && file->is_dir_or_so())
-			{
-				file->CountDirFiles1Level();
-			}
+				file->CountDirFiles();
 		} else {
 			delete file;
 		}
@@ -1197,15 +1195,13 @@ const char* QuerySocketFor(const QString &dir_path, bool &needs_root)
 {
 	auto ba = dir_path.toLocal8Bit();
 	needs_root = (access(ba.data(), W_OK) != 0);
-	mtl_info("Needs root: %s %s", (needs_root ? "yes" : "no"), qPrintable(dir_path));
-	
-//	if (true)
-//	{
-//		// Temporarily block this decision to test a feature elsewhere in
-//		// the code, but delete this line when done:
-//		needs_root = false;
+	//mtl_info("Needs root: %s %s", (needs_root ? "yes" : "no"), qPrintable(dir_path));
+	if (true)
+	{
+		// disable cornus_r for now
+		needs_root = false;
 //		mtl_trace("Reminder");
-//	}
+	}
 	
 	return needs_root ? cornus::RootSocketPath : cornus::SocketPath;
 }

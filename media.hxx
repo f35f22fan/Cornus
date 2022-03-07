@@ -36,7 +36,7 @@ struct Data {
 	i32 magic_number = -1;
 };
 
-struct ShortData {
+struct MediaPreview {
 	QVector<i32> actors;
 	QVector<i32> directors;
 	QVector<i32> writers;

@@ -55,7 +55,7 @@ private:
 	
 	void ActionHide();
 	void BeforeExiting();
-	bool ContainsAll(const media::ShortData &data);
+	bool ContainsAll(const media::MediaPreview &data);
 	void DeselectAll();
 	void DoSearch(const QString *search_str);
 	void FillInSearchItem(MediaSearch &d);

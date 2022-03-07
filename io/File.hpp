@@ -21,7 +21,7 @@ struct FileCache {
 	QIcon *icon = nullptr;
 	DesktopFile *desktop_file = nullptr;
 	const QHash<QString, Category> *possible_categories = nullptr;
-	media::ShortData *short_data = nullptr;
+	media::MediaPreview *media_preview = nullptr;
 	Thumbnail *thumbnail = nullptr;
 	bool tried_loading_thumbnail = false;
 };
@@ -53,7 +53,7 @@ public:
 	bool has_ext_attrs() const { return ext_attrs_.size() > 0; }
 	bool has_media_attrs() const { return ext_attrs_.contains(media::XAttrName);}
 	ByteArray& media_attrs() { return ext_attrs_[media::XAttrName]; }
-	media::ShortData* media_attrs_decoded();
+	media::MediaPreview* media_attrs_decoded();
 	bool has_last_watched_attr() const { return ext_attrs_.contains(media::XAttrLastWatched); }
 	bool has_thumbnail_attr() const { return ext_attrs_.contains(media::XAttrThumbnail); }
 	ByteArray thumbnail_attrs() const { return ext_attrs_.value(media::XAttrThumbnail); }
@@ -182,8 +182,8 @@ public:
 	void type(const FileType t) { type_ = t; }
 	FileType type() const { return type_; }
 	
-	void CountDirFiles1Level();
-	int dir_file_count_1_level() const { return dir_file_count_1_level_; }
+	void CountDirFiles();
+	int dir_file_count() const { return dir_file_count_; }
 	
 private:
 	NO_ASSIGN_COPY_MOVE(File);
@@ -205,7 +205,7 @@ private:
 	struct statx_timestamp time_created_ = {};
 	struct statx_timestamp time_modified_ = {};
 	mode_t mode_;
-	int dir_file_count_1_level_ = -1;
+	int dir_file_count_ = -1; // -2 => an error occured
 	io::FileBits bits_ = FileBits::Empty;
 	FileType type_ = FileType::Unknown;
 	

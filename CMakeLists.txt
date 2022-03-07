@@ -23,7 +23,7 @@ if (DEFINED ENV{PREFER_CLANG})
 endif()
 
 set(BUILD_CORNUS_IO "y")
-set(BUILD_CORNUS_R "y")
+#set(BUILD_CORNUS_R "y")
 
 find_package(Qt5 COMPONENTS Core Gui Widgets DBus REQUIRED)
 include(FindPkgConfig)
@@ -48,7 +48,7 @@ set(cornus_src_files main.cpp
     AutoDelete.hh
     ByteArray.cpp ByteArray.hpp
     category.cc category.hh
-    CondMutex.cpp CondMutex.hpp
+    CondMutex.hpp
     cornus.cc cornus.hh
     decl.hxx
     DesktopFile.cpp DesktopFile.hpp
@@ -132,7 +132,7 @@ message(STATUS "BUILD_CORNUS_IO defined!")
 		AutoDelete.hh
 		category.cc category.hh
 		ByteArray.cpp ByteArray.hpp
-		CondMutex.cpp CondMutex.hpp
+		CondMutex.hpp
 		DesktopFile.cpp DesktopFile.hpp
 		ElapsedTimer.cpp ElapsedTimer.hpp
 		err.hpp
@@ -171,37 +171,37 @@ message(STATUS "BUILD_CORNUS_IO defined!")
 		${WEBP_LDFLAGS}	${UDISKS_LDFLAGS} pthread zstd)
 endif()
 
-if (BUILD_CORNUS_R)
-	set(cornus_r_src_files main_r.cpp
-		AutoDelete.hh
-		ByteArray.cpp ByteArray.hpp
-		category.cc category.hh
-		CondMutex.cpp CondMutex.hpp
-		DesktopFile.cpp DesktopFile.hpp
-		ElapsedTimer.cpp ElapsedTimer.hpp
-		err.hpp
-		MutexGuard.cpp MutexGuard.hpp
-		thumbnail.cc thumbnail.hh
-		trash.cc trash.hh
+#if (BUILD_CORNUS_R)
+	#set(cornus_r_src_files main_r.cpp
+		#AutoDelete.hh
+		#ByteArray.cpp ByteArray.hpp
+		#category.cc category.hh
+		#CondMutex.cpp CondMutex.hpp
+		#DesktopFile.cpp DesktopFile.hpp
+		#ElapsedTimer.cpp ElapsedTimer.hpp
+		#err.hpp
+		#MutexGuard.cpp MutexGuard.hpp
+		#thumbnail.cc thumbnail.hh
+		#trash.cc trash.hh
 
-		io/decl.hxx
-		io/File.cpp io/File.hpp
-		io/Files.cpp io/Files.hpp
-		io/io.cc io/io.hh
-		io/SaveFile.cpp io/SaveFile.hpp
-		io/socket.cc io/socket.hh
-		io/Task.cpp io/Task.hpp
-	)
+		#io/decl.hxx
+		#io/File.cpp io/File.hpp
+		#io/Files.cpp io/Files.hpp
+		#io/io.cc io/io.hh
+		#io/SaveFile.cpp io/SaveFile.hpp
+		#io/socket.cc io/socket.hh
+		#io/Task.cpp io/Task.hpp
+	#)
 
-	foreach(f IN LISTS cornus_r_src_files)
-		get_filename_component(b ${f} NAME)
-		set_source_files_properties(${f} PROPERTIES
-			COMPILE_DEFINITIONS "SRC_FILE_NAME=\"${b}\"")
-	endforeach()
+	#foreach(f IN LISTS cornus_r_src_files)
+		#get_filename_component(b ${f} NAME)
+		#set_source_files_properties(${f} PROPERTIES
+			#COMPILE_DEFINITIONS "SRC_FILE_NAME=\"${b}\"")
+	#endforeach()
 
-	set (cornus_r_exe "cornus_r")
-	add_executable(${cornus_r_exe} ${cornus_r_src_files} resources/resources.qrc)
-	target_include_directories(${cornus_r_exe} PRIVATE ${WEBP_INCLUDE_DIRS})
-	target_link_libraries(${cornus_r_exe} Qt5::Core Qt5::Gui ${WEBP_LDFLAGS} pthread zstd)
-endif()
+	#set (cornus_r_exe "cornus_r")
+	#add_executable(${cornus_r_exe} ${cornus_r_src_files} resources/resources.qrc)
+	#target_include_directories(${cornus_r_exe} PRIVATE ${WEBP_INCLUDE_DIRS})
+	#target_link_libraries(${cornus_r_exe} Qt5::Core Qt5::Gui ${WEBP_LDFLAGS} pthread zstd)
+#endif()
 

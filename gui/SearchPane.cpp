@@ -53,7 +53,7 @@ void SearchPane::BeforeExiting()
 	app_->hid()->SelectFileByIndex(app_->tab(), select_row_, DeselectOthers::Yes);
 }
 
-bool SearchPane::ContainsAll(const media::ShortData &data)
+bool SearchPane::ContainsAll(const media::MediaPreview &data)
 {
 	if (media_search_.actor != -1)
 	{
@@ -376,7 +376,7 @@ bool SearchPane::Matches(io::File *file, const QString *search_str)
 		const QString &s = lower() ? file->name_lower() : file->name();
 		return s.contains(*search_str);
 	} else if (search_by_ == SearchBy::MediaXAttrs) {
-		media::ShortData *data = file->media_attrs_decoded();
+		auto *data = file->media_attrs_decoded();
 		if (data == nullptr)
 			return false;
 		

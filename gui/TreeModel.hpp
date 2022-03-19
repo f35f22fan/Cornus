@@ -49,7 +49,7 @@ private:
 	
 	int GetDropLocation(const QPoint &pos, QModelIndex &target);
 	gui::TreeItem* GetRootTS(const io::DiskInfo &disk_info, int *row);
-	bool InsertBookmarkAt(const i32 at, TreeItem *item);
+	bool InsertBookmarkAt(const i4 at, TreeItem *item);
 	void InsertBookmarks(const QVector<cornus::gui::TreeItem*> &bookmarks);
 	bool InsertPartition(TreeItem *item);
 	void InsertPartitions(const QVector<cornus::gui::TreeItem*> &partitions);

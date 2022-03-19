@@ -11,9 +11,9 @@ public:
 	SearchLineEdit(QWidget *parent = nullptr);
 	virtual ~SearchLineEdit();
 	
-	i32 count() const { return count_; }
-	void SetCount(const i32 count) { count_ = count; }
-	void SetAt(const i32 at, const bool do_repaint) {
+	i4 count() const { return count_; }
+	void SetCount(const i4 count) { count_ = count; }
+	void SetAt(const i4 at, const bool do_repaint) {
 		at_ = at;
 		if (do_repaint)
 			repaint();
@@ -24,7 +24,7 @@ protected:
 
 private:
 	NO_ASSIGN_COPY_MOVE(SearchLineEdit);
-	i32 count_ = -1;
-	i32 at_ = -1;
+	i4 count_ = -1;
+	i4 at_ = -1;
 };
 }

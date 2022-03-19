@@ -138,7 +138,7 @@ private:
 	void Init();
 	void LaunchFromOpenWithMenu();
 	void ProcessAction(const QString &action);
-	void UndeleteFiles(const QMap<i64, QVector<cornus::trash::Names> > &items);
+	void UndeleteFiles(const QMap<i8, QVector<cornus::trash::Names> > &items);
 	QScrollBar* ViewScrollBar() const;
 	int ViewRowHeight() const;
 	

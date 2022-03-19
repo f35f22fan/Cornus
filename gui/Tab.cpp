@@ -262,16 +262,17 @@ void Tab::ActionPaste()
 	auto *ba = new ByteArray();
 	if (needs_root)
 	{
-		ba->add_u64(hash_info.num);
+		ba->add_u8(hash_info.num);
 	}
 	ba->set_msg_id(io_op);
 	ba->add_string(to_dir);
 	QVector<QString> names;
-	for (const auto &next: clipboard.file_paths)
+	for (const auto &full_path: clipboard.file_paths)
 	{
-		QString filename = io::GetFileNameOfFullPath(next).toString();
+		QString filename = io::GetFileNameOfFullPath(full_path).toString();
+		mtl_printq2("Filename: ", filename);
 		names.append(filename);
-		ba->add_string(next);
+		ba->add_string(full_path);
 	}
 	
 	view_files().SelectFilenamesLater(names, SameDir::Yes);
@@ -299,7 +300,7 @@ void Tab::ActionPasteLinks(const LinkType link)
 		MTL_CHECK_VOID(hash_info.valid());
 		
 		auto *ba = new ByteArray();
-		ba->add_u64(hash_info.num);
+		ba->add_u8(hash_info.num);
 		const auto msg = (link == LinkType::Absolute) ? io::Message::PasteLinks
 			: io::Message::PasteRelativeLinks;
 		ba->set_msg_id(msg);
@@ -455,7 +456,7 @@ Tab::CreateOpenWithList(const QString &full_path)
 			name += QLatin1String(" (") + generic + ')';
 		}
 		
-//		QString priority_str = QString::number((i8)next->priority());
+//		QString priority_str = QString::number((i1)next->priority());
 //		name += " (↑" + priority_str + ")";
 		QAction *action = new QAction(name);
 		QVariant v = QVariant::fromValue((void *) next);
@@ -511,7 +512,7 @@ mtl_trace("Starting up root daemon");
 	
 	ByteArray *ba = new ByteArray();
 	if (needs_root)
-		ba->add_u64(hash_info.num);
+		ba->add_u8(hash_info.num);
 	
 	ba->set_msg_id(msg_id);
 	for (auto &next: paths)
@@ -616,7 +617,7 @@ void Tab::ExecuteDrop(QVector<io::File*> *files_vec,
 	auto *ba = new ByteArray();
 	
 	if (needs_root) {
-		ba->add_u64(hash_info.num);
+		ba->add_u8(hash_info.num);
 	}
 	
 	ba->set_msg_id(io_operation);
@@ -1196,7 +1197,7 @@ void Tab::PaintMagnified(QWidget *viewport, const QStyleOptionViewItem &option)
 void Tab::PopulateUndoDelete(QMenu *menu)
 {
 	menu->clear();
-	QMap<i64, QVector<trash::Names>> all_items;
+	QMap<i8, QVector<trash::Names>> all_items;
 	MTL_CHECK_VOID(trash::ListItems(CurrentDirTrashPath(), all_items));
 	if (all_items.isEmpty())
 		return;
@@ -1207,13 +1208,13 @@ void Tab::PopulateUndoDelete(QMenu *menu)
 	int file_count = 0;
 // Note: file_count != items.count(), the former is the file count,
 // the latter is num items in the map.
-	QMapIterator<i64, QVector<trash::Names>> i(all_items);
+	QMapIterator<i8, QVector<trash::Names>> i(all_items);
 	i.toBack();
 	while (i.hasPrevious())
 	{
 		i.previous();
 		counter++;
-		const i64 t = i.key();
+		ci8 t = i.key();
 		const QVector<trash::Names> &value = i.value();
 		file_count += value.size();
 		
@@ -1226,7 +1227,7 @@ void Tab::PopulateUndoDelete(QMenu *menu)
 			label.append(')');
 			QAction *action = menu->addAction(label);
 			connect(action, &QAction::triggered, [=] {
-				QMap<i64, QVector<trash::Names>> submap;
+				QMap<i8, QVector<trash::Names>> submap;
 				submap.insert(t, value);
 				UndeleteFiles(submap);
 			});
@@ -1310,7 +1311,7 @@ bool Tab::ReloadOpenWith()
 	
 	while (received_ba.has_more())
 	{
-		const Present present = (Present)received_ba.next_i8();
+		const Present present = (Present)received_ba.next_i1();
 		DesktopFile *next = DesktopFile::From(received_ba, app_->env());
 		if (next != nullptr) {
 			if (present == Present::Yes)
@@ -1819,7 +1820,7 @@ void Tab::ToggleMagnifiedMode()
 	UpdateView();
 }
 
-void Tab::UndeleteFiles(const QMap<i64, QVector<trash::Names>> &items)
+void Tab::UndeleteFiles(const QMap<i8, QVector<trash::Names>> &items)
 {
 	QVector<QString> filenames;
 	auto &files = view_files();

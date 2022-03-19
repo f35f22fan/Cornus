@@ -18,45 +18,45 @@ void CornusFreeQImageMemory(void *data)
 namespace cornus {
 
 namespace thumbnail {
-bool GetOriginalImageSize(ByteArray &ba, i32 &w, i32 &h)
+bool GetOriginalImageSize(ByteArray &ba, i4 &w, i4 &h)
 {
 	const auto at = ba.at();
 	if (ba.size() <= thumbnail::HeaderSize ||
-		(ba.next_i16() != thumbnail::AbiVersion))
+		(ba.next_i2() != thumbnail::AbiVersion))
 	{
 		return false;
 	}
 	
 	ba.to(at + 8);
-	w = ba.next_i32();
-	h = ba.next_i32();
+	w = ba.next_i4();
+	h = ba.next_i4();
 	ba.to(at);
 	
 	return true;
 }
 
-QImage ImageFromByteArray(ByteArray &ba, i32 &img_w, i32 &img_h,
+QImage ImageFromByteArray(ByteArray &ba, i4 &img_w, i4 &img_h,
 	AbiType &abi_version, ZSTD_DCtx *decompress_ctx)
 {
 	if (ba.size() <= thumbnail::HeaderSize ||
-		((abi_version = ba.next_i16()) != thumbnail::AbiVersion))
+		((abi_version = ba.next_i2()) != thumbnail::AbiVersion))
 	{
 		return QImage();
 	}
 	
-	const int thmb_w = ba.next_i16();
-	const int thmb_h = ba.next_i16();
-	const int bpl = ba.next_u16();
-	img_w = ba.next_i32();
-	img_h = ba.next_i32();
-	const auto format = static_cast<QImage::Format>(ba.next_i32());
+	const int thmb_w = ba.next_i2();
+	const int thmb_h = ba.next_i2();
+	const int bpl = ba.next_u2();
+	img_w = ba.next_i4();
+	img_h = ba.next_i4();
+	const auto format = static_cast<QImage::Format>(ba.next_i4());
 	ba.to(0); // leave ByteArray in same state it was passed in
 	char *src_buf = (ba.data() + thumbnail::HeaderSize);
-	const i64 src_size = ba.size() - thumbnail::HeaderSize;
+	const i8 src_size = ba.size() - thumbnail::HeaderSize;
 	
-	const i64 dst_size = ZSTD_getFrameContentSize(src_buf, src_size);
+	const i8 dst_size = ZSTD_getFrameContentSize(src_buf, src_size);
 	uchar *dst_buf = new uchar[dst_size];
-	const i64 decompressed_size = ZSTD_decompressDCtx(decompress_ctx,
+	const i8 decompressed_size = ZSTD_decompressDCtx(decompress_ctx,
 		dst_buf, dst_size, src_buf, src_size);
 	Q_UNUSED(decompressed_size);
 	
@@ -84,7 +84,7 @@ QSize GetScaledSize(const QSize &input, const int max_img_w,
 	return QSize((int)used_w, (int)used_h);
 }
 
-Thumbnail* Load(const QString &full_path, const u64 &file_id,
+Thumbnail* Load(const QString &full_path, const u8 &file_id,
 	const QByteArray &ext, const int max_img_w, const int max_img_h,
 	const TabId tab_id, const DirId dir_id)
 {
@@ -176,7 +176,7 @@ QImage LoadWebpImage(const QString &full_path, const int max_img_w,
 		return img;
 	}
 	
-	if (WebPGetFeatures((const u8*)ba.data(), ba.size(), &config.input) != VP8_STATUS_OK)
+	if (WebPGetFeatures((const u1*)ba.data(), ba.size(), &config.input) != VP8_STATUS_OK)
 	{
 //		mtl_trace();
 		return img;
@@ -190,11 +190,11 @@ QImage LoadWebpImage(const QString &full_path, const int max_img_w,
 	config.options.scaled_width = scaled_sz.width();
 	config.options.scaled_height = scaled_sz.height();
 	
-	const i64 scanline_stride = scaled_sz.width() * 4;
+	const i8 scanline_stride = scaled_sz.width() * 4;
 //	mtl_info("Requested stride: %ld", scanline_stride);
 //	mtl_info("max_img_w: %d, h: %d, scaled w: %d, h: %d",
 //		max_img_w, max_img_h, scaled_sz.width(), scaled_sz.height());
-	const i64 external_buf_size = scanline_stride * scaled_sz.height();
+	const i8 external_buf_size = scanline_stride * scaled_sz.height();
 	uchar *external_buf = new uchar[external_buf_size];
 	{
 		// Specify the desired output colorspace:
@@ -206,7 +206,7 @@ QImage LoadWebpImage(const QString &full_path, const int max_img_w,
 		config.output.is_external_memory = 1;
 	}
 	
-	if (WebPDecode((const u8*)ba.data(), ba.size(), &config) != VP8_STATUS_OK)
+	if (WebPDecode((const u1*)ba.data(), ba.size(), &config) != VP8_STATUS_OK)
 	{
 		mtl_trace();
 		return img;

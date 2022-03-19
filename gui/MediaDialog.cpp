@@ -42,8 +42,8 @@ void MediaDialog::AddNewItem()
 	Media *media = app_->media();
 	
 	media::Field f = GetCurrentCategory();
-	i64 new_id = -1;
-	i64 existing_id = -1;
+	i8 new_id = -1;
+	i8 existing_id = -1;
 	{
 		auto g = media->guard();
 		new_id = media->SetNTS(f, -1, names, &existing_id, media::Action::Append);
@@ -71,10 +71,10 @@ void MediaDialog::ButtonClicked(QAbstractButton *btn)
 
 media::Field MediaDialog::GetCurrentCategory() const
 {
-	return (media::Field)(u8)categories_cb_->currentData().toInt();
+	return (media::Field)(u1)categories_cb_->currentData().toInt();
 }
 
-i64 MediaDialog::GetCurrentID() const
+i8 MediaDialog::GetCurrentID() const
 {
 	QVariant v = category_items_cb_->currentData();
 	return v.isValid() ? v.toLongLong() : -1;
@@ -90,12 +90,12 @@ void MediaDialog::Init()
 	setLayout(layout);
 	
 	categories_cb_ = new QComboBox();
-	categories_cb_->addItem(tr("Actors"), (u8)media::Field::Actors);
-	categories_cb_->addItem(tr("Directors"), (u8)media::Field::Directors);
-	categories_cb_->addItem(tr("Writers"), (u8)media::Field::Writers);
-	categories_cb_->addItem(tr("Genres"), (u8)media::Field::Genres);
-	categories_cb_->addItem(tr("Subgenres"), (u8)media::Field::Subgenres);
-	categories_cb_->addItem(tr("Countries"), (u8)media::Field::Countries);
+	categories_cb_->addItem(tr("Actors"), (u1)media::Field::Actors);
+	categories_cb_->addItem(tr("Directors"), (u1)media::Field::Directors);
+	categories_cb_->addItem(tr("Writers"), (u1)media::Field::Writers);
+	categories_cb_->addItem(tr("Genres"), (u1)media::Field::Genres);
+	categories_cb_->addItem(tr("Subgenres"), (u1)media::Field::Subgenres);
+	categories_cb_->addItem(tr("Countries"), (u1)media::Field::Countries);
 	connect(categories_cb_, QOverload<int>::of(&QComboBox::currentIndexChanged), [=] {
 		UpdateCurrentCategoryItems();
 	});
@@ -150,7 +150,7 @@ void MediaDialog::Save()
 		}
 	}
 	Media *media = app_->media();
-	const i64 ID = GetCurrentID();
+	ci8 ID = GetCurrentID();
 	if (ID != -1 && should_be_saved) {
 		{
 			auto g = media->guard();
@@ -162,7 +162,7 @@ void MediaDialog::Save()
 ///	media->Print();
 }
 
-void MediaDialog::SetCurrentByData(QComboBox *cb, const i64 ID,
+void MediaDialog::SetCurrentByData(QComboBox *cb, ci8 ID,
 	const QVector<QString> *names)
 {
 	if (ID == -1)
@@ -189,7 +189,7 @@ void MediaDialog::SetCurrentByData(QComboBox *cb, const i64 ID,
 	}
 }
 
-void MediaDialog::UpdateCurrentCategoryItems(const i64 select_id)
+void MediaDialog::UpdateCurrentCategoryItems(ci8 select_id)
 {
 	category_items_cb_->clear();
 	const media::Field category = GetCurrentCategory();
@@ -207,7 +207,7 @@ void MediaDialog::UpdateCurrentCategoryItems(const i64 select_id)
 
 void MediaDialog::UpdateNamesFields()
 {
-	i64 ID = GetCurrentID();
+	i8 ID = GetCurrentID();
 	Media *media = app_->media();
 	QString v1, v2;
 	if (ID != -1)

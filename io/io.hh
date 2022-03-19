@@ -32,7 +32,7 @@
 namespace cornus::io {
 
 struct ReadParams {
-	i64 read_max = -1;
+	i8 read_max = -1;
 	mode_t *ret_mode = nullptr;
 	PrintErrors print_errors = PrintErrors::Yes;
 	CanRelyOnStatxSize can_rely = CanRelyOnStatxSize::No;
@@ -41,13 +41,13 @@ struct ReadParams {
 struct SaveThumbnail {
 	QString full_path;
 	QImage thmb;
-	i32 orig_img_w = -1;
-	i32 orig_img_h = -1;
+	i4 orig_img_w = -1;
+	i4 orig_img_h = -1;
 	TempDir dir;
 	DiskFileId id;
 };
 
-enum class FileEventType: u8 {
+enum class FileEventType: u1 {
 	None = 0,
 	Modified,
 	Deleted,
@@ -65,13 +65,13 @@ struct FileEvent {
 	FileEventType type = FileEventType::None;
 };
 
-enum class PostWrite: i8 {
+enum class PostWrite: i1 {
 	DoNothing = 0,
 	FSync,
 	FDataSync
 };
 
-using MessageType = u32;
+using MessageType = u4;
 const int MessageBitsStartAt = 28;
 const MessageType MessageBitsMask = 15;
 enum class Message: MessageType {
@@ -153,14 +153,14 @@ inline Message MessageForMany(const Qt::DropActions action)
 const auto ExecBits = S_IXUSR | S_IXGRP | S_IXOTH;
 
 struct CountRecursiveInfo {
-	i64 size = 0;
-	i64 trash_size = 0;
+	i8 size = 0;
+	i8 trash_size = 0;
 	
-	i32 file_count = 0;
-	i32 trash_file_count = 0;
+	i4 file_count = 0;
+	i4 trash_file_count = 0;
 	
-	i32 dir_count = 0;
-	i32 trash_dir_count = 0;
+	i4 dir_count = 0;
+	i4 trash_dir_count = 0;
 };
 }
 Q_DECLARE_METATYPE(cornus::io::CountRecursiveInfo*);
@@ -229,7 +229,7 @@ bool EnsureDir(QString dir_path, const QString &subdir, QString *result = nullpt
 
 bool EnsureRegularFile(const QString &full_path, const mode_t *mode = nullptr);
 
-enum class AppendSlash: i8 {
+enum class AppendSlash: i1 {
 	Yes,
 	No,
 };
@@ -298,7 +298,7 @@ MapPosixTypeToLocal(const mode_t mode) {
 	}
 }
 
-QString NewNamePattern(const QString &filename, i32 &next);
+QString NewNamePattern(const QString &filename, i4 &next);
 
 inline bool NewThread(void* (*start_routine)(void *), void *arg,
 	const PrintErrors pe = PrintErrors::Yes)
@@ -327,6 +327,10 @@ bool ReadLink(const char *file_path, LinkTarget &link_target,
 
 bool ReadLinkSimple(const char *file_path, QString &result);
 
+// returns -1 on error or num read bytes
+i8 ReadToBuf(const int fd, char *buf, ci8 buf_size,
+	const PrintErrors pe = PrintErrors::No);
+
 bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &env,
 	const PrintErrors pe, QString *dir_path = nullptr);
 
@@ -342,7 +346,7 @@ bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx,
 bool sd_nvme(const QString &name);
 bool valid_dev_path(const QString &name);
 
-QString SizeToString(const i64 sz, const StringLength len = StringLength::Normal);
+QString SizeToString(ci8 sz, const StringLength len = StringLength::Normal);
 
 bool SetXAttr(const QString &full_path, const QString &xattr_name,
 	const ByteArray &ba, const PrintErrors = PrintErrors::Yes);
@@ -352,9 +356,9 @@ bool SortFiles(File *a, File *b);
 QString thread_id_short(const pthread_t &th);
 
 isize TryReadFile(const QString &full_path, char *buf,
-	const i64 how_much, ExecInfo *info = nullptr);
+	ci8 how_much, ExecInfo *info = nullptr);
 
-bool WriteToFile(const QString &full_path, const char *data, const i64 size,
+bool WriteToFile(const QString &full_path, const char *data, ci8 size,
 	const PostWrite post_write = PostWrite::DoNothing,
 	mode_t *custom_mode = nullptr);
 

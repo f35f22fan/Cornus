@@ -90,7 +90,7 @@ bool SearchPane::ContainsAll(const media::MediaPreview &data)
 		if (!data.video_codecs.contains(media_search_.video_codec))
 			return false;
 	}
-	const i16 y = media_search_.year;
+	const i2 y = media_search_.year;
 	if (y != -1)
 	{
 		if (data.year_end != -1) {
@@ -284,7 +284,7 @@ void SearchPane::DoSearch(const QString *search_str)
 		FillInSearchItem(media_search_);
 	
 	select_row_ = -1;
-	i32 found = 0, at = 0;
+	i4 found = 0, at = 0;
 	bool found_current = false;
 	QSet<int> indices;
 	{
@@ -364,7 +364,7 @@ void SearchPane::FillInSearchItem(MediaSearch &d)
 	
 	QString s = media_items_.year_tf->text();
 	bool ok;
-	i16 year = s.toInt(&ok);
+	i2 year = s.toInt(&ok);
 	d.year = ok ? year : -1;
 }
 
@@ -459,7 +459,7 @@ void SearchPane::ScrollToNext(const Direction dir)
 		return;
 	}
 	
-	i32 at = 0;
+	i4 at = 0;
 	gui::Tab *tab = app_->tab();
 	QSet<int> indices;
 	{

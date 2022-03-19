@@ -20,19 +20,19 @@ class Notify;
 class SaveFile;
 class Task;
 
-enum class CloseWriteEvent: i8 {
+enum class CloseWriteEvent: i1 {
 	Yes,
 	No
 };
 
-enum class CountDirFiles: i8 {
+enum class CountDirFiles: i1 {
 	Yes,
 	No
 };
 
 struct DevNum {
-	i32 major;
-	i32 minor;
+	i4 major;
+	i4 minor;
 };
 
 struct DiskInfo {
@@ -66,14 +66,14 @@ struct ServerLife
 	}
 };
 	
-enum class ActUponAnswer: i8 {
+enum class ActUponAnswer: i1 {
 	None = 0,
 	Skip,
 	Retry,
 	Abort,
 };
 
-enum class FileExistsAnswer: i8 {
+enum class FileExistsAnswer: i1 {
 	None = 0,
 	Overwrite,
 	OverwriteAll,
@@ -84,7 +84,7 @@ enum class FileExistsAnswer: i8 {
 	Abort
 };
 
-enum class DeleteFailedAnswer: i8 {
+enum class DeleteFailedAnswer: i1 {
 	None = 0,
 	Retry,
 	Skip,
@@ -92,7 +92,7 @@ enum class DeleteFailedAnswer: i8 {
 	Abort
 };
 
-enum class WriteFailedAnswer: i8 {
+enum class WriteFailedAnswer: i1 {
 	None = 0,
 	Retry,
 	Skip,
@@ -100,7 +100,7 @@ enum class WriteFailedAnswer: i8 {
 	Abort,
 };
 
-using TaskStateT = u16;
+using TaskStateT = u2;
 enum class TaskState: TaskStateT {
 	None =           0,
 	Continue =       1u << 1,
@@ -124,7 +124,7 @@ inline TaskState operator ~ (TaskState a) {
 	return static_cast<TaskState>(~static_cast<TaskStateT>(a));
 }
 
-enum class FileBits: u8 {
+enum class FileBits: u1 {
 	Empty = 0,
 	Selected = 1u << 0,
 	SelectedBySearch = 1u << 1,
@@ -136,7 +136,7 @@ enum class FileBits: u8 {
 };
 
 inline FileBits operator | (FileBits a, FileBits b) {
-	return static_cast<FileBits>(static_cast<u8>(a) | static_cast<u8>(b));
+	return static_cast<FileBits>(static_cast<u1>(a) | static_cast<u1>(b));
 }
 
 inline FileBits& operator |= (FileBits &a, const FileBits b) {
@@ -145,11 +145,11 @@ inline FileBits& operator |= (FileBits &a, const FileBits b) {
 }
 
 inline FileBits operator ~ (FileBits a) {
-	return static_cast<FileBits>(~(static_cast<u8>(a)));
+	return static_cast<FileBits>(~(static_cast<u1>(a)));
 }
 
 inline FileBits operator & (FileBits a, FileBits b) {
-	return static_cast<FileBits>((static_cast<u8>(a) & static_cast<u8>(b)));
+	return static_cast<FileBits>((static_cast<u1>(a) & static_cast<u1>(b)));
 }
 
 inline FileBits& operator &= (FileBits &a, const FileBits b) {
@@ -157,24 +157,24 @@ inline FileBits& operator &= (FileBits &a, const FileBits b) {
 	return a;
 }
 
-enum ListOptions: u8 {
+enum ListOptions: u1 {
 	HiddenFiles = 1u << 0,
 };
 
 typedef bool (*FilterFunc)(const QString &name);
 
-const f64 KiB = 1024;
-const f64 MiB = KiB * 1024;
-const f64 GiB = MiB * 1024;
-const f64 TiB = GiB * 1024;
+const f8 KiB = 1024;
+const f8 MiB = KiB * 1024;
+const f8 GiB = MiB * 1024;
+const f8 TiB = GiB * 1024;
 
 static const mode_t DirPermissions = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH;
 static const mode_t FilePermissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
 
 struct DiskFileId {
-	u64 inode_number;
-	u32 dev_major; // ID of device containing file, in a LAN it's unique
-	u32 dev_minor;
+	u8 inode_number;
+	u4 dev_major; // ID of device containing file, in a LAN it's unique
+	u4 dev_minor;
 	
 	inline static DiskFileId FromStat(const struct stat &st) {
 		return io::DiskFileId {
@@ -215,14 +215,14 @@ struct SortingOrder {
 	bool ascending = true;
 };
 
-enum class DirType: i8 {
+enum class DirType: i1 {
 	Dir,
 	LinkToDir,
 	Neither,
 	Error,
 };
 
-enum class FileType: i8 {
+enum class FileType: i1 {
 	Unknown = 0,
 	Regular,
 	Dir,
@@ -239,9 +239,9 @@ struct LinkTarget {
 	QVector<QString> chain_paths_;
 	mode_t mode = 0;
 	FileType type = FileType::Unknown;
-	i8 cycles = 1; // @cycles is set negative when circular symlink detected.
+	i1 cycles = 1; // @cycles is set negative when circular symlink detected.
 	bool is_relative = false;
-	static const i8 MaxCycles = 6;
+	static const i1 MaxCycles = 6;
 	
 	LinkTarget* Clone() {
 		LinkTarget *p = new LinkTarget();

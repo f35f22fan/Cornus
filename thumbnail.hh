@@ -18,13 +18,13 @@ void CornusFreeQImageMemory(void *data);
 namespace cornus {
 
 namespace thumbnail {
-using AbiType = i16;
+using AbiType = i2;
 const AbiType AbiVersion = 1;
 // header size: abi=2 + width=2 + height=2 + bpl=2 + img_w=4 + img_h=4 + img_format=4
-const i64 HeaderSize = 20;
+const i8 HeaderSize = 20;
 } // thumbnail::
 
-enum class Origin: i8 {
+enum class Origin: i1 {
 	TempDir,
 	ExtAttr,
 	DiskFile,
@@ -35,15 +35,15 @@ const bool DebugThumbnailExit = false;
 
 struct Thumbnail {
 	QImage img;
-	u64 file_id = 0;
-	i64 time_generated = -1;
+	u8 file_id = 0;
+	i8 time_generated = -1;
 	TabId tab_id = -1;
 	DirId dir_id = -1;
-	i32 w = -1;
-	i32 h = -1;
-	i32 original_image_w = -1;
-	i32 original_image_h = -1;
-	i16 abi_version = 0;
+	i4 w = -1;
+	i4 h = -1;
+	i4 original_image_w = -1;
+	i4 original_image_h = -1;
+	i2 abi_version = 0;
 	Origin origin = Origin::Undefined;
 };
 
@@ -162,23 +162,23 @@ struct GlobalThumbLoaderData {
 namespace thumbnail {
 
 // returns true on success
-bool GetOriginalImageSize(ByteArray &ba, i32 &w, i32 &h);
+bool GetOriginalImageSize(ByteArray &ba, i4 &w, i4 &h);
 
 QSize GetScaledSize(const QSize &input, const int max_img_w, const int max_img_h);
 
 void* LoadMonitor(void *args);
 
-QImage ImageFromByteArray(ByteArray &ba, i32 &img_w, i32 &img_h,
+QImage ImageFromByteArray(ByteArray &ba, i4 &img_w, i4 &img_h,
 	AbiType &abi_version, ZSTD_DCtx *decompress_context);
 
-Thumbnail* Load(const QString &full_path, const u64 &file_id,
+Thumbnail* Load(const QString &full_path, const u8 &file_id,
 	const QByteArray &ext, const int max_img_w, const int max_img_h,
 	const TabId tab_id, const DirId dir_id);
 
 QImage LoadWebpImage(const QString &full_path, const int max_img_w,
 	const int max_img_h, QSize &scaled_sz, QSize &orig_img_sz);
 
-inline QString SizeToString(const i32 w, const i32 h, const gui::ViewMode vm)
+inline QString SizeToString(const i4 w, const i4 h, const gui::ViewMode vm)
 {
 	if (vm == gui::ViewMode::Details) {
 		return QChar('(') + QString::number(w) + QChar('x')

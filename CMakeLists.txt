@@ -32,6 +32,7 @@ find_package(PkgConfig REQUIRED)
 pkg_search_module(WEBP REQUIRED libwebp)
 pkg_search_module(MTP REQUIRED libmtp)
 # pkg_search_module(DCONF REQUIRED dconf)
+pkg_search_module(URING REQUIRED liburing)
 pkg_search_module(UDISKS REQUIRED udisks2)
 pkg_search_module(UDEV REQUIRED libudev)
 pkg_search_module(POLKIT REQUIRED polkit-gobject-1)
@@ -66,6 +67,7 @@ set(cornus_src_files main.cpp
     thumbnail.cc thumbnail.hh
     TreeData.cpp TreeData.hpp
     ui.cc ui.hh
+    uring.cc uring.hh
 
     gui/actions.hxx
     gui/AttrsDialog.cpp gui/AttrsDialog.hpp
@@ -119,13 +121,12 @@ endforeach()
 set (cornus_exe "cornus")
 add_executable(${cornus_exe} ${cornus_src_files} resources/resources.qrc)
 target_include_directories(${cornus_exe} PRIVATE ${MTP_INCLUDE_DIRS}
-    ${UDISKS_INCLUDE_DIRS} ${UDEV_INCLUDE_DIRS}
+    ${UDISKS_INCLUDE_DIRS} ${UDEV_INCLUDE_DIRS} ${URING_INCLUDE_DIRS}
     ${POLKIT_INCLUDE_DIRS} ${POLKIT_AGENT_INCLUDE_DIRS} ${WEBP_INCLUDE_DIRS})
 target_link_libraries(${cornus_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
-    ${MTP_LDFLAGS} ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS}
+    ${MTP_LDFLAGS} ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS} ${URING_LDFLAGS}
     ${POLKIT_LDFLAGS} ${POLKIT_AGENT_LDFLAGS} ${WEBP_LDFLAGS} pthread zstd)
 
-#if (DEFINED ENV{BUILD_CORNUS_IO})
 if (BUILD_CORNUS_IO)
 message(STATUS "BUILD_CORNUS_IO defined!")
 	set(cornus_io_src_files main_io.cpp
@@ -171,37 +172,37 @@ message(STATUS "BUILD_CORNUS_IO defined!")
 		${WEBP_LDFLAGS}	${UDISKS_LDFLAGS} pthread zstd)
 endif()
 
-#if (BUILD_CORNUS_R)
-	#set(cornus_r_src_files main_r.cpp
-		#AutoDelete.hh
-		#ByteArray.cpp ByteArray.hpp
-		#category.cc category.hh
-		#CondMutex.cpp CondMutex.hpp
-		#DesktopFile.cpp DesktopFile.hpp
-		#ElapsedTimer.cpp ElapsedTimer.hpp
-		#err.hpp
-		#MutexGuard.cpp MutexGuard.hpp
-		#thumbnail.cc thumbnail.hh
-		#trash.cc trash.hh
+if (BUILD_CORNUS_R)
+	set(cornus_r_src_files main_r.cpp
+		AutoDelete.hh
+		ByteArray.cpp ByteArray.hpp
+		category.cc category.hh
+		CondMutex.hpp
+		DesktopFile.cpp DesktopFile.hpp
+		ElapsedTimer.cpp ElapsedTimer.hpp
+		err.hpp
+		MutexGuard.cpp MutexGuard.hpp
+		thumbnail.cc thumbnail.hh
+		trash.cc trash.hh
 
-		#io/decl.hxx
-		#io/File.cpp io/File.hpp
-		#io/Files.cpp io/Files.hpp
-		#io/io.cc io/io.hh
-		#io/SaveFile.cpp io/SaveFile.hpp
-		#io/socket.cc io/socket.hh
-		#io/Task.cpp io/Task.hpp
-	#)
+		io/decl.hxx
+		io/File.cpp io/File.hpp
+		io/Files.cpp io/Files.hpp
+		io/io.cc io/io.hh
+		io/SaveFile.cpp io/SaveFile.hpp
+		io/socket.cc io/socket.hh
+		io/Task.cpp io/Task.hpp
+	)
 
-	#foreach(f IN LISTS cornus_r_src_files)
-		#get_filename_component(b ${f} NAME)
-		#set_source_files_properties(${f} PROPERTIES
-			#COMPILE_DEFINITIONS "SRC_FILE_NAME=\"${b}\"")
-	#endforeach()
+	foreach(f IN LISTS cornus_r_src_files)
+		get_filename_component(b ${f} NAME)
+		set_source_files_properties(${f} PROPERTIES
+			COMPILE_DEFINITIONS "SRC_FILE_NAME=\"${b}\"")
+	endforeach()
 
-	#set (cornus_r_exe "cornus_r")
-	#add_executable(${cornus_r_exe} ${cornus_r_src_files} resources/resources.qrc)
-	#target_include_directories(${cornus_r_exe} PRIVATE ${WEBP_INCLUDE_DIRS})
-	#target_link_libraries(${cornus_r_exe} Qt5::Core Qt5::Gui ${WEBP_LDFLAGS} pthread zstd)
-#endif()
+	set (cornus_r_exe "cornus_r")
+	add_executable(${cornus_r_exe} ${cornus_r_src_files} resources/resources.qrc)
+	target_include_directories(${cornus_r_exe} PRIVATE ${WEBP_INCLUDE_DIRS})
+	target_link_libraries(${cornus_r_exe} Qt5::Core Qt5::Gui ${WEBP_LDFLAGS} pthread zstd)
+endif()
 

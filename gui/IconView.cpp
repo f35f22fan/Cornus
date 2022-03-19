@@ -131,8 +131,8 @@ void IconView::ComputeProportions(IconDim &dim) const
 
 void IconView::DelayedRepaint()
 {
-	const i64 last_repaint_ms = last_repaint_.elapsed_ms();
-	const i64 remaining_ms = delay_repaint_ms_ - last_repaint_ms;
+	ci8 last_repaint_ms = last_repaint_.elapsed_ms();
+	ci8 remaining_ms = delay_repaint_ms_ - last_repaint_ms;
 	
 	if (remaining_ms > 0) {
 		const auto ms = (remaining_ms >= delay_repaint_ms_ / 2) ?
@@ -314,7 +314,7 @@ bool IconView::is_current_view() const
 	return tab_->view_mode() == ViewMode::Icons;
 }
 
-i32 IconView::GetFileIndexAt(const QPoint &pos) const
+i4 IconView::GetFileIndexAt(const QPoint &pos) const
 {
 	const auto &cell = icon_dim_;
 	const int mouse_y = pos.y() + vs_->value();
@@ -349,7 +349,7 @@ io::File* IconView::GetFileAt_NoLock(const QPoint &pos, const Clone c, int *ret_
 	return (c == Clone::Yes) ? f->Clone() : f;
 }
 
-i32 IconView::GetVisibleFileIndex()
+i4 IconView::GetVisibleFileIndex()
 {
 	return GetFileIndexAt(QPoint(width() / 2, height() / 2));
 }

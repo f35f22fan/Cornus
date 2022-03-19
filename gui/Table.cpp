@@ -104,7 +104,7 @@ void Table::ApplyPrefs()
 {
 	auto &map = app_->prefs().cols_visibility();
 	auto *hz = horizontalHeader();
-	QMap<i8, bool>::const_iterator it = map.constBegin();
+	QMap<i1, bool>::const_iterator it = map.constBegin();
 	
 	while (it != map.constEnd())
 	{
@@ -135,7 +135,7 @@ bool Table::CheckIsOnFileName(io::File *file, const int file_row, const QPoint &
 	if (!file->is_dir() || pos.y() < 0)
 		return false;
 	
-	i32 col = columnAt(pos.x());
+	i4 col = columnAt(pos.x());
 	if (col != (int)Column::FileName)
 		return false;
 	
@@ -227,7 +227,7 @@ io::File* Table::GetFileAt_NoLock(const QPoint &pos, const Clone clone, int *ret
 	return (clone == Clone::Yes) ? file->Clone() : file;
 }
 
-i32 Table::GetFileAt_NoLock(const QPoint &local_pos, const PickBy pb, io::File **ret_file)
+i4 Table::GetFileAt_NoLock(const QPoint &local_pos, const PickBy pb, io::File **ret_file)
 {
 	const Column col = static_cast<Column>(columnAt(local_pos.x()));
 	const Column curr = (pb == PickBy::Icon) ? Column::Icon : Column::FileName;
@@ -263,7 +263,7 @@ int Table::GetVisibleFileIndex()
 
 int Table::GetRowHeight() const { return verticalHeader()->defaultSectionSize(); }
 
-i32 Table::GetVisibleRowsCount() const
+i4 Table::GetVisibleRowsCount() const
 {
 	return (height() - horizontalHeader()->height()) / GetRowHeight();
 }
@@ -271,7 +271,7 @@ i32 Table::GetVisibleRowsCount() const
 void Table::HiliteFileUnderMouse()
 {
 	QSet<int> indices;
-	i32 name_row = -1, icon_row = -1;
+	i4 name_row = -1, icon_row = -1;
 	{
 		io::Files &files = tab_->view_files();
 		MutexGuard guard = files.guard();
@@ -312,7 +312,7 @@ void Table::keyReleaseEvent(QKeyEvent *evt) {
 
 void Table::leaveEvent(QEvent *evt)
 {
-	const i32 row = (mouse_over_file_name_ == -1)
+	const i4 row = (mouse_over_file_name_ == -1)
 		? mouse_over_file_icon_ : mouse_over_file_name_;
 	ClearMouseOver();
 	model_->UpdateSingleRow(row);
@@ -321,12 +321,12 @@ void Table::leaveEvent(QEvent *evt)
 void Table::mouseDoubleClickEvent(QMouseEvent *evt)
 {
 	QTableView::mouseDoubleClickEvent(evt);
-	i32 col = columnAt(evt->pos().x());
+	i4 col = columnAt(evt->pos().x());
 	auto *app = model_->app();
 	
 	if (evt->button() == Qt::LeftButton)
 	{
-		if (col == i32(Column::FileName))
+		if (col == i4(Column::FileName))
 		{
 			io::Files &files = tab_->view_files();
 			io::File *cloned_file = nullptr;
@@ -416,8 +416,8 @@ void Table::mouseReleaseEvent(QMouseEvent *evt)
 	model_->UpdateIndices(indices);
 	
 	if (evt->button() == Qt::LeftButton) {
-		const i32 col = columnAt(evt->pos().x());
-		if (col == i32(Column::Icon))
+		const i4 col = columnAt(evt->pos().x());
+		if (col == i4(Column::Icon))
 		{
 			io::Files &files = tab_->view_files();
 			io::File *cloned_file = nullptr;
@@ -566,21 +566,21 @@ void Table::SelectByLowerCase(QVector<QString> filenames,
 void Table::SetCustomResizePolicy()
 {
 	auto *hh = horizontalHeader();
-	hh->setSectionResizeMode(i8(gui::Column::Icon), QHeaderView::Fixed);
-	hh->setSectionResizeMode(i8(gui::Column::FileName), QHeaderView::Stretch);
-	hh->setSectionResizeMode(i8(gui::Column::Size), QHeaderView::Fixed);
-	hh->setSectionResizeMode(i8(gui::Column::TimeCreated), QHeaderView::Fixed);
-	hh->setSectionResizeMode(i8(gui::Column::TimeModified), QHeaderView::Fixed);
+	hh->setSectionResizeMode(i1(gui::Column::Icon), QHeaderView::Fixed);
+	hh->setSectionResizeMode(i1(gui::Column::FileName), QHeaderView::Stretch);
+	hh->setSectionResizeMode(i1(gui::Column::Size), QHeaderView::Fixed);
+	hh->setSectionResizeMode(i1(gui::Column::TimeCreated), QHeaderView::Fixed);
+	hh->setSectionResizeMode(i1(gui::Column::TimeModified), QHeaderView::Fixed);
 	QFontMetrics fm = fontMetrics();
 	QString sample_date = QLatin1String("2020-12-01 18:04");
 	
 	const int icon_col_w = fm.horizontalAdvance(QLatin1String("Steam"));
 	const int size_col_w = fm.horizontalAdvance(QLatin1String("1023.9 GiB")) + 2;
 	const int time_col_w = fm.horizontalAdvance(sample_date) + 10;
-	setColumnWidth(i8(gui::Column::Icon), icon_col_w);
-	setColumnWidth(i8(gui::Column::Size), size_col_w);
-	setColumnWidth(i8(gui::Column::TimeCreated), time_col_w);
-	setColumnWidth(i8(gui::Column::TimeModified), time_col_w);
+	setColumnWidth(i1(gui::Column::Icon), icon_col_w);
+	setColumnWidth(i1(gui::Column::Size), size_col_w);
+	setColumnWidth(i1(gui::Column::TimeCreated), time_col_w);
+	setColumnWidth(i1(gui::Column::TimeModified), time_col_w);
 }
 
 void Table::ShowVisibleColumnOptions(QPoint pos)

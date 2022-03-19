@@ -63,7 +63,7 @@ public:
 	bool IsThumbnailMarkedFailed();
 	void ClearXAttrs();
 	void MarkThumbnailFailed();
-	void ReadLinkTarget();
+	void ReadLinkTarget(const Lock l);
 	
 	bool is_dir() const { return type_ == FileType::Dir; }
 	bool is_link_to_dir() const { return is_symlink() &&
@@ -147,19 +147,19 @@ public:
 	
 	void dir_path(const QString &s) { dp_ = s; }
 	
-	const QString& dir_path() const;
+	const QString& dir_path(const Lock l) const;
 	
 	io::Files* files() const { return files_; }
 	void files(io::Files *ptr) { files_ = ptr; dp_.clear(); }
 	
 	void id(const DiskFileId d) { id_ = d; }
 	const DiskFileId& id() const { return id_; }
-	u64 id_num() const { return id_.inode_number; }
+	u8 id_num() const { return id_.inode_number; }
 	
 	QString SizeToString() const;
 	
-	i64 size() const { return size_; }
-	void size(const i64 n) { size_ = n; }
+	i8 size() const { return size_; }
+	void size(const i8 n) { size_ = n; }
 	
 	bool ShouldTryLoadingThumbnail();
 	
@@ -199,7 +199,7 @@ private:
 	FileCache cache_ = {};
 	io::Files *files_ = nullptr;
 	QString dp_;
-	i64 size_ = -1;
+	i8 size_ = -1;
 	QHash<QString, ByteArray> ext_attrs_;
 	DiskFileId id_ = {};
 	struct statx_timestamp time_created_ = {};

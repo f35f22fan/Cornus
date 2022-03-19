@@ -382,7 +382,7 @@ void OpenOrderPane::Save()
 	
 	for (DesktopFile *next: model_vec)
 	{
-		ba.add_i8(i8(Present::Yes));
+		ba.add_i1(i1(Present::Yes));
 		ba.add_string(next->GetId());
 	}
 	
@@ -390,7 +390,7 @@ void OpenOrderPane::Save()
 	for (DesktopFile *next: hide_vec_)
 	{
 		if (next->Supports(mime_, info, app_->desktop()) != Priority::Ignore) {
-			ba.add_i8(i8(Present::No));
+			ba.add_i1(i1(Present::No));
 			ba.add_string(next->GetId());
 		} else {
 			auto ba = next->GetId().toLocal8Bit();

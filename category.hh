@@ -6,7 +6,7 @@
 
 namespace cornus {
 
-enum class Category: u8
+enum class Category: u1
 {
 	None = 0,
 	TextEditor,

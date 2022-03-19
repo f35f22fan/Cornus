@@ -240,8 +240,8 @@ void AttrsDialog::SaveAssignedAttrs()
 	ByteArray ba;
 	
 	Media *media = app_->media();
-	i32 magic_num = media->GetMagicNumber();
-	ba.add_i32(magic_num);
+	i4 magic_num = media->GetMagicNumber();
+	ba.add_i4(magic_num);
 	actors_asp_->WriteTo(ba);
 	directors_asp_->WriteTo(ba);
 	writers_asp_->WriteTo(ba);
@@ -254,57 +254,58 @@ void AttrsDialog::SaveAssignedAttrs()
 	bool ok;
 	{
 		QString s = year_started_tf_->text().trimmed();
-		i16 n = s.toInt(&ok);
+		i2 n = s.toInt(&ok);
 		if (ok) {
-			ba.add_u8((u8)media::Field::YearStarted);
-			ba.add_i16(n);
+			ba.add_u1((u1)media::Field::YearStarted);
+			ba.add_i2(n);
 		}
 	}
 	{
 		QString s = year_ended_tf_->text().trimmed();
 		int n = s.toInt(&ok);
 		if (ok) {
-			ba.add_u8((u8)media::Field::YearEnded);
-			ba.add_i16(n);
+			ba.add_u1((u1)media::Field::YearEnded);
+			ba.add_i2(n);
 		}
 	}
 	{
 		QString s = bit_depth_tf_->text().trimmed();
 		int n = s.toInt(&ok);
 		if (ok) {
-			ba.add_u8((u8)media::Field::VideoCodecBitDepth);
-			ba.add_i16(n);
+			ba.add_u1((u1)media::Field::VideoCodecBitDepth);
+			ba.add_i2(n);
 		}
 	}
 	
 	{
 		QString s = fps_tf_->text().trimmed();
-		f32 n = s.toFloat(&ok);
+		f4 n = s.toFloat(&ok);
 		if (ok) {
-			ba.add_u8((u8)media::Field::FPS);
-			ba.add_f32(n);
+			ba.add_u1((u1)media::Field::FPS);
+			ba.add_f4(n);
 		}
 	}
 	
 	{
 		QString s = resolution_w_tf_->text().trimmed();
-		int w = s.toInt(&ok);
-		
-		if (ok) {
+		cint w = s.toInt(&ok);
+		if (ok)
+		{
 			s = resolution_h_tf_->text().trimmed();
-			int h = s.toInt(&ok);
+			cint h = s.toInt(&ok);
 			if (ok) {
-				ba.add_u8((u8)media::Field::VideoResolution);
-				ba.add_i32(w);
-				ba.add_i32(h);
+				ba.add_u1((u1)media::Field::VideoResolution);
+				ba.add_i4(w);
+				ba.add_i4(h);
 			}
 		}
 	}
 	
 	{
 		QString s = comment_area_->toPlainText().trimmed();
-		if (!s.isEmpty()) {
-			ba.add_u8((u8)media::Field::Comments);
+		if (!s.isEmpty())
+		{
+			ba.add_u1((u1)media::Field::Comments);
 			ba.add_string(s);
 		}
 	}
@@ -334,9 +335,9 @@ void AttrsDialog::SyncWidgetsToFile()
 	was_ = file_->media_attrs();
 	ByteArray &ba = was_;
 	MTL_CHECK_VOID(ba.size() > 4);
-	const i32 magic = ba.next_i32();
+	const i4 magic = ba.next_i4();
 	Media *media = app_->media();
-	const i32 media_magic = media->GetMagicNumber();
+	const i4 media_magic = media->GetMagicNumber();
 	if (media_magic != magic) {
 		mtl_warn("Different magic numbers, file: %d vs media: %d", magic, media_magic);
 		return;
@@ -345,7 +346,7 @@ void AttrsDialog::SyncWidgetsToFile()
 	while (ba.has_more())
 	{
 		QComboBox *cb = nullptr;
-		const media::Field f = (media::Field)ba.next_u8();
+		const media::Field f = (media::Field)ba.next_u1();
 		switch (f)
 		{
 		case media::Field::Actors: cb = actors_asp_->cb(); break;
@@ -357,24 +358,24 @@ void AttrsDialog::SyncWidgetsToFile()
 		case media::Field::Rip: cb = rip_asp_->cb(); break;
 		case media::Field::VideoCodec: cb = video_codec_asp_->cb(); break;
 		case media::Field::YearStarted: {
-			year_started_tf_->setText(QString::number(ba.next_i16()));
+			year_started_tf_->setText(QString::number(ba.next_i2()));
 			break;
 		}
 		case media::Field::YearEnded: {
-			year_ended_tf_->setText(QString::number(ba.next_i16()));
+			year_ended_tf_->setText(QString::number(ba.next_i2()));
 			break;
 		}
 		case media::Field::VideoCodecBitDepth: {
-			bit_depth_tf_->setText(QString::number(ba.next_i16()));
+			bit_depth_tf_->setText(QString::number(ba.next_i2()));
 			break;
 		}
 		case media::Field::VideoResolution: {
-			resolution_w_tf_->setText(QString::number(ba.next_i32()));
-			resolution_h_tf_->setText(QString::number(ba.next_i32()));
+			resolution_w_tf_->setText(QString::number(ba.next_i4()));
+			resolution_h_tf_->setText(QString::number(ba.next_i4()));
 			break;
 		}
 		case media::Field::FPS: {
-			fps_tf_->setText(QString::number(ba.next_f32()));
+			fps_tf_->setText(QString::number(ba.next_f4()));
 			break;
 		}
 		case media::Field::Comments: {

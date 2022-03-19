@@ -2,7 +2,7 @@
 
 namespace cornus::input {
 
-enum class TriggerOn: i8 {
+enum class TriggerOn: i1 {
 	None,
 	FileName,
 	Icon,

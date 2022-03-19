@@ -109,12 +109,12 @@ bool LoadBookmarks(QVector<TreeItem*> &vec)
 	if (!buf.has_more())
 		return false;
 	
-	u16 version = buf.next_u16();
+	u2 version = buf.next_u2();
 	MTL_CHECK(version == prefs::BookmarksFormatVersion);
 	
 	while (buf.has_more()) {
 		TreeItem *p = new TreeItem();
-		p->type(TreeItemType(buf.next_u8()));
+		p->type(TreeItemType(buf.next_u1()));
 		p->mount_path(buf.next_string());
 		p->bookmark_name(buf.next_string());
 		vec.append(p);
@@ -134,7 +134,7 @@ void* LoadItems(void *args)
 	InsertArgs method_args;
 	LoadAllVolumes(method_args.partitions);
 #ifdef CORNUS_PRINT_PARTITIONS_LOAD_TIME
-	const i64 mc = timer.elapsed_mc();
+	ci8 mc = timer.elapsed_mc();
 	mtl_info("Partitions load time: %ld mc", mc);
 #endif
 	
@@ -336,7 +336,7 @@ void* monitor_devices(void *args)
 			} else if (evt.data.fd == app_quitting_fd) {
 				do_exit = true;
 				// must read 8 bytes:
-				i64 num;
+				i8 num;
 				read(evt.data.fd, &num, sizeof num);
 			}
 		}

@@ -7,7 +7,7 @@
 
 namespace cornus::trash {
 
-const int NumberBase = 36;
+cint NumberBase = 36;
 
 struct Names {
 	QString decoded;
@@ -29,13 +29,13 @@ QString EnsureTrashForFile(const QString &file_path);
 
 const QString& gitignore_global_path(const QString *override_data = nullptr);
 
-bool ListItems(const QString &dir_path, QMap<i64, QVector<Names>> &hash);
+bool ListItems(const QString &dir_path, QMap<i8, QVector<Names>> &hash);
 
 const QString& name();
 
 QString ReadGitignoreGlobal();
 
-inline QString time_to_str(const i64 t) {
+inline QString time_to_str(const i8 t) {
 	return QString::number(t, NumberBase);
 }
 

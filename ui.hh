@@ -6,7 +6,7 @@
 
 namespace cornus::ui {
 
-enum class DndType: i8 {
+enum class DndType: i1 {
 	None,
 	Urls,
 	Ark

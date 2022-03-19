@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../CondMutex.hpp"
 #include "../decl.hxx"
 #include "decl.hxx"
 #include "../err.hpp"
@@ -13,12 +14,12 @@
 namespace cornus::io {
 
 class FilesData {
-	static const u16 ShowHiddenFiles = 1u << 0;
-	static const u16 ThreadMustExit = 1u << 1;
-	static const u16 ThreadExited = 1u << 2;
-	static const u16 CanWriteToDir = 1u << 3;
-	static const u16 CountDirFiles1Level = 1u << 4;
-	static const u16 Reloaded = 1u << 5;
+	static const u2 ShowHiddenFiles =     1u << 0;
+	static const u2 ThreadMustExit =      1u << 1;
+	static const u2 ThreadExited =        1u << 2;
+	static const u2 CanWriteToDir =       1u << 3;
+	static const u2 CountDirFiles1Level = 1u << 4;
+	static const u2 Reloaded =            1u << 5;
 	
 public:
 	FilesData();
@@ -37,7 +38,7 @@ public:
 	 garbage.
 	*/
 	DirId skip_dir_id = -1; // to not start selection prematurely
-	QHash<QString, i16> filenames_to_select;// <filename, counter>
+	QHash<QString, i2> filenames_to_select;// <filename, counter>
 	bool should_skip_selecting() const { return dir_id == skip_dir_id; }
 	
 	QString processed_dir_path;
@@ -46,7 +47,7 @@ public:
 	SortingOrder sorting_order;
 	DirId dir_id = 0;/// for inotify/epoll
 	int signal_quit_fd = -1;
-	u16 bits_ = 0;
+	u2 bits_ = 0;
 	cornus::Action action = Action::None;
 	
 	bool can_write_to_dir() const { return bits_ & CanWriteToDir; }
@@ -126,6 +127,8 @@ public:
 	void SelectFileRange(const cornus::Lock l, const int row1, const int row2, QSet<int> &indices);
 	void SetLastWatched(const enum Lock l, io::File *file);
 	
+	CondMutex quit_cm = {};
+	
 	void WakeUpInotify(const enum Lock l);
 	
 	inline void Broadcast() {
@@ -143,6 +146,14 @@ public:
 		if (status != 0)
 			mtl_status(status);
 		return (status == 0);
+	}
+	
+	inline bool TryLock() {
+		cint status = pthread_mutex_trylock(&mutex);
+		if (status == 0)
+			return true;
+		mtl_status(status);
+		return false;
 	}
 	
 	inline void Signal() {

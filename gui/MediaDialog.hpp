@@ -20,12 +20,12 @@ private:
 	void AddNewItem();
 	void ButtonClicked(QAbstractButton *button);
 	media::Field GetCurrentCategory() const;
-	i64 GetCurrentID() const;
+	i8 GetCurrentID() const;
 	void Init();
 	void Save();
-	void SetCurrentByData(QComboBox *cb, const i64 ID,
+	void SetCurrentByData(QComboBox *cb, ci8 ID,
 		const QVector<QString> *names = nullptr);
-	void UpdateCurrentCategoryItems(const i64 select_id = -1);
+	void UpdateCurrentCategoryItems(ci8 select_id = -1);
 	void UpdateNamesFields();
 
 	App *app_ = nullptr;

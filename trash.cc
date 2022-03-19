@@ -88,7 +88,7 @@ const QString& gitignore_global_path(const QString *override_data)
 	return ret;
 }
 
-bool ListItems(const QString &dir_path, QMap<i64, QVector<Names> > &hash)
+bool ListItems(const QString &dir_path, QMap<i8, QVector<Names> > &hash)
 {
 	QVector<QString> names;
 	MTL_CHECK(io::ListFileNames(dir_path, names));
@@ -101,7 +101,7 @@ bool ListItems(const QString &dir_path, QMap<i64, QVector<Names> > &hash)
 		
 		QStringRef time_str = name.midRef(0, index);
 		bool ok;
-		i64 n = time_str.toLong(&ok, NumberBase);
+		i8 n = time_str.toLong(&ok, NumberBase);
 		if (!ok)
 			continue;
 		

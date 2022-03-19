@@ -120,7 +120,7 @@ void* ThumbnailLoader (void *args)
 		if (has_ext_attr || io::ReadFile(thumb_in_temp_path, temp_ba, read_params))
 		{
 			ByteArray &img_ba = has_ext_attr ? new_work->ba : temp_ba;
-			i32 orig_img_w, orig_img_h;
+			i4 orig_img_w, orig_img_h;
 			QImage img = thumbnail::ImageFromByteArray(img_ba,
 				orig_img_w, orig_img_h, abi_version, decompress_context);
 			if (!img.isNull())
@@ -190,7 +190,7 @@ void* ThumbnailLoader (void *args)
 	
 	ZSTD_freeDCtx(decompress_context);
 	
-	const u64 t = static_cast<u64>(pthread_self());
+	cu8 t = static_cast<u8>(pthread_self());
 	th_data->thread_exited = true;
 	// after Unlock() th_data might be already deleted, so save a pointer:
 	auto *global_data = th_data->global_data;
@@ -308,7 +308,7 @@ App::~App()
 	if (app_quitting_fd_ != -1)
 	{
 		// wake up epoll() to not wait till it times out
-		const i64 n = 1;
+		ci8 n = 1;
 		if (::write(app_quitting_fd_, &n, sizeof n) == -1)
 			mtl_status(errno);
 		
@@ -732,7 +732,7 @@ void App::DetectThemeType()
 {
 	const QStyleOptionViewItem option = tree_view_->option();
 	const QColor c = option.palette.window().color();
-	const i32 avg = (c.red() + c.green() + c.blue()) / 3;
+	const i4 avg = (c.red() + c.green() + c.blue()) / 3;
 	theme_type_ = (avg > 150) ? ThemeType::Light : ThemeType::Dark;
 //	mtl_info("avg: %d, light: %s", avg, (theme_type_ == ThemeType::Light)
 //		? "true" : "false");
@@ -753,7 +753,7 @@ void App::DisplayFileContents(const int row, io::File *cloned_file)
 void App::DisplaySymlinkInfo(io::File &file)
 {
 	if (!file.has_link_target())
-		file.ReadLinkTarget();
+		file.ReadLinkTarget(Lock::Yes);
 	
 	io::LinkTarget *t = file.link_target();
 	MTL_CHECK_VOID(t != nullptr);
@@ -1044,8 +1044,8 @@ QString App::GetPartitionFreeSpace()
 		return QString();
 	}
 	
-	const i64 total_space = stv.f_frsize * stv.f_blocks;
-	const i64 free_space = stv.f_bavail /*stv.f_bfree*/ * stv.f_bsize;
+	ci8 total_space = stv.f_frsize * stv.f_blocks;
+	ci8 free_space = stv.f_bavail /*stv.f_bfree*/ * stv.f_bsize;
 	
 	QString s = io::SizeToString(free_space, StringLength::Short);
 	s.append(tr(" free of "));
@@ -1130,6 +1130,10 @@ void App::Init()
 		mtl_status(errno);
 	
 	locale_ = QLocale::system();
+	//QLocale::UnitedStates = 225
+	//QLocale::BritishIndianOceanTerritory = 31
+	//mtl_info("Country: %d, language: %d", locale_.country(), locale_.language());
+	
 	media_ = new Media();
 	hid_ = new Hid(this);
 	
@@ -1836,13 +1840,13 @@ void App::RenameSelectedFile()
 		return;
 	
 	auto old_path = file->build_full_path().toLocal8Bit();
-	auto new_path = (file->dir_path() + value).toLocal8Bit();
+	auto new_path = (file->dir_path(Lock::Yes) + value).toLocal8Bit();
 	
 	if (old_path == new_path)
 		return;
 	
 	bool needs_root;
-	const char *socket_path = io::QuerySocketFor(file->dir_path(), needs_root);
+	const char *socket_path = io::QuerySocketFor(file->dir_path(Lock::Yes), needs_root);
 	HashInfo hash_info;
 	if (needs_root)
 	{
@@ -1850,7 +1854,7 @@ void App::RenameSelectedFile()
 		MTL_CHECK_VOID(hash_info.valid());
 		
 		auto *ba = new ByteArray();
-		ba->add_u64(hash_info.num);
+		ba->add_u8(hash_info.num);
 		const auto msg =  io::Message::RenameFile;
 		ba->set_msg_id(msg);
 		ba->add_string(old_path);
@@ -1890,10 +1894,10 @@ void App::SaveBookmarks()
 	
 	io::SaveFile save_file(prefs::GetBookmarksFilePath());
 	ByteArray buf;
-	buf.add_u16(prefs::BookmarksFormatVersion);
+	buf.add_u2(prefs::BookmarksFormatVersion);
 	
 	for (gui::TreeItem *next: item_vec) {
-		buf.add_u8(u8(next->type()));
+		buf.add_u1(u1(next->type()));
 		buf.add_string(next->mount_path());
 		buf.add_string(next->bookmark_name());
 	}
@@ -2075,7 +2079,7 @@ void App::ShutdownThumbnailThreads()
 	}
 	
 	struct timespec till;
-	const i64 ms = 50 * 1000 * 1000;
+	ci8 ms = 50 * 1000 * 1000;
 	auto &threads_vec = global_thumb_loader_data_.threads;
 	while (!threads_vec.isEmpty())
 	{
@@ -2117,7 +2121,7 @@ void App::SubmitThumbLoaderBatchFromTab(QVector<ThumbLoaderArgs*> *new_work_vec,
 	}
 	
 	{
-		auto global_guard = global_thumb_loader_data_.guard();
+		auto g = global_thumb_loader_data_.guard();
 		InitThumbnailPoolIfNeeded();
 		auto &work_queue = global_thumb_loader_data_.work_queue;
 		const int count = work_queue.size();
@@ -2402,14 +2406,14 @@ HashInfo App::WaitForRootDaemon(const CanOverwrite co)
 		return {};
 	
 	const IOActionType io_action = static_cast<IOActionType>(dialog.combo_value().toInt());
-	const u64 secret = QRandomGenerator::global()->generate64();
+	cu8 secret = QRandomGenerator::global()->generate64();
 	const QByteArray secret_ba = QByteArray::number(qulonglong(secret));
 	const QByteArray hash_ba = QCryptographicHash::hash(secret_ba, QCryptographicHash::Md5);
 	const QString hash_str = QString(hash_ba.toHex());
 	// mtl_info("hash(%d): %s of %lu", hash_str.size(), qPrintable(hash_str), secret);
 	const char *socket_p = cornus::RootSocketPath;
 	ByteArray check_alive_ba;
-	check_alive_ba.add_u64(secret);
+	check_alive_ba.add_u8(secret);
 	check_alive_ba.set_msg_id(io::Message::CheckAlive);
 	
 	const QString daemon_dir_path = QCoreApplication::applicationDirPath();

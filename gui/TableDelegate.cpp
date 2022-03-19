@@ -107,7 +107,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 			painter->drawText(drect, text_alignment_, desktop_fn);
 		}
 	} else if (file->thumbnail() != nullptr || file->has_thumbnail_attr()) {
-		i32 w = -1, h = -1;
+		i4 w = -1, h = -1;
 		Thumbnail *thmb = file->thumbnail();
 		if (thmb != nullptr) {
 			w = thmb->original_image_w;
@@ -159,7 +159,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 		link_data.append(how_many);
 	} else {
 		QString link_path;
-		const QString &dir_path = file->dir_path();
+		const QString &dir_path = file->dir_path(Lock::Yes);
 		if (t->path.startsWith(dir_path)) {
 			int size = dir_path.size();
 			if (!dir_path.endsWith('/'))
@@ -287,7 +287,7 @@ void TableDelegate::DrawMediaAttrs(io::File *file, QPainter *painter,
 	bool rip_added = false;
 	if (!m->rips.isEmpty())
 	{
-		const i16 rip = m->rips[0];
+		ci2 rip = m->rips[0];
 		QString rs = media_->data_.rips[rip];
 		if (!rs.isEmpty())
 		{
@@ -298,7 +298,7 @@ void TableDelegate::DrawMediaAttrs(io::File *file, QPainter *painter,
 	
 	if (!m->video_codecs.isEmpty())
 	{
-		const i16 rip = m->video_codecs[0];
+		ci2 rip = m->video_codecs[0];
 		QString cs = media_->data_.video_codecs[rip];
 		if (!cs.isEmpty())
 		{

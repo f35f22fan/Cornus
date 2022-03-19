@@ -52,7 +52,7 @@ void File::ClearXAttrs()
 
 File* File::Clone() const
 {
-	File *file = new File(dir_path());
+	File *file = new File(dir_path(Lock::No));
 	file->name_ = name_;
 	file->size_ = size_;
 	file->mode_ = mode_;
@@ -123,9 +123,18 @@ int File::Delete() {
 	return remove(ba.data());
 }
 
-const QString& File::dir_path() const
+const QString& File::dir_path(const Lock l) const
 {
-	return (files_ == nullptr) ? dp_ : files_->data.processed_dir_path;
+	if (files_ == nullptr)
+		return dp_;
+	
+	bool unlock = false;
+	if (l == Lock::Yes)
+		unlock = files_->TryLock();
+	const auto &s = files_->data.processed_dir_path;
+	if (unlock)
+		files_->Unlock();
+	return s;
 }
 
 bool File::has_exec_bit() const {
@@ -144,7 +153,7 @@ bool File::IsThumbnailMarkedFailed()
 void File::MarkThumbnailFailed()
 {
 	ByteArray ba;
-	ba.add_i32(-1);
+	ba.add_i4(-1);
 	ext_attrs_.insert(media::XAttrThumbnail, ba);
 }
 
@@ -201,13 +210,13 @@ void File::ReadExtension()
 		cache_.ext = {};
 }
 
-void File::ReadLinkTarget()
+void File::ReadLinkTarget(const Lock l)
 {
 	if (!is_symlink())
 		return;
 	auto *target = new LinkTarget();
 	auto ba = build_full_path().toLocal8Bit();
-	io::ReadLink(ba.data(), *target, dir_path());
+	io::ReadLink(ba.data(), *target, dir_path(l));
 	if (link_target_ != nullptr)
 		delete link_target_;
 	link_target_ = target;

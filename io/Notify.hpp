@@ -12,7 +12,7 @@ namespace cornus::io {
 
 class Notify {
 public:
-	QVector<const char*> MaskToString(const u32 mask);
+	QVector<const char*> MaskToString(const u4 mask);
 	void Close();
 	MutexGuard guard() { return MutexGuard(&mutex); }
 	void Init();

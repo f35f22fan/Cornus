@@ -225,7 +225,8 @@ void* WatchDesktopFileDirs(void *void_args)
 	{
 		int event_count = epoll_wait(epfd, &poll_event, 1, seconds);
 		cm->Lock();
-		const bool do_exit = cm->exit;
+		mtl_tbd();
+		const bool do_exit = cm->data.flag;
 		cm->Unlock();
 		if (do_exit)
 			break;
@@ -268,7 +269,7 @@ Daemon::Daemon()
 Daemon::~Daemon() {
 	{
 		{ // wake up epoll() to not wait till it times out
-			const i64 n = 1;
+			ci8 n = 1;
 			const int status = ::write(signal_quit_fd_, &n, sizeof n);
 			if (status == -1)
 				mtl_status(errno);
@@ -290,12 +291,12 @@ void Daemon::CheckOldThumbnails()
 	
 	const QString &dir_path = io::GetLastingTmpDir();
 	MTL_CHECK_VOID(!dir_path.isEmpty());
-	const i64 ten_days = 60 * 60 * 24 * 10;
-	const i64 now_minus_ten_days = i64(time(NULL)) - ten_days;
+	ci8 ten_days = 60 * 60 * 24 * 10;
+	ci8 now_minus_ten_days = i8(time(NULL)) - ten_days;
 	io::DirStream ds(dir_path);
 	while (io::DirItem *next = ds.next())
 	{
-		const i64 modif_time_sec = next->stx.stx_mtime.tv_sec;
+		ci8 modif_time_sec = next->stx.stx_mtime.tv_sec;
 		if (modif_time_sec > now_minus_ten_days)
 			continue;
 		auto ba = (dir_path + next->name).toLocal8Bit();
@@ -442,7 +443,7 @@ void Daemon::GetPreferredOrder(QString mime,
 	
 	while (buf.has_more())
 	{
-		const Present present = (Present)buf.next_i8();
+		const Present present = (Present)buf.next_i1();
 		const QString id = buf.next_string();
 		DesktopFile *p = nullptr;
 		
@@ -559,9 +560,9 @@ void Daemon::QuitGuiApp()
 void Daemon::SendAllDesktopFiles(const int fd)
 {
 	ByteArray reply;
-	reply.add_i16(DesktopFileABI);
+	reply.add_i2(DesktopFileABI);
 	{
-		auto guard = desktop_files_.guard();
+		auto g = desktop_files_.guard();
 		auto it = desktop_files_.hash.constBegin();
 		while (it != desktop_files_.hash.constEnd())
 		{
@@ -577,9 +578,9 @@ void Daemon::SendAllDesktopFiles(const int fd)
 void Daemon::SendDesktopFilesById(ByteArray *ba, const int fd)
 {
 	ByteArray reply;
-	reply.add_i16(DesktopFileABI);
+	reply.add_i2(DesktopFileABI);
 	{
-		auto guard = desktop_files_.guard();
+		auto g = desktop_files_.guard();
 		while (ba->has_more())
 		{
 			QString id = ba->next_string();
@@ -608,7 +609,7 @@ void Daemon::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 	GetDesktopFilesForMime(mime, show_vec, hide_vec);
 	
 	ByteArray reply;
-	reply.add_i16(DesktopFileABI);
+	reply.add_i2(DesktopFileABI);
 	if (!show_vec.isEmpty())
 	{
 		DesktopFile *p = show_vec[0];
@@ -625,15 +626,15 @@ void Daemon::SendOpenWithList(QString mime, const int fd)
 	GetDesktopFilesForMime(mime, show_vec, hide_vec);
 	
 	ByteArray reply;
-	reply.add_i16(DesktopFileABI);
+	reply.add_i2(DesktopFileABI);
 	for (DesktopFile *next: show_vec)
 	{
-		reply.add_i8((i8)Present::Yes);
+		reply.add_i1((i1)Present::Yes);
 		next->WriteTo(reply);
 	}
 	
 	for (DesktopFile *next: hide_vec) {
-		reply.add_i8((i8)Present::No);
+		reply.add_i1((i1)Present::No);
 		next->WriteTo(reply);
 	}
 	

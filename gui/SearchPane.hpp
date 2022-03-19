@@ -14,14 +14,14 @@
 namespace cornus::gui {
 
 struct MediaSearch {
-	i32 actor = -1;
-	i32 director = -1;
-	i32 writer = -1;
-	i16 genre = -1;
-	i16 subgenre = -1;
-	i16 year = -1;
-	i16 country = -1;
-	i16 video_codec = -1;
+	i4 actor = -1;
+	i4 director = -1;
+	i4 writer = -1;
+	i2 genre = -1;
+	i2 subgenre = -1;
+	i2 year = -1;
+	i2 country = -1;
+	i2 video_codec = -1;
 	bool isEmpty() const
 	{
 		return actor == -1 && director == -1 && writer == -1 &&
@@ -33,7 +33,7 @@ struct MediaSearch {
 bool Same(const MediaSearch &a, const MediaSearch &b);
 
 class SearchPane: public QStackedWidget {
-enum class SearchBy : i8 {
+enum class SearchBy : i1 {
 	FileName,
 	MediaXAttrs,
 };

@@ -11,7 +11,7 @@
 #include <QString>
 
 namespace cornus::gui {
-enum class TreeItemType: u8 {
+enum class TreeItemType: u1 {
 	None = 0,
 	Partition,
 	Bookmark,
@@ -35,7 +35,7 @@ struct PartitionInfo
 	// If a particular filesystem does not support UUIDs, a shorter identifier is used.
 
 /// ID_PART_ENTRY_SIZE="1048576"
-	i64 size = -1;
+	i8 size = -1;
 	
 /// DEVNAME="/dev/sda2"
 	QString dev_path;
@@ -68,7 +68,7 @@ struct PartitionInfo
 	static PartitionInfo* FromDevice(struct udev_device *dev);
 };
 
-using BitsType = u8;
+using BitsType = u1;
 
 enum class Bits: BitsType {
 	Empty = 0,
@@ -79,7 +79,7 @@ enum class Bits: BitsType {
 };
 
 inline Bits operator | (Bits a, Bits b) {
-	return static_cast<Bits>(static_cast<u8>(a) | static_cast<u8>(b));
+	return static_cast<Bits>(static_cast<u1>(a) | static_cast<u1>(b));
 }
 
 inline Bits& operator |= (Bits &a, const Bits b) {
@@ -88,11 +88,11 @@ inline Bits& operator |= (Bits &a, const Bits b) {
 }
 
 inline Bits operator ~ (Bits a) {
-	return static_cast<Bits>(~(static_cast<u8>(a)));
+	return static_cast<Bits>(~(static_cast<u1>(a)));
 }
 
 inline Bits operator & (Bits a, Bits b) {
-	return static_cast<Bits>((static_cast<u8>(a) & static_cast<u8>(b)));
+	return static_cast<Bits>((static_cast<u1>(a) & static_cast<u1>(b)));
 }
 
 inline Bits& operator &= (Bits &a, const Bits b) {
@@ -171,8 +171,8 @@ public:
 	
 	void root_row(const int i) { root_row_ = i; }
 	
-	i64 size() const { return size_; }
-	void size(i64 n) { size_ = n; }
+	i8 size() const { return size_; }
+	void size(i8 n) { size_ = n; }
 	
 	void type(TreeItemType t) { type_ = t; }
 	TreeItemType type() const { return type_; }
@@ -199,7 +199,7 @@ private:
 	
 	QString title_;
 	QString mount_path_;
-	i64 size_ = -1;
+	i8 size_ = -1;
 	QString size_str_;
 	PartitionInfo *info_ = nullptr;
 	TreeItemType type_ = TreeItemType::None;

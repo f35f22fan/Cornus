@@ -32,7 +32,7 @@ private:
 	
 	QVector<HistoryItem> vec_;
 	QVector<QString> recorded_;
-	i32 index_ = -1;
+	i4 index_ = -1;
 	App *app_ = nullptr;
 };
 }

@@ -22,7 +22,7 @@ void Notify::Close()
 }
 
 QVector<const char*>
-Notify::MaskToString(const u32 mask)
+Notify::MaskToString(const u4 mask)
 {
 	QVector<const char*> v;
 	if (mask & IN_ACCESS)

@@ -37,7 +37,7 @@ public:
 	QModelIndex
 	index(int row, int column, const QModelIndex &parent) const override;
 	
-	bool InsertRows(const i32 at, const QVector<cornus::io::File *> &files_to_add);
+	bool InsertRows(const i4 at, const QVector<cornus::io::File *> &files_to_add);
 	
 	virtual bool insertRows(int row, int count, const QModelIndex &parent) override {
 		mtl_trace();
@@ -60,11 +60,11 @@ public:
 	void UpdateIndices(const QSet<int> &indices);
 	void UpdateRange(int row1, Column c1, int row2, Column c2);
 	void UpdateSingleRow(int row) {
-		UpdateRange(row, Column::Icon, row, Column(i8(Column::Count) - 1));
+		UpdateRange(row, Column::Icon, row, Column(i1(Column::Count) - 1));
 	}
 	void UpdateFileIndexRange(int row_start, int row_end) {
 		UpdateRange(row_start, Column::Icon, row_end,
-			Column(i8(Column::Count) - 1));
+			Column(i1(Column::Count) - 1));
 	}
 	
 	void UpdateVisibleArea();
@@ -72,7 +72,7 @@ public:
 	
 public Q_SLOTS:
 	void InotifyEvent(cornus::io::FileEvent evt);
-	void InotifyBatchFinished();
+	void SelectFilesAfterInotifyBatch();
 	
 private:
 	

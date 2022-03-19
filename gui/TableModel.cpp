@@ -11,32 +11,41 @@
 #include "Tab.hpp"
 #include "Table.hpp"
 #include "TableHeader.hpp"
+#include "../uring.hh"
 
 #include <sys/epoll.h>
+#include <cstring>
+#include <sys/ioctl.h>
+#include <liburing.h>
 #include <QFont>
 #include <QScrollBar>
 #include <QTime>
 #include <QTimer>
 
 //#define CORNUS_DEBUG_INOTIFY_BATCH
-//#define CORNUS_DEBUG_INOTIFY
+#define CORNUS_DEBUG_INOTIFY
 
 namespace cornus::gui {
 
 const auto ConnectionType = Qt::BlockingQueuedConnection;
-const size_t kInotifyEventBufLen = 16 * (sizeof(struct inotify_event) + NAME_MAX + 1);
+//const size_t kInotifyEventBufLen = 16 * (sizeof(struct inotify_event) + NAME_MAX + 1);
 
-struct WatchArgs {
-	i32 dir_id = 0;
-	QString dir_path;
-	cornus::gui::TableModel *table_model = nullptr;
+struct RenameData {
+// helper struct to deal with inotify's shitty rename support.
+	QString name;
+	u4 cookie = 0;
+	i1 checked_times = 0;
 };
 
-// helper struct to deal with inotify's shitty rename approach.
-struct RenameData {
-	QString name;
-	u32 cookie = 0;
-	u8 checked_times = 0;
+struct Renames {
+	QVector<RenameData> vec;
+	Mutex m = {};
+};
+
+struct WatchArgs {
+	DirId dir_id = 0;
+	QString dir_path;
+	cornus::gui::TableModel *table_model = nullptr;
 };
 
 io::File* Find(const QVector<io::File*> &vec,
@@ -68,21 +77,17 @@ int FindPlace(io::File *new_file, QVector<io::File*> &files_vec)
 	return 0;
 }
 
-int FindTheOtherNameByCookie(QVector<RenameData> &vec, const u32 cookie,
-	QString &result)
+QString TakeTheOtherNameByCookie(Renames &ren, const u4 cookie)
 {
-	int i = 0;
-	for (const RenameData &next: vec)
+	cint count = ren.vec.size();
+	for (int i = 0; i < count; i++)
 	{
+		cauto &next = ren.vec[i];
 		if (next.cookie == cookie)
-		{
-			result = next.name;
-			return i;
-		}
-		i++;
+			return ren.vec.takeAt(i).name;
 	}
 	
-	return -1;
+	return QString();
 }
 
 void InsertFile(io::File *new_file, QVector<io::File*> &files_vec,
@@ -96,13 +101,17 @@ void InsertFile(io::File *new_file, QVector<io::File*> &files_vec,
 }
 
 void SendCreateEvent(TableModel *model, cornus::io::Files *files,
-	const QString new_name, const i32 dir_id)
+	const QString new_name, const i4 dir_id)
 {
 	io::File *new_file = new io::File(files);
 	new_file->name(new_name);
 	struct statx stx;
 	auto &env = model->app()->env();
-	mtl_check_void(io::ReloadMeta(*new_file, stx, env, PrintErrors::No));
+	if (!io::ReloadMeta(*new_file, stx, env, PrintErrors::No))
+	{
+		delete new_file;
+		return;
+	}
 	
 	io::FileEvent evt = {};
 	evt.new_file = new_file;
@@ -113,7 +122,7 @@ void SendCreateEvent(TableModel *model, cornus::io::Files *files,
 }
 
 void SendDeleteEvent(TableModel *model, cornus::io::Files *files,
-	const QString name, const i32 dir_id)
+	const QString name, const i4 dir_id)
 {
 	int index = -1;
 	{
@@ -131,7 +140,7 @@ void SendDeleteEvent(TableModel *model, cornus::io::Files *files,
 }
 
 void SendModifiedEvent(TableModel *model, cornus::io::Files *files,
-	const QString name, const i32 dir_id, const io::CloseWriteEvent cwe)
+	const QString name, const i4 dir_id, const io::CloseWriteEvent cwe)
 {
 	int index = -1;
 	io::File *found = nullptr;
@@ -161,129 +170,166 @@ void SendModifiedEvent(TableModel *model, cornus::io::Files *files,
 		ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
 }
 
-void ReadEvent(const int inotify_fd, char *buf, cornus::io::Files *files,
-	bool &has_been_unmounted_or_deleted,
-	const bool with_hidden_files,
-	cornus::gui::TableModel *model,
-	const int dir_id, const int wd,
-	QVector<RenameData> &rename_vec,
-	const QProcessEnvironment &env)
+struct EventArgs {
+	
+	~EventArgs()
+	{
+		delete[] buf;
+	}
+	char *buf;
+	const isize num_read;
+	cornus::io::Files *files;
+	CondMutex &has_been_unmounted_or_deleted;
+	const bool include_hidden_files;
+	cornus::gui::TableModel *model;
+	const int dir_id;
+	const int wd;
+	Renames &renames;
+	const QProcessEnvironment &env;
+};
+
+struct EventChain {
+	std::list<EventArgs*> list;
+	CondMutex cm = {};
+	bool must_exit = false;
+};
+
+void ProcessEvents(EventArgs *a);
+void* InotifyTh(void *args)
 {
-#ifdef CORNUS_DEBUG_INOTIFY
-	QString num_str = QString::number(i64(pthread_self()), 36);
-	mtl_info("Thread %s, wd: %d, dir_id: %d", qPrintable(num_str), wd, dir_id);
-#endif
+mtl_info("============InotifyTh");
+	pthread_detach(pthread_self());
+	EventChain *ec = (EventChain*)args;
+	while (true)
+	{
+		EventArgs *a = nullptr;
+		{
+			auto g = ec->cm.guard();
+			while (ec->list.empty() && !ec->must_exit)
+			{
+				ec->cm.CondWait();
+			}
+			
+			if (ec->must_exit)
+				break;
+			
+			a = ec->list.front();
+			ec->list.pop_front();
+		}
+		if (a)
+			ProcessEvents(a);
+	}
+	
+	delete ec;
+	return nullptr;
+}
+
+void ProcessEvents(EventArgs *a)
+{
+mtl_info("<EVT BATCH>");
+	AutoDelete a_(a);
 	struct statx stx;
-	const ssize_t num_read = read(inotify_fd, buf, kInotifyEventBufLen);
-	if (num_read <= 0) {
-		if (num_read == -1)
-			mtl_status(errno);
-		return;
-	}
-	
-	if (has_been_unmounted_or_deleted) {
-		mtl_trace();
-		return;
-	}
-	
-	ssize_t add = 0;
-	
-	for (char *p = buf; p < buf + num_read; p += add)
+	isize add = 0;
+	auto *model = a->model;
+	const char *end = a->buf + a->num_read;
+	for (char *p = a->buf; p < end; p += add)
 	{
 		struct inotify_event *ev = (struct inotify_event*) p;
 		add = sizeof(struct inotify_event) + ev->len;
-		if (ev->wd != wd) {
-			//mtl_trace("ev->wd: %d, wd: %d", ev->wd, wd);
+		if (ev->wd != a->wd)
+		{
+			mtl_trace("ev->wd: %d, wd: %d", ev->wd, a->wd);
 			continue;
 		}
+		
+		QString name;
+		if (ev->len > 0)
+		{
+			name = ev->name;
+			if (!a->include_hidden_files && name.startsWith('.'))
+				continue;
+			mtl_info("%s", ev->name);
+		}
+		
 		const auto mask = ev->mask;
 		//const bool is_dir = mask & IN_ISDIR;
 		if (mask & (IN_ATTRIB | IN_MODIFY))
 		{
-			QString name(ev->name);
-			if (!with_hidden_files && name.startsWith('.'))
-				continue;
 #ifdef CORNUS_DEBUG_INOTIFY
 mtl_trace("(IN_ATTRIB | IN_MODIFY): %s", ev->name);
 #endif		
-			SendModifiedEvent(model, files, name, dir_id, io::CloseWriteEvent::No);
+			SendModifiedEvent(model, a->files, name, a->dir_id, io::CloseWriteEvent::No);
 		} else if (mask & IN_CREATE) {
-			QString name(ev->name);
-			if (!with_hidden_files && name.startsWith('.'))
-				continue;
-			
 #ifdef CORNUS_DEBUG_INOTIFY
 mtl_trace("IN_CREATE: %s", ev->name);
 #endif
-			SendCreateEvent(model, files, name, dir_id);
+			SendCreateEvent(model, a->files, name, a->dir_id);
 		} else if (mask & IN_DELETE) {
-			QString name(ev->name);
-			if (!with_hidden_files && name.startsWith('.')) {
-				continue;
-			}
-			
 #ifdef CORNUS_DEBUG_INOTIFY
 mtl_trace("IN_DELETE: %s", ev->name);
 #endif
-			SendDeleteEvent(model, files, name, dir_id);
+			SendDeleteEvent(model, a->files, name, a->dir_id);
 		} else if (mask & IN_DELETE_SELF) {
 			mtl_warn("IN_DELETE_SELF");
-			has_been_unmounted_or_deleted = true;
+			a->has_been_unmounted_or_deleted.SetFlag(true);
 			break;
 		} else if (mask & IN_MOVE_SELF) {
 			mtl_warn("IN_MOVE_SELF");
 		} else if (mask & IN_MOVED_FROM) {
 #ifdef CORNUS_DEBUG_INOTIFY
-mtl_info("IN_MOVED_FROM cookie %d, %s", ev->cookie, ev->name);
+mtl_info("IN_MOVED_FROM, from: %s, len: %d, cookie: %d",
+	qPrintable(name), ev->len, ev->cookie);
 #endif
-			QString name(ev->name);
-			if (!with_hidden_files && name.startsWith('.')) {
-				continue;
-			}
-			
-			RenameData data = {
+			auto &ren = a->renames;
+mtl_info("Before lock()");
+			ren.m.Lock();
+mtl_info("After lock()");
+			ren.vec.append(RenameData {
 				.name = name,
 				.cookie = ev->cookie,
-				.checked_times = 0,
-			};
-			rename_vec.append(data);
+				.checked_times = 0 });
+			ren.m.Unlock();
 		} else if (mask & IN_MOVED_TO) {
-			QString new_name(ev->name);
-			if (!with_hidden_files && new_name.startsWith('.'))
-				continue;
-			
-			QString from_name;
-			const int rename_data_index = FindTheOtherNameByCookie(
-				rename_vec, ev->cookie, from_name);
+			const auto &new_name = name;
+			Renames &ren = a->renames;
+			mtl_info("IN_MOVED_TO before lock()");
+			ren.m.Lock();
+			mtl_info("IN_MOVED_TO after lock()");
+			QString old_name = TakeTheOtherNameByCookie(ren, ev->cookie);
+			mtl_printq2("old_name: ", old_name);
+			ren.m.Unlock();
 #ifdef CORNUS_DEBUG_INOTIFY
-mtl_info("IN_MOVED_TO cookie %d, new_name: %s, from_name: %s", ev->cookie, ev->name,
-	qPrintable(from_name));
+mtl_info("IN_MOVED_TO new_name: %s, from_name: %s, cookie %d",
+	qPrintable(name), qPrintable(old_name), ev->cookie);
 #endif
-			if (rename_data_index == -1)
+			if (old_name.isEmpty())
 			{
-				SendCreateEvent(model, files, new_name, dir_id);
+				SendCreateEvent(model, a->files, new_name, a->dir_id);
 				return;
 			}
 			
-			rename_vec.remove(rename_data_index);
-			int index = -1, removed_at = -1;
-			int deleted_file_index = -1;
+			int new_file_index = -1, old_file_index = -1;
 			io::File *cloned_file = nullptr;
 			{
-				auto g = files->guard();
-				auto &files_vec = files->data.vec;
-				io::File *file_to_delete = Find(files_vec, new_name, &deleted_file_index);
+				auto g = a->files->guard();
+				auto &files_vec = a->files->data.vec;
+				io::File *new_file = Find(files_vec, new_name, &new_file_index);
 				QIcon *new_icon = nullptr;
 				bool selected = false;
-				if (file_to_delete != nullptr)
+				if (new_file != nullptr)
 				{
-					selected = file_to_delete->is_selected();
-					new_icon = file_to_delete->cache().icon;
-					files_vec.remove(deleted_file_index);
-					delete file_to_delete;
+					selected = new_file->is_selected();
+					new_icon = new_file->cache().icon;
+					files_vec.remove(new_file_index);
+					delete new_file;
 				}
 				
-				io::File *old_file = Find(files_vec, from_name, &removed_at);
+				io::File *old_file = Find(files_vec, old_name, &old_file_index);
+				if (old_file == nullptr)
+				{
+					mtl_warn("File %s not found", ev->name);
+					continue;
+				}
 				old_file->name(new_name);
 				old_file->set_selected(selected);
 				if (new_icon != nullptr)
@@ -297,7 +343,7 @@ mtl_info("IN_MOVED_TO cookie %d, new_name: %s, from_name: %s", ev->cookie, ev->n
 #ifdef CORNUS_DEBUG_INOTIFY
 					pe = PrintErrors::Yes;
 #endif
-					bool ok = io::ReloadMeta(*old_file, stx, env, pe);
+					bool ok = io::ReloadMeta(*old_file, stx, a->env, pe);
 					Q_UNUSED(ok);
 #ifdef CORNUS_DEBUG_INOTIFY
 					mtl_info("Reloaded meta: %s: %d", qPrintable(old_file->name()), ok);
@@ -305,24 +351,24 @@ mtl_info("IN_MOVED_TO cookie %d, new_name: %s, from_name: %s", ev->cookie, ev->n
 				}
 				cloned_file = old_file->Clone();
 				std::sort(files_vec.begin(), files_vec.end(), cornus::io::SortFiles);
-				Find(files_vec, new_name, &index);
+				Find(files_vec, new_name, &new_file_index);
 			}
 			io::FileEvent evt = {};
 			evt.new_file = cloned_file;
-			evt.dir_id = dir_id;
-			evt.renaming_deleted_file_at = deleted_file_index;
-			evt.index = index;
+			evt.dir_id = a->dir_id;
+			evt.renaming_deleted_file_at = old_file_index;
+			evt.index = new_file_index;
 			evt.type = io::FileEventType::Renamed;
 			QMetaObject::invokeMethod(model, "InotifyEvent",
 			ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
 		} else if (mask & IN_Q_OVERFLOW) {
 			mtl_warn("IN_Q_OVERFLOW");
 		} else if (mask & IN_UNMOUNT) {
-			has_been_unmounted_or_deleted = true;
+			a->has_been_unmounted_or_deleted.SetFlag(true);
 			break;
 		} else if (mask & IN_CLOSE_WRITE) {
 			QString name(ev->name);
-			if (!with_hidden_files && name.startsWith('.'))
+			if (!a->include_hidden_files && name.startsWith('.'))
 				continue;
 			
 #ifdef CORNUS_DEBUG_INOTIFY
@@ -331,20 +377,23 @@ mtl_info("IN_MOVED_TO cookie %d, new_name: %s, from_name: %s", ev->cookie, ev->n
 			else
 				mtl_trace("IN_CLOSE");
 #endif
-			SendModifiedEvent(model, files, name, dir_id, io::CloseWriteEvent::Yes);
+			SendModifiedEvent(model, a->files, name, a->dir_id, io::CloseWriteEvent::Yes);
 		} else if (mask & (IN_IGNORED | IN_CLOSE_NOWRITE)) {
 		} else {
 			mtl_warn("Unhandled inotify event: %u", mask);
 		}
 	}
+	
+	mtl_info("</EVT BATCH>");
 }
 
-void ReinterpretRenames(QVector<RenameData> &rename_vec,
-	TableModel *model, cornus::io::Files *files, const i32 dir_id)
+void ReinterpretRenames(Renames &ren,
+	TableModel *model, cornus::io::Files *files, const DirId dir_id)
 {
-	for (int i = rename_vec.size() - 1; i >= 0; i--)
+	auto g = ren.m.guard();
+	for (int i = ren.vec.size() - 1; i >= 0; i--)
 	{
-		RenameData &next = rename_vec[i];
+		RenameData &next = ren.vec[i];
 		next.checked_times++;
 		if (next.checked_times > 2)
 		{
@@ -352,7 +401,7 @@ void ReinterpretRenames(QVector<RenameData> &rename_vec,
 			// means the file was moved to another folder,
 			// not renamed in place, so it's the same as a delete event:
 			SendDeleteEvent(model, files, next.name, dir_id);
-			rename_vec.remove(i);
+			ren.vec.remove(i);
 #ifdef CORNUS_DEBUG_INOTIFY
 			mtl_info("Removed from rename_vec: %s", qPrintable(next.name));
 #endif
@@ -369,42 +418,66 @@ void* WatchDir(void *void_args)
 	TableModel *model = args->table_model;
 	Tab *tab = model->tab();
 	App *app = tab->app();
-	const i64 files_id = tab->files_id();
-	AutoDelete ad_args(args);
-	char *buf = new char[kInotifyEventBufLen];
-	AutoDeleteArr ad_arr(buf);
+	AutoDelete args_(args);
 	io::Notify &notify = tab->notify();
 	const int notify_fd = notify.fd;
 	QProcessEnvironment env = app->env();
 	
+	io::Files &files = tab->view_files();
+	files.Lock();
+	const int signal_quit_fd = files.data.signal_quit_fd;
+	files.Unlock();
+	mtl_info(" === WatchDir() inotify fd: %d, signal_fd: %d", notify_fd, signal_quit_fd);
 	const auto path = args->dir_path.toLocal8Bit();
 	const auto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE
 		| IN_DELETE_SELF | IN_MOVE_SELF | IN_CLOSE_WRITE
 		| IN_MOVE;// | IN_MODIFY;
 	const int wd = inotify_add_watch(notify_fd, path.data(), event_types);
-	
-	if (wd == -1) {
+	if (wd == -1)
+	{
 		mtl_status(errno);
 		return nullptr;
 	}
 	
 	io::AutoRemoveWatch arw(notify, wd);
-	const int epoll_fd = epoll_create(1);
+	/* const int kQueueDepth = 2; // signal_fd and inotify_fd
+	struct io_uring ring;
+	io_uring_queue_init(kQueueDepth, &ring, 0);
+	QVector<uring::BufArg> buf_args = {
+		{signal_quit_fd, 8},
+		{notify_fd, 4096 * 10},
+	};
 	
-	if (epoll_fd == -1) {
+	MTL_CHECK_ARG(uring::SubmitBuffers(&ring, buf_args), nullptr); */
+	
+	files.Lock();
+	files.data.thread_exited(false);
+	files.Unlock();
+	
+	Renames renames = {};
+	mtl_info("Thread: %lX, notify_fd: %d, signal_quit_fd: %d", i8(pthread_self()), notify_fd, signal_quit_fd);
+	CondMutex has_been_unmounted_or_deleted = {};
+//	using TimeSpec = struct __kernel_timespec;
+//	TimeSpec ts = {};
+	//uring::UserData *data;
+	
+	EventChain *ec = new EventChain();
+	io::NewThread(InotifyTh, ec);
+	
+	const int epoll_fd = epoll_create(1);
+	if (epoll_fd == -1)
+	{
 		mtl_status(errno);
 		return 0;
 	}
+
 	AutoCloseFd epoll_fd_(epoll_fd);
-	io::Files &files = *app->files(files_id);
-	const int signal_quit_fd = files.data.signal_quit_fd;
-	
 	QVector<struct epoll_event> evt_vec(2);
 	evt_vec[0].events = EPOLLIN;
 	evt_vec[0].data.fd = notify_fd;
 	evt_vec[1].events = EPOLLIN;
 	evt_vec[1].data.fd = signal_quit_fd;
-	
+
 	for (struct epoll_event &evt: evt_vec)
 	{
 		if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, evt.data.fd, &evt))
@@ -412,27 +485,22 @@ void* WatchDir(void *void_args)
 			mtl_status(errno);
 			return nullptr;
 		}
+
+		mtl_info("Listening for %d", evt.data.fd);
 	}
-	
-	QVector<RenameData> rename_vec;
-	bool call_event_func = false;
-	
-//	mtl_info("thread: %lX, notify_fd: %d, signal_quit_fd: %d",
-//		i64(pthread_self()), notify_fd, signal_quit_fd);
 	
 	while (true)
 	{
+		//TimeSpec *ts_param;
+		//data = nullptr;
+		bool empty;
 		{
-			auto g = files.guard();
-			if (files.data.thread_must_exit())
-				break;
-			
-			if (args->dir_id != files.data.dir_id)
-				break;
+			auto g = renames.m.guard();
+			empty = renames.vec.isEmpty();
 		}
 		
-		const int ms = rename_vec.isEmpty() ? 50000 : 20;
-		const int num_fds = epoll_wait(epoll_fd, evt_vec.data(), evt_vec.size(), ms);
+		cint ms = empty ? 50000 : 20;
+		cint num_fds = epoll_wait(epoll_fd, evt_vec.data(), evt_vec.size(), ms);
 		if (num_fds == -1)
 		{
 			mtl_status(errno);
@@ -440,72 +508,185 @@ void* WatchDir(void *void_args)
 		}
 		
 		bool signalled_from_event_fd = false;
-		bool has_been_unmounted_or_deleted = false;
-		bool with_hidden_files = false;
 		for (int i = 0; i < num_fds; i++)
 		{
-			auto &evt = evt_vec[i];
-			if (!(evt.events & EPOLLIN))
+			const auto &evt = evt_vec[i];
+			const bool readable = evt.events & EPOLLIN;
+			if (!readable)
 				continue;
-			
+
+			mtl_info("fd: %d", evt.data.fd);
 			if (evt.data.fd == notify_fd)
 			{
-				//mtl_info("ReadEvent() %d", notify_fd);
-				ReadEvent(evt.data.fd, buf, &files,
-					has_been_unmounted_or_deleted, with_hidden_files,
-					model, args->dir_id, wd, rename_vec, env);
+				cisize buf_len = 4096 * 4;
+				char *buf = new char[buf_len];
+				
+				cisize num_read = read(evt.data.fd, buf, buf_len);
+				if (num_read <= 0) {
+					if (num_read == -1)
+						mtl_status(errno);
+					return nullptr;
+				}
+				files.Lock();
+	mtl_info("Inotify fd, after lock()");
+				const bool include_hidden_files = files.data.show_hidden_files();
+				files.Unlock();
+				EventArgs *a = new EventArgs {
+					.buf = buf,
+					.num_read = num_read,
+					.files = &files,
+					.has_been_unmounted_or_deleted = has_been_unmounted_or_deleted,
+					.include_hidden_files = include_hidden_files,
+					.model = model,
+					.dir_id = args->dir_id,
+					.wd = wd,
+					.renames = renames,
+					.env = env
+				};
+				//std::memcpy(buf, data->iv.iov_base, num_read);
+				{
+					auto g = ec->cm.guard();
+					ec->list.push_back(a);
+					ec->cm.Broadcast();
+				}
 			} else if (evt.data.fd == signal_quit_fd) {
 				//mtl_info("Quit fd!");
 				signalled_from_event_fd = true;
 				// must read 8 bytes:
-				i64 num;
+				i8 num;
 				read(evt.data.fd, &num, sizeof num);
 			} else {
 				mtl_trace();
 			}
 		}
 		
+		
 		if (signalled_from_event_fd)
+			break;
+		
+		/*
+		struct io_uring_cqe *cqe = nullptr;
+//If ts is specified, the application need not call io_uring_submit()
+// before calling this function, as it will be done internally.
+// From this it also follows that this function isn’t safe to use for
+// applications that split SQ and CQ handling between two threads and
+// expect that to work without synchronization, as this function
+// manipulates both the SQ and CQ side.
+		cint ret = io_uring_wait_cqe_timeout(&ring, &cqe, ts_param);
+		bool time_expired = false;
+		if (ret < 0)
 		{
+			errno = -ret;
+			if (errno == ETIME)
+			{
+				time_expired = true;
+				mtl_info("Time Expired...");
+			} else {
+				mtl_errno();
+				break;
+			}
+		}
+mtl_info("time_expired: %d", time_expired);
+		if (!time_expired)
+		{
+			data = (uring::UserData*) io_uring_cqe_get_data(cqe);
+			cint num_read = cqe->res;
+			if (num_read < 0)
+			{
+				mtl_warn("Async readv failed: %s, fd: %d", strerror(-num_read), data->fd);
+				break;
+			}
+			
+			if (data->fd == signal_quit_fd)
+			{
+	mtl_info("Quit signal fd");
+				break;
+			} else if (data->fd == notify_fd) {
+	mtl_info("Inotify fd, before lock()");
+				files.Lock();
+	mtl_info("Inotify fd, after lock()");
+				const bool include_hidden_files = files.data.show_hidden_files();
+				files.Unlock();
+				EventArgs *a = new EventArgs {
+					.buf = new char[num_read],
+					.num_read = num_read,
+					.files = &files,
+					.has_been_unmounted_or_deleted = has_been_unmounted_or_deleted,
+					.include_hidden_files = include_hidden_files,
+					.model = model,
+					.dir_id = args->dir_id,
+					.wd = wd,
+					.renames = renames,
+					.env = env
+				};
+				std::memcpy(a->buf, data->iv.iov_base, num_read);
+				io_uring_cqe_seen(&ring, cqe);
+				{
+					auto g = ec->cm.guard();
+					ec->list.push_back(a);
+					ec->cm.Broadcast();
+				}
+			} else {
+				mtl_trace("No fd matched");
+				continue;
+			}
+		} */
+		
+		if (has_been_unmounted_or_deleted.GetFlag())
+		{
+mtl_info("has_been_unmounted_or_deleted");
+			arw.RemoveWatch(wd);
 			break;
 		}
 		
 		{
 			auto g = files.guard();
-			with_hidden_files = files.data.show_hidden_files();
 			if (files.data.thread_must_exit() || (args->dir_id != files.data.dir_id))
 			{
+				mtl_info("thread must exit");
 				break;
 			}
 		}
 		
-		if (!rename_vec.isEmpty())
+mtl_info("before renames.m.Lock()");
+		renames.m.Lock();
+mtl_info("after renames.m.Lock()");
+		empty = renames.vec.isEmpty();
+		renames.m.Unlock();
+		if (!empty)
 		{
-			ReinterpretRenames(rename_vec, args->table_model, &files, args->dir_id);
+mtl_info("rename_vec not empty");
+			ReinterpretRenames(renames, args->table_model, &files, args->dir_id);
+		} else {
+mtl_info("rename_vec empty");
 		}
 		
-		if (rename_vec.isEmpty())
+		renames.m.Lock();
+		empty = renames.vec.isEmpty();
+		renames.m.Unlock();
+		
+		if (empty)
 		{
-			{
-				auto g = files.guard();
-				auto &select_list = files.data.filenames_to_select;
-				call_event_func = !select_list.isEmpty() && !files.data.should_skip_selecting();
-			}
+			files.Lock();
+			const bool call_event_func = !files.data.filenames_to_select.isEmpty()
+				&& !files.data.should_skip_selecting();
+			files.Unlock();
 			if (call_event_func)
 			{
 				/* This must be dispatched as "QueuedConnection" (low priority)
 				to allow the previous
 				inotify events to be processed first, otherwise file selection doesn't
 				get preserved because inotify events arrive at random pace. */
-				QMetaObject::invokeMethod(model, "InotifyBatchFinished", Qt::QueuedConnection);
+				QMetaObject::invokeMethod(model, "SelectFilesAfterInotifyBatch", Qt::QueuedConnection);
 			}
 		}
-		
-		if (has_been_unmounted_or_deleted)
-		{
-			arw.RemoveWatch(wd);
-			break;
-		}
+	}
+	
+	//io_uring_queue_exit(&ring);
+	{
+		auto g = ec->cm.guard();
+		ec->must_exit = true;
+		ec->cm.Signal();
 	}
 	
 	{
@@ -514,7 +695,7 @@ void* WatchDir(void *void_args)
 		files.Broadcast();
 	}
 	
-	//mtl_trace("Thread %lX exited", i64(pthread_self()));
+	mtl_info("Thread %lX exited", i8(pthread_self()));
 	return nullptr;
 }
 
@@ -584,12 +765,12 @@ QVariant TableModel::headerData(int section_i, Qt::Orientation orientation, int 
 	return {};
 }
 
-void TableModel::InotifyBatchFinished()
+void TableModel::SelectFilesAfterInotifyBatch()
 {
 	QSet<int> indices;
 	auto &files = tab_->view_files();
 	{
-		MutexGuard guard = files.guard();
+		auto g = files.guard();
 		auto &select_list = files.data.filenames_to_select;
 		if (select_list.isEmpty() || files.data.should_skip_selecting())
 			return;
@@ -607,6 +788,7 @@ void TableModel::InotifyBatchFinished()
 				io::File *file = files_vec[i];
 				if (file->name() == name)
 				{
+mtl_printq2("Selecting name ", name);
 					indices.insert(i);
 					file->set_selected(true);
 					it = select_list.erase(it);
@@ -614,12 +796,16 @@ void TableModel::InotifyBatchFinished()
 					break;
 				}
 			}
-			if (!found) {
+			
+			if (!found)
+			{
 				const int new_count = it.value() + 1;
 				if (new_count > 5) {
+mtl_printq2("Removed from list: ", name);
 					it = select_list.erase(it);
 				} else {
-					select_list[it.key()] = new_count;
+mtl_printq2("Increased counter for ", name);
+					select_list[name] = new_count;
 					it++;
 				}
 			}
@@ -690,6 +876,7 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 		beginInsertRows(QModelIndex(), index, index);
 		{
 			auto g = files.guard();
+			evt.new_file->CountDirFiles();
 			files.data.vec.insert(index, evt.new_file);
 			cloned_file = evt.new_file->Clone();
 			evt.new_file = nullptr;
@@ -740,7 +927,7 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 	} /// switch()
 }
 
-bool TableModel::InsertRows(const i32 at, const QVector<cornus::io::File*> &files_to_add)
+bool TableModel::InsertRows(const i4 at, const QVector<cornus::io::File*> &files_to_add)
 {
 	io::Files &files = tab_->view_files();
 	{
@@ -756,7 +943,7 @@ bool TableModel::InsertRows(const i32 at, const QVector<cornus::io::File*> &file
 	beginInsertRows(QModelIndex(), first, last);
 	{
 		MutexGuard guard(&files.mutex);
-		for (i32 i = 0; i < files_to_add.size(); i++)
+		for (i4 i = 0; i < files_to_add.size(); i++)
 		{
 			auto *song = files_to_add[i];
 			files.data.vec.insert(at + i, song);
@@ -783,7 +970,7 @@ bool TableModel::removeRows(int row, int count, const QModelIndex &parent)
 		auto &vec = files.data.vec;
 		
 		for (int i = count - 1; i >= 0; i--) {
-			const i32 index = first + i;
+			const i4 index = first + i;
 			auto *item = vec[index];
 			vec.erase(vec.begin() + index);
 			delete item;
@@ -809,15 +996,20 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 		auto g = files.guard();
 		prev_count = files.data.vec.size();
 		new_count = new_data->vec.size();
-		if (files.first_time)
+		if (files.first_time) {
 			files.first_time = false;
-		else
+		} else {
 			files.WakeUpInotify(Lock::No);
+//			while (!files.data.thread_exited()) {
+//				files.CondWait();
+//			}
+//			files.data.thread_exited(false);
+		}
 	}
 	
 	beginRemoveRows(QModelIndex(), 0, prev_count - 1);
 	{
-		MutexGuard guard = files.guard();
+		auto g = files.guard();
 		auto &old_vec = files.data.vec;
 		for (auto *file: old_vec)
 			delete file;
@@ -828,9 +1020,9 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 	endRemoveRows();
 	
 	beginInsertRows(QModelIndex(), 0, new_count - 1);
-	i32 dir_id;
+	i4 dir_id;
 	{
-		MutexGuard guard = files.guard();
+		auto g = files.guard();
 		dir_id = ++files.data.dir_id;
 		files.data.processed_dir_path = new_data->processed_dir_path;
 		files.data.can_write_to_dir(new_data->can_write_to_dir());
@@ -854,7 +1046,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 	
 	UpdateIndices(indices);
 	UpdateHeaderNameColumn();
-	InotifyBatchFinished();
+	SelectFilesAfterInotifyBatch();
 	tab_->DisplayingNewDirectory(dir_id, reload);
 	io::NewThread(gui::WatchDir, args);
 }

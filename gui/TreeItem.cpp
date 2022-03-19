@@ -6,7 +6,7 @@
 #include "../ByteArray.hpp"
 #include "sidepane.hh"
 
-const i64 kBlockSize = 512;
+ci8 kBlockSize = 512;
 
 namespace cornus::gui {
 
@@ -18,7 +18,7 @@ PartitionInfo* PartitionInfo::FromDevice(struct udev_device *dev)
 		"ID_PART_ENTRY_SIZE");
 	
 	bool ok;
-	i64 size = sz_str.toLongLong(&ok);
+	i8 size = sz_str.toLongLong(&ok);
 	if (ok)
 		info->size = size * kBlockSize;
 	info->fs = udev_device_get_property_value(dev, "ID_FS_TYPE");
@@ -72,7 +72,7 @@ TreeItem::NewBookmark(io::File &file)
 	TreeItem *p = new TreeItem();
 	p->type(TreeItemType::Bookmark);
 	p->mount_path(file.is_dir_or_so() ? file.build_full_path()
-		: file.dir_path());
+		: file.dir_path(Lock::Yes));
 	p->bookmark_name(file.name());
 	return p;
 }

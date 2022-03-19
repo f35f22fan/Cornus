@@ -5,7 +5,7 @@
 
 namespace cornus {
 
-enum class LockType: i8 {
+enum class LockType: i1 {
 	Normal,
 	TryLock
 };

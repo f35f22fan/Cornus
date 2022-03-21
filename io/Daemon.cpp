@@ -200,50 +200,66 @@ void* WatchDesktopFileDirs(void *void_args)
 		fd_to_path.insert(wd, next);
 	}
 	
-	int epfd = epoll_create(1);
+	cint epfd = epoll_create(1);
 	if (epfd == -1)
 	{
 		mtl_status(errno);
 		return 0;
 	}
 	
+	AutoCloseFd epoll_fd_(epfd);
 	struct epoll_event pev = {};
 	pev.events = EPOLLIN;
 	pev.data.fd = notify.fd;
+	cint quit_fd = server->signal_quit_fd();
 	
-	if (epoll_ctl(epfd, EPOLL_CTL_ADD, notify.fd, &pev) ||
-		epoll_ctl(epfd, EPOLL_CTL_ADD, server->signal_quit_fd(), &pev))
+	QVector<struct epoll_event> evt_vec(2);
+	evt_vec[0].events = EPOLLIN;
+	evt_vec[0].data.fd = notify.fd;
+	evt_vec[1].events = EPOLLIN;
+	evt_vec[1].data.fd = quit_fd;
+	
+	for (auto &next: evt_vec)
 	{
-		mtl_status(errno);
-		close(epfd);
-		return nullptr;
+		if (epoll_ctl(epfd, EPOLL_CTL_ADD, next.data.fd, &next))
+		{
+			mtl_status(errno);
+			return nullptr;
+		}
 	}
 	
 	struct epoll_event poll_event;
-	const int seconds = 1 * 1000;
+	cint seconds = 10 * 1000;
 	while (true)
 	{
-		int event_count = epoll_wait(epfd, &poll_event, 1, seconds);
-		cm->Lock();
-		mtl_tbd();
-		const bool do_exit = cm->data.flag;
-		cm->Unlock();
+		cint num_fds = epoll_wait(epfd, &poll_event, 1, seconds);
+		cbool do_exit = cm->GetFlag(Lock::Yes);
 		if (do_exit)
 			break;
 		bool has_been_unmounted_or_deleted = false;
 		
-		if (event_count > 0) {
-			ReadEvent(poll_event.data.fd, buf,
-				has_been_unmounted_or_deleted, server, fd_to_path);
+		for (int i = 0; i < num_fds; i++)
+		{
+			cauto &evt = evt_vec[i];
+			if (!(evt.events & EPOLLIN))
+				continue;
+			
+			if (evt.data.fd == quit_fd)
+			{
+				return nullptr;
+			}
+			
+			if (evt.data.fd == notify.fd)
+			{
+				ReadEvent(poll_event.data.fd, buf,
+					has_been_unmounted_or_deleted, server, fd_to_path);
+			}
+			
 		}
 		
 		if (has_been_unmounted_or_deleted) {
 			break;
 		}
-	}
-	
-	if (close(epfd)) {
-		mtl_status(errno);
 	}
 	
 	return nullptr;

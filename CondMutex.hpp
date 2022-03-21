@@ -27,8 +27,11 @@ public:
 		return (l == Lock::Yes) ? MutexGuard(&mutex) : MutexGuard();
 	}
 	
-	inline bool Lock() {
-		const int status = pthread_mutex_lock(&mutex);
+	inline bool Lock(const enum Lock l = Lock::Yes)
+	{
+		if (l != Lock::Yes)
+			return true;
+		cint status = pthread_mutex_lock(&mutex);
 		const bool ok = (status == 0);
 		if (!ok)
 			mtl_status(status);
@@ -36,38 +39,42 @@ public:
 	}
 	
 	inline void Signal() {
-		const int status = pthread_cond_signal(&cond);
+		cint status = pthread_cond_signal(&cond);
 		if (status != 0)
 			mtl_status(status);
 	}
 	
-	inline bool Unlock() {
+	inline bool Unlock(const enum Lock l = Lock::Yes)
+	{
+		if (l != Lock::Yes)
+			return true;
 		return (pthread_mutex_unlock(&mutex) == 0);
 	}
 	
-	void SetFlag(const bool b) {
-		Lock();
+	void SetFlag(const bool b, const enum Lock l = Lock::Yes) {
+		Lock(l);
 		data.flag = b;
-		Unlock();
+		Unlock(l);
 	}
 	
-	bool GetFlag() {
-		Lock();
+	bool GetFlag(const enum Lock l = Lock::Yes) {
+		Lock(l);
 		const bool b = data.flag;
-		Unlock();
+		Unlock(l);
 		return b;
 	}
 	
-	void SetPtr(char *p) {
-		Lock();
+	void SetPtr(char *p, const enum Lock l = Lock::Yes) {
+		Lock(l);
 		data.ptr = p;
-		Unlock();
+		Unlock(l);
 	}
 	
-	char* GetPtr() {
-		Lock();
+	char* GetPtr(const enum Lock l = Lock::Yes)
+	{
+		Lock(l);
 		char *p = data.ptr;
-		Unlock();
+		Unlock(l);
 		return p;
 	}
 };
@@ -92,7 +99,9 @@ public:
 		return false;
 	}
 	
-	inline bool Lock() {
+	inline bool Lock(const enum Lock l = Lock::Yes) {
+		if (l != Lock::Yes)
+			return true;
 		cint status = pthread_mutex_lock(&mutex);
 		const bool ok = (status == 0);
 		if (!ok)
@@ -100,7 +109,9 @@ public:
 		return ok;
 	}
 	
-	inline bool Unlock() {
+	inline bool Unlock(const enum Lock l = Lock::Yes) {
+		if (l != Lock::Yes)
+			return true;
 		return (pthread_mutex_unlock(&mutex) == 0);
 	}
 	
@@ -110,10 +121,10 @@ public:
 		Unlock();
 	}
 	
-	bool GetFlag() {
-		Lock();
+	bool GetFlag(const enum Lock l = Lock::Yes) {
+		Lock(l);
 		const bool b = data.flag;
-		Unlock();
+		Unlock(l);
 		return b;
 	}
 	

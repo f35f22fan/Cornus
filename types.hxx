@@ -33,4 +33,5 @@ using cisize = const isize;
 using cint = const int;
 using cf4 = const f4;
 using cf8 = const f8;
+using cbool = const bool;
 #define cauto const auto

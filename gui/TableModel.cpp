@@ -296,7 +296,6 @@ mtl_info("After lock()");
 			ren.m.Lock();
 			mtl_info("IN_MOVED_TO after lock()");
 			QString old_name = TakeTheOtherNameByCookie(ren, ev->cookie);
-			mtl_printq2("old_name: ", old_name);
 			ren.m.Unlock();
 #ifdef CORNUS_DEBUG_INOTIFY
 mtl_info("IN_MOVED_TO new_name: %s, from_name: %s, cookie %d",
@@ -308,7 +307,7 @@ mtl_info("IN_MOVED_TO new_name: %s, from_name: %s, cookie %d",
 				return;
 			}
 			
-			int new_file_index = -1, old_file_index = -1;
+			int delete_file_index = -1, new_file_index = -1, old_file_index = -1;
 			io::File *cloned_file = nullptr;
 			{
 				auto g = a->files->guard();
@@ -318,10 +317,14 @@ mtl_info("IN_MOVED_TO new_name: %s, from_name: %s, cookie %d",
 				bool selected = false;
 				if (new_file != nullptr)
 				{
+mtl_trace("new_file != nullptr");
 					selected = new_file->is_selected();
 					new_icon = new_file->cache().icon;
 					files_vec.remove(new_file_index);
+					delete_file_index = new_file_index;
 					delete new_file;
+				} else {
+mtl_trace("new_file == nullptr");
 				}
 				
 				io::File *old_file = Find(files_vec, old_name, &old_file_index);
@@ -339,11 +342,12 @@ mtl_info("IN_MOVED_TO new_name: %s, from_name: %s, cookie %d",
 				
 				if (old_file->size() == -1)
 				{
+mtl_info("Reloading meta");
 					PrintErrors pe = PrintErrors::No;
 #ifdef CORNUS_DEBUG_INOTIFY
 					pe = PrintErrors::Yes;
 #endif
-					bool ok = io::ReloadMeta(*old_file, stx, a->env, pe);
+					cbool ok = io::ReloadMeta(*old_file, stx, a->env, pe);
 					Q_UNUSED(ok);
 #ifdef CORNUS_DEBUG_INOTIFY
 					mtl_info("Reloaded meta: %s: %d", qPrintable(old_file->name()), ok);
@@ -356,7 +360,7 @@ mtl_info("IN_MOVED_TO new_name: %s, from_name: %s, cookie %d",
 			io::FileEvent evt = {};
 			evt.new_file = cloned_file;
 			evt.dir_id = a->dir_id;
-			evt.renaming_deleted_file_at = old_file_index;
+			evt.renaming_deleted_file_at = delete_file_index;
 			evt.index = new_file_index;
 			evt.type = io::FileEventType::Renamed;
 			QMetaObject::invokeMethod(model, "InotifyEvent",
@@ -912,6 +916,8 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 			if (real_index > evt.index)
 				real_index--;
 			if (real_index >= 0) {
+mtl_info("real_index: %d, renaming_deleted_file_at: %d, evt.index: %d", real_index,
+	evt.renaming_deleted_file_at, evt.index);
 				beginRemoveRows(QModelIndex(), real_index, real_index);
 				endRemoveRows();
 				tab_->FileChanged(io::FileEventType::Modified, evt.new_file);

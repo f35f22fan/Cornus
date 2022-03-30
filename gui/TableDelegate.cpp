@@ -274,9 +274,30 @@ void TableDelegate::DrawMediaAttrs(io::File *file, QPainter *painter,
 	mtl_check_void(m != nullptr);
 	
 	QString s = QLatin1String(" ");
-	const bool has_year = m->year > 0;
+	cbool has_year = m->year_started > 0;
 	if (has_year)
-		s.append('(').append(QString::number(m->year));
+	{
+		s.append('(').append(QString::number(m->year_started));
+		
+		if (m->month_started > 0 || m->day_started > 0)
+		{
+			s.append('/');
+			if (m->month_started > 0)
+			{
+				s.append(QString::number(m->month_started));
+			} else {
+				s.append('?');
+			}
+			
+			s.append('/');
+			if (m->day_started > 0)
+			{
+				s.append(QString::number(m->day_started));
+			} else {
+				s.append('?');
+			}
+		}
+	}
 	
 	if (m->year_end > 0)
 		s.append('-').append(QString::number(m->year_end));

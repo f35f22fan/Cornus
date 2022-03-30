@@ -246,6 +246,7 @@ void* WatchDesktopFileDirs(void *void_args)
 			
 			if (evt.data.fd == quit_fd)
 			{
+				io::ReadEventFd(evt.data.fd);
 				return nullptr;
 			}
 			

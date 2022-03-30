@@ -319,6 +319,8 @@ void ProcessMime(QString &mime);
 
 const char* QuerySocketFor(const QString &dir_path, bool &needs_root);
 
+i8 ReadEventFd(cint fd);
+
 bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	const ReadParams &params);
 

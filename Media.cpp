@@ -299,8 +299,8 @@ void Media::ReloadDatabaseNTS(ByteArray &ba, media::Data &data)
 	{
 		media::Field field = (media::Field)ba.next_u1();
 		const i4 count = ba.next_i4();
-		HashI32V *hi32 = nullptr;
-		HashI16V *hi16 = nullptr;
+		HashI4V *hi32 = nullptr;
+		HashI2V *hi16 = nullptr;
 		
 		if (field == media::Field::Actors)
 			hi32 = &data.actors;

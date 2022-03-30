@@ -118,6 +118,7 @@ AttrsDialog::~AttrsDialog()
 {
 	SaveAssignedAttrs();
 	delete file_;
+	file_ = nullptr;
 }
 
 void AttrsDialog::CreateRow(QFormLayout *fl, AvailPane **avp, AssignedPane **asp,
@@ -130,6 +131,16 @@ void AttrsDialog::CreateRow(QFormLayout *fl, AvailPane **avp, AssignedPane **asp
 	(*avp)->asp(*asp);
 	(*asp)->Init();
 	(*avp)->Init();
+}
+
+TextField* CreateField(cint w, const QString &place_holder)
+{
+	auto *p = new TextField();
+	p->setFixedWidth(w);
+	p->setPlaceholderText(place_holder);
+	p->setToolTip(place_holder);
+	
+	return p;
 }
 
 void AttrsDialog::Init()
@@ -214,17 +225,21 @@ void AttrsDialog::Init()
 		pane->setLayout(layout);
 		
 		const int fixed_w = a_size * 8;
-		year_started_tf_ = new TextField();
-		year_started_tf_->setFixedWidth(fixed_w);
-		year_ended_tf_ = new TextField();
-		year_ended_tf_->setFixedWidth(fixed_w);
-		
+		year_started_tf_ = CreateField(fixed_w, tr("Year Start"));
 		layout->addWidget(year_started_tf_);
-		layout->addWidget(new QLabel(QLatin1String(" - ")));
-		layout->addWidget(year_ended_tf_);
-		layout->addStretch(2);
 		
-		fl->addRow(tr("Released in (years):"), pane);
+		month_started_tf_ = CreateField(fixed_w, tr("Month"));
+		layout->addWidget(month_started_tf_);
+		
+		day_started_tf_ = CreateField(fixed_w, tr("Day"));
+		layout->addWidget(day_started_tf_);
+		
+		layout->addWidget(new QLabel(QLatin1String(" - ")));
+		year_ended_tf_ = CreateField(fixed_w, tr("Year End"));
+		layout->addWidget(year_ended_tf_);
+		
+		layout->addStretch(2);
+		fl->addRow(tr("Years start - end:"), pane);
 	}
 	{
 		comment_area_ = new QPlainTextEdit();
@@ -240,7 +255,7 @@ void AttrsDialog::SaveAssignedAttrs()
 	ByteArray ba;
 	
 	Media *media = app_->media();
-	i4 magic_num = media->GetMagicNumber();
+	ci4 magic_num = media->GetMagicNumber();
 	ba.add_i4(magic_num);
 	actors_asp_->WriteTo(ba);
 	directors_asp_->WriteTo(ba);
@@ -254,10 +269,26 @@ void AttrsDialog::SaveAssignedAttrs()
 	bool ok;
 	{
 		QString s = year_started_tf_->text().trimmed();
-		i2 n = s.toInt(&ok);
+		ci2 n = s.toInt(&ok);
 		if (ok) {
 			ba.add_u1((u1)media::Field::YearStarted);
 			ba.add_i2(n);
+		}
+		
+		s = month_started_tf_->text().trimmed();
+		ci1 m = s.toShort(&ok);
+		if (ok && m >= 1 && m <= 12)
+		{
+			ba.add_u1((u1)media::Field::MonthStarted);
+			ba.add_i1(m);
+		}
+		
+		s = day_started_tf_->text().trimmed();
+		ci1 d = s.toShort(&ok);
+		if (ok && d >= 1 && d <= 31)
+		{
+			ba.add_u1((u1)media::Field::DayStarted);
+			ba.add_i1(d);
 		}
 	}
 	{
@@ -349,16 +380,24 @@ void AttrsDialog::SyncWidgetsToFile()
 		const media::Field f = (media::Field)ba.next_u1();
 		switch (f)
 		{
-		case media::Field::Actors: cb = actors_asp_->cb(); break;
-		case media::Field::Directors: cb = directors_asp_->cb(); break;
-		case media::Field::Writers: cb = writers_asp_->cb(); break;
-		case media::Field::Genres: cb = genres_asp_->cb(); break;
-		case media::Field::Subgenres: cb = subgenres_asp_->cb(); break;
-		case media::Field::Countries: cb = countries_asp_->cb(); break;
-		case media::Field::Rip: cb = rip_asp_->cb(); break;
-		case media::Field::VideoCodec: cb = video_codec_asp_->cb(); break;
+		case media::Field::Actors: { cb = actors_asp_->cb(); break; }
+		case media::Field::Directors: { cb = directors_asp_->cb(); break; }
+		case media::Field::Writers: { cb = writers_asp_->cb(); break; }
+		case media::Field::Genres: { cb = genres_asp_->cb(); break; }
+		case media::Field::Subgenres: { cb = subgenres_asp_->cb(); break; }
+		case media::Field::Countries: { cb = countries_asp_->cb(); break; }
+		case media::Field::Rip: { cb = rip_asp_->cb(); break; }
+		case media::Field::VideoCodec: { cb = video_codec_asp_->cb(); break; }
 		case media::Field::YearStarted: {
 			year_started_tf_->setText(QString::number(ba.next_i2()));
+			break;
+		}
+		case media::Field::MonthStarted: {
+			month_started_tf_->setText(QString::number(ba.next_i1()));
+			break;
+		}
+		case media::Field::DayStarted: {
+			day_started_tf_->setText(QString::number(ba.next_i1()));
 			break;
 		}
 		case media::Field::YearEnded: {

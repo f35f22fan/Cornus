@@ -87,7 +87,8 @@ private:
 	
 	TextField *year_started_tf_ = nullptr, *year_ended_tf_ = nullptr,
 	*bit_depth_tf_ = nullptr, *resolution_w_tf_ = nullptr,
-	*resolution_h_tf_ = nullptr, *fps_tf_ = nullptr;
+	*resolution_h_tf_ = nullptr, *fps_tf_ = nullptr,
+	*month_started_tf_ = nullptr, *day_started_tf_ = nullptr;
 	int fixed_width_ = -1;
 	
 	QPlainTextEdit *comment_area_ = nullptr;

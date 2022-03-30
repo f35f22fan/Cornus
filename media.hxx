@@ -13,9 +13,9 @@ namespace cornus {
  Hence only a QMap can have the (implied) ID not change.
  Note: QMap items may never be removed, only their names changed.
 */
-using HashI16S = QMap<i2, QString>;
-using HashI16V = QMap<i2, QVector<QString>>;
-using HashI32V = QMap<i4, QVector<QString>>;
+using HashI2S = QMap<i2, QString>;
+using HashI2V = QMap<i2, QVector<QString>>;
+using HashI4V = QMap<i4, QVector<QString>>;
 
 namespace media {
 static const QString XAttrName = QStringLiteral("user.CornusMas.m");
@@ -23,16 +23,16 @@ static const QString XAttrLastWatched = QStringLiteral("user.CornusMas.lw");
 static const QString XAttrThumbnail = QStringLiteral("user.CornusMas.thmb");
 
 struct Data {
-	HashI32V actors;
-	HashI32V directors;
-	HashI32V writers;
+	HashI4V actors;
+	HashI4V directors;
+	HashI4V writers;
 	
-	HashI16V genres;
-	HashI16V subgenres;
-	HashI16V countries;
+	HashI2V genres;
+	HashI2V subgenres;
+	HashI2V countries;
 	
-	HashI16S rips;
-	HashI16S video_codecs;
+	HashI2S rips;
+	HashI2S video_codecs;
 	i4 magic_number = -1;
 };
 
@@ -51,9 +51,12 @@ struct MediaPreview {
 	i4 video_h = -1;
 	i4 magic_number = -1;
 	f4 fps = -1;
-	i2 year = -1;
+	i2 year_started = -1;
 	i2 year_end = -1;
 	i2 bit_depth = -1;
+	
+	i1 month_started = -1;
+	i1 day_started = -1;
 };
 
 enum class Check: i1 {
@@ -129,7 +132,11 @@ enum class Field: u1 {
 	VideoCodec,
 	VideoResolution,
 	FPS,
-	Comments
+	Comments,
+	
+	// Added 2022.03.30:
+	MonthStarted,
+	DayStarted,
 };
 
 }} // cornus::media::

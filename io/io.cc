@@ -111,7 +111,7 @@ int CountDirFilesSkippingSubdirs(const QString &dir_path)
 
 media::MediaPreview* CreateMediaPreview(ByteArray &ba)
 {
-	ba.to(0);
+	cauto at = ba.at();
 	if (ba.size() < sizeof(i4))
 		return nullptr;
 	
@@ -138,30 +138,34 @@ media::MediaPreview* CreateMediaPreview(ByteArray &ba)
 			continue;
 		}
 		
-		QVector<i2> *v16 = nullptr;
+		QVector<i2> *v2 = nullptr;
 		
 		if (f == media::Field::Genres)
-			v16 = &p->genres;
+			v2 = &p->genres;
 		else if (f == media::Field::Subgenres)
-			v16 = &p->subgenres;
+			v2 = &p->subgenres;
 		else if (f == media::Field::Countries)
-			v16 = &p->countries;
+			v2 = &p->countries;
 		else if (f == media::Field::Rip)
-			v16 = &p->rips;
+			v2 = &p->rips;
 		else if (f == media::Field::VideoCodec)
-			v16 = &p->video_codecs;
+			v2 = &p->video_codecs;
 		
-		if (v16 != nullptr)
+		if (v2 != nullptr)
 		{
 			const u2 count = ba.next_u2();
 			for (int i = 0; i < count; i++) {
-				v16->append(ba.next_i2());
+				v2->append(ba.next_i2());
 			}
 			continue;
 		}
 		
 		if (f == media::Field::YearStarted) {
-			p->year = ba.next_i2();
+			p->year_started = ba.next_i2();
+		} else if (f == media::Field::MonthStarted) {
+			p->month_started = ba.next_i1();
+		} else if (f == media::Field::DayStarted) {
+			p->day_started = ba.next_i1();
 		} else if (f == media::Field::YearEnded) {
 			p->year_end = ba.next_i2();
 		} else if (f == media::Field::VideoCodecBitDepth) {
@@ -172,11 +176,11 @@ media::MediaPreview* CreateMediaPreview(ByteArray &ba)
 		} else if (f == media::Field::FPS) {
 			p->fps = ba.next_f4();
 		} else {
-			/// other fields not needed by media::ShortData
+			/// other fields not needed by media::MediaPreview
 		}
 	}
 	
-	ba.to(0);
+	ba.to(at);
 	return p;
 }
 
@@ -1206,6 +1210,87 @@ const char* QuerySocketFor(const QString &dir_path, bool &needs_root)
 	return needs_root ? cornus::RootSocketPath : cornus::SocketPath;
 }
 
+i8 ReadEventFd(cint fd)
+{
+	i8 n;
+	read(fd, &n, sizeof n);
+	return n;
+}
+
+bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
+	const ReadParams &params)
+{
+	struct statx stx;
+	auto path = full_path.toLocal8Bit();
+	const auto flags = 0;// this function must follow symlinks
+	const auto fields = STATX_MODE | STATX_SIZE;
+	bool statx_ok;
+	if (statx(0, path.data(), flags, fields, &stx) != 0)
+	{
+		if (params.print_errors == PrintErrors::Yes)
+			mtl_warn("%s: \"%s\"", strerror(errno), path.data());
+		if (params.ret_mode != nullptr)
+			*(params.ret_mode) = 0;
+		
+		statx_ok = false;
+	} else {
+		statx_ok = true;
+		if (params.ret_mode != nullptr)
+			*(params.ret_mode) = stx.stx_mode;
+	}
+	
+	cint fd = ::open(path.data(), O_RDONLY);
+	if (fd == -1)
+		return false;
+	
+	cauto at = buffer.at();
+	ExactSize es;
+	if (statx_ok && params.can_rely == CanRelyOnStatxSize::Yes)
+	{
+		es = ExactSize::Yes;
+		buffer.MakeSure(stx.stx_size, ExactSize::Yes);
+	} else {
+		es = ExactSize::No;
+	}
+	
+	i8 so_far = 0;
+	cisize buf_size = 4096 * 4;
+	char *buf = new char[buf_size];
+	AutoDeleteArr buf_(buf);
+	while (true)
+	{
+		ci8 actually_read = read(fd, buf, buf_size);
+		if (actually_read == -1)
+		{
+			if (errno == EAGAIN)
+				continue;
+			if (params.print_errors == PrintErrors::Yes)
+				mtl_warn("ReadFile: %s", strerror(errno));
+			close(fd);
+			return false;
+		} else if (actually_read == 0) {
+			/// Zero indicates the end of file, happens with sysfs files.
+			break;
+		}
+		
+		so_far += actually_read;
+		
+		if (params.read_max != -1 && so_far >= params.read_max)
+		{
+			so_far -= actually_read;
+			break;
+		}
+		
+		buffer.add(buf, actually_read, es);
+	}
+	
+	close(fd);
+	buffer.to(at);
+	buffer.size(at + so_far); /// needed for buffer.toString()
+	
+	return true;
+}
+
 bool ReadLink(const char *file_path, LinkTarget &link_target,
 	const QString &parent_dir, const PrintErrors pe)
 {
@@ -1367,80 +1452,6 @@ bool ReadLinkSimple(const char *file_path, QString &result)
 	
 	buf[nbytes] = 0;
 	result = QString::fromLocal8Bit(buf, nbytes);
-	
-	return true;
-}
-
-bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
-	const ReadParams &params)
-{
-	struct statx stx;
-	auto path = full_path.toLocal8Bit();
-	const auto flags = 0;// this function must follow symlinks
-	const auto fields = STATX_MODE | STATX_SIZE;
-	bool statx_ok;
-	if (statx(0, path.data(), flags, fields, &stx) != 0)
-	{
-		if (params.print_errors == PrintErrors::Yes)
-			mtl_warn("%s: \"%s\"", strerror(errno), path.data());
-		if (params.ret_mode != nullptr)
-			*(params.ret_mode) = 0;
-		
-		statx_ok = false;
-	} else {
-		statx_ok = true;
-		if (params.ret_mode != nullptr)
-			*(params.ret_mode) = stx.stx_mode;
-	}
-	
-	cint fd = ::open(path.data(), O_RDONLY);
-	if (fd == -1)
-		return false;
-	
-	cauto at = buffer.at();
-	ExactSize es;
-	if (statx_ok && params.can_rely == CanRelyOnStatxSize::Yes)
-	{
-		es = ExactSize::Yes;
-		buffer.MakeSure(stx.stx_size, ExactSize::Yes);
-	} else {
-		es = ExactSize::No;
-	}
-	
-	i8 so_far = 0;
-	cisize buf_size = 4096 * 4;
-	char *buf = new char[buf_size];
-	AutoDeleteArr buf_(buf);
-	while (true)
-	{
-		ci8 actually_read = read(fd, buf, buf_size);
-		if (actually_read == -1)
-		{
-			if (errno == EAGAIN)
-				continue;
-			if (params.print_errors == PrintErrors::Yes)
-				mtl_warn("ReadFile: %s", strerror(errno));
-			close(fd);
-			return false;
-		} else if (actually_read == 0) {
-			/// Zero indicates the end of file, happens with sysfs files.
-			break;
-		}
-		
-		so_far += actually_read;
-		
-		if (params.read_max != -1 && so_far >= params.read_max)
-		{
-			so_far -= actually_read;
-			break;
-		}
-		
-		buffer.add(buf, actually_read, es);
-	}
-	
-	close(fd);
-	buffer.to(at);
-	buffer.size(at + so_far); /// needed for buffer.toString()
 	
 	return true;
 }

@@ -143,12 +143,15 @@ void MediaDialog::Save()
 	};
 	
 	bool should_be_saved = false;
-	for (const auto &next: names) {
-		if (!next.isEmpty()) {
+	for (const auto &next: names)
+	{
+		if (!next.isEmpty())
+		{
 			should_be_saved = true;
 			break;
 		}
 	}
+	
 	Media *media = app_->media();
 	ci8 ID = GetCurrentID();
 	if (ID != -1 && should_be_saved) {

@@ -22,13 +22,11 @@
 #include <QTime>
 #include <QTimer>
 
-//#define CORNUS_DEBUG_INOTIFY_BATCH
-#define CORNUS_DEBUG_INOTIFY
+//#define CORNUS_DEBUG_INOTIFY
 
 namespace cornus::gui {
 
 const auto ConnectionType = Qt::BlockingQueuedConnection;
-//const size_t kInotifyEventBufLen = 16 * (sizeof(struct inotify_event) + NAME_MAX + 1);
 
 struct RenameData {
 // helper struct to deal with inotify's shitty rename support.
@@ -197,7 +195,6 @@ struct EventChain {
 void ProcessEvents(EventArgs *a);
 void* InotifyTh(void *args)
 {
-mtl_info("============InotifyTh");
 	pthread_detach(pthread_self());
 	EventChain *ec = (EventChain*)args;
 	while (true)
@@ -226,7 +223,9 @@ mtl_info("============InotifyTh");
 
 void ProcessEvents(EventArgs *a)
 {
+#ifdef CORNUS_DEBUG_INOTIFY
 mtl_info("<EVT BATCH>");
+#endif
 	AutoDelete a_(a);
 	struct statx stx;
 	isize add = 0;
@@ -292,9 +291,7 @@ mtl_info("After lock()");
 		} else if (mask & IN_MOVED_TO) {
 			const auto &new_name = name;
 			Renames &ren = a->renames;
-			mtl_info("IN_MOVED_TO before lock()");
 			ren.m.Lock();
-			mtl_info("IN_MOVED_TO after lock()");
 			QString old_name = TakeTheOtherNameByCookie(ren, ev->cookie);
 			ren.m.Unlock();
 #ifdef CORNUS_DEBUG_INOTIFY
@@ -317,14 +314,11 @@ mtl_info("IN_MOVED_TO new_name: %s, from_name: %s, cookie %d",
 				bool selected = false;
 				if (new_file != nullptr)
 				{
-mtl_trace("new_file != nullptr");
 					selected = new_file->is_selected();
 					new_icon = new_file->cache().icon;
 					files_vec.remove(new_file_index);
 					delete_file_index = new_file_index;
 					delete new_file;
-				} else {
-mtl_trace("new_file == nullptr");
 				}
 				
 				io::File *old_file = Find(files_vec, old_name, &old_file_index);
@@ -342,16 +336,11 @@ mtl_trace("new_file == nullptr");
 				
 				if (old_file->size() == -1)
 				{
-mtl_info("Reloading meta");
 					PrintErrors pe = PrintErrors::No;
 #ifdef CORNUS_DEBUG_INOTIFY
 					pe = PrintErrors::Yes;
 #endif
-					cbool ok = io::ReloadMeta(*old_file, stx, a->env, pe);
-					Q_UNUSED(ok);
-#ifdef CORNUS_DEBUG_INOTIFY
-					mtl_info("Reloaded meta: %s: %d", qPrintable(old_file->name()), ok);
-#endif
+					io::ReloadMeta(*old_file, stx, a->env, pe);
 				}
 				cloned_file = old_file->Clone();
 				std::sort(files_vec.begin(), files_vec.end(), cornus::io::SortFiles);
@@ -388,7 +377,9 @@ mtl_info("Reloading meta");
 		}
 	}
 	
+	#ifdef CORNUS_DEBUG_INOTIFY
 	mtl_info("</EVT BATCH>");
+	#endif
 }
 
 void ReinterpretRenames(Renames &ren,
@@ -431,7 +422,9 @@ void* WatchDir(void *void_args)
 	files.Lock();
 	const int signal_quit_fd = files.data.signal_quit_fd;
 	files.Unlock();
-	mtl_info(" === WatchDir() inotify fd: %d, signal_fd: %d", notify_fd, signal_quit_fd);
+#ifdef CORNUS_DEBUG_INOTIFY
+		mtl_info(" === WatchDir() inotify fd: %d, signal_fd: %d", notify_fd, signal_quit_fd);
+#endif
 	const auto path = args->dir_path.toLocal8Bit();
 	const auto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE
 		| IN_DELETE_SELF | IN_MOVE_SELF | IN_CLOSE_WRITE
@@ -459,7 +452,6 @@ void* WatchDir(void *void_args)
 	files.Unlock();
 	
 	Renames renames = {};
-	mtl_info("Thread: %lX, notify_fd: %d, signal_quit_fd: %d", i8(pthread_self()), notify_fd, signal_quit_fd);
 	CondMutex has_been_unmounted_or_deleted = {};
 //	using TimeSpec = struct __kernel_timespec;
 //	TimeSpec ts = {};
@@ -489,8 +481,6 @@ void* WatchDir(void *void_args)
 			mtl_status(errno);
 			return nullptr;
 		}
-
-		mtl_info("Listening for %d", evt.data.fd);
 	}
 	
 	while (true)
@@ -532,7 +522,6 @@ void* WatchDir(void *void_args)
 					return nullptr;
 				}
 				files.Lock();
-	mtl_info("Inotify fd, after lock()");
 				const bool include_hidden_files = files.data.show_hidden_files();
 				files.Unlock();
 				EventArgs *a = new EventArgs {
@@ -557,8 +546,7 @@ void* WatchDir(void *void_args)
 				//mtl_info("Quit fd!");
 				signalled_from_event_fd = true;
 				// must read 8 bytes:
-				i8 num;
-				read(evt.data.fd, &num, sizeof num);
+				io::ReadEventFd(evt.data.fd);
 			} else {
 				mtl_trace();
 			}
@@ -652,17 +640,12 @@ mtl_info("has_been_unmounted_or_deleted");
 			}
 		}
 		
-mtl_info("before renames.m.Lock()");
 		renames.m.Lock();
-mtl_info("after renames.m.Lock()");
 		empty = renames.vec.isEmpty();
 		renames.m.Unlock();
 		if (!empty)
 		{
-mtl_info("rename_vec not empty");
 			ReinterpretRenames(renames, args->table_model, &files, args->dir_id);
-		} else {
-mtl_info("rename_vec empty");
 		}
 		
 		renames.m.Lock();

@@ -90,14 +90,14 @@ bool SearchPane::ContainsAll(const media::MediaPreview &data)
 		if (!data.video_codecs.contains(media_search_.video_codec))
 			return false;
 	}
-	const i2 y = media_search_.year;
+	ci2 y = media_search_.year;
 	if (y != -1)
 	{
 		if (data.year_end != -1) {
-			if (data.year > y || data.year_end < y) {
+			if (data.year_started > y || data.year_end < y) {
 				return false;
 			}
-		} else if (data.year != y) {
+		} else if (data.year_started != y) {
 			return false;
 		}
 	}

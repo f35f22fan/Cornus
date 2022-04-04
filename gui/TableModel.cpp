@@ -280,9 +280,7 @@ mtl_info("IN_MOVED_FROM, from: %s, len: %d, cookie: %d",
 	qPrintable(name), ev->len, ev->cookie);
 #endif
 			auto &ren = a->renames;
-mtl_info("Before lock()");
 			ren.m.Lock();
-mtl_info("After lock()");
 			ren.vec.append(RenameData {
 				.name = name,
 				.cookie = ev->cookie,
@@ -415,12 +413,12 @@ void* WatchDir(void *void_args)
 	App *app = tab->app();
 	AutoDelete args_(args);
 	io::Notify &notify = tab->notify();
-	const int notify_fd = notify.fd;
+	cint notify_fd = notify.fd;
 	QProcessEnvironment env = app->env();
 	
 	io::Files &files = tab->view_files();
 	files.Lock();
-	const int signal_quit_fd = files.data.signal_quit_fd;
+	cint signal_quit_fd = files.data.signal_quit_fd;
 	files.Unlock();
 #ifdef CORNUS_DEBUG_INOTIFY
 		mtl_info(" === WatchDir() inotify fd: %d, signal_fd: %d", notify_fd, signal_quit_fd);
@@ -429,7 +427,7 @@ void* WatchDir(void *void_args)
 	const auto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE
 		| IN_DELETE_SELF | IN_MOVE_SELF | IN_CLOSE_WRITE
 		| IN_MOVE;// | IN_MODIFY;
-	const int wd = inotify_add_watch(notify_fd, path.data(), event_types);
+	cint wd = inotify_add_watch(notify_fd, path.data(), event_types);
 	if (wd == -1)
 	{
 		mtl_status(errno);
@@ -437,7 +435,7 @@ void* WatchDir(void *void_args)
 	}
 	
 	io::AutoRemoveWatch arw(notify, wd);
-	/* const int kQueueDepth = 2; // signal_fd and inotify_fd
+	/* cint kQueueDepth = 2; // signal_fd and inotify_fd
 	struct io_uring ring;
 	io_uring_queue_init(kQueueDepth, &ring, 0);
 	QVector<uring::BufArg> buf_args = {
@@ -460,7 +458,7 @@ void* WatchDir(void *void_args)
 	EventChain *ec = new EventChain();
 	io::NewThread(InotifyTh, ec);
 	
-	const int epoll_fd = epoll_create(1);
+	cint epoll_fd = epoll_create(1);
 	if (epoll_fd == -1)
 	{
 		mtl_status(errno);
@@ -487,14 +485,17 @@ void* WatchDir(void *void_args)
 	{
 		//TimeSpec *ts_param;
 		//data = nullptr;
-		bool empty;
+		bool renames_empty;
 		{
 			auto g = renames.m.guard();
-			empty = renames.vec.isEmpty();
+			renames_empty = renames.vec.isEmpty();
 		}
 		
-		cint ms = empty ? 50000 : 20;
+		cint ms = renames_empty ? 50000 : 20;
 		cint num_fds = epoll_wait(epoll_fd, evt_vec.data(), evt_vec.size(), ms);
+		if (num_fds == 0)
+			continue; // timeout
+		
 		if (num_fds == -1)
 		{
 			mtl_status(errno);
@@ -505,8 +506,7 @@ void* WatchDir(void *void_args)
 		for (int i = 0; i < num_fds; i++)
 		{
 			const auto &evt = evt_vec[i];
-			const bool readable = evt.events & EPOLLIN;
-			if (!readable)
+			if ((evt.events & EPOLLIN) == 0)
 				continue;
 
 			mtl_info("fd: %d", evt.data.fd);
@@ -641,30 +641,30 @@ mtl_info("has_been_unmounted_or_deleted");
 		}
 		
 		renames.m.Lock();
-		empty = renames.vec.isEmpty();
+		cint count_was = renames.vec.size();
 		renames.m.Unlock();
-		if (!empty)
+		if (count_was > 0)
 		{
 			ReinterpretRenames(renames, args->table_model, &files, args->dir_id);
-		}
-		
-		renames.m.Lock();
-		empty = renames.vec.isEmpty();
-		renames.m.Unlock();
-		
-		if (empty)
-		{
-			files.Lock();
-			const bool call_event_func = !files.data.filenames_to_select.isEmpty()
-				&& !files.data.should_skip_selecting();
-			files.Unlock();
-			if (call_event_func)
+			
+			renames.m.Lock();
+			cint count_is = renames.vec.size();
+			renames.m.Unlock();
+			
+			if (count_is != count_was)
 			{
-				/* This must be dispatched as "QueuedConnection" (low priority)
-				to allow the previous
-				inotify events to be processed first, otherwise file selection doesn't
-				get preserved because inotify events arrive at random pace. */
-				QMetaObject::invokeMethod(model, "SelectFilesAfterInotifyBatch", Qt::QueuedConnection);
+				files.Lock();
+				cbool call_event_func = !files.data.filenames_to_select.isEmpty()
+					&& !files.data.should_skip_selecting();
+				files.Unlock();
+				if (call_event_func)
+				{
+					/* This must be dispatched as "QueuedConnection" (low priority)
+					to allow the previous
+					inotify events to be processed first, otherwise file selection doesn't
+					get preserved because inotify events arrive at random pace. */
+					QMetaObject::invokeMethod(model, "SelectFilesAfterInotifyBatch", Qt::QueuedConnection);
+				}
 			}
 		}
 	}
@@ -754,6 +754,7 @@ QVariant TableModel::headerData(int section_i, Qt::Orientation orientation, int 
 
 void TableModel::SelectFilesAfterInotifyBatch()
 {
+mtl_info("Method start");
 	QSet<int> indices;
 	auto &files = tab_->view_files();
 	{

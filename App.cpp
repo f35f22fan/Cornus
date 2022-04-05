@@ -112,13 +112,13 @@ void* ThumbnailLoader (void *args)
 		th_data->Unlock();
 		QString thumb_in_temp_path = io::BuildTempPathFromID(new_work->file_id);
 		Thumbnail *thumbnail = nullptr;
-		const bool has_ext_attr = !new_work->ba.is_empty();
+		cbool has_ext_attr = !new_work->ba.is_empty();
 		temp_ba.to(0);
-		//QString th_str = io::thread_id_short(pthread_self());
-		//mtl_info("%s: %s", qPrintable(th_str), qPrintable(new_work->full_path));
 		thumbnail::AbiType abi_version = -1;
 		if (has_ext_attr || io::ReadFile(thumb_in_temp_path, temp_ba, read_params))
 		{
+//			mtl_info("%s: %s, has_ext_attr: %d", qPrintable(new_work->full_path),
+//				qPrintable(thumb_in_temp_path), has_ext_attr);
 			ByteArray &img_ba = has_ext_attr ? new_work->ba : temp_ba;
 			i4 orig_img_w, orig_img_h;
 			QImage img = thumbnail::ImageFromByteArray(img_ba,
@@ -139,6 +139,7 @@ void* ThumbnailLoader (void *args)
 				thumbnail->origin = has_ext_attr ? Origin::ExtAttr : Origin::TempDir;
 			}
 		}
+		
 		if (thumbnail == nullptr)
 		{
 			thumbnail = thumbnail::Load(new_work->full_path,
@@ -2156,7 +2157,7 @@ void App::SubmitThumbLoaderFromTab(ThumbLoaderArgs *arg)
 {
 	mtl_check_void(arg != nullptr);
 	{
-		auto global_guard = global_thumb_loader_data_.guard();
+		auto g = global_thumb_loader_data_.guard();
 		InitThumbnailPoolIfNeeded();
 		auto &work_queue = global_thumb_loader_data_.work_queue;
 		
@@ -2302,7 +2303,7 @@ void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 
 void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 {
-	//mtl_info("Thumbnail ID: %lu", thumbnail->file_id);
+//	mtl_info("Thumbnail ID: %lu", thumbnail->file_id);
 	gui::Tab *tab = this->tab(thumbnail->tab_id);
 	if (tab == nullptr || tab->icon_view() == nullptr)
 	{

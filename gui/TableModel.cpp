@@ -757,7 +757,6 @@ QVariant TableModel::headerData(int section_i, Qt::Orientation orientation, int 
 
 void TableModel::SelectFilesAfterInotifyBatch()
 {
-mtl_info("Method start");
 	QSet<int> indices;
 	auto &files = tab_->view_files();
 	{
@@ -993,10 +992,6 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 			files.first_time = false;
 		} else {
 			files.WakeUpInotify(Lock::No);
-//			while (!files.data.thread_exited()) {
-//				files.CondWait();
-//			}
-//			files.data.thread_exited(false);
 		}
 	}
 	
@@ -1009,6 +1004,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 		old_vec.clear();
 		tab_->table()->ClearMouseOver();
 		files.cached_files_count = 0;
+		files.data.filenames_to_select.clear();
 	}
 	endRemoveRows();
 	

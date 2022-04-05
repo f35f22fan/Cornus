@@ -227,21 +227,17 @@ bool File::ShouldTryLoadingThumbnail()
 	if (!is_regular() || cache_.tried_loading_thumbnail)
 		return false;
 	
-	static const auto formats = QImageReader::supportedImageFormats();
-	const bool is_webp = (cache_.ext == QLatin1String("webp"));
-	const auto ext_ba = cache_.ext.toLocal8Bit();
+	static cauto formats = QImageReader::supportedImageFormats();
+	cbool is_webp = (cache_.ext == QLatin1String("webp"));
+	auto ext_ba = cache_.ext.toLocal8Bit();
+	
 	if (!is_webp && !formats.contains(ext_ba))
 		return false;
 	
-	const bool has_attr = has_thumbnail_attr();
-	
-	if (has_attr && IsThumbnailMarkedFailed())
+	if (has_thumbnail_attr() && IsThumbnailMarkedFailed())
 		return false;
 	
-	if (cache_.thumbnail == nullptr || has_attr)
-		return true;
-	
-	return false;
+	return (cache_.thumbnail == nullptr);
 }
 
 QString File::SizeToString() const

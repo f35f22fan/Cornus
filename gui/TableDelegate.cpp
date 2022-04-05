@@ -270,7 +270,9 @@ void TableDelegate::DrawMediaAttrs(io::File *file, QPainter *painter,
 	const QStyleOptionViewItem &option, const QRect &text_rect,
 	const int filename_w) const
 {
+mtl_printq(file->name());
 	media::MediaPreview *m = file->media_attrs_decoded();
+mtl_printq(file->name());
 	mtl_check_void(m != nullptr);
 	
 	QString s = QLatin1String(" ");

@@ -11,12 +11,13 @@
 #include "Tab.hpp"
 #include "Table.hpp"
 #include "TableHeader.hpp"
-#include "../uring.hh"
+
+// #include "../uring.hh"
+//#include <liburing.h>
 
 #include <sys/epoll.h>
 #include <cstring>
 #include <sys/ioctl.h>
-#include <liburing.h>
 #include <QFont>
 #include <QScrollBar>
 #include <QTime>
@@ -682,7 +683,9 @@ mtl_info("has_been_unmounted_or_deleted");
 		files.Broadcast();
 	}
 	
+#ifdef CORNUS_DEBUG_INOTIFY
 	mtl_info("Thread %lX exited", i8(pthread_self()));
+#endif
 	return nullptr;
 }
 

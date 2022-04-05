@@ -430,10 +430,9 @@ void Media::Save()
 	{
 		mtl_trace();
 		save_file.CommitCancelled();
-		return;
+	} else {
+		save_file.Commit();
 	}
-	
-	save_file.Commit();
 }
 
 i8 Media::SetNTS(const media::Field f, const i8 ID,
@@ -554,7 +553,7 @@ void Media::WriteAny(ByteArray &ba, const QVector<QString> &names)
 
 void Media::WriteTo(ByteArray &ba, QComboBox *cb, const media::Field f)
 {
-	const int count = cb->count();
+	cint count = cb->count();
 	if (count == 0)
 		return;
 	ba.add_u1((u1)f);

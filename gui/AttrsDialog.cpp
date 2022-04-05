@@ -252,10 +252,9 @@ void AttrsDialog::Init()
 
 void AttrsDialog::SaveAssignedAttrs()
 {
-	ByteArray ba;
-	
 	Media *media = app_->media();
 	ci4 magic_num = media->GetMagicNumber();
+	ByteArray ba;
 	ba.add_i4(magic_num);
 	actors_asp_->WriteTo(ba);
 	directors_asp_->WriteTo(ba);

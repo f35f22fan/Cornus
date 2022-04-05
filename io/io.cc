@@ -130,7 +130,8 @@ media::MediaPreview* CreateMediaPreview(ByteArray &ba)
 		else if (f == media::Field::Writers)
 			v32 = &p->writers;
 		
-		if (v32 != nullptr) {
+		if (v32 != nullptr)
+		{
 			const u2 count = ba.next_u2();
 			for (int i = 0; i < count; i++) {
 				v32->append(ba.next_i4());

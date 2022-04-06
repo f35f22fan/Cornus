@@ -23,7 +23,7 @@
 #include <QTime>
 #include <QTimer>
 
-//#define CORNUS_DEBUG_INOTIFY
+// #define CORNUS_DEBUG_INOTIFY
 
 namespace cornus::gui {
 
@@ -187,41 +187,6 @@ struct EventArgs {
 	const QProcessEnvironment &env;
 };
 
-struct EventChain {
-	std::list<EventArgs*> list;
-	CondMutex cm = {};
-	bool must_exit = false;
-};
-
-void ProcessEvents(EventArgs *a);
-void* InotifyTh(void *args)
-{
-	pthread_detach(pthread_self());
-	EventChain *ec = (EventChain*)args;
-	while (true)
-	{
-		EventArgs *a = nullptr;
-		{
-			auto g = ec->cm.guard();
-			while (ec->list.empty() && !ec->must_exit)
-			{
-				ec->cm.CondWait();
-			}
-			
-			if (ec->must_exit)
-				break;
-			
-			a = ec->list.front();
-			ec->list.pop_front();
-		}
-		if (a)
-			ProcessEvents(a);
-	}
-	
-	delete ec;
-	return nullptr;
-}
-
 void ProcessEvents(EventArgs *a)
 {
 #ifdef CORNUS_DEBUG_INOTIFY
@@ -248,7 +213,9 @@ mtl_info("<EVT BATCH>");
 			name = ev->name;
 			if (!a->include_hidden_files && name.startsWith('.'))
 				continue;
+#ifdef CORNUS_DEBUG_INOTIFY
 			mtl_info("%s", ev->name);
+#endif
 		}
 		
 		const auto mask = ev->mask;
@@ -302,7 +269,6 @@ mtl_info("IN_MOVED_TO new_name: %s, from_name: %s, cookie %d",
 				SendCreateEvent(model, a->files, new_name, a->dir_id);
 				return;
 			}
-			
 			int delete_file_index = -1, new_file_index = -1, old_file_index = -1;
 			io::File *cloned_file = nullptr;
 			{
@@ -313,6 +279,7 @@ mtl_info("IN_MOVED_TO new_name: %s, from_name: %s, cookie %d",
 				bool selected = false;
 				if (new_file != nullptr)
 				{
+mtl_trace();
 					selected = new_file->is_selected();
 					new_icon = new_file->cache().icon;
 					files_vec.remove(new_file_index);
@@ -330,6 +297,7 @@ mtl_info("IN_MOVED_TO new_name: %s, from_name: %s, cookie %d",
 				old_file->set_selected(selected);
 				if (new_icon != nullptr)
 				{
+mtl_trace();
 					old_file->cache().icon = new_icon;
 				}
 				
@@ -452,12 +420,9 @@ void* WatchDir(void *void_args)
 	
 	Renames renames = {};
 	CondMutex has_been_unmounted_or_deleted = {};
-//	using TimeSpec = struct __kernel_timespec;
-//	TimeSpec ts = {};
-	//uring::UserData *data;
-	
-	EventChain *ec = new EventChain();
-	io::NewThread(InotifyTh, ec);
+	/* using TimeSpec = struct __kernel_timespec;
+	TimeSpec ts = {};
+	uring::UserData *data; */
 	
 	cint epoll_fd = epoll_create(1);
 	if (epoll_fd == -1)
@@ -486,17 +451,17 @@ void* WatchDir(void *void_args)
 	{
 		//TimeSpec *ts_param;
 		//data = nullptr;
-		bool renames_empty;
+		bool ren_is_empty;
 		{
 			auto g = renames.m.guard();
-			renames_empty = renames.vec.isEmpty();
+			ren_is_empty = renames.vec.isEmpty();
 		}
 		
-		cint ms = renames_empty ? 50000 : 20;
+		cint ms = ren_is_empty ? 50000 : 20;
+#ifdef CORNUS_DEBUG_INOTIFY
+mtl_info("ms: %d", ms);
+#endif
 		cint num_fds = epoll_wait(epoll_fd, evt_vec.data(), evt_vec.size(), ms);
-		if (num_fds == 0)
-			continue; // timeout
-		
 		if (num_fds == -1)
 		{
 			mtl_status(errno);
@@ -509,8 +474,9 @@ void* WatchDir(void *void_args)
 			const auto &evt = evt_vec[i];
 			if ((evt.events & EPOLLIN) == 0)
 				continue;
-
+#ifdef CORNUS_DEBUG_INOTIFY
 			mtl_info("fd: %d", evt.data.fd);
+#endif
 			if (evt.data.fd == notify_fd)
 			{
 				cisize buf_len = 4096 * 4;
@@ -538,11 +504,7 @@ void* WatchDir(void *void_args)
 					.env = env
 				};
 				//std::memcpy(buf, data->iv.iov_base, num_read);
-				{
-					auto g = ec->cm.guard();
-					ec->list.push_back(a);
-					ec->cm.Broadcast();
-				}
+				ProcessEvents(a);
 			} else if (evt.data.fd == signal_quit_fd) {
 				//mtl_info("Quit fd!");
 				signalled_from_event_fd = true;
@@ -645,38 +607,30 @@ mtl_info("has_been_unmounted_or_deleted");
 		cint count_was = renames.vec.size();
 		renames.m.Unlock();
 		if (count_was > 0)
-		{
 			ReinterpretRenames(renames, args->table_model, &files, args->dir_id);
-			
-			renames.m.Lock();
-			cint count_is = renames.vec.size();
-			renames.m.Unlock();
-			
-			if (count_is != count_was)
-			{
-				files.Lock();
-				cbool call_event_func = !files.data.filenames_to_select.isEmpty()
-					&& !files.data.should_skip_selecting();
-				files.Unlock();
-				if (call_event_func)
-				{
-					/* This must be dispatched as "QueuedConnection" (low priority)
-					to allow the previous
-					inotify events to be processed first, otherwise file selection doesn't
-					get preserved because inotify events arrive at random pace. */
-					QMetaObject::invokeMethod(model, "SelectFilesAfterInotifyBatch", Qt::QueuedConnection);
-				}
-			}
+		
+#ifdef CORNUS_DEBUG_INOTIFY
+		renames.m.Lock();
+		cint count_is = renames.vec.size();
+		renames.m.Unlock();
+		mtl_trace("was: %d, is: %d", count_was, count_is);
+#endif
+
+		files.Lock();
+		cint fn_count = files.data.filenames_to_select.size();
+		cbool call_event_func = fn_count > 0 && !files.data.should_skip_selecting();
+		files.Unlock();
+		if (call_event_func)
+		{
+			/* This must be dispatched as "QueuedConnection" (low priority)
+			to allow the previous
+			inotify events to be processed first, otherwise file selection doesn't
+			get preserved because inotify events arrive at random pace. */
+			QMetaObject::invokeMethod(model, "SelectFilesAfterInotifyBatch", Qt::QueuedConnection);
 		}
 	}
 	
 	//io_uring_queue_exit(&ring);
-	{
-		auto g = ec->cm.guard();
-		ec->must_exit = true;
-		ec->cm.Signal();
-	}
-	
 	{
 		auto g = files.guard();
 		files.data.thread_exited(true);
@@ -778,7 +732,9 @@ void TableModel::SelectFilesAfterInotifyBatch()
 				io::File *file = files_vec[i];
 				if (file->name() == name)
 				{
+#ifdef CORNUS_DEBUG_INOTIFY
 mtl_printq2("Selecting name ", name);
+#endif
 					indices.insert(i);
 					file->set_selected(true);
 					it = select_list.erase(it);
@@ -1004,7 +960,6 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 		old_vec.clear();
 		tab_->table()->ClearMouseOver();
 		files.cached_files_count = 0;
-		files.data.filenames_to_select.clear();
 	}
 	endRemoveRows();
 	

@@ -182,8 +182,7 @@ void Files::SelectAllFiles(const cornus::Lock l, const Selected flag, QSet<int> 
 void Files::SelectFilenamesLater(const QVector<QString> &names, const SameDir sd)
 {
 	auto g = this->guard();
-	auto dir_to_skip = (sd == SameDir::Yes) ? -1 : data.dir_id;
-	data.skip_dir_id = dir_to_skip;
+	data.skip_dir_id = (sd == SameDir::Yes) ? -1 : data.dir_id;
 	for (const auto &name: names)
 	{
 		data.filenames_to_select.insert(name, 0);

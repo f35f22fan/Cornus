@@ -879,7 +879,6 @@ void Tab::GoToInitialDir()
 		cmds.go_to_path = QDir::homePath();
 	
 	FigureOutSelectPath(cmds.select, cmds.go_to_path);
-	
 	io::FileType file_type;
 	if (!io::FileExists(cmds.go_to_path, &file_type))
 	{
@@ -898,7 +897,7 @@ void Tab::GoToInitialDir()
 		{
 			if (name.startsWith('/'))
 				name = io::GetFileNameOfFullPath(name).toString();
-			view_files().SelectFilenamesLater({name});
+			view_files().SelectFilenamesLater({name}, SameDir::Yes);
 		}
 		
 		GoTo(Action::To, {cmds.go_to_path, Processed::No}, Reload::No);
@@ -914,7 +913,7 @@ void Tab::GoToInitialDir()
 		}
 		
 		QString name = io::GetFileNameOfFullPath(cmds.go_to_path).toString();
-		view_files().SelectFilenamesLater({name});
+		view_files().SelectFilenamesLater({name}, SameDir::Yes);
 		GoTo(Action::To, {parent_dir.absolutePath(), Processed::No}, Reload::No);
 		return;
 	}

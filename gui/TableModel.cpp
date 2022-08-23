@@ -12,9 +12,6 @@
 #include "Table.hpp"
 #include "TableHeader.hpp"
 
-// #include "../uring.hh"
-//#include <liburing.h>
-
 #include <sys/epoll.h>
 #include <cstring>
 #include <sys/ioctl.h>
@@ -181,8 +178,8 @@ struct EventArgs {
 	CondMutex &has_been_unmounted_or_deleted;
 	const bool include_hidden_files;
 	cornus::gui::TableModel *model;
-	const int dir_id;
-	const int wd;
+	cint dir_id;
+	cint wd;
 	Renames &renames;
 	const QProcessEnvironment &env;
 };
@@ -404,26 +401,13 @@ void* WatchDir(void *void_args)
 	}
 	
 	io::AutoRemoveWatch arw(notify, wd);
-	/* cint kQueueDepth = 2; // signal_fd and inotify_fd
-	struct io_uring ring;
-	io_uring_queue_init(kQueueDepth, &ring, 0);
-	QVector<uring::BufArg> buf_args = {
-		{signal_quit_fd, 8},
-		{notify_fd, 4096 * 10},
-	};
-	
-	MTL_CHECK_ARG(uring::SubmitBuffers(&ring, buf_args), nullptr); */
-	
+
 	files.Lock();
 	files.data.thread_exited(false);
 	files.Unlock();
 	
 	Renames renames = {};
 	CondMutex has_been_unmounted_or_deleted = {};
-	/* using TimeSpec = struct __kernel_timespec;
-	TimeSpec ts = {};
-	uring::UserData *data; */
-	
 	cint epoll_fd = epoll_create(1);
 	if (epoll_fd == -1)
 	{
@@ -449,8 +433,6 @@ void* WatchDir(void *void_args)
 	
 	while (true)
 	{
-		//TimeSpec *ts_param;
-		//data = nullptr;
 		bool ren_is_empty;
 		{
 			auto g = renames.m.guard();
@@ -467,6 +449,9 @@ mtl_info("ms: %d", ms);
 			mtl_status(errno);
 			break;
 		}
+		
+//		static int gg = 0;
+//		mtl_info("%d", gg++);
 		
 		bool signalled_from_event_fd = false;
 		for (int i = 0; i < num_fds; i++)
@@ -519,74 +504,6 @@ mtl_info("ms: %d", ms);
 		if (signalled_from_event_fd)
 			break;
 		
-		/*
-		struct io_uring_cqe *cqe = nullptr;
-//If ts is specified, the application need not call io_uring_submit()
-// before calling this function, as it will be done internally.
-// From this it also follows that this function isn’t safe to use for
-// applications that split SQ and CQ handling between two threads and
-// expect that to work without synchronization, as this function
-// manipulates both the SQ and CQ side.
-		cint ret = io_uring_wait_cqe_timeout(&ring, &cqe, ts_param);
-		bool time_expired = false;
-		if (ret < 0)
-		{
-			errno = -ret;
-			if (errno == ETIME)
-			{
-				time_expired = true;
-				mtl_info("Time Expired...");
-			} else {
-				mtl_errno();
-				break;
-			}
-		}
-mtl_info("time_expired: %d", time_expired);
-		if (!time_expired)
-		{
-			data = (uring::UserData*) io_uring_cqe_get_data(cqe);
-			cint num_read = cqe->res;
-			if (num_read < 0)
-			{
-				mtl_warn("Async readv failed: %s, fd: %d", strerror(-num_read), data->fd);
-				break;
-			}
-			
-			if (data->fd == signal_quit_fd)
-			{
-	mtl_info("Quit signal fd");
-				break;
-			} else if (data->fd == notify_fd) {
-	mtl_info("Inotify fd, before lock()");
-				files.Lock();
-	mtl_info("Inotify fd, after lock()");
-				const bool include_hidden_files = files.data.show_hidden_files();
-				files.Unlock();
-				EventArgs *a = new EventArgs {
-					.buf = new char[num_read],
-					.num_read = num_read,
-					.files = &files,
-					.has_been_unmounted_or_deleted = has_been_unmounted_or_deleted,
-					.include_hidden_files = include_hidden_files,
-					.model = model,
-					.dir_id = args->dir_id,
-					.wd = wd,
-					.renames = renames,
-					.env = env
-				};
-				std::memcpy(a->buf, data->iv.iov_base, num_read);
-				io_uring_cqe_seen(&ring, cqe);
-				{
-					auto g = ec->cm.guard();
-					ec->list.push_back(a);
-					ec->cm.Broadcast();
-				}
-			} else {
-				mtl_trace("No fd matched");
-				continue;
-			}
-		} */
-		
 		if (has_been_unmounted_or_deleted.GetFlag())
 		{
 mtl_info("has_been_unmounted_or_deleted");
@@ -630,7 +547,6 @@ mtl_info("has_been_unmounted_or_deleted");
 		}
 	}
 	
-	//io_uring_queue_exit(&ring);
 	{
 		auto g = files.guard();
 		files.data.thread_exited(true);
@@ -721,7 +637,7 @@ void TableModel::SelectFilesAfterInotifyBatch()
 		
 		QVector<io::File*> &files_vec = files.data.vec;
 		auto it = select_list.begin();
-		const int files_count = files_vec.size();
+		cint files_count = files_vec.size();
 		
 		while (it != select_list.end())
 		{
@@ -745,7 +661,7 @@ mtl_printq2("Selecting name ", name);
 			
 			if (!found)
 			{
-				const int new_count = it.value() + 1;
+				cint new_count = it.value() + 1;
 				if (new_count > 5) {
 mtl_printq2("Removed from list: ", name);
 					it = select_list.erase(it);
@@ -761,7 +677,7 @@ mtl_printq2("Increased counter for ", name);
 	if (!indices.isEmpty())
 	{
 		tab_->UpdateIndices(indices);
-		const int first_file_index = *indices.constBegin();
+		cint first_file_index = *indices.constBegin();
 		//mtl_info("scroll to: %d", index);
 		tab_->ScrollToFile(first_file_index);
 	}
@@ -799,7 +715,7 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 		{
 			files.Lock();
 			QVector<io::File*> &files_vec = files.data.vec;
-			const int count = files_vec.size();
+			cint count = files_vec.size();
 			for (int i = 0; i < count; i++)
 			{
 				io::File *next = files_vec[i];
@@ -885,12 +801,12 @@ bool TableModel::InsertRows(const i4 at, const QVector<cornus::io::File*> &files
 			return false;
 	}
 	
-	const int first = at;
-	const int last = at + files_to_add.size() - 1;
+	cint first = at;
+	cint last = at + files_to_add.size() - 1;
 	
 	beginInsertRows(QModelIndex(), first, last);
 	{
-		MutexGuard guard(&files.mutex);
+		auto g = files.guard();
 		for (i4 i = 0; i < files_to_add.size(); i++)
 		{
 			auto *song = files_to_add[i];
@@ -908,8 +824,8 @@ bool TableModel::removeRows(int row, int count, const QModelIndex &parent)
 	if (count <= 0)
 		return false;
 	
-	const int first = row;
-	const int last = row + count - 1;
+	cint first = row;
+	cint last = row + count - 1;
 	io::Files &files = tab_->view_files();
 	
 	beginRemoveRows(QModelIndex(), first, last);
@@ -1006,7 +922,7 @@ void TableModel::UpdateIndices(const QSet<int> &indices)
 	QSetIterator<int> it(indices);
 	while (it.hasNext())
 	{
-		const int next = it.next();
+		cint next = it.next();
 		if (initialize) {
 			initialize = false;
 			min = next;
@@ -1019,7 +935,7 @@ void TableModel::UpdateIndices(const QSet<int> &indices)
 		}
 	}
 	
-	const int count_per_page = tab_->table()->GetVisibleRowsCount();
+	cint count_per_page = tab_->table()->GetVisibleRowsCount();
 	
 	if (min == -1 || max == -1) {
 		UpdateVisibleArea();
@@ -1060,7 +976,7 @@ void TableModel::UpdateHeaderNameColumn()
 	if (app_->prefs().show_free_partition_space()) {
 		cached_free_space_ = app_->GetPartitionFreeSpace();
 	}
-	const int col = (int)Column::FileName;
+	cint col = (int)Column::FileName;
 	headerDataChanged(Qt::Horizontal, col, col);
 }
 

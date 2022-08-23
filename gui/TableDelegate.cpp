@@ -270,42 +270,40 @@ void TableDelegate::DrawMediaAttrs(io::File *file, QPainter *painter,
 	const QStyleOptionViewItem &option, const QRect &text_rect,
 	const int filename_w) const
 {
-mtl_printq(file->name());
 	media::MediaPreview *m = file->media_attrs_decoded();
-mtl_printq(file->name());
 	mtl_check_void(m != nullptr);
 	
-	QString s = QLatin1String(" ");
+	QString shadow_str = QLatin1String(" ");
 	cbool has_year = m->year_started > 0;
 	if (has_year)
 	{
-		s.append('(').append(QString::number(m->year_started));
+		shadow_str.append('(').append(QString::number(m->year_started));
 		
 		if (m->month_started > 0 || m->day_started > 0)
 		{
-			s.append('/');
+			shadow_str.append('/');
 			if (m->month_started > 0)
 			{
-				s.append(QString::number(m->month_started));
+				shadow_str.append(QString::number(m->month_started));
 			} else {
-				s.append('?');
+				shadow_str.append('?');
 			}
 			
-			s.append('/');
+			shadow_str.append('/');
 			if (m->day_started > 0)
 			{
-				s.append(QString::number(m->day_started));
+				shadow_str.append(QString::number(m->day_started));
 			} else {
-				s.append('?');
+				shadow_str.append('?');
 			}
 		}
 	}
 	
 	if (m->year_end > 0)
-		s.append('-').append(QString::number(m->year_end));
+		shadow_str.append('-').append(QString::number(m->year_end));
 	
 	if (has_year)
-		s.append(QLatin1String(") "));
+		shadow_str.append(')');
 	
 	bool rip_added = false;
 	if (!m->rips.isEmpty())
@@ -315,7 +313,7 @@ mtl_printq(file->name());
 		if (!rs.isEmpty())
 		{
 			rip_added = true;
-			s.append(rs);
+			shadow_str.append(' ').append(rs);
 		}
 	}
 	
@@ -326,29 +324,25 @@ mtl_printq(file->name());
 		if (!cs.isEmpty())
 		{
 			if (rip_added)
-				s.append('-');
-//			else if (!has_year)
-//				s.append(' ');
-			s.append(cs);
+				shadow_str.append('-');
+			shadow_str.append(cs);
 			
-			if (m->bit_depth > 0) {
-				s.append(' ');
-				s.append(QString::number(m->bit_depth))
+			if (m->bit_depth > 0)
+			{
+				shadow_str.append(' ').append(QString::number(m->bit_depth))
 				.append(QLatin1String("bit"));
 			}
-			
-			s.append(' ');
 		}
 	}
 	
 	if (m->video_w > 0 && m->video_h > 0) {
-		s.append(QString::number(m->video_w)).append('x')
-		.append(QString::number(m->video_h)).append(' ');
+		shadow_str.append(' ').append(QString::number(m->video_w)).append('x')
+		.append(QString::number(m->video_h));
 	}
 	
 	if (m->fps > 0.0) {
-		s.append(QString::number(m->fps, 'f', 2));
-		s.append(QLatin1String("fps "));
+		shadow_str.append(' ').append(QString::number(m->fps, 'f', 2));
+		shadow_str.append(QLatin1String("fps"));
 	}
 	
 	QPen saved_pen = painter->pen();
@@ -357,7 +351,7 @@ mtl_printq(file->name());
 	QBrush brush = option.palette.brush(QPalette::PlaceholderText);
 	QPen pen(brush.color());
 	painter->setPen(pen);
-	painter->drawText(img_dim_rect, text_alignment_, s);
+	painter->drawText(img_dim_rect, text_alignment_, shadow_str);
 	painter->setPen(saved_pen);
 }
 

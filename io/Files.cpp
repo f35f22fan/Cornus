@@ -25,7 +25,7 @@ FilesData::~FilesData()
 	vec.clear();
 }
 
-io::File* Files::GetFileAtIndex(const cornus::Lock l, const int index)
+io::File* Files::GetFileAtIndex(const cornus::Lock l, cint index)
 {
 	MutexGuard guard = this->guard(l);
 	auto &vec = data.vec;
@@ -189,7 +189,7 @@ void Files::SelectFilenamesLater(const QVector<QString> &names, const SameDir sd
 	}
 }
 
-void Files::SelectFileRange(const cornus::Lock l, const int row1, const int row2, QSet<int> &indices)
+void Files::SelectFileRange(const cornus::Lock l, cint row1, cint row2, QSet<int> &indices)
 {
 	auto guard = this->guard(l);
 	QVector<io::File*> &vec = data.vec;

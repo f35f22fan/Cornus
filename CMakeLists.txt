@@ -31,8 +31,6 @@ include(FindPkgConfig)
 find_package(PkgConfig REQUIRED)
 pkg_search_module(WEBP REQUIRED libwebp)
 pkg_search_module(MTP REQUIRED libmtp)
-# pkg_search_module(DCONF REQUIRED dconf)
-#pkg_search_module(URING REQUIRED liburing)
 pkg_search_module(UDISKS REQUIRED udisks2)
 pkg_search_module(UDEV REQUIRED libudev)
 pkg_search_module(POLKIT REQUIRED polkit-gobject-1)
@@ -67,7 +65,6 @@ set(cornus_src_files main.cpp
     thumbnail.cc thumbnail.hh
     TreeData.cpp TreeData.hpp
     ui.cc ui.hh
-    #uring.cc uring.hh
 
     gui/actions.hxx
     gui/AttrsDialog.cpp gui/AttrsDialog.hpp
@@ -121,10 +118,10 @@ endforeach()
 set (cornus_exe "cornus")
 add_executable(${cornus_exe} ${cornus_src_files} resources/resources.qrc)
 target_include_directories(${cornus_exe} PRIVATE ${MTP_INCLUDE_DIRS}
-    ${UDISKS_INCLUDE_DIRS} ${UDEV_INCLUDE_DIRS} #${URING_INCLUDE_DIRS}
+    ${UDISKS_INCLUDE_DIRS} ${UDEV_INCLUDE_DIRS}
     ${POLKIT_INCLUDE_DIRS} ${POLKIT_AGENT_INCLUDE_DIRS} ${WEBP_INCLUDE_DIRS})
 target_link_libraries(${cornus_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
-    ${MTP_LDFLAGS} ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS} # ${URING_LDFLAGS}
+    ${MTP_LDFLAGS} ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS} webm
     ${POLKIT_LDFLAGS} ${POLKIT_AGENT_LDFLAGS} ${WEBP_LDFLAGS} pthread zstd)
 
 if (BUILD_CORNUS_IO)

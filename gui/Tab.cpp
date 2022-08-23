@@ -1277,8 +1277,6 @@ void Tab::ProcessAction(const QString &action)
 			if (info.is_elf() || info.is_shell_script())
 				app->RunExecutable(full_path, info);
 		}
-	} else if (action == actions::ToggleExecBit) {
-		app->ToggleExecBitOfSelectedFiles();
 	} else if (action == actions::EditMovieTitle) {
 		app->EditSelectedMovieTitle();
 	}
@@ -1635,8 +1633,9 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 		}
 		{
 			QAction *action = menu->addAction(tr("Toggle Exec Bit"));
-			action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_E));
-			connect(action, &QAction::triggered, [=] {ProcessAction(actions::ToggleExecBit);});
+			connect(action, &QAction::triggered, [=] {
+				app_->ToggleExecBitOfSelectedFiles();
+			});
 			action->setIcon(QIcon::fromTheme(QLatin1String("edit-undo")));
 		}
 		menu->addSeparator();

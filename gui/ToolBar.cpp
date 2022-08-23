@@ -168,7 +168,7 @@ void ToolBar::ShowShortcuts()
 	s += QLatin1String("<br/><b>Ctrl + I</b> => ") + tr("Focus table");
 	s += QLatin1String("<br/><b>Ctrl + L</b> => ") + tr("Focus address bar");
 	s += QLatin1String("<br/><b>Ctrl + A</b> => ") + tr("Select all files");
-	s += QLatin1String("<br/><b>Ctrl + E</b> => ") + tr("Toggle exec bit of selected file(s)");
+	s += QLatin1String("<br/><b>E</b> => ") + tr("Toggle exec bit of selected file(s)");
 	s += QLatin1String("<br/><b>D</b> => ") + tr("Display contents of selected file");
 	s += QLatin1String("<br/><b>F</b> => ") + tr("Switch view");
 	s += QLatin1String("<br/><b>Ctrl + F</b> => ") + tr("Search for file by name (then hit Enter to search forward or Ctrl+Enter for backwards)");

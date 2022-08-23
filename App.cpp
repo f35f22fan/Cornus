@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <webm/reader.h>
+
 #include "App.hpp"
 #include "AutoDelete.hh"
 #include "DesktopFile.hpp"
@@ -97,7 +99,7 @@ void* ThumbnailLoader (void *args)
 	{
 		if (th_data->new_work == nullptr)
 		{
-			const int status = th_data->CondWaitForNewWork();
+			cint status = th_data->CondWaitForNewWork();
 			if (status != 0)
 			{
 				mtl_status(status);
@@ -396,16 +398,6 @@ void App::ArchiveTo(const QString &dir_path, const QString &ext)
 	if (urls.isEmpty())
 		return;
 	
-	QString files_dir = tab()->current_dir();
-	if (!files_dir.endsWith('/'))
-		files_dir.append('/');
-	
-	for (int i = 0; i < urls.size(); i++)
-	{
-		QString s = QUrl(files_dir + urls[i]).toString();
-		urls[i] = s;
-	}
-	
 	QProcess process;
 	process.setWorkingDirectory(dir_path);
 	process.setProgram(QLatin1String("ark"));
@@ -561,7 +553,7 @@ void App::CloseCurrentTab()
 	CloseTabAt(tab_widget_->currentIndex());
 }
 
-void App::CloseTabAt(const int i)
+void App::CloseTabAt(cint i)
 {
 	if (tab_widget_->count() == 1)
 	{
@@ -739,7 +731,7 @@ void App::DetectThemeType()
 //		? "true" : "false");
 }
 
-void App::DisplayFileContents(const int row, io::File *cloned_file)
+void App::DisplayFileContents(cint row, io::File *cloned_file)
 {
 	if (cloned_file == nullptr)
 	{
@@ -1063,15 +1055,15 @@ QColor App::hover_bg_color_gray(const QColor &c) const
 		return QColor(90, 90, 90);
 	
 	const QColor lght = c.lighter(180);
-	const int avg = (lght.red() + lght.green() + lght.blue()) / 3;
+	cint avg = (lght.red() + lght.green() + lght.blue()) / 3;
 	
 	return (avg >= 240) ? c.lighter(140) : lght;
 }
 
-Range get_policy_range(const int policy)
+Range get_policy_range(cint policy)
 {
-	const int min = sched_get_priority_min(policy);
-	const int max = sched_get_priority_max(policy);
+	cint min = sched_get_priority_min(policy);
+	cint max = sched_get_priority_max(policy);
 	if (min == -1 || max == -1) {
 		mtl_status(errno);
 		return Range::Invalid();
@@ -1082,8 +1074,8 @@ Range get_policy_range(const int policy)
 	return Range{.min = min, .max = max};
 }
 
-void SetThreadPolicyAndPriority(const pthread_t &th, const int policy,
-	const int priority)
+void SetThreadPolicyAndPriority(const pthread_t &th, cint policy,
+	cint priority)
 {
 	pthread_attr_t th_attr;
 	sched_param th_param = {};
@@ -1229,7 +1221,7 @@ void App::InitThumbnailPoolIfNeeded()
 	}
 	
 	// leave a thread for other background tasks
-	const int max_thread_count = std::max(1, AvailableCpuCores()/* - 1*/);
+	cint max_thread_count = std::max(1, AvailableCpuCores()/* - 1*/);
 	for (int i = 0; i < max_thread_count; i++)
 	{
 		ThumbLoaderData *thread_data = new ThumbLoaderData();
@@ -1479,7 +1471,7 @@ int App::ReadMTP()
 	
 	LIBMTP_Init();
 	mtl_info("Attempting to connect device(s)");
-	const int status = LIBMTP_Detect_Raw_Devices(&rawdevices, &numrawdevices);
+	cint status = LIBMTP_Detect_Raw_Devices(&rawdevices, &numrawdevices);
 	mtl_info("Count: %d", numrawdevices);
 	
 	switch (status)
@@ -1694,7 +1686,7 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
-		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_E));
+		sp = Register(QKeySequence(Qt::Key_E));
 		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
@@ -1727,7 +1719,7 @@ void App::Reload()
 	gui::Tab *tab = this->tab();
 	QVector<QString> filenames;
 	tab->view_files().GetSelectedFileNames(Lock::Yes, filenames, Path::OnlyName);
-	const int vscroll = tab->GetScrollValue();
+	cint vscroll = tab->GetScrollValue();
 	tab->view_files().SelectFilenamesLater(filenames, SameDir::No);
 	tab->GoTo(Action::Reload, {tab->current_dir(), Processed::Yes}, Reload::Yes);
 	tab->SetScrollValue(vscroll);
@@ -1737,7 +1729,7 @@ void App::RemoveAllThumbTasksExcept(const DirId dir_id)
 {
 	auto global_guard = global_thumb_loader_data_.guard();
 	auto &work_queue = global_thumb_loader_data_.work_queue;
-	const int count = work_queue.size();
+	cint count = work_queue.size();
 	int removed_count = 0;
 	for (int i = count - 1; i >= 0; i--)
 	{
@@ -1861,9 +1853,19 @@ void App::RenameSelectedFile()
 		ba->add_string(old_path);
 		ba->add_string(new_path);
 		io::socket::SendAsync(ba, socket_path);
-	} else if (::rename(old_path.data(), new_path.data()) != 0) {
-		QString err = QString("Failed: ") + strerror(errno);
-		QMessageBox::warning(this, "Failed", err);
+	} else {
+		if (io::FileExists(new_path)) // don't overwrite existing file
+		{
+			QMessageBox::warning(this, "Cancelled", "File already exists");
+			return;
+		}
+		
+		if (::rename(old_path.data(), new_path.data()) != 0)
+		{
+			QString err = QString("Failed: ") + strerror(errno);
+			QMessageBox::warning(this, "Failed", err);
+			return;
+		}
 	}
 	
 	tab->view_files().SelectFilenamesLater({value}, SameDir::Yes);
@@ -1932,9 +1934,9 @@ void App::SelectCurrentTab()
 	TabSelected(tab_widget_->currentIndex());
 }
 
-void App::SelectTabAt(const int tab_index, const FocusView fv)
+void App::SelectTabAt(cint tab_index, const FocusView fv)
 {
-	const int count = tab_widget_->count();
+	cint count = tab_widget_->count();
 	if (count == 0 || tab_index < 0 || tab_index >= count)
 		return;
 	
@@ -2125,7 +2127,7 @@ void App::SubmitThumbLoaderBatchFromTab(QVector<ThumbLoaderArgs*> *new_work_vec,
 		auto g = global_thumb_loader_data_.guard();
 		InitThumbnailPoolIfNeeded();
 		auto &work_queue = global_thumb_loader_data_.work_queue;
-		const int count = work_queue.size();
+		cint count = work_queue.size();
 		for (int i = count - 1; i >= 0; i--)
 		{
 			ThumbLoaderArgs *arg = work_queue[i];
@@ -2178,7 +2180,7 @@ gui::Tab* App::tab() const
 
 gui::Tab* App::tab(const TabId id, int *ret_index)
 {
-	const int count = tab_widget_->count();
+	cint count = tab_widget_->count();
 	for (int i = 0; i < count; i++)
 	{
 		auto *next = (gui::Tab*) tab_widget_->widget(i);
@@ -2193,12 +2195,12 @@ gui::Tab* App::tab(const TabId id, int *ret_index)
 	return nullptr;
 }
 
-gui::Tab* App::tab_at(const int tab_index) const
+gui::Tab* App::tab_at(cint tab_index) const
 {
 	return (gui::Tab*) tab_widget_->widget(tab_index);
 }
 
-void App::TabSelected(const int index)
+void App::TabSelected(cint index)
 {
 	if (location_ == nullptr || index == -1)
 	{
@@ -2289,8 +2291,8 @@ void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 			return;
 		}
 		
-		const int start = 2;
-		const int count = new_line - start;
+		cint start = 2;
+		cint count = new_line - start;
 		if (count > 0) {
 			QStringRef starter = s.midRef(start, new_line - start);
 			
@@ -2432,10 +2434,10 @@ HashInfo App::WaitForRootDaemon(const CanOverwrite co)
 		process->start();
 	}
 
-	/*const int result = process->exitCode();
+	/*cint result = process->exitCode();
 mtl_trace("%ld, result: %d", time(NULL), result);
-const int DismissedAuthorization = 126;
-	const int AuthorizationDeclined = 127;
+cint DismissedAuthorization = 126;
+	cint AuthorizationDeclined = 127;
 	if (result == DismissedAuthorization || result == AuthorizationDeclined)
 	{
 //		pkexec: Upon successful completion, the return value is the

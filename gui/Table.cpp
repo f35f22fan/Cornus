@@ -383,11 +383,7 @@ void Table::mousePressEvent(QMouseEvent *evt)
 		}
 	}
 	
-	if (left_click) {
-		drag_start_pos_ = evt->pos();
-	} else {
-		drag_start_pos_ = {-1, -1};
-	}
+	drag_start_pos_ = left_click ? evt->pos() : QPoint(-1, -1);
 	
 	if (right_click) {
 		tab_->HandleMouseRightClickSelection(evt->pos(), indices);

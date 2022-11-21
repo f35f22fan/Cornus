@@ -14,12 +14,12 @@
 namespace cornus::io {
 
 class FilesData {
-	static const u2 ShowHiddenFiles =     1u << 0;
-	static const u2 ThreadMustExit =      1u << 1;
-	static const u2 ThreadExited =        1u << 2;
-	static const u2 CanWriteToDir =       1u << 3;
-	static const u2 CountDirFiles1Level = 1u << 4;
-	static const u2 Reloaded =            1u << 5;
+	static const u16 ShowHiddenFiles =     1u << 0;
+	static const u16 ThreadMustExit =      1u << 1;
+	static const u16 ThreadExited =        1u << 2;
+	static const u16 CanWriteToDir =       1u << 3;
+	static const u16 CountDirFiles1Level = 1u << 4;
+	static const u16 Reloaded =            1u << 5;
 	
 public:
 	FilesData();
@@ -31,14 +31,14 @@ public:
 	/* When needing to select a file sometimes the file isn't yet in
 	  the table_model's list because the inotify event didn't tell
 	  it yet that a new file is available.
-	 i16 holds the count how many times a given filename wasn't found
+	 i86 holds the count how many times a given filename wasn't found
 	 in the current list of files. When it happens a certain amount of
 	 times the filename should be deleted from the hash - which is a
 	 way to not allow the hash to grow uncontrollably by keeping
 	 garbage.
 	*/
 	DirId skip_dir_id = -1; // to not start selection prematurely
-	QHash<QString, i2> filenames_to_select;// <filename, counter>
+	QHash<QString, i16> filenames_to_select;// <filename, counter>
 	bool should_skip_selecting() const { return dir_id == skip_dir_id; }
 	
 	QString processed_dir_path;
@@ -47,7 +47,7 @@ public:
 	SortingOrder sorting_order;
 	DirId dir_id = 0;/// for inotify/epoll
 	int signal_quit_fd = -1;
-	u2 bits_ = 0;
+	u16 bits_ = 0;
 	cornus::Action action = Action::None;
 	
 	bool can_write_to_dir() const { return bits_ & CanWriteToDir; }

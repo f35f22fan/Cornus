@@ -10,14 +10,14 @@
 
 namespace cornus {
 
-const i2 DesktopFileABI = 1;
+const i16 DesktopFileABI = 1;
 
 struct DesktopArgs {
 	QString working_dir;
 	QString full_path;
 };
 
-enum class MimeInfo: u1 {
+enum class MimeInfo: u8 {
 	None,
 	Audio,
 	Video,
@@ -25,7 +25,7 @@ enum class MimeInfo: u1 {
 	Text,
 };
 
-enum class Priority: i1 {
+enum class Priority: i8 {
 	Ignore = -1,
 	Highest = 4,
 	High = 3,
@@ -92,7 +92,7 @@ private:
 
 class DesktopFile {
 public:
-	enum class Type: i1 {
+	enum class Type: i8 {
 		None = 0,
 		DesktopFile,
 		JustExePath,

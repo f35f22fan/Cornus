@@ -40,7 +40,7 @@ void ByteArray::Clear() {
 
 ByteArray* ByteArray::CloneFromHere()
 {
-	const i8 left = size_ - at_;
+	const i64 left = size_ - at_;
 	if (left <= 0)
 		return nullptr;
 	
@@ -56,7 +56,7 @@ void ByteArray::add(const ByteArray *ba, const From from)
 		return; // checking is a must
 	
 	char *buf;
-	i8 buf_len;
+	i64 buf_len;
 	if (from == From::CurrentPosition)
 	{
 		buf = ba->data() + ba->at();
@@ -77,30 +77,6 @@ void ByteArray::add(const char *p, const isize size, const ExactSize es)
 	size_ += size;
 }
 
-void ByteArray::add_i1(const i1 n) {
-	add(reinterpret_cast<const char*>(&n), sizeof n);
-}
-
-void ByteArray::add_u1(const u1 n) {
-	add(reinterpret_cast<const char*>(&n), sizeof n);
-}
-
-void ByteArray::add_i2(const i2 n) {
-	add(reinterpret_cast<const char*>(&n), sizeof n);
-}
-
-void ByteArray::add_u2(const u2 n) {
-	add(reinterpret_cast<const char*>(&n), sizeof n);
-}
-
-void ByteArray::add_i4(const i4 n) {
-	add(reinterpret_cast<const char*>(&n), sizeof n);
-}
-
-void ByteArray::add_u4(const u4 n) {
-	add(reinterpret_cast<const char*>(&n), sizeof n);
-}
-
 void ByteArray::add_i8(const i8 n) {
 	add(reinterpret_cast<const char*>(&n), sizeof n);
 }
@@ -109,12 +85,36 @@ void ByteArray::add_u8(const u8 n) {
 	add(reinterpret_cast<const char*>(&n), sizeof n);
 }
 
-void ByteArray::add_f4(const float n)
+void ByteArray::add_i16(const i16 n) {
+	add(reinterpret_cast<const char*>(&n), sizeof n);
+}
+
+void ByteArray::add_u16(const u16 n) {
+	add(reinterpret_cast<const char*>(&n), sizeof n);
+}
+
+void ByteArray::add_i32(const i32 n) {
+	add(reinterpret_cast<const char*>(&n), sizeof n);
+}
+
+void ByteArray::add_u32(const u32 n) {
+	add(reinterpret_cast<const char*>(&n), sizeof n);
+}
+
+void ByteArray::add_i64(const i64 n) {
+	add(reinterpret_cast<const char*>(&n), sizeof n);
+}
+
+void ByteArray::add_u64(const u64 n) {
+	add(reinterpret_cast<const char*>(&n), sizeof n);
+}
+
+void ByteArray::add_f32(const float n)
 {
 	add(reinterpret_cast<const char*>(&n), sizeof n);
 }
 
-void ByteArray::add_f8(const double n)
+void ByteArray::add_f64(const double n)
 {
 	add(reinterpret_cast<const char*>(&n), sizeof n);
 }
@@ -122,7 +122,7 @@ void ByteArray::add_f8(const double n)
 void ByteArray::add_string(const QString &s)
 {
 	auto ba = s.toLocal8Bit();
-	ci4 size = ba.size();
+	ci32 size = ba.size();
 	add(reinterpret_cast<const char*>(&size), sizeof size);
 	add(ba.data(), size);
 }
@@ -161,43 +161,7 @@ void ByteArray::next(char *p, const isize sz) {
 	at_ += sz;
 }
 
-i1 ByteArray::next_i1() {
-	i1 n;
-	next(reinterpret_cast<char*>(&n), sizeof n);
-	return n;
-}
-
-u1 ByteArray::next_u1() {
-	u1 n;
-	next(reinterpret_cast<char*>(&n), sizeof n);
-	return n;
-}
-
-i2 ByteArray::next_i2() {
-	i2 n;
-	next(reinterpret_cast<char*>(&n), sizeof n);
-	return n;
-}
-
-u2 ByteArray::next_u2() {
-	u2 n;
-	next(reinterpret_cast<char*>(&n), sizeof n);
-	return n;
-}
-
-i4 ByteArray::next_i4() {
-	i4 n;
-	next(reinterpret_cast<char*>(&n), sizeof n);
-	return n;
-}
-
-u4 ByteArray::next_u4() {
-	u4 n;
-	next(reinterpret_cast<char*>(&n), sizeof n);
-	return n;
-}
-
-i8 ByteArray::next_i8() { 
+i8 ByteArray::next_i8() {
 	i8 n;
 	next(reinterpret_cast<char*>(&n), sizeof n);
 	return n;
@@ -209,14 +173,50 @@ u8 ByteArray::next_u8() {
 	return n;
 }
 
-f4 ByteArray::next_f4()
+i16 ByteArray::next_i16() {
+	i16 n;
+	next(reinterpret_cast<char*>(&n), sizeof n);
+	return n;
+}
+
+u16 ByteArray::next_u16() {
+	u16 n;
+	next(reinterpret_cast<char*>(&n), sizeof n);
+	return n;
+}
+
+i32 ByteArray::next_i32() {
+	i32 n;
+	next(reinterpret_cast<char*>(&n), sizeof n);
+	return n;
+}
+
+u32 ByteArray::next_u32() {
+	u32 n;
+	next(reinterpret_cast<char*>(&n), sizeof n);
+	return n;
+}
+
+i64 ByteArray::next_i64() { 
+	i64 n;
+	next(reinterpret_cast<char*>(&n), sizeof n);
+	return n;
+}
+
+u64 ByteArray::next_u64() {
+	u64 n;
+	next(reinterpret_cast<char*>(&n), sizeof n);
+	return n;
+}
+
+f32 ByteArray::next_f32()
 {
 	float n;
 	next(reinterpret_cast<char*>(&n), sizeof n);
 	return n;
 }
 
-f8 ByteArray::next_f8()
+f64 ByteArray::next_f64()
 {
 	double n;
 	next(reinterpret_cast<char*>(&n), sizeof n);
@@ -225,7 +225,7 @@ f8 ByteArray::next_f8()
 
 QString ByteArray::next_string()
 {
-	ci4 size = next_i4();
+	ci32 size = next_i32();
 	auto s = QString::fromLocal8Bit(data_ + at_, size);
 	at_ += size;
 	return s;

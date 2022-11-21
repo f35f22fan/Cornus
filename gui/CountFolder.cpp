@@ -182,7 +182,7 @@ void CountFolder::UpdateInfo(cornus::io::CountRecursiveInfo *info,
 		file_count_label_->setText(s);
 	}
 	{
-		ci8 n = info->size;
+		ci64 n = info->size;
 		QString s = io::SizeToString(n);
 		if (n > 1023) {
 			s += QLatin1String(" (") +

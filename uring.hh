@@ -17,7 +17,7 @@ namespace cornus::uring {
 
 struct BufArg {
 	int fd;
-	i4 buf_size;
+	i32 buf_size;
 };
 
 struct UserData {

@@ -76,24 +76,24 @@ bool Prefs::Load()
 	MTL_CHECK(io::ReadFile(full_path, buf, read_params));
 	MTL_CHECK(!buf.is_empty());
 	
-	u2 version = buf.next_u2();
+	u16 version = buf.next_u16();
 	MTL_CHECK(version == prefs::PrefsFormatVersion);
-	table_size_.pixels = buf.next_i2();
-	table_size_.points = buf.next_i2();
-	const i1 col_start = buf.next_i1();
-	const i1 col_end = buf.next_i1();
+	table_size_.pixels = buf.next_i16();
+	table_size_.points = buf.next_i16();
+	const i8 col_start = buf.next_i8();
+	const i8 col_end = buf.next_i8();
 	
-	for (i1 i = col_start; i < col_end; i++) {
-		cols_visibility_[i] = buf.next_i1() == 1 ? true : false;
+	for (i8 i = col_start; i < col_end; i++) {
+		cols_visibility_[i] = buf.next_i8() == 1 ? true : false;
 	}
 	
-	bool_ = buf.next_u8();
-	side_pane_width_ = buf.next_i4();
-	editor_tab_size_ = buf.next_i1();
-	splitter_sizes_.append(buf.next_i4());
-	splitter_sizes_.append(buf.next_i4());
-	win_w_ = buf.next_i4();
-	win_h_ = buf.next_i4();
+	bool_ = buf.next_u64();
+	side_pane_width_ = buf.next_i32();
+	editor_tab_size_ = buf.next_i8();
+	splitter_sizes_.append(buf.next_i32());
+	splitter_sizes_.append(buf.next_i32());
+	win_w_ = buf.next_i32();
+	win_h_ = buf.next_i32();
 	
 	// ABI: this line must be the last one to save unknown data to @left_bytes
 	// to avoid casual abi version bumps which would entail losing prefs.
@@ -112,31 +112,31 @@ void Prefs::Save() const
 	io::SaveFile save_file(parent_dir, filename);
 	
 	ByteArray buf;
-	buf.add_u2(prefs::PrefsFormatVersion);
-	buf.add_i2(table_size_.pixels);
-	buf.add_i2(table_size_.points);
+	buf.add_u16(prefs::PrefsFormatVersion);
+	buf.add_i16(table_size_.pixels);
+	buf.add_i16(table_size_.points);
 	auto *hh = app_->tab()->table()->horizontalHeader();
-	const i1 col_start = (int)gui::Column::FileName + 1;
-	const i1 col_end = int(gui::Column::Count);
-	buf.add_i1(col_start);
-	buf.add_i1(col_end);
+	const i8 col_start = (int)gui::Column::FileName + 1;
+	const i8 col_end = int(gui::Column::Count);
+	buf.add_i8(col_start);
+	buf.add_i8(col_end);
 	
-	for (i1 i = col_start; i < col_end; i++)
+	for (i8 i = col_start; i < col_end; i++)
 	{
-		i1 b = hh->isSectionHidden(i) ? 0 : 1;
-		buf.add_i1(b);
+		i8 b = hh->isSectionHidden(i) ? 0 : 1;
+		buf.add_i8(b);
 	}
 	
-	buf.add_u8(bool_);
-	buf.add_i4(side_pane_width_);
-	buf.add_i1(editor_tab_size_);
+	buf.add_u64(bool_);
+	buf.add_i32(side_pane_width_);
+	buf.add_i8(editor_tab_size_);
 	
 	QList<int> sizes = app_->main_splitter()->sizes();
-	buf.add_i4(sizes[0]);
-	buf.add_i4(sizes[1]);
+	buf.add_i32(sizes[0]);
+	buf.add_i32(sizes[1]);
 	const auto sz = app_->size();
-	buf.add_i4(sz.width());
-	buf.add_i4(sz.height());
+	buf.add_i32(sz.width());
+	buf.add_i32(sz.height());
 	
 	// ABI: this line must be the last one to add data to @buf
 	buf.add(left_bytes_, From::Start);
@@ -150,7 +150,7 @@ void Prefs::Save() const
 
 void Prefs::UpdateTableSizes()
 {
-	i4 str_h = (table_size_.pixels > 0) ? table_size_.pixels : table_size_.points;
+	i32 str_h = (table_size_.pixels > 0) ? table_size_.pixels : table_size_.points;
 	gui::Table *table = app_->tab()->table();
 	
 	if (table_size_.ratio < 0) {
@@ -160,7 +160,7 @@ void Prefs::UpdateTableSizes()
 		table_size_.ratio = float(rh) / float(orig_sz);
 	}
 	
-	i4 max = str_h * table_size_.ratio;
+	i32 max = str_h * table_size_.ratio;
 	ApplyTableHeight(table, max);
 	ApplyTreeViewHeight();
 }

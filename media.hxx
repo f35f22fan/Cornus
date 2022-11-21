@@ -13,9 +13,9 @@ namespace cornus {
  Hence only a QMap can have the (implied) ID not change.
  Note: QMap items may never be removed, only their names changed.
 */
-using HashI2S = QMap<i2, QString>;
-using HashI2V = QMap<i2, QVector<QString>>;
-using HashI4V = QMap<i4, QVector<QString>>;
+using HashI2S = QMap<i16, QString>;
+using HashI2V = QMap<i16, QVector<QString>>;
+using HashI4V = QMap<i32, QVector<QString>>;
 
 namespace media {
 static const QString XAttrName = QStringLiteral("user.CornusMas.m");
@@ -33,43 +33,43 @@ struct Data {
 	
 	HashI2S rips;
 	HashI2S video_codecs;
-	i4 magic_number = -1;
+	i32 magic_number = -1;
 };
 
 struct MediaPreview {
-	QVector<i4> actors;
-	QVector<i4> directors;
-	QVector<i4> writers;
+	QVector<i32> actors;
+	QVector<i32> directors;
+	QVector<i32> writers;
 	
-	QVector<i2> genres;
-	QVector<i2> subgenres;
-	QVector<i2> countries;
+	QVector<i16> genres;
+	QVector<i16> subgenres;
+	QVector<i16> countries;
 	
-	QVector<i2> rips;
-	QVector<i2> video_codecs;
-	i4 video_w = -1;
-	i4 video_h = -1;
-	i4 magic_number = -1;
-	f4 fps = -1;
-	i2 year_started = -1;
-	i2 year_end = -1;
-	i2 bit_depth = -1;
+	QVector<i16> rips;
+	QVector<i16> video_codecs;
+	i32 video_w = -1;
+	i32 video_h = -1;
+	i32 magic_number = -1;
+	f32 fps = -1;
+	i16 year_started = -1;
+	i16 year_end = -1;
+	i16 bit_depth = -1;
 	
-	i1 month_started = -1;
-	i1 day_started = -1;
+	i8 month_started = -1;
+	i8 day_started = -1;
 };
 
-enum class Check: i1 {
+enum class Check: i8 {
 	Exists,
 	None,
 };
 
-enum class Action: i1 {
+enum class Action: i8 {
 	Insert,
 	Append
 };
 
-enum class Rip: i2 {
+enum class Rip: i16 {
 	None = 0,
 	CAMRip,
 	TS,
@@ -104,7 +104,7 @@ enum class Rip: i2 {
 	UHD_BDRemux,
 };
 
-enum class VideoCodec: i2 {
+enum class VideoCodec: i16 {
 	AV1,
 	VP8,
 	VP9,
@@ -117,7 +117,7 @@ enum class VideoCodec: i2 {
 	Other,
 };
 
-enum class Field: u1 {
+enum class Field: u8 {
 	None = 0,
 	Actors,
 	Writers,

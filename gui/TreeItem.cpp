@@ -6,7 +6,7 @@
 #include "../ByteArray.hpp"
 #include "sidepane.hh"
 
-ci8 kBlockSize = 512;
+ci64 kBlockSize = 512;
 
 namespace cornus::gui {
 
@@ -18,7 +18,7 @@ PartitionInfo* PartitionInfo::FromDevice(struct udev_device *dev)
 		"ID_PART_ENTRY_SIZE");
 	
 	bool ok;
-	i8 size = sz_str.toLongLong(&ok);
+	i64 size = sz_str.toLongLong(&ok);
 	if (ok)
 		info->size = size * kBlockSize;
 	info->fs = udev_device_get_property_value(dev, "ID_FS_TYPE");

@@ -17,7 +17,7 @@ QT_END_NAMESPACE
 
 namespace cornus::gui {
 
-enum class Direction: i1 {
+enum class Direction: i8 {
 	Up,
 	Down
 };

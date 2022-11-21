@@ -107,7 +107,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 			painter->drawText(drect, text_alignment_, desktop_fn);
 		}
 	} else if (file->thumbnail() != nullptr || file->has_thumbnail_attr()) {
-		i4 w = -1, h = -1;
+		i32 w = -1, h = -1;
 		Thumbnail *thmb = file->thumbnail();
 		if (thmb != nullptr) {
 			w = thmb->original_image_w;
@@ -308,7 +308,7 @@ void TableDelegate::DrawMediaAttrs(io::File *file, QPainter *painter,
 	bool rip_added = false;
 	if (!m->rips.isEmpty())
 	{
-		ci2 rip = m->rips[0];
+		ci16 rip = m->rips[0];
 		QString rs = media_->data_.rips[rip];
 		if (!rs.isEmpty())
 		{
@@ -319,7 +319,7 @@ void TableDelegate::DrawMediaAttrs(io::File *file, QPainter *painter,
 	
 	if (!m->video_codecs.isEmpty())
 	{
-		ci2 rip = m->video_codecs[0];
+		ci16 rip = m->video_codecs[0];
 		QString cs = media_->data_.video_codecs[rip];
 		if (!cs.isEmpty())
 		{

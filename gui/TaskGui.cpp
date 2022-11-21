@@ -523,8 +523,8 @@ void TaskGui::UpdateSpeedLabel()
 		return;
 	}
 	
-	cf8 seconds = double(progress_.time_worked) / 1000;
-	ci8 n = double(progress_.at) / seconds;
+	cf64 seconds = double(progress_.time_worked) / 1000;
+	ci64 n = double(progress_.at) / seconds;
 	QString s = io::SizeToString(n) + QLatin1String("/s");
 	speed_->setText(s);
 }

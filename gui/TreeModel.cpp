@@ -327,7 +327,7 @@ TreeModel::index(int row, int column, const QModelIndex &parent_index) const
 	return QModelIndex();
 }
 
-bool TreeModel::InsertBookmarkAt(const i4 at, TreeItem *item)
+bool TreeModel::InsertBookmarkAt(const i32 at, TreeItem *item)
 {
 	TreeData &data = app_->tree_data();
 	TreeItem *bookmarks_root = data.GetBookmarksRoot();
@@ -434,9 +434,9 @@ bool TreeModel::InsertPartition(TreeItem *item)
 
 void TreeModel::InsertPartitions(const QVector<cornus::gui::TreeItem*> &partitions)
 {
-	const i4 count = partitions.size();
+	const i32 count = partitions.size();
 	
-	for (i4 i = 0; i < count; i++) {
+	for (i32 i = 0; i < count; i++) {
 		TreeItem *next = partitions[i];
 		InsertPartition(next);
 	}

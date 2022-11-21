@@ -20,7 +20,7 @@
 #include <QTime>
 #include <QTimer>
 
-// #define CORNUS_DEBUG_INOTIFY
+//#define CORNUS_DEBUG_INOTIFY
 
 namespace cornus::gui {
 
@@ -29,8 +29,8 @@ const auto ConnectionType = Qt::BlockingQueuedConnection;
 struct RenameData {
 // helper struct to deal with inotify's shitty rename support.
 	QString name;
-	u4 cookie = 0;
-	i1 checked_times = 0;
+	u32 cookie = 0;
+	i8 checked_times = 0;
 };
 
 struct Renames {
@@ -73,7 +73,7 @@ int FindPlace(io::File *new_file, QVector<io::File*> &files_vec)
 	return 0;
 }
 
-QString TakeTheOtherNameByCookie(Renames &ren, const u4 cookie)
+QString TakeTheOtherNameByCookie(Renames &ren, const u32 cookie)
 {
 	cint count = ren.vec.size();
 	for (int i = 0; i < count; i++)
@@ -97,7 +97,7 @@ void InsertFile(io::File *new_file, QVector<io::File*> &files_vec,
 }
 
 void SendCreateEvent(TableModel *model, cornus::io::Files *files,
-	const QString new_name, const i4 dir_id)
+	const QString new_name, const i32 dir_id)
 {
 	io::File *new_file = new io::File(files);
 	new_file->name(new_name);
@@ -118,7 +118,7 @@ void SendCreateEvent(TableModel *model, cornus::io::Files *files,
 }
 
 void SendDeleteEvent(TableModel *model, cornus::io::Files *files,
-	const QString name, const i4 dir_id)
+	const QString name, const i32 dir_id)
 {
 	int index = -1;
 	{
@@ -136,7 +136,7 @@ void SendDeleteEvent(TableModel *model, cornus::io::Files *files,
 }
 
 void SendModifiedEvent(TableModel *model, cornus::io::Files *files,
-	const QString name, const i4 dir_id, const io::CloseWriteEvent cwe)
+	const QString name, const i32 dir_id, const io::CloseWriteEvent cwe)
 {
 	int index = -1;
 	io::File *found = nullptr;
@@ -446,6 +446,10 @@ mtl_info("ms: %d", ms);
 		cint num_fds = epoll_wait(epoll_fd, evt_vec.data(), evt_vec.size(), ms);
 		if (num_fds == -1)
 		{
+			if (errno == EINTR)
+			{ // Interrupted system call after resume from sleep
+				continue;
+			}
 			mtl_status(errno);
 			break;
 		}
@@ -554,7 +558,7 @@ mtl_info("has_been_unmounted_or_deleted");
 	}
 	
 #ifdef CORNUS_DEBUG_INOTIFY
-	mtl_info("Thread %lX exited", i8(pthread_self()));
+	mtl_info("Thread %lX exited", i64(pthread_self()));
 #endif
 	return nullptr;
 }
@@ -791,7 +795,7 @@ mtl_info("real_index: %d, renaming_deleted_file_at: %d, evt.index: %d", real_ind
 	} /// switch()
 }
 
-bool TableModel::InsertRows(const i4 at, const QVector<cornus::io::File*> &files_to_add)
+bool TableModel::InsertRows(const i32 at, const QVector<cornus::io::File*> &files_to_add)
 {
 	io::Files &files = tab_->view_files();
 	{
@@ -807,7 +811,7 @@ bool TableModel::InsertRows(const i4 at, const QVector<cornus::io::File*> &files
 	beginInsertRows(QModelIndex(), first, last);
 	{
 		auto g = files.guard();
-		for (i4 i = 0; i < files_to_add.size(); i++)
+		for (i32 i = 0; i < files_to_add.size(); i++)
 		{
 			auto *song = files_to_add[i];
 			files.data.vec.insert(at + i, song);
@@ -834,7 +838,7 @@ bool TableModel::removeRows(int row, int count, const QModelIndex &parent)
 		auto &vec = files.data.vec;
 		
 		for (int i = count - 1; i >= 0; i--) {
-			const i4 index = first + i;
+			const i32 index = first + i;
 			auto *item = vec[index];
 			vec.erase(vec.begin() + index);
 			delete item;
@@ -880,7 +884,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 	endRemoveRows();
 	
 	beginInsertRows(QModelIndex(), 0, new_count - 1);
-	i4 dir_id;
+	i32 dir_id;
 	{
 		auto g = files.guard();
 		dir_id = ++files.data.dir_id;

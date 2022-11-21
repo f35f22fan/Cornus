@@ -14,7 +14,7 @@
 
 namespace cornus::io {
 
-enum class Question : i1 {
+enum class Question : i8 {
 	None = 0,
 	FileExists,
 	WriteFailed,
@@ -36,7 +36,7 @@ struct TaskData {
 	ElapsedTimer work_time_recorder_ = {};
 	TaskQuestion task_question_ = {};
 	
-	inline TaskState GetState(TaskQuestion *question = nullptr, i8 *ret_time_worked = nullptr)
+	inline TaskState GetState(TaskQuestion *question = nullptr, i64 *ret_time_worked = nullptr)
 	{
 		auto g = cm.guard();
 		if (question != nullptr && state == TaskState::AwaitingAnswer)
@@ -47,9 +47,9 @@ struct TaskData {
 		
 		return state;
 	}
-	inline i8 GetTimeWorked() {
+	inline i64 GetTimeWorked() {
 		cm.Lock();
-		i8 ret = work_time_recorder_.elapsed_ms();
+		i64 ret = work_time_recorder_.elapsed_ms();
 		cm.Unlock();
 		return ret;
 	}
@@ -60,11 +60,11 @@ struct TaskData {
 };
 
 struct Progress {
-	i8 at = 0;
-	i8 total = 0;
-	i8 time_worked = 0;
+	i64 at = 0;
+	i64 total = 0;
+	i64 time_worked = 0;
 	QString details;
-	i4 details_id = -1;
+	i32 details_id = -1;
 	
 	inline void CopyFrom(const Progress &rhs)
 	{
@@ -88,8 +88,8 @@ struct TaskProgress {
 		p.CopyFrom(data);
 	}
 	
-	inline void AddProgress(const i8 progress, const i8 time_worked,
-		const i8 *new_total = nullptr)
+	inline void AddProgress(const i64 progress, const i64 time_worked,
+		const i64 *new_total = nullptr)
 	{
 		MutexGuard g(&mutex);
 		data.at += progress;
@@ -121,7 +121,7 @@ struct TaskProgress {
 
 class Task {
 	
-	enum class InitTotalSize: i1 {
+	enum class InitTotalSize: i8 {
 		Yes,
 		No
 	};
@@ -146,12 +146,12 @@ private:
 	void CopyFiles();
 	void CopyFileToDir(const QString &file_path, const QString &dir_path);
 	void CopyRegularFile(const QString &from_path, const QString &new_dir_path,
-		const QString &filename, const mode_t mode, const i8 file_size);
+		const QString &filename, const mode_t mode, const i64 file_size);
 	void CopyXAttr(const int input_fd, const int output_fd);
-	i8 CountTotalSize();
-	ActUponAnswer DealWithDeleteFailedAnswer(const i8 file_size);
-	ActUponAnswer DealWithFileExistsAnswer(const i8 file_size);
-	ActUponAnswer DealWithWriteFailedAnswer(const i8 file_size);
+	i64 CountTotalSize();
+	ActUponAnswer DealWithDeleteFailedAnswer(const i64 file_size);
+	ActUponAnswer DealWithFileExistsAnswer(const i64 file_size);
+	ActUponAnswer DealWithWriteFailedAnswer(const i64 file_size);
 	
 	// returns 0 on success, errno otherwise
 	int DeleteFile(const QString &full_path, struct statx &stx, QString &problematic_file);
@@ -161,7 +161,7 @@ private:
 	bool TryAtomicMove();
 	int TryCreateRegularFile(const QString &new_dir_path,
 		const QString &filename, const int WriteFlags,
-		const mode_t mode, const i8 file_size, QString &dest_path);
+		const mode_t mode, const i64 file_size, QString &dest_path);
 	
 	TaskData data_ = {};
 	TaskProgress progress_ = {};

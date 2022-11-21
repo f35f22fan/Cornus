@@ -9,22 +9,22 @@
 namespace cornus {
 
 struct TableSize {
-	i2 pixels = -1;
-	i2 points = -1;
+	i16 pixels = -1;
+	i16 points = -1;
 	float ratio = -1;
 	bool empty() const { return pixels == -1 && points == -1; }
 };
 
 class Prefs {
-	cu8 ShowHiddenFiles = 1u << 0;
-	cu8 ShowMsFilesLoaded = 1u << 1;
-	cu8 ShowFreePartitionSpace = 1u << 2;
-	cu8 ShowLinkTargets = 1u << 3;
-	cu8 MarkExtendedAttrsDisabled = 1u << 4;
-	cu8 RememberWindowSize = 1u << 5;
-	cu8 ShowDirFileCount = 1u << 6;
-	cu8 SyncViewsScrollLocation = 1u << 7;
-	cu8 StoreThumbnailsInExtAttrs = 1u << 8;
+	cu64 ShowHiddenFiles = 1u << 0;
+	cu64 ShowMsFilesLoaded = 1u << 1;
+	cu64 ShowFreePartitionSpace = 1u << 2;
+	cu64 ShowLinkTargets = 1u << 3;
+	cu64 MarkExtendedAttrsDisabled = 1u << 4;
+	cu64 RememberWindowSize = 1u << 5;
+	cu64 ShowDirFileCount = 1u << 6;
+	cu64 SyncViewsScrollLocation = 1u << 7;
+	cu64 StoreThumbnailsInExtAttrs = 1u << 8;
 public:
 	Prefs(App *app);
 	virtual ~Prefs();
@@ -34,7 +34,7 @@ public:
 	bool Load();
 	void Save() const;
 	
-	inline void toggle_bool(const bool b, cu8 flag) {
+	inline void toggle_bool(const bool b, cu64 flag) {
 		if (b)
 			bool_ |= flag;
 		else
@@ -69,8 +69,8 @@ public:
 	void sync_views_scroll_location(bool b) { toggle_bool(b, SyncViewsScrollLocation); }
 	
 	const QList<int>& splitter_sizes() const { return splitter_sizes_; }
-	QMap<i1, bool>& cols_visibility() { return cols_visibility_; }
-	i2 custom_table_font_size() const {
+	QMap<i8, bool>& cols_visibility() { return cols_visibility_; }
+	i16 custom_table_font_size() const {
 		return (table_size_.pixels > 0) ? table_size_.pixels : table_size_.points;
 	}
 	
@@ -82,14 +82,14 @@ private:
 	void ApplyTableHeight(gui::Table *table, int max);
 	void ApplyTreeViewHeight();
 	
-	u8 bool_ = ShowLinkTargets | RememberWindowSize;
+	u64 bool_ = ShowLinkTargets | RememberWindowSize;
 	TableSize table_size_ = {};
 	/// -1 means not explicitly set, -2 hidden:
-	i4 side_pane_width_ = -1;
-	i1 editor_tab_size_ = 4;
-	QMap<i1, bool> cols_visibility_;
+	i32 side_pane_width_ = -1;
+	i8 editor_tab_size_ = 4;
+	QMap<i8, bool> cols_visibility_;
 	QList<int> splitter_sizes_;
-	i4 win_w_ = -1, win_h_ = -1;
+	i32 win_w_ = -1, win_h_ = -1;
 	ByteArray *left_bytes_ = nullptr;
 	
 	App *app_ = nullptr;

@@ -10,10 +10,10 @@
 namespace cornus {
 
 namespace ExecType {
-	const u2 None = 0;
-	const u2 Elf = 1u << 0;
-	const u2 ShellScript = 1u << 1;
-	const u2 BatScript = 1u << 2;
+	const u16 None = 0;
+	const u16 Elf = 1u << 0;
+	const u16 ShellScript = 1u << 1;
+	const u16 BatScript = 1u << 2;
 }
 
 class ExecInfo {
@@ -30,7 +30,7 @@ public:
 	bool is_symlink() const { return S_ISLNK(mode); }
 	
 	mode_t mode = 0;
-	u2 type = 0;
+	u16 type = 0;
 	QString starter;
 	
 private:

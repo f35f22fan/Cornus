@@ -15,7 +15,7 @@ void ProcessEvent(struct io_uring_cqe *cqe)
 	struct UserData *data = (UserData*)io_uring_cqe_get_data(cqe);
 	char *buf = (char*) data->iv.iov_base;
 	const ssize_t num_read = cqe->res;
-	i8 add = 0;
+	i64 add = 0;
 	
 	for (char *p = buf; p < buf + num_read; p += add)
 	{

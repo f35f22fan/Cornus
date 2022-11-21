@@ -18,7 +18,7 @@
 
 namespace cornus::io {
 class DirStream;
-enum class Expand: i1 {
+enum class Expand: i8 {
 	Yes,
 	No,
 };

@@ -18,7 +18,7 @@ media::MediaPreview* DecodeShort(Media *media, ByteArray &ba);
 class Media: public QObject {
 	Q_OBJECT
 public:
-	enum class Fill: i1 {
+	enum class Fill: i8 {
 		AddNoneOption,
 		Default
 	};
@@ -30,10 +30,10 @@ public:
 	void FillInNTS(QComboBox *cb, const media::Field category,
 		const Fill option = Fill::Default);
 	
-	QVector<QString> GetNTS(const media::Field f, const i8 ID);
+	QVector<QString> GetNTS(const media::Field f, const i64 ID);
 	bool loaded() const { return !data_.rips.isEmpty(); }
-	i8 SetNTS(const media::Field f, const i8 ID,
-		const QVector<QString> &names, i8 *existing_id = nullptr,
+	i64 SetNTS(const media::Field f, const i64 ID,
+		const QVector<QString> &names, i64 *existing_id = nullptr,
 		const media::Action action = media::Action::Insert,
 		const media::Check check = media::Check::Exists);
 	MutexGuard guard() { return MutexGuard(&mutex); }
@@ -54,8 +54,8 @@ public:
 			mtl_status(status);
 	}
 	
-	i4 GetMagicNumber();
-	i4 magic_number_NTS() const { return data_.magic_number; }
+	i32 GetMagicNumber();
+	i32 magic_number_NTS() const { return data_.magic_number; }
 	void Print();
 	void ReloadDatabaseNTS(ByteArray &ba, media::Data &data);
 	void Save();

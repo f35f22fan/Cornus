@@ -19,7 +19,7 @@ using namespace std::chrono;
 
 namespace cornus::gui {
 
-enum class DrawBorder: i1 {
+enum class DrawBorder: i8 {
 	Yes,
 	No
 };
@@ -53,13 +53,13 @@ public:
 	virtual ~IconView();
 	
 	void DisplayingNewDirectory(const DirId dir_id, const Reload r);
-	i4 GetFileIndexAt(const QPoint &pos) const;
+	i32 GetFileIndexAt(const QPoint &pos) const;
 	int GetRowAtY(const int y) const
 	{
 		return int(double(y) / icon_dim_.rh);
 	}
 	int GetRowHeight() const { return icon_dim_.rh; }
-	i4 GetVisibleFileIndex();
+	i32 GetVisibleFileIndex();
 	void HiliteFileUnderMouse();
 	bool magnified() const { return magnified_; }
 	void magnified(const bool b) { magnified_ = b; }
@@ -122,7 +122,7 @@ private:
 	QScrollBar *vs_ = nullptr;
 	ElapsedTimer last_repaint_;
 	bool delayed_repaint_pending_ = false;
-	ci8 delay_repaint_ms_ = 100;
+	ci64 delay_repaint_ms_ = 100;
 	bool repaint_without_delay_ = false;
 	bool magnified_ = false;
 	int scroll_page_step_ = -1;

@@ -1,5 +1,3 @@
-#include <cstdlib>
-
 #include <QApplication>
 #include <QDir>
 #include <QTextStream>
@@ -96,7 +94,7 @@ void* ProcessRequestTh(void *ptr)
 	
 	gui::TasksWin *tasks_win = daemon->tasks_win();
 	MTL_CHECK_ARG(ba.Receive(fd, CloseSocket::No), nullptr);
-	const auto msg_int = ba.next_u4() & ~(io::MessageBitsMask << io::MessageBitsStartAt);
+	const auto msg_int = ba.next_u32() & ~(io::MessageBitsMask << io::MessageBitsStartAt);
 	const auto msg = static_cast<io::Message>(msg_int);
 	switch (msg)
 	{
@@ -233,7 +231,7 @@ int main(int argc, char *argv[])
 	qRegisterMetaType<cornus::ByteArray*>();
 	
 	const pid_t pid = getpid();
-	printf("PID: %ld\n", i8(pid));
+	printf("PID: %ld\n", i64(pid));
 	
 	//setup_unix_signal_handlers();
 	//new cornus::MyDaemon();

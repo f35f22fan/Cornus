@@ -203,31 +203,31 @@ Group* Group::From(ByteArray &ba, DesktopFile *parent)
 	Group *p = new Group(ba.next_string(), parent);
 	
 	{
-		cu1 count = ba.next_u1();
-		for (u1 i = 0; i < count; i++)
-			p->only_show_in_.append(static_cast<Category>(ba.next_u1()));
+		cu8 count = ba.next_u8();
+		for (u8 i = 0; i < count; i++)
+			p->only_show_in_.append(static_cast<Category>(ba.next_u8()));
 	}
 	{
-		cu1 count = ba.next_u1();
-		for (u1 i = 0; i < count; i++)
-			p->not_show_in_.append(static_cast<Category>(ba.next_u1()));
+		cu8 count = ba.next_u8();
+		for (u8 i = 0; i < count; i++)
+			p->not_show_in_.append(static_cast<Category>(ba.next_u8()));
 	}
 	{
-		cu1 count = ba.next_u1();
-		for (u1 i = 0; i < count; i++)
-			p->categories_.append(static_cast<Category>(ba.next_u1()));
+		cu8 count = ba.next_u8();
+		for (u8 i = 0; i < count; i++)
+			p->categories_.append(static_cast<Category>(ba.next_u8()));
 	}
 	{
-		ci4 count = ba.next_i4();
-		for (i4 i = 0; i < count; i++)
+		ci32 count = ba.next_i32();
+		for (i32 i = 0; i < count; i++)
 		{
 			QString s = ba.next_string();
 			p->mimetypes_.append(s);
 		}
 	}
 	{
-		ci4 count = ba.next_i4();
-		for (i4 i = 0; i < count; i++)
+		ci32 count = ba.next_i32();
+		for (i32 i = 0; i < count; i++)
 		{
 			QString key = ba.next_string();
 			QString val = ba.next_string();
@@ -406,9 +406,9 @@ void Group::ParseLine(const QStringRef &line,
 	}
 }
 
-inline i2 Score(const QLocale &lhs, const QLocale &rhs)
+inline i16 Score(const QLocale &lhs, const QLocale &rhs)
 {
-	i2 score = 0;
+	i16 score = 0;
 	if (lhs.language() == rhs.language())
 		score += 32;
 	
@@ -431,7 +431,7 @@ QString Group::PickByLocale(const QLocale &match_locale, const QString &key)
 		return QString();
 	
 	const QPair<QLocale, QString> *best_pair = nullptr;
-	i2 best_score = -1;
+	i16 best_score = -1;
 	auto &vec = locale_strings_.value(key);
 	for (auto &pair: vec)
 	{
@@ -487,25 +487,25 @@ Priority Group::Supports(const QString &mime, const MimeInfo info,
 void Group::WriteTo(ByteArray &ba)
 {
 	ba.add_string(group_name_);
-	ba.add_u1((u1)only_show_in_.size());
+	ba.add_u8((u8)only_show_in_.size());
 	for (const auto &next: only_show_in_)
-		ba.add_u1(static_cast<u1>(next));
+		ba.add_u8(static_cast<u8>(next));
 	
-	ba.add_u1((u1)not_show_in_.size());
+	ba.add_u8((u8)not_show_in_.size());
 	for (const auto &next: not_show_in_)
-		ba.add_u1(static_cast<u1>(next));
+		ba.add_u8(static_cast<u8>(next));
 	
-	ba.add_u1((u1)categories_.size());
+	ba.add_u8((u8)categories_.size());
 	for (const Category &next: categories_) {
-		ba.add_u1(static_cast<u1>(next));
+		ba.add_u8(static_cast<u8>(next));
 	}
 	
-	ba.add_i4(mimetypes_.size());
+	ba.add_i32(mimetypes_.size());
 	for (auto &mime: mimetypes_)
 	{
 		ba.add_string(mime);
 	}
-	ba.add_i4(kv_.size());
+	ba.add_i32(kv_.size());
 	
 	auto it = kv_.constBegin();
 	while (it != kv_.constEnd())
@@ -576,11 +576,11 @@ DesktopFile*
 DesktopFile::From(ByteArray &ba, const QProcessEnvironment &env)
 {
 	DesktopFile *new_df = new DesktopFile(env);
-	new_df->type_ = (Type) ba.next_i1();
-	new_df->priority_ = (Priority) ba.next_i1();
+	new_df->type_ = (Type) ba.next_i8();
+	new_df->priority_ = (Priority) ba.next_i8();
 	
-	cu2 custom_env_count = ba.next_u2();
-	for (u2 i = 0; i < custom_env_count; i++)
+	cu16 custom_env_count = ba.next_u16();
+	for (u16 i = 0; i < custom_env_count; i++)
 	{
 		QString k = ba.next_string();
 		QString v = ba.next_string();
@@ -592,9 +592,9 @@ DesktopFile::From(ByteArray &ba, const QProcessEnvironment &env)
 	{
 		new_df->full_path_ = ba.next_string();
 		new_df->name_ = ba.next_string();
-		const i4 group_count = ba.next_i4();
+		const i32 group_count = ba.next_i32();
 		
-		for (i4 i = 0; i < group_count; i++) {
+		for (i32 i = 0; i < group_count; i++) {
 			auto *group = desktopfile::Group::From(ba, new_df);
 			if (group == nullptr)
 				continue;
@@ -860,11 +860,11 @@ bool DesktopFile::ToBeRunInTerminal() const
 
 void DesktopFile::WriteTo(ByteArray &ba) const
 {
-	ba.add_i1(i1(type_));
-	ba.add_i1(i1(priority_));
+	ba.add_i8(i8(type_));
+	ba.add_i8(i8(priority_));
 	
-	cu2 count = custom_env_.count();
-	ba.add_u2(count);
+	cu16 count = custom_env_.count();
+	ba.add_u16(count);
 	auto it = custom_env_.constBegin();
 	while (it != custom_env_.constEnd())
 	{
@@ -877,7 +877,7 @@ void DesktopFile::WriteTo(ByteArray &ba) const
 	{
 		ba.add_string(full_path_);
 		ba.add_string(name_);
-		ba.add_i4(groups_.size());
+		ba.add_i32(groups_.size());
 		
 		for (desktopfile::Group *group: groups_) {
 			group->WriteTo(ba);

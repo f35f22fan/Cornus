@@ -8,8 +8,8 @@
 namespace cornus {
 
 struct GuiBits {
-	static const u2 bit_created = 1u << 0;
-	u2 bits_ = 0;
+	static const u16 bit_created = 1u << 0;
+	u16 bits_ = 0;
 	mutable pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 	

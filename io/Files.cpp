@@ -224,7 +224,7 @@ void Files::SetLastWatched(const enum Lock l, io::File *file)
 		if (next->id() == file->id() && !next->has_last_watched_attr())
 		{
 			ByteArray value;
-			value.add_i8(time(NULL));
+			value.add_i64(time(NULL));
 			io::SetXAttr(next->build_full_path(), key, value);
 			continue;
 		}
@@ -238,7 +238,7 @@ void Files::WakeUpInotify(const enum Lock l)
 {
 	auto g = guard(l);
 	// Wake up epoll(), must write an 8 bytes number.
-	ci8 n = 1;
+	ci64 n = 1;
 	if (::write(data.signal_quit_fd, &n, sizeof n) == -1)
 		mtl_status(errno);
 }

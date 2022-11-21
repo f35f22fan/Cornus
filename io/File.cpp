@@ -153,7 +153,7 @@ bool File::IsThumbnailMarkedFailed()
 void File::MarkThumbnailFailed()
 {
 	ByteArray ba;
-	ba.add_i4(-1);
+	ba.add_i32(-1);
 	ext_attrs_.insert(media::XAttrThumbnail, ba);
 }
 

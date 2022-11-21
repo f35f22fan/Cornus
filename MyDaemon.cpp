@@ -30,20 +30,23 @@ MyDaemon::~MyDaemon() {}
 void MyDaemon::hupSignalHandler(int)
 {
 	char a = 1;
-	::write(sighupFd[0], &a, sizeof(a));
+	if (::write(sighupFd[0], &a, sizeof a) < sizeof a)
+		mtl_trace();
 }
 
 void MyDaemon::termSignalHandler(int)
 {
 	char a = 1;
-	::write(sigtermFd[0], &a, sizeof(a));
+	if (::write(sigtermFd[0], &a, sizeof a) < sizeof a)
+		mtl_trace();
 }
 
 void MyDaemon::handleSigTerm()
 {
 	snTerm->setEnabled(false);
-	char tmp;
-	::read(sigtermFd[1], &tmp, sizeof(tmp));
+	char c;
+	if (::read(sigtermFd[1], &c, sizeof c) < sizeof c)
+		mtl_trace();
 	
 	// do Qt stuff
 	io::socket::SendQuitSignalToServer();
@@ -55,7 +58,8 @@ void MyDaemon::handleSigHup()
 {
 	snHup->setEnabled(false);
 	char tmp;
-	::read(sighupFd[1], &tmp, sizeof(tmp));
+	if (::read(sighupFd[1], &tmp, sizeof tmp) < sizeof tmp)
+		mtl_trace();
 	
 	// do Qt stuff
 	io::socket::SendQuitSignalToServer();

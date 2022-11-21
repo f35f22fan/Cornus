@@ -73,6 +73,8 @@ void Task::CopyFiles()
 	CountTotalSize();
 	for (const auto &path: file_paths_)
 	{
+		mtl_info("Copy \"%s\" to \"%s\"", qPrintable(path),
+			qPrintable(to_dir_path_));
 		CopyFileToDir(path, to_dir_path_);
 	}
 }
@@ -99,13 +101,14 @@ void Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 		return;
 	}
 	
-	ci8 file_size = stx_.stx_size;
+	ci64 file_size = stx_.stx_size;
 	const auto mode = stx_.stx_mode;
-	i8 time_worked = 0;
+	i64 time_worked = 0;
 	
 	QString new_dir_path = in_dir_path;
 	if (!new_dir_path.endsWith('/'))
 		new_dir_path.append('/');
+	
 	if (S_ISDIR(mode))
 	{
 		QVector<QString> names;
@@ -116,7 +119,7 @@ void Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 		
 		new_dir_path.append(file_name);
 		auto dir_ba = new_dir_path.toLocal8Bit();
-		const int status = mkdir(dir_ba.data(), mode);
+		cint status = mkdir(dir_ba.data(), mode);
 		if (status != 0)
 		{
 			if (errno != EEXIST)
@@ -159,7 +162,7 @@ void Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 }
 
 void Task::CopyRegularFile(const QString &from_path, const QString &new_dir_path,
-	const QString &filename, const mode_t mode, ci8 file_size)
+	const QString &filename, const mode_t mode, ci64 file_size)
 {
 	const auto from_ba = from_path.toLocal8Bit();
 	int input_fd = ::open(from_ba.data(), O_RDONLY | O_LARGEFILE);
@@ -171,10 +174,10 @@ void Task::CopyRegularFile(const QString &from_path, const QString &new_dir_path
 	}
 	
 	AutoCloseFd input_ac(input_fd);
-	const int WarnIfExistsFlags = O_CREAT | O_EXCL | O_LARGEFILE
+	cint WarnIfExistsFlags = O_CREAT | O_EXCL | O_LARGEFILE
 		| O_NOFOLLOW | O_NOATIME | O_WRONLY;
 	QString dest_path;
-	const int out_fd = TryCreateRegularFile(new_dir_path, filename,
+	cint out_fd = TryCreateRegularFile(new_dir_path, filename,
 		WarnIfExistsFlags, mode, file_size, dest_path);
 	if (out_fd == -1)
 	{
@@ -185,23 +188,55 @@ void Task::CopyRegularFile(const QString &from_path, const QString &new_dir_path
 	AutoCloseFd output_ac(out_fd);
 	loff_t in_off = 0, out_off = 0;
 	const usize max_chunk = 512 * 128;
-	i8 time_worked;
+	i64 time_worked;
 	
 #ifdef CORNUS_THROTTLE_IO
 	struct timespec throttle_ts;
 	throttle_ts.tv_sec = 0;
 	throttle_ts.tv_nsec = 300l * 1000000l;
 #endif
+mtl_trace();
+	cisize bufsize = 4096 * 16;
+	char *buf = new char[bufsize];
+	AutoDeleteArr buf_(buf);
+	cbool use_copy_file_range = false;
 	while (true)
 	{
-		const isize count = copy_file_range(input_fd, &in_off, out_fd, &out_off, max_chunk, 0);
-		if (count == 0)
+		isize read_amount;
+		if (use_copy_file_range)
+		{
+			read_amount = copy_file_range(input_fd, &in_off, out_fd, &out_off, max_chunk, 0);
+			
+		} else {
+			read_amount = ::read(input_fd, buf, bufsize);
+			if (read_amount > 0)
+			{
+				isize written = 0;
+				while (written < read_amount)
+				{
+					cisize wrote = ::write(out_fd, buf + written, read_amount - written);
+					if (wrote  == -1)
+					{
+						if (errno == EAGAIN)
+							continue;
+						mtl_errno();
+						read_amount = -1;
+						break;
+					}
+					
+					written += wrote;
+				}
+			}
+		}
+		
+		if (read_amount == 0)
 			break; // finished copying
-		if (count == -1)
+		
+		if (read_amount == -1)
 		{
 			if (errno == EAGAIN)
 				continue;
-			
+mtl_warn("%s", strerror(errno));
 			data_.cm.Lock();
 			const auto write_failed_answer = data_.task_question_.write_failed_answer;
 			data_.cm.Unlock();
@@ -228,7 +263,7 @@ void Task::CopyRegularFile(const QString &from_path, const QString &new_dir_path
 		}
 		
 		auto state = data_.GetState(nullptr, &time_worked);
-		progress_.AddProgress(count, time_worked);
+		progress_.AddProgress(read_amount, time_worked);
 		if (state & TaskState::Pause)
 		{
 			state = data_.WaitFor(TaskState::Continue | TaskState::Working | TaskState::Abort);
@@ -246,7 +281,7 @@ void Task::CopyRegularFile(const QString &from_path, const QString &new_dir_path
 	CopyXAttr(input_fd, out_fd);
 }
 
-void Task::CopyXAttr(const int input_fd, const int output_fd)
+void Task::CopyXAttr(cint input_fd, cint output_fd)
 {
 	isize buflen = flistxattr(input_fd, NULL, 0);
 	if (buflen == 0)
@@ -314,7 +349,7 @@ void Task::CopyXAttr(const int input_fd, const int output_fd)
 	}
 }
 
-i8 Task::CountTotalSize()
+i64 Task::CountTotalSize()
 {
 	io::CountRecursiveInfo info = {};
 	for (const auto &path: file_paths_)
@@ -325,7 +360,7 @@ i8 Task::CountTotalSize()
 		}
 	}
 	
-	ci8 total_progress = info.size + info.file_count + info.dir_count;
+	ci64 total_progress = info.size + info.file_count + info.dir_count;
 	progress_.AddProgress(0, 0, &total_progress);
 	
 	return info.size;
@@ -336,13 +371,13 @@ void Task::DeleteFiles(const InitTotalSize its)
 	if (its == InitTotalSize::Yes)
 		CountTotalSize();
 	
-	i8 time_worked = 0;
+	i64 time_worked = 0;
 	QString problematic_file;
 	for (const auto &path: file_paths_)
 	{
 		while(true)
 		{
-			const int status = DeleteFile(path, stx_, problematic_file);
+			cint status = DeleteFile(path, stx_, problematic_file);
 			if (status == 0)
 			{
 				auto state = data_.GetState(nullptr, &time_worked);
@@ -408,13 +443,13 @@ int Task::DeleteFile(const QString &full_path, struct statx &stx,
 		for (const auto &name: names)
 		{
 			const auto fp = dir_path + name;
-			const int status = DeleteFile(fp, stx, problematic_file);
+			cint status = DeleteFile(fp, stx, problematic_file);
 			if (status != 0)
 				return status;
 		}
 	}
 	
-	const int status = is_dir ? rmdir(ba.data()) : unlink(ba.data());
+	cint status = is_dir ? rmdir(ba.data()) : unlink(ba.data());
 	if (status == 0)
 		return 0;
 	
@@ -441,10 +476,10 @@ bool Task::FixDestDir()
 Task* Task::From(cornus::ByteArray &ba, const HasSecret hs)
 {
 	if (hs == HasSecret::Yes)
-		ba.next_u8();
+		ba.next_u64();
 	
 	auto *task = new Task();
-	task->ops_ = ba.next_u4();
+	task->ops_ = ba.next_u32();
 	
 	if (task->ops_ != (io::MessageType)io::Message::DeleteFiles &&
 		task->ops_ != (io::MessageType)io::Message::MoveToTrash)
@@ -474,7 +509,7 @@ void Task::MoveToTrash()
 	if (!trash_path.endsWith('/'))
 		trash_path.append('/');
 	
-	ci8 now = time(NULL);
+	ci64 now = time(NULL);
 	const QString time_str = trash::time_to_str(now) + '_';
 	
 	for (auto &next: file_paths_)
@@ -483,7 +518,7 @@ void Task::MoveToTrash()
 		auto new_path = (trash_path + time_str + name).toLocal8Bit();
 		auto old_path = next.toLocal8Bit();
 		//mtl_info("new_path: %s\n, old_path: %s", new_path.data(), old_path.data());
-		const int status = rename(old_path.data(), new_path.data());
+		cint status = rename(old_path.data(), new_path.data());
 		if (status != 0) {
 			mtl_status(errno);
 			continue;
@@ -547,7 +582,9 @@ mtl_trace();
 	} else if (ops_ & (MessageType)Message::Copy) {
 		if (!FixDestDir())
 		{
+mtl_trace();
 			data().ChangeState(io::TaskState::Finished);
+mtl_trace();
 			return;
 		}
 		const bool can_try_atomic_move = !(ops_ & (MessageType)Message::DontTryAtomicMove);
@@ -555,7 +592,9 @@ mtl_trace();
 			data().ChangeState(io::TaskState::Finished);
 			return;
 		}
+mtl_trace();
 		CopyFiles();
+mtl_trace();
 	} else if (ops_ & (MessageType)Message::Move) {
 		if (!FixDestDir())
 		{
@@ -609,23 +648,24 @@ bool Task::TryAtomicMove()
 }
 
 int Task::TryCreateRegularFile(const QString &new_dir_path,
-	const QString &filename, const int WriteFlags,
-	const mode_t mode, ci8 file_size, QString &dest_path)
+	const QString &filename, cint WriteFlags,
+	const mode_t mode, ci64 file_size, QString &dest_path)
 {
-	const int OverwriteFlags = O_CREAT | O_TRUNC | O_LARGEFILE | O_NOFOLLOW | O_NOATIME | O_WRONLY;
+	cint OverwriteFlags = O_CREAT | O_TRUNC | O_LARGEFILE | O_NOFOLLOW | O_NOATIME | O_WRONLY;
 	int file_flags = WriteFlags;
 	dest_path = new_dir_path + filename;
 	
 	while (true)
 	{
 		auto dest_ba = dest_path.toLocal8Bit();
-		const int fd = ::open(dest_ba.data(), file_flags, mode);
+//mtl_info("dest_ba: \"%s\"", dest_ba.data());
+		cint fd = ::open(dest_ba.data(), file_flags, mode);
 		if (fd != -1)
 		{
-			//mtl_info("SUCCESS");
+//mtl_info("SUCCESS");
 			return fd;
 		}
-		const int Error = errno;
+		cint Error = errno;
 		//mtl_status(Error);
 		bool go_to_loop_start = false;
 		if (Error == EEXIST)
@@ -681,22 +721,22 @@ int Task::TryCreateRegularFile(const QString &new_dir_path,
 			question.explanation = QObject::tr("File exists");
 			question.file_path_in_question = dest_path;
 			question.question = io::Question::FileExists;
-mtl_trace("Before changing state");
+//mtl_trace("Before changing state");
 			data_.ChangeState(TaskState::AwaitingAnswer, &question);
-mtl_info("After changing state, waiting for reply");
+//mtl_info("After changing state, waiting for reply");
 			ActUponAnswer answer = DealWithFileExistsAnswer(file_size);
-mtl_info("Got the answer");
+//mtl_info("Got the answer");
 			switch (answer) {
 			case ActUponAnswer::Retry: {
-mtl_trace("ActUponAnswer::Retry");
+//mtl_trace("ActUponAnswer::Retry");
 				break;
 			}
 			case ActUponAnswer::Skip: {
-mtl_trace("ActUponAnswer::Skip");
+//mtl_trace("ActUponAnswer::Skip");
 				return -1;
 			}
 			case ActUponAnswer::Abort: {
-mtl_trace("ActUponAnswer::Abort");
+//mtl_trace("ActUponAnswer::Abort");
 				return -1;
 			}
 			default: {
@@ -712,9 +752,9 @@ mtl_trace();
 }
 
 ActUponAnswer
-Task::DealWithDeleteFailedAnswer(ci8 file_size)
+Task::DealWithDeleteFailedAnswer(ci64 file_size)
 {
-/** enum class DeleteFailedAnswer: i1 {
+/** enum class DeleteFailedAnswer: i8 {
 	None = 0,
 	Retry,
 	Skip,
@@ -730,7 +770,7 @@ Task::DealWithDeleteFailedAnswer(ci8 file_size)
 	switch (answer) {
 	case DeleteFailedAnswer::Skip: {
 mtl_trace();
-		ci8 time_worked = data_.GetTimeWorked();
+		ci64 time_worked = data_.GetTimeWorked();
 		progress_.AddProgress(file_size, time_worked);
 		data_.cm.Lock();
 		data_.task_question_.delete_failed_answer = DeleteFailedAnswer::None;
@@ -739,7 +779,7 @@ mtl_trace();
 		return ActUponAnswer::Skip;
 	}
 	case DeleteFailedAnswer::SkipAll: {
-		ci8 time_worked = data_.GetTimeWorked();
+		ci64 time_worked = data_.GetTimeWorked();
 		progress_.AddProgress(file_size, time_worked);
 		return ActUponAnswer::Skip;
 	}
@@ -764,9 +804,9 @@ mtl_trace("Abort");
 }
 
 ActUponAnswer
-Task::DealWithFileExistsAnswer(ci8 file_size)
+Task::DealWithFileExistsAnswer(ci64 file_size)
 {
-/** enum class FileExistsAnswer: i1 {
+/** enum class FileExistsAnswer: i8 {
 		None = 0,
 		Overwrite,
 		OverwriteAll,
@@ -800,7 +840,7 @@ mtl_trace();
 	}
 	case FileExistsAnswer::Skip: {
 mtl_trace();
-		i8 time_worked = data_.GetTimeWorked();
+		i64 time_worked = data_.GetTimeWorked();
 		progress_.AddProgress(file_size, time_worked);
 		data_.cm.Lock();
 		data_.task_question_.file_exists_answer = FileExistsAnswer::None;
@@ -810,7 +850,7 @@ mtl_trace();
 	};
 	case FileExistsAnswer::SkipAll: {
 mtl_trace();
-		i8 time_worked = data_.GetTimeWorked();
+		i64 time_worked = data_.GetTimeWorked();
 		progress_.AddProgress(file_size, time_worked);
 		return ActUponAnswer::Skip;
 	}
@@ -827,9 +867,9 @@ mtl_trace();
 }
 
 ActUponAnswer
-Task::DealWithWriteFailedAnswer(ci8 file_size)
+Task::DealWithWriteFailedAnswer(ci64 file_size)
 {
-/** enum class WriteFailedAnswer: i1 {
+/** enum class WriteFailedAnswer: i8 {
 	None = 0,
 	Retry,
 	Skip,
@@ -843,7 +883,7 @@ Task::DealWithWriteFailedAnswer(ci8 file_size)
 	
 	switch (answer) {
 	case WriteFailedAnswer::Skip: {
-		i8 time_worked = data_.GetTimeWorked();
+		i64 time_worked = data_.GetTimeWorked();
 		progress_.AddProgress(file_size, time_worked);
 		data_.cm.Lock();
 		data_.task_question_.write_failed_answer = WriteFailedAnswer::None;
@@ -851,7 +891,7 @@ Task::DealWithWriteFailedAnswer(ci8 file_size)
 		return ActUponAnswer::Skip;
 	};
 	case WriteFailedAnswer::SkipAll: {
-		i8 time_worked = data_.GetTimeWorked();
+		i64 time_worked = data_.GetTimeWorked();
 		progress_.AddProgress(file_size, time_worked);
 		return ActUponAnswer::Skip;
 	}

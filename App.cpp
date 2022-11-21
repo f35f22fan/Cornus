@@ -122,7 +122,7 @@ void* ThumbnailLoader (void *args)
 //			mtl_info("%s: %s, has_ext_attr: %d", qPrintable(new_work->full_path),
 //				qPrintable(thumb_in_temp_path), has_ext_attr);
 			ByteArray &img_ba = has_ext_attr ? new_work->ba : temp_ba;
-			i4 orig_img_w, orig_img_h;
+			i32 orig_img_w, orig_img_h;
 			QImage img = thumbnail::ImageFromByteArray(img_ba,
 				orig_img_w, orig_img_h, abi_version, decompress_context);
 			if (!img.isNull())
@@ -193,7 +193,7 @@ void* ThumbnailLoader (void *args)
 	
 	ZSTD_freeDCtx(decompress_context);
 	
-	cu8 t = static_cast<u8>(pthread_self());
+	cu64 t = static_cast<u64>(pthread_self());
 	th_data->thread_exited = true;
 	// after Unlock() th_data might be already deleted, so save a pointer:
 	auto *global_data = th_data->global_data;
@@ -255,54 +255,52 @@ void Print(const double x, const double y)
 	mtl_info("%.3f MOD %.3f = %f", x, y, rem);
 }
 
+bool is_big_endian() {
+	cu16 n = 1;
+	return *(char*)&n == 0;
+}
+
+short ReverseShort(short s)
+{
+	short s1 = s << 8;
+	short s2 = s >> 8;
+	mtl_info("%#x, %#x", s1, s2);
+	if (is_big_endian()) {
+		return s;
+	} else {
+		return s << 8 | s >> 8;
+	}
+}
+
 App::App()
 {
-	/* const double y = 5.0;
-	Print(6.2, y);
-	Print(1.0, y);
-	Print(11.0, y);
-	Print(5.1, y);
-	Print(4.9, y); */
-	/*
-	ElapsedTimer t;
+	/* const char buf[256] = {0x01, 0x02, 0x03, 0x04};
+	mtl_info("FromLittle: %#010x, FromBig: %#010x",
+		qFromLittleEndian<u32>(buf),
+		qFromBigEndian<u32>(buf));
 	
-	t.Continue();
-	auto env = QProcessEnvironment::systemEnvironment();
-	auto n1 = t.elapsed_mc();
+	cu16 n = 0x1234;
+	mtl_info("Reversed short: %X", ReverseShort(n));
+	cu8 c = *(char*)&n;
+	mtl_info("res: %#10x", c);
+	if (c == 0x12) {
+		mtl_info("Big endian");
+	} else {
+		mtl_info("Little endian");
+	}
 	
-	t.Continue(Reset::Yes);
-	env = QProcessEnvironment::systemEnvironment();
-	auto n2 = t.elapsed_mc();
+	if (*(char*)&n == 0x34) {
+		mtl_info("Again, little endian");
+	} else {
+		mtl_info("Again, big endian");
+	}
 	
-	t.Continue(Reset::Yes);
-	env = QProcessEnvironment::systemEnvironment();
-	auto n3 = t.elapsed_mc();
-	
-	t.Continue(Reset::Yes);
-	env = QProcessEnvironment::systemEnvironment();
-	auto n4 = t.elapsed_mc();
-	
-	mtl_info("%ld %ld %ld, %ld", n1, n2, n3, n4);
-	
-	t.Continue(Reset::Yes);
-	auto env1 = env;
-	auto c1 = t.elapsed_mc();
-	
-	t.Continue(Reset::Yes);
-	auto env2 = env;
-	auto c2 = t.elapsed_mc();
-	
-	t.Continue(Reset::Yes);
-	auto env3 = env;
-	auto c3 = t.elapsed_mc();
-	
-	t.Continue(Reset::Yes);
-	auto env4 = env;
-	auto c4 = t.elapsed_mc();
-	
-	mtl_info("%ld %ld %ld, %ld", c1, c2, c3, c4);
+	cint i = 7;
+	printf("%#010x\n", i);  // gives 0x00000007
+	printf("%#10x\n", i);  // gives         0x7
+	printf("0x%08x\n", i);  // gives 0x00000007
+	printf("%#08x\n", i);   // gives 0x000007
 	*/
-	
 	Init();
 }
 
@@ -311,7 +309,7 @@ App::~App()
 	if (app_quitting_fd_ != -1)
 	{
 		// wake up epoll() to not wait till it times out
-		ci8 n = 1;
+		ci64 n = 1;
 		if (::write(app_quitting_fd_, &n, sizeof n) == -1)
 			mtl_status(errno);
 		
@@ -725,7 +723,7 @@ void App::DetectThemeType()
 {
 	const QStyleOptionViewItem option = tree_view_->option();
 	const QColor c = option.palette.window().color();
-	const i4 avg = (c.red() + c.green() + c.blue()) / 3;
+	const i32 avg = (c.red() + c.green() + c.blue()) / 3;
 	theme_type_ = (avg > 150) ? ThemeType::Light : ThemeType::Dark;
 //	mtl_info("avg: %d, light: %s", avg, (theme_type_ == ThemeType::Light)
 //		? "true" : "false");
@@ -1037,8 +1035,8 @@ QString App::GetPartitionFreeSpace()
 		return QString();
 	}
 	
-	ci8 total_space = stv.f_frsize * stv.f_blocks;
-	ci8 free_space = stv.f_bavail /*stv.f_bfree*/ * stv.f_bsize;
+	ci64 total_space = stv.f_frsize * stv.f_blocks;
+	ci64 free_space = stv.f_bavail /*stv.f_bfree*/ * stv.f_bsize;
 	
 	QString s = io::SizeToString(free_space, StringLength::Short);
 	s.append(tr(" free of "));
@@ -1847,7 +1845,7 @@ void App::RenameSelectedFile()
 		MTL_CHECK_VOID(hash_info.valid());
 		
 		auto *ba = new ByteArray();
-		ba->add_u8(hash_info.num);
+		ba->add_u64(hash_info.num);
 		const auto msg =  io::Message::RenameFile;
 		ba->set_msg_id(msg);
 		ba->add_string(old_path);
@@ -1897,10 +1895,10 @@ void App::SaveBookmarks()
 	
 	io::SaveFile save_file(prefs::GetBookmarksFilePath());
 	ByteArray buf;
-	buf.add_u2(prefs::BookmarksFormatVersion);
+	buf.add_u16(prefs::BookmarksFormatVersion);
 	
 	for (gui::TreeItem *next: item_vec) {
-		buf.add_u1(u1(next->type()));
+		buf.add_u8(u8(next->type()));
 		buf.add_string(next->mount_path());
 		buf.add_string(next->bookmark_name());
 	}
@@ -2082,7 +2080,7 @@ void App::ShutdownThumbnailThreads()
 	}
 	
 	struct timespec till;
-	ci8 ms = 50 * 1000 * 1000;
+	ci64 ms = 50 * 1000 * 1000;
 	auto &threads_vec = global_thumb_loader_data_.threads;
 	while (!threads_vec.isEmpty())
 	{
@@ -2409,14 +2407,14 @@ HashInfo App::WaitForRootDaemon(const CanOverwrite co)
 		return {};
 	
 	const IOActionType io_action = static_cast<IOActionType>(dialog.combo_value().toInt());
-	cu8 secret = QRandomGenerator::global()->generate64();
+	cu64 secret = QRandomGenerator::global()->generate64();
 	const QByteArray secret_ba = QByteArray::number(qulonglong(secret));
 	const QByteArray hash_ba = QCryptographicHash::hash(secret_ba, QCryptographicHash::Md5);
 	const QString hash_str = QString(hash_ba.toHex());
 	// mtl_info("hash(%d): %s of %lu", hash_str.size(), qPrintable(hash_str), secret);
 	const char *socket_p = cornus::RootSocketPath;
 	ByteArray check_alive_ba;
-	check_alive_ba.add_u8(secret);
+	check_alive_ba.add_u64(secret);
 	check_alive_ba.set_msg_id(io::Message::CheckAlive);
 	
 	const QString daemon_dir_path = QCoreApplication::applicationDirPath();

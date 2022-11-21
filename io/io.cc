@@ -47,7 +47,7 @@ bool CanWriteToDir(const QString &dir_path)
 
 bool CheckDesktopFileABI(ByteArray &ba)
 {
-	return ba.has_more(2) && ba.next_i2() == DesktopFileABI;
+	return ba.has_more(2) && ba.next_i16() == DesktopFileABI;
 }
 
 int CompareDigits(QStringRef a, QStringRef b)
@@ -112,16 +112,16 @@ int CountDirFilesSkippingSubdirs(const QString &dir_path)
 media::MediaPreview* CreateMediaPreview(ByteArray &ba)
 {
 	cauto at = ba.at();
-	if (ba.size() < sizeof(i4))
+	if (ba.size() < sizeof(i32))
 		return nullptr;
 	
 	media::MediaPreview *p = new media::MediaPreview();
-	p->magic_number = ba.next_i4();
+	p->magic_number = ba.next_i32();
 	
 	while (ba.has_more())
 	{
-		media::Field f = (media::Field) ba.next_u1();
-		QVector<i4> *v32 = nullptr;
+		media::Field f = (media::Field) ba.next_u8();
+		QVector<i32> *v32 = nullptr;
 		
 		if (f == media::Field::Actors)
 			v32 = &p->actors;
@@ -132,14 +132,14 @@ media::MediaPreview* CreateMediaPreview(ByteArray &ba)
 		
 		if (v32 != nullptr)
 		{
-			const u2 count = ba.next_u2();
+			const u16 count = ba.next_u16();
 			for (int i = 0; i < count; i++) {
-				v32->append(ba.next_i4());
+				v32->append(ba.next_i32());
 			}
 			continue;
 		}
 		
-		QVector<i2> *v2 = nullptr;
+		QVector<i16> *v2 = nullptr;
 		
 		if (f == media::Field::Genres)
 			v2 = &p->genres;
@@ -154,28 +154,28 @@ media::MediaPreview* CreateMediaPreview(ByteArray &ba)
 		
 		if (v2 != nullptr)
 		{
-			const u2 count = ba.next_u2();
+			const u16 count = ba.next_u16();
 			for (int i = 0; i < count; i++) {
-				v2->append(ba.next_i2());
+				v2->append(ba.next_i16());
 			}
 			continue;
 		}
 		
 		if (f == media::Field::YearStarted) {
-			p->year_started = ba.next_i2();
+			p->year_started = ba.next_i16();
 		} else if (f == media::Field::MonthStarted) {
-			p->month_started = ba.next_i1();
+			p->month_started = ba.next_i8();
 		} else if (f == media::Field::DayStarted) {
-			p->day_started = ba.next_i1();
+			p->day_started = ba.next_i8();
 		} else if (f == media::Field::YearEnded) {
-			p->year_end = ba.next_i2();
+			p->year_end = ba.next_i16();
 		} else if (f == media::Field::VideoCodecBitDepth) {
-			p->bit_depth = ba.next_i2();
+			p->bit_depth = ba.next_i16();
 		} else if (f == media::Field::VideoResolution) {
-			p->video_w = ba.next_i4();
-			p->video_h = ba.next_i4();
+			p->video_w = ba.next_i32();
+			p->video_h = ba.next_i32();
 		} else if (f == media::Field::FPS) {
-			p->fps = ba.next_f4();
+			p->fps = ba.next_f32();
 		} else {
 			/// other fields not needed by media::MediaPreview
 		}
@@ -723,10 +723,10 @@ void FillInStx(io::File &file, const struct statx &stx, const QString *name)
 QString
 FloatToString(const float number, const int precision)
 {
-	float rem = i4(number) - number;
+	float rem = i32(number) - number;
 
 	if (IsNearlyEqual(rem, 0.0))
-		return QString::number(i4(number));
+		return QString::number(i32(number));
 	
 	return QString::number(number, 'f', precision);
 }
@@ -1098,7 +1098,7 @@ bool ListFiles(io::FilesData &data, io::Files *ptr,
 	return true;
 }
 
-QString NewNamePattern(const QString &filename, i4 &next)
+QString NewNamePattern(const QString &filename, i32 &next)
 {
 	QStringRef base_name;
 	const QStringRef ext = io::GetFileNameExtension(filename, &base_name);
@@ -1125,7 +1125,7 @@ void PasteLinks(const QVector<QString> &full_paths,
 			filenames->append(filename);
 		
 		auto target_path_ba = in_full_path.toLocal8Bit();
-		i4 next = 0;
+		i32 next = 0;
 		while (true)
 		{
 			QString full_path = target_dir + io::NewNamePattern(filename, next);
@@ -1166,7 +1166,7 @@ void PasteRelativeLinks(const QVector<QString> &full_paths,
 			target = target.mid(target_dir.size());
 		}
 		auto target_path_ba = target.toLocal8Bit();
-		i4 next = 0;
+		i32 next = 0;
 		while (true)
 		{
 			QString full_path = target_dir + io::NewNamePattern(filename, next);
@@ -1211,11 +1211,14 @@ const char* QuerySocketFor(const QString &dir_path, bool &needs_root)
 	return needs_root ? cornus::RootSocketPath : cornus::SocketPath;
 }
 
-i8 ReadEventFd(cint fd)
+i64 ReadEventFd(cint fd)
 {
-	i8 n;
-	read(fd, &n, sizeof n);
-	return n;
+	i64 n;
+	if (read(fd, &n, sizeof n) >= sizeof n)
+		return n;
+	
+	mtl_trace();
+	return -1;
 }
 
 bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
@@ -1254,13 +1257,13 @@ bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 		es = ExactSize::No;
 	}
 	
-	i8 so_far = 0;
+	i64 so_far = 0;
 	cisize buf_size = 4096 * 4;
 	char *buf = new char[buf_size];
 	AutoDeleteArr buf_(buf);
 	while (true)
 	{
-		ci8 actually_read = read(fd, buf, buf_size);
+		ci64 actually_read = read(fd, buf, buf_size);
 		if (actually_read == -1)
 		{
 			if (errno == EAGAIN)
@@ -1323,7 +1326,7 @@ bool ReadLink(const char *file_path, LinkTarget &link_target,
 	
 	/* Add one to the link size, so that we can determine whether
 	the buffer returned by readlink() was truncated. */
-	i8 bufsize = stx.stx_size + 1;
+	i64 bufsize = stx.stx_size + 1;
 	
 	/* Some magic symlinks under (for example) /proc and /sys
 	report size=0. In that case, take PATH_MAX as a "good enough" estimate. */
@@ -1424,7 +1427,7 @@ bool ReadLinkSimple(const char *file_path, QString &result)
 	
 	/* Add one to the link size, so that we can determine whether
 	the buffer returned by readlink() was truncated. */
-	i8 bufsize = stx.stx_size + 1;
+	i64 bufsize = stx.stx_size + 1;
 	
 	/* Some magic symlinks under (for example) /proc and /sys
 	report 'st_size' as zero. In that case, take PATH_MAX as
@@ -1457,10 +1460,10 @@ bool ReadLinkSimple(const char *file_path, QString &result)
 	return true;
 }
 
-i8 ReadToBuf(const int fd, char *buf, ci8 buf_size,
+i64 ReadToBuf(const int fd, char *buf, ci64 buf_size,
 	const PrintErrors pe)
 {
-	i8 so_far = 0;
+	i64 so_far = 0;
 	while (true)
 	{
 //mtl_info("Starting ::read()");
@@ -1510,7 +1513,7 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 		attribute keys. Use the remaining buffer length to determine
 		the end of the list. */
 	char *key = buf;
-	
+	ByteArray ba;
 	while (buflen > 0)
 	{
 		/// Determine length of the value.
@@ -1518,7 +1521,6 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 		if (vallen <= 0)
 			break;
 		
-		ByteArray ba;
 		ba.alloc(vallen);
 		vallen = lgetxattr(full_path.constData(), key, ba.data(), ba.size());
 		if (vallen == -1)
@@ -1535,7 +1537,7 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 		}
 		
 		/// Forward to next attribute key.
-		const isize keylen = strlen(key) + 1;
+		cisize keylen = strlen(key) + 1;
 		buflen -= keylen;
 		key += keylen;
 	}
@@ -1642,21 +1644,21 @@ bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx,
 {
 	ByteArray ba;
 	ba.MakeSure(thumbnail::HeaderSize, ExactSize::Yes);
-	ba.add_i2(thumbnail::AbiVersion);
-	ba.add_i2(item.thmb.width());
-	ba.add_i2(item.thmb.height());
-	const u2 bpl = item.thmb.bytesPerLine();
+	ba.add_i16(thumbnail::AbiVersion);
+	ba.add_i16(item.thmb.width());
+	ba.add_i16(item.thmb.height());
+	const u16 bpl = item.thmb.bytesPerLine();
 	//mtl_info("BPL: %d", bpl);
-	ba.add_u2(bpl);
-	ba.add_i4(item.orig_img_w);
-	ba.add_i4(item.orig_img_h);
-	ba.add_i4(static_cast<i4>(item.thmb.format()));
+	ba.add_u16(bpl);
+	ba.add_i32(item.orig_img_w);
+	ba.add_i32(item.orig_img_h);
+	ba.add_i32(static_cast<i32>(item.thmb.format()));
 	
 	const char *src_buf = (const char*)item.thmb.constBits();
-	ci8 src_size = item.thmb.sizeInBytes();
-	ci8 dst_size = ZSTD_compressBound(src_size);
+	ci64 src_size = item.thmb.sizeInBytes();
+	ci64 dst_size = ZSTD_compressBound(src_size);
 	char *dst_buf = (char*)malloc(dst_size);
-	ci8 compressed_size = ZSTD_compressCCtx(compress_ctx,
+	ci64 compressed_size = ZSTD_compressCCtx(compress_ctx,
 		dst_buf, dst_size, src_buf, src_size, 1);
 	ba.add(dst_buf, compressed_size, ExactSize::Yes);
 	free(dst_buf);
@@ -1711,7 +1713,7 @@ bool SetXAttr(const QString &full_path, const QString &xattr_name,
 	return ok;
 }
 
-QString SizeToString(ci8 sz, const StringLength len)
+QString SizeToString(ci64 sz, const StringLength len)
 {
 	float rounded;
 	QString type;
@@ -1807,11 +1809,11 @@ bool SortFiles(io::File *a, io::File *b)
 
 QString thread_id_short(const pthread_t &th)
 {
-	ci8 n = static_cast<i8>(th);
+	ci64 n = static_cast<i64>(th);
 	return QString::number(n, 36);
 }
 
-isize TryReadFile(const QString &full_path, char *buf, ci8 how_much,
+isize TryReadFile(const QString &full_path, char *buf, ci64 how_much,
 	ExecInfo *info)
 {
 	auto ba = full_path.toLocal8Bit();
@@ -1835,21 +1837,21 @@ isize TryReadFile(const QString &full_path, char *buf, ci8 how_much,
 	return ret;
 }
 
-bool WriteToFile(const QString &full_path, const char *data, ci8 size,
+bool WriteToFile(const QString &full_path, const char *data, ci64 size,
 	const PostWrite post_write, mode_t *custom_mode)
 {
 	auto path = full_path.toLocal8Bit();
-	const int fd = open(path.data(), O_LARGEFILE | O_WRONLY | O_CREAT | O_TRUNC,
+	cint fd = open(path.data(), O_LARGEFILE | O_WRONLY | O_CREAT | O_TRUNC,
 		(custom_mode == nullptr) ? io::FilePermissions : *custom_mode);
 	if (fd == -1)
 	{
-		mtl_status(errno);
-		mtl_info("%s", path.data());
+		mtl_info("%s: %s", path.data(), strerror(errno));
 		return false;
 	}
 	
-	i8 written = 0;
-	i8 ret;
+	AutoCloseFd fd_(fd);
+	i64 written = 0;
+	i64 ret;
 	
 	while (written < size) {
 		// ssize_t write(int fd, const void *buf, size_t count);
@@ -1860,7 +1862,6 @@ bool WriteToFile(const QString &full_path, const char *data, ci8 size,
 				continue;
 			mtl_status(errno);
 			mtl_info("%s", path.data());
-			close(fd);
 			return false;
 		}
 		
@@ -1872,8 +1873,6 @@ bool WriteToFile(const QString &full_path, const char *data, ci8 size,
 	case PostWrite::FSync: fsync(fd); break;
 	case PostWrite::FDataSync: fdatasync(fd); break;
 	}
-	
-	close(fd);
 	
 	return true;
 }

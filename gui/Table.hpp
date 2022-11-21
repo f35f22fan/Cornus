@@ -29,16 +29,16 @@ public:
 	bool CheckIsOnFileName(io::File *file, const int file_row, const QPoint &pos) const;
 	void ClearMouseOver();
 	const QPoint& drop_coord() const { return drop_coord_; }
-	i4 GetFileAt_NoLock(const QPoint &local_pos, const PickBy pb, io::File **ret_file = nullptr);
+	i32 GetFileAt_NoLock(const QPoint &local_pos, const PickBy pb, io::File **ret_file = nullptr);
 	io::File* GetFileAt_NoLock(const QPoint &pos, const Clone clone, int *ret_file_index = nullptr);
 	int GetVisibleFileIndex();
 	TableHeader* header() const { return header_; }
 	TableModel* model() const { return model_; }
 	int GetRowHeight() const;
-	i4 GetVisibleRowsCount() const;
+	i32 GetVisibleRowsCount() const;
 	bool mouse_down() const { return mouse_down_; }
-	i4 mouse_over_file_icon_index() const { return mouse_over_file_icon_; }
-	i4 mouse_over_file_name_index() const { return mouse_over_file_name_; }
+	i32 mouse_over_file_icon_index() const { return mouse_over_file_icon_; }
+	i32 mouse_over_file_name_index() const { return mouse_over_file_name_; }
 	void ScrollToFile(int file_index);
 	void SelectByLowerCase(QVector<QString> filenames, const NamesAreLowerCase are_lower);
 	ShiftSelect* shift_select() { return &shift_select_; }
@@ -72,7 +72,7 @@ private:
 	
 	void ClearDndAnimation(const QPoint &drop_coord);
 	void HiliteFileUnderMouse();
-	i4 IsOnFileIcon_NoLock(const QPoint &local_pos, io::File **ret_file = nullptr);
+	i32 IsOnFileIcon_NoLock(const QPoint &local_pos, io::File **ret_file = nullptr);
 	void SetCustomResizePolicy();
 	void SortingChanged(int logical, Qt::SortOrder order);
 	void UpdateLineHeight();
@@ -82,8 +82,8 @@ private:
 	gui::Tab *tab_ = nullptr;
 	TableDelegate *delegate_ = nullptr;
 	bool mouse_down_ = false;
-	i4 mouse_over_file_name_ = -1;
-	i4 mouse_over_file_icon_ = -1;
+	i32 mouse_over_file_name_ = -1;
+	i32 mouse_over_file_icon_ = -1;
 	ShiftSelect shift_select_ = {};
 	
 	struct DragScroll {

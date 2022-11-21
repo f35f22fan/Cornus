@@ -65,7 +65,7 @@ void ReadEvent(int inotify_fd, char *buf,
 		QString dir_path = fd_to_path.value(ev->wd).toLocal8Bit();
 		add = sizeof(struct inotify_event) + ev->len;
 		const auto mask = ev->mask;
-		const bool is_dir = mask & IN_ISDIR;
+		cbool is_dir = mask & IN_ISDIR;
 		
 		if (mask & IN_CREATE) {
 			QString name(ev->name);
@@ -286,7 +286,7 @@ Daemon::Daemon()
 Daemon::~Daemon() {
 	{
 		{ // wake up epoll() to not wait till it times out
-			ci8 n = 1;
+			ci64 n = 1;
 			const int status = ::write(signal_quit_fd_, &n, sizeof n);
 			if (status == -1)
 				mtl_status(errno);
@@ -308,12 +308,12 @@ void Daemon::CheckOldThumbnails()
 	
 	const QString &dir_path = io::GetLastingTmpDir();
 	MTL_CHECK_VOID(!dir_path.isEmpty());
-	ci8 ten_days = 60 * 60 * 24 * 10;
-	ci8 now_minus_ten_days = i8(time(NULL)) - ten_days;
+	ci64 ten_days = 60 * 60 * 24 * 10;
+	ci64 now_minus_ten_days = i64(time(NULL)) - ten_days;
 	io::DirStream ds(dir_path);
 	while (io::DirItem *next = ds.next())
 	{
-		ci8 modif_time_sec = next->stx.stx_mtime.tv_sec;
+		ci64 modif_time_sec = next->stx.stx_mtime.tv_sec;
 		if (modif_time_sec > now_minus_ten_days)
 			continue;
 		auto ba = (dir_path + next->name).toLocal8Bit();
@@ -460,7 +460,7 @@ void Daemon::GetPreferredOrder(QString mime,
 	
 	while (buf.has_more())
 	{
-		const Present present = (Present)buf.next_i1();
+		const Present present = (Present)buf.next_i8();
 		const QString id = buf.next_string();
 		DesktopFile *p = nullptr;
 		
@@ -577,7 +577,7 @@ void Daemon::QuitGuiApp()
 void Daemon::SendAllDesktopFiles(const int fd)
 {
 	ByteArray reply;
-	reply.add_i2(DesktopFileABI);
+	reply.add_i16(DesktopFileABI);
 	{
 		auto g = desktop_files_.guard();
 		auto it = desktop_files_.hash.constBegin();
@@ -595,7 +595,7 @@ void Daemon::SendAllDesktopFiles(const int fd)
 void Daemon::SendDesktopFilesById(ByteArray *ba, const int fd)
 {
 	ByteArray reply;
-	reply.add_i2(DesktopFileABI);
+	reply.add_i16(DesktopFileABI);
 	{
 		auto g = desktop_files_.guard();
 		while (ba->has_more())
@@ -626,7 +626,7 @@ void Daemon::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 	GetDesktopFilesForMime(mime, show_vec, hide_vec);
 	
 	ByteArray reply;
-	reply.add_i2(DesktopFileABI);
+	reply.add_i16(DesktopFileABI);
 	if (!show_vec.isEmpty())
 	{
 		DesktopFile *p = show_vec[0];
@@ -643,15 +643,15 @@ void Daemon::SendOpenWithList(QString mime, const int fd)
 	GetDesktopFilesForMime(mime, show_vec, hide_vec);
 	
 	ByteArray reply;
-	reply.add_i2(DesktopFileABI);
+	reply.add_i16(DesktopFileABI);
 	for (DesktopFile *next: show_vec)
 	{
-		reply.add_i1((i1)Present::Yes);
+		reply.add_i8((i8)Present::Yes);
 		next->WriteTo(reply);
 	}
 	
 	for (DesktopFile *next: hide_vec) {
-		reply.add_i1((i1)Present::No);
+		reply.add_i8((i8)Present::No);
 		next->WriteTo(reply);
 	}
 	

@@ -11,7 +11,7 @@ Building on Ubuntu, install Qt5 (used to be called qt5-default):
 * sudo apt-get install qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools
 
 Then the other dependencies:
-* sudo apt-get install libdbus-c++-dev libudev-dev libudisks2-dev libzstd-dev libmtp-dev mkvtoolnix cmake ark git
+* sudo apt-get install libwebp-dev libwebm-dev libdbus-c++-dev libudev-dev libudisks2-dev libzstd-dev libmtp-dev libpolkit-gobject-1-dev libpolkit-agent-1-dev mkvtoolnix cmake ark git
 
 And build it:
 * mkdir build && cd build

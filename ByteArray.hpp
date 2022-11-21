@@ -10,7 +10,7 @@
 
 namespace cornus {
 
-enum class CloseSocket: i1 {
+enum class CloseSocket: i8 {
 	Yes,
 	No,
 };
@@ -28,16 +28,16 @@ public:
 	
 	void add(const ByteArray *ba, const From from);
 	void add(const char *p, const isize size, const ExactSize es = ExactSize::No);
-	void add_i1(const i1 n);
-	void add_u1(const u1 n);
-	void add_i2(const i2 n);
-	void add_u2(const u2 n);
-	void add_i4(const i4 n);
-	void add_u4(const u4 n);
 	void add_i8(const i8 n);
 	void add_u8(const u8 n);
-	void add_f4(const float n);
-	void add_f8(const double n);
+	void add_i16(const i16 n);
+	void add_u16(const u16 n);
+	void add_i32(const i32 n);
+	void add_u32(const u32 n);
+	void add_i64(const i64 n);
+	void add_u64(const u64 n);
+	void add_f32(const float n);
+	void add_f64(const double n);
 	void add_string(const QString &s);
 	isize at() const { return at_; }
 	void Clear();
@@ -48,16 +48,16 @@ public:
 	bool has_more() const { return at_ < size_; }
 	bool is_empty() const { return size_ == 0; }
 	void next(char *p, const isize sz);
-	i1 next_i1();
-	u1 next_u1();
-	i2 next_i2();
-	u2 next_u2();
-	i4 next_i4();
-	u4 next_u4();
 	i8 next_i8();
 	u8 next_u8();
-	f4 next_f4();
-	f8 next_f8();
+	i16 next_i16();
+	u16 next_u16();
+	i32 next_i32();
+	u32 next_u32();
+	i64 next_i64();
+	u64 next_u64();
+	f32 next_f32();
+	f64 next_f64();
 	QString next_string();
 	
 	isize alloc_size() const { return size_; }

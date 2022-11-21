@@ -52,12 +52,12 @@ struct ShiftSelect {
 	int head_row = -1;
 };
 
-enum class ScrollBy: i1 {
+enum class ScrollBy: i8 {
 	LineStep,
 	PageStep,
 };
 
-enum class ViewMode: i1 {
+enum class ViewMode: i8 {
 	None,
 	Details,
 	Icons,
@@ -65,8 +65,8 @@ enum class ViewMode: i1 {
 
 struct InputDialogParams {
 	QSize size = {-1, -1};
-	i4 selection_start = -1;
-	i4 selection_end = -1;
+	i32 selection_start = -1;
+	i32 selection_end = -1;
 	QString title;
 	QString msg;
 	QString initial_value;
@@ -74,7 +74,7 @@ struct InputDialogParams {
 	QIcon *icon = nullptr;
 };
 
-enum class HiliteMode: i2 {
+enum class HiliteMode: i16 {
 	None = -1,
 /// First viable mode must start at zero because these are
 /// also used as indices into a vector:
@@ -87,7 +87,7 @@ enum class HiliteMode: i2 {
 	Count
 };
 
-enum class Column : i1 {
+enum class Column : i8 {
 	Icon = 0,
 	FileName,
 	Size,

@@ -14,12 +14,12 @@
 namespace cornus::io {
 
 class FilesData {
-	static const u16 ShowHiddenFiles =     1u << 0;
-	static const u16 ThreadMustExit =      1u << 1;
-	static const u16 ThreadExited =        1u << 2;
-	static const u16 CanWriteToDir =       1u << 3;
-	static const u16 CountDirFiles1Level = 1u << 4;
-	static const u16 Reloaded =            1u << 5;
+	cu16 ShowHiddenFiles =     1u << 0;
+	cu16 ThreadMustExit =      1u << 1;
+	cu16 ThreadExited =        1u << 2;
+	cu16 CanWriteToDir =       1u << 3;
+	cu16 CountDirFiles1Level = 1u << 4;
+	cu16 Reloaded =            1u << 5;
 	
 public:
 	FilesData();
@@ -51,7 +51,7 @@ public:
 	cornus::Action action = Action::None;
 	
 	bool can_write_to_dir() const { return bits_ & CanWriteToDir; }
-	void can_write_to_dir(const bool flag) {
+	void can_write_to_dir(cbool flag) {
 		if (flag)
 			bits_ |= CanWriteToDir;
 		else
@@ -59,7 +59,7 @@ public:
 	}
 	
 	bool count_dir_files_1_level() const { return bits_ & CountDirFiles1Level; }
-	void count_dir_files_1_level(const bool flag) {
+	void count_dir_files_1_level(cbool flag) {
 		if (flag)
 			bits_ |= CountDirFiles1Level;
 		else
@@ -67,7 +67,7 @@ public:
 	}
 	
 	bool reloaded() const { return bits_ & Reloaded; }
-	void reloaded(const bool flag) {
+	void reloaded(cbool flag) {
 		if (flag)
 			bits_ |= Reloaded;
 		else
@@ -75,7 +75,7 @@ public:
 	}
 	
 	bool show_hidden_files() const { return bits_ & ShowHiddenFiles; }
-	void show_hidden_files(const bool flag) {
+	void show_hidden_files(cbool flag) {
 		if (flag)
 			bits_ |= ShowHiddenFiles;
 		else
@@ -83,7 +83,7 @@ public:
 	}
 	
 	bool thread_must_exit() const { return bits_ & ThreadMustExit; }
-	void thread_must_exit(const bool flag) {
+	void thread_must_exit(cbool flag) {
 		if (flag)
 			bits_ |= ThreadMustExit;
 		else
@@ -91,7 +91,7 @@ public:
 	}
 	
 	bool thread_exited() const { return bits_ & ThreadExited; }
-	void thread_exited(const bool flag) {
+	void thread_exited(cbool flag) {
 		if (flag)
 			bits_ |= ThreadExited;
 		else
@@ -111,7 +111,7 @@ public:
 	// <== only used in gui thread
 	
 	// returns cloned file
-	io::File* GetFileAtIndex(const cornus::Lock l, const int index);
+	io::File* GetFileAtIndex(const cornus::Lock l, cint index);
 	int GetFirstSelectedFile(const cornus::Lock l, io::File **ret_cloned_file = nullptr,
 		const Clone c = Clone::Yes);
 	QString GetFirstSelectedFileFullPath(const cornus::Lock l, QString *ext);
@@ -124,7 +124,7 @@ public:
 	void RemoveThumbnailsFromSelectedFiles();
 	void SelectAllFiles(const cornus::Lock l, const Selected flag, QSet<int> &indices);
 	void SelectFilenamesLater(const QVector<QString> &names, const SameDir sd = SameDir::No);
-	void SelectFileRange(const cornus::Lock l, const int row1, const int row2, QSet<int> &indices);
+	void SelectFileRange(const cornus::Lock l, cint row1, cint row2, QSet<int> &indices);
 	void SetLastWatched(const enum Lock l, io::File *file);
 	
 	CondMutex quit_cm = {};
@@ -132,7 +132,7 @@ public:
 	void WakeUpInotify(const enum Lock l);
 	
 	inline void Broadcast() {
-		int status = pthread_cond_broadcast(&cond);
+		cint status = pthread_cond_broadcast(&cond);
 		if (status != 0)
 			mtl_status(status);
 	}
@@ -142,7 +142,7 @@ public:
 	}
 	
 	inline bool Lock() {
-		const int status = pthread_mutex_lock(&mutex);
+		cint status = pthread_mutex_lock(&mutex);
 		if (status != 0)
 			mtl_status(status);
 		return (status == 0);
@@ -157,7 +157,7 @@ public:
 	}
 	
 	inline void Signal() {
-		int status = pthread_cond_signal(&cond);
+		cint status = pthread_cond_signal(&cond);
 		if (status != 0)
 			mtl_status(status);
 	}

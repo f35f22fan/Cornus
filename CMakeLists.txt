@@ -107,6 +107,10 @@ set(cornus_src_files main.cpp
     io/Notify.cpp io/Notify.hpp
     io/SaveFile.cpp io/SaveFile.hpp
     io/socket.cc io/socket.hh
+
+    mc/mc.cc mc/mc.hh
+    mc/mkvparser.cpp mc/mkvparser.hpp
+    mc/mkvreader.cpp mc/mkvreader.hpp
 )
 
 foreach(f IN LISTS cornus_src_files)

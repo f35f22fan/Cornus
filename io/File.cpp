@@ -173,10 +173,10 @@ File::media_attrs_decoded()
 	return cache_.media_preview;
 }
 
-void File::name(const QString &s)
+void File::name(QStringView s)
 {
-	name_.orig = s;
-	name_.lower = s.toLower();
+	name_.orig = s.toString();
+	name_.lower = name_.orig.toLower();
 	ReadExtension();
 }
 

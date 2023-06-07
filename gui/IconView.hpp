@@ -35,7 +35,7 @@ struct IconDim {
 	double gap = 0;
 	double two_gaps = 0;
 	double text_y = -1;
-	double str_h = -1;
+	double line_h = -1;
 	double text_h = -1;
 	int per_row = 1;
 	int text_rows = -1;

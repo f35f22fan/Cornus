@@ -20,7 +20,7 @@
 #include <QTime>
 #include <QTimer>
 
-//#define CORNUS_DEBUG_INOTIFY
+#define CORNUS_DEBUG_INOTIFY
 
 namespace cornus::gui {
 
@@ -635,29 +635,29 @@ void TableModel::SelectFilesAfterInotifyBatch()
 	auto &files = tab_->view_files();
 	{
 		auto g = files.guard();
-		auto &select_list = files.data.filenames_to_select;
-		if (select_list.isEmpty() || files.data.should_skip_selecting())
+		auto &names_to_select = files.data.filenames_to_select;
+		if (names_to_select.isEmpty() || files.data.should_skip_selecting())
 			return;
 		
 		QVector<io::File*> &files_vec = files.data.vec;
-		auto it = select_list.begin();
+		auto it = names_to_select.begin();
 		cint files_count = files_vec.size();
 		
-		while (it != select_list.end())
+		while (it != names_to_select.end())
 		{
-			const QString &name = it.key();
+			const QString &select_name = it.key();
 			bool found = false;
 			for (int i = 0; i < files_count; i++)
 			{
 				io::File *file = files_vec[i];
-				if (file->name() == name)
+				if (file->name() == select_name)
 				{
 #ifdef CORNUS_DEBUG_INOTIFY
-mtl_printq2("Selecting name ", name);
+mtl_printq2("Selecting name ", select_name);
 #endif
 					indices.insert(i);
 					file->set_selected(true);
-					it = select_list.erase(it);
+					it = names_to_select.erase(it);
 					found = true;
 					break;
 				}
@@ -667,11 +667,11 @@ mtl_printq2("Selecting name ", name);
 			{
 				cint new_count = it.value() + 1;
 				if (new_count > 5) {
-mtl_printq2("Removed from list: ", name);
-					it = select_list.erase(it);
+mtl_printq2("Removed from list: ", select_name);
+					it = names_to_select.erase(it);
 				} else {
-mtl_printq2("Increased counter for ", name);
-					select_list[name] = new_count;
+mtl_printq2("Increased counter for ", select_name);
+					names_to_select[select_name] = new_count;
 					it++;
 				}
 			}
@@ -682,7 +682,7 @@ mtl_printq2("Increased counter for ", name);
 	{
 		tab_->UpdateIndices(indices);
 		cint first_file_index = *indices.constBegin();
-		//mtl_info("scroll to: %d", index);
+		//mtl_info("scroll to: %d", first_file_index);
 		tab_->ScrollToFile(first_file_index);
 	}
 }

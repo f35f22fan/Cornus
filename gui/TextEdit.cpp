@@ -57,10 +57,7 @@ bool TextEdit::Display(io::File *cloned_file)
 {
 	clear();
 	AutoDelete ad(cloned_file);
-	if (cloned_file->is_dir_or_so())
-	{
-		return false;
-	}
+	MTL_CHECK(!cloned_file->is_dir_or_so());
 	
 	was_selected_ = cloned_file->selected();
 	filename_ = cloned_file->name();
@@ -76,7 +73,7 @@ bool TextEdit::Display(io::File *cloned_file)
 	hiliter_->SwitchTo(hilite_mode_);
 	
 	QString s;
-	const bool read_only = (hilite_mode_ == HiliteMode::None);
+	cbool read_only = (hilite_mode_ == HiliteMode::None);
 	setReadOnly(read_only);
 	if (read_only)
 	{

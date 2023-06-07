@@ -143,10 +143,8 @@ public:
 	
 	const QString& name() const { return name_.orig; }
 	const QString& name_lower() const { return name_.lower; }
-	void name(const QString &s);
-	
-	void dir_path(const QString &s) { dp_ = s; }
-	
+	void name(QStringView s);
+	void dir_path(QStringView s) { dp_ = s.toString(); }
 	const QString& dir_path(const Lock l) const;
 	
 	io::Files* files() const { return files_; }

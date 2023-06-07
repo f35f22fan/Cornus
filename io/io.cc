@@ -75,8 +75,8 @@ int CompareDigits(QStringRef a, QStringRef b)
 	i = 0;
 	for (; i < a.size(); i++)
 	{
-		const int an = a[i].digitValue();
-		const int bn = b[i].digitValue();
+		cint an = a[i].digitValue();
+		cint bn = b[i].digitValue();
 		if (an != bn)
 			return (an < bn) ? -1 : 1;
 	}
@@ -185,9 +185,9 @@ media::MediaPreview* CreateMediaPreview(ByteArray &ba)
 	return p;
 }
 
-QStringRef GetDigits(const QString &s, const int from)
+QStringRef GetDigits(const QString &s, cint from)
 {
-	const int max = s.size();
+	cint max = s.size();
 	int k = from;
 	for (; k < max; k++)
 	{
@@ -204,7 +204,7 @@ int CompareStrings(const QString &a, const QString &b)
 /** Lexically compares this @a with @b and returns
  an integer less than, equal to, or greater than zero if @a
  is less than, equal to, or greater than the other string. */
-	const int max = std::min(a.size(), b.size());
+	cint max = std::min(a.size(), b.size());
 	for (int i = 0; i < max; i++)
 	{
 		const QChar ac = a[i];
@@ -218,7 +218,7 @@ int CompareStrings(const QString &a, const QString &b)
 			QStringRef a_digits = GetDigits(a, i);
 			QStringRef b_digits = GetDigits(b, i);
 			
-			const int digit_result = CompareDigits(a_digits, b_digits);
+			cint digit_result = CompareDigits(a_digits, b_digits);
 //			if (true) {
 //				auto ax = a_digits.toLocal8Bit();
 //				auto bx = b_digits.toLocal8Bit();
@@ -279,10 +279,10 @@ bool CopyFileFromTo(const QString &from_full_path, QString to_dir)
 	
 	AutoCloseFd output_ac(output_fd);
 	loff_t in_off = 0, out_off = 0;
-	const usize chunk = 512 * 128;
+	cusize chunk = 512 * 128;
 	
 	while (true) {
-		isize count = copy_file_range(input_fd, &in_off, output_fd, &out_off, chunk, 0);
+		cisize count = copy_file_range(input_fd, &in_off, output_fd, &out_off, chunk, 0);
 		if (count == -1) {
 			if (errno == EAGAIN)
 				continue;
@@ -343,14 +343,14 @@ bool CountSizeRecursive(const QString &path, struct statx &stx,
 }
 
 int CreateAutoRenamedFile(QString dir_path, QString filename,
-	const int file_flags, const mode_t mode)
+	cint file_flags, const mode_t mode)
 {
 	int next = 0;
 	for (;;)
 	{
 		QString dest_path = dir_path + io::NewNamePattern(filename, next);
 		auto ba = dest_path.toLocal8Bit();
-		const int fd = ::open(ba.data(), file_flags, mode);
+		cint fd = ::open(ba.data(), file_flags, mode);
 		if (fd != -1)
 			return fd;
 		if (errno != EEXIST)
@@ -549,7 +549,7 @@ bool EnsureDir(QString dir_path, const QString &subdir, QString *result)
 			return false;
 	}
 	
-	const int status = mkdir(ba.data(), DirPermissions);
+	cint status = mkdir(ba.data(), DirPermissions);
 	if (status == 0)
 	{
 		if (result)
@@ -579,7 +579,7 @@ bool EnsureRegularFile(const QString &full_path, const mode_t *mode)
 	
 	const mode_t file_mode = (mode) ? *mode : 0644;
 	const auto OverwriteFlags = O_CREAT | O_LARGEFILE;
-	const int output_fd = ::open(ba.data(), OverwriteFlags, file_mode);
+	cint output_fd = ::open(ba.data(), OverwriteFlags, file_mode);
 	if (output_fd == -1)
 	{
 		mtl_status(errno);
@@ -721,7 +721,7 @@ void FillInStx(io::File &file, const struct statx &stx, const QString *name)
 }
 
 QString
-FloatToString(const float number, const int precision)
+FloatToString(const float number, cint precision)
 {
 	float rem = i32(number) - number;
 
@@ -1247,6 +1247,7 @@ bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 	if (fd == -1)
 		return false;
 	
+	AutoCloseFd acf(fd);
 	cauto at = buffer.at();
 	ExactSize es;
 	if (statx_ok && params.can_rely == CanRelyOnStatxSize::Yes)
@@ -1270,7 +1271,6 @@ bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 				continue;
 			if (params.print_errors == PrintErrors::Yes)
 				mtl_warn("ReadFile: %s", strerror(errno));
-			close(fd);
 			return false;
 		} else if (actually_read == 0) {
 			/// Zero indicates the end of file, happens with sysfs files.
@@ -1288,7 +1288,6 @@ bool ReadFile(const QString &full_path, cornus::ByteArray &buffer,
 		buffer.add(buf, actually_read, es);
 	}
 	
-	close(fd);
 	buffer.to(at);
 	buffer.size(at + so_far); /// needed for buffer.toString()
 	
@@ -1460,14 +1459,14 @@ bool ReadLinkSimple(const char *file_path, QString &result)
 	return true;
 }
 
-i64 ReadToBuf(const int fd, char *buf, ci64 buf_size,
+i64 ReadToBuf(cint fd, char *buf, ci64 buf_size,
 	const PrintErrors pe)
 {
 	i64 so_far = 0;
 	while (true)
 	{
 //mtl_info("Starting ::read()");
-		const isize chunk = ::read(fd, buf + so_far, buf_size - so_far);
+		cisize chunk = ::read(fd, buf + so_far, buf_size - so_far);
 //mtl_info("Read %ld", chunk);
 		if (chunk == -1)
 		{
@@ -1647,8 +1646,7 @@ bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx,
 	ba.add_i16(thumbnail::AbiVersion);
 	ba.add_i16(item.thmb.width());
 	ba.add_i16(item.thmb.height());
-	const u16 bpl = item.thmb.bytesPerLine();
-	//mtl_info("BPL: %d", bpl);
+	cu16 bpl = item.thmb.bytesPerLine();
 	ba.add_u16(bpl);
 	ba.add_i32(item.orig_img_w);
 	ba.add_i32(item.orig_img_h);
@@ -1828,13 +1826,13 @@ isize TryReadFile(const QString &full_path, char *buf, ci64 how_much,
 	if (info != nullptr)
 		info->mode = stx.stx_mode;
 	
-	const int fd = open(ba.data(), O_RDONLY);
+	cint fd = open(ba.data(), O_RDONLY);
 	if (fd == -1)
 		return -1;
 	
-	isize ret = read(fd, buf, how_much);
+	cisize num_bytes = read(fd, buf, how_much);
 	close(fd);
-	return ret;
+	return num_bytes;
 }
 
 bool WriteToFile(const QString &full_path, const char *data, ci64 size,

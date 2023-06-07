@@ -1118,7 +1118,7 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 	} else if (key == Qt::Key_M && !any_modifiers) {
 		io::File *cloned_file = nullptr;
 		files.GetFirstSelectedFile(Lock::Yes, &cloned_file, Clone::Yes);
-		if (cloned_file != nullptr)
+		if (cloned_file)
 			AttrsDialog attrs_d(app_, cloned_file);
 	}
 	
@@ -1277,8 +1277,6 @@ void Tab::ProcessAction(const QString &action)
 			if (info.is_elf() || info.is_shell_script())
 				app->RunExecutable(full_path, info);
 		}
-	} else if (action == actions::EditMovieTitle) {
-		app->EditSelectedMovieTitle();
 	}
 }
 
@@ -1617,7 +1615,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 			
 			if (videos.contains(file_under_mouse->cache().ext.toString())) {
 				QAction *action = menu->addAction(tr("Edit movie title") + QLatin1String(" [mkvpropedit]"));
-				connect(action, &QAction::triggered, [=] {ProcessAction(actions::EditMovieTitle);});
+				connect(action, &QAction::triggered, [=] { app_->EditSelectedMovieTitle(); });
 				QIcon *icon = app_->GetIcon(file_under_mouse->cache().ext.toString());
 				if (icon != nullptr) {
 					action->setIcon(*icon);

@@ -42,6 +42,7 @@
 #include "gui/TreeItem.hpp"
 #include "gui/TreeModel.hpp"
 #include "gui/TreeView.hpp"
+#include "mc/mc.hh"
 #include "Media.hpp"
 #include "prefs.hh"
 #include "Prefs.hpp"
@@ -800,6 +801,9 @@ void App::EditSelectedMovieTitle()
 		return;
 	
 	gui::InputDialogParams params;
+	// mc::ReadMkv() is extremely resource intensive,
+	// seems to read the whole .mkv file before returning anything
+	params.initial_value = file_name;//mc::ReadMkvTitle(full_path);
 	params.title = tr("Edit movie title");
 	params.msg = file_name;
 	params.placeholder_text = tr("Movie title");
@@ -1349,21 +1353,25 @@ void App::MediaFileChanged()
 	Q_EMIT media_->Changed();
 }
 
-gui::Tab* App::OpenNewTab(const cornus::FirstTime ft)
+gui::Tab* App::OpenNewTab(const cornus::FirstTime ft, QStringView full_path)
 {
 	static TabId tab_id = 0;
-	gui::Tab *tab = new gui::Tab(this, ++tab_id);
-	tab_widget_->addTab(tab, QString());
+	auto *new_tab = new gui::Tab(this, ++tab_id);
+	tab_widget_->addTab(new_tab, QString());
 	if (ft == FirstTime::Yes)
 	{
-		tab->GoToInitialDir();
+		if (full_path.isEmpty())
+			new_tab->GoToInitialDir();
+		else
+			new_tab->GoToSimple(full_path.toString());
 	} else {
-		QString dir_path = this->tab()->current_dir();
-		tab->GoToSimple(dir_path);
-		tab_widget_->setCurrentWidget(tab);
+		//QString dir_path = this->tab()->current_dir();
+		new_tab->GoToSimple(full_path.isEmpty()
+			? QDir::homePath() : full_path.toString());
+		tab_widget_->setCurrentWidget(new_tab);
 	}
 	
-	return tab;
+	return new_tab;
 }
 
 void App::OpenTerminal() {
@@ -1575,6 +1583,21 @@ QShortcut* App::Register(const QKeySequence ks)
 void App::RegisterShortcuts()
 {
 	QShortcut *sp;
+	{
+		sp = Register(QKeySequence(Qt::ALT + Qt::Key_1));
+		connect(sp, &QShortcut::activated, [=]() {
+			QString config_path = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
+			
+			if (!config_path.endsWith('/'))
+				config_path.append('/');
+			
+			QString dir_path = config_path.append(QLatin1String("mpv"));
+			auto *f = new io::File(dir_path);
+			f->name(QString("mpv.conf"));
+			DisplayFileContents(-1, f);
+		});
+	}
+	
 	{
 		sp = Register(QKeySequence(Qt::ALT + Qt::Key_Up));
 		connect(sp, &QShortcut::activated, this, &App::GoUp);

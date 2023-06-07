@@ -81,7 +81,7 @@ public:
 	float magnify_opacity() const { return 0.7f; }
 	QSplitter* main_splitter() const { return main_splitter_; }
 	Media* media() const { return media_; }
-	gui::Tab *OpenNewTab(const cornus::FirstTime ft = FirstTime::No);
+	gui::Tab *OpenNewTab(const cornus::FirstTime ft = FirstTime::No, QStringView full_path = QStringView());
 	void OpenTerminal();
 	const QHash<QString, Category>& possible_categories() const { return possible_categories_; }
 	Prefs& prefs() { return *prefs_; }
@@ -139,7 +139,6 @@ private:
 	void CreateGui();
 	void CreateSidePane();
 	void DetectThemeType();
-	void DisplayMime(io::File *file);
 	void DisplaySymlinkInfo(io::File &file);
 	QIcon* GetDefaultIcon();
 	QIcon* GetFolderIcon();

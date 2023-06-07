@@ -44,36 +44,34 @@ QImage ImageFromByteArray(ByteArray &ba, i32 &img_w, i32 &img_h,
 		return QImage();
 	}
 	
-	const int thmb_w = ba.next_i16();
-	const int thmb_h = ba.next_i16();
-	const int bpl = ba.next_u16();
+	cint thmb_w = ba.next_i16();
+	cint thmb_h = ba.next_i16();
+	cint bpl = ba.next_u16();
 	img_w = ba.next_i32();
 	img_h = ba.next_i32();
 	const auto format = static_cast<QImage::Format>(ba.next_i32());
 	ba.to(0); // leave ByteArray in same state it was passed in
-	char *src_buf = (ba.data() + thumbnail::HeaderSize);
-	const i64 src_size = ba.size() - thumbnail::HeaderSize;
+	char *src_buf = ba.data() + thumbnail::HeaderSize;
+	ci64 src_size = ba.size() - thumbnail::HeaderSize;
 	
-	const i64 dst_size = ZSTD_getFrameContentSize(src_buf, src_size);
+	ci64 dst_size = ZSTD_getFrameContentSize(src_buf, src_size);
 	uchar *dst_buf = new uchar[dst_size];
-	const i64 decompressed_size = ZSTD_decompressDCtx(decompress_ctx,
+	ci64 decompressed_size = ZSTD_decompressDCtx(decompress_ctx,
 		dst_buf, dst_size, src_buf, src_size);
 	Q_UNUSED(decompressed_size);
 	
 	return QImage(dst_buf, thmb_w, thmb_h, bpl, format, CornusFreeQImageMemory, dst_buf);
 }
 
-QSize GetScaledSize(const QSize &input, const int max_img_w,
-	const int max_img_h)
+QSize GetScaledSize(const QSize &input, cint max_img_w,
+	cint max_img_h)
 {
 	const double pw = input.width();
 	const double ph = input.height();
 	double used_w, used_h;
 	if (pw > max_img_w || ph > max_img_h)
 	{
-		double w_ratio = pw / max_img_w;
-		double h_ratio = ph / max_img_h;
-		const double ratio = std::max(w_ratio, h_ratio);
+		cf64 ratio = std::max(pw / max_img_w, ph / max_img_h);
 		used_w = pw / ratio;
 		used_h = ph / ratio;
 	} else {
@@ -85,13 +83,12 @@ QSize GetScaledSize(const QSize &input, const int max_img_w,
 }
 
 Thumbnail* Load(const QString &full_path, const u64 &file_id,
-	const QByteArray &ext, const int max_img_w, const int max_img_h,
+	const QByteArray &ext, cint max_img_w, cint max_img_h,
 	const TabId tab_id, const DirId dir_id)
 {
 	QSize scaled, orig_img_sz;
-	const bool is_webp = (ext == QByteArray("webp"));
 	QImage img;
-	if (is_webp)
+	if (ext == QByteArray("webp"))
 	{ // WebP is disabled in Qt5 on Ubuntu 21.10, so load webp files manually.
 		img = LoadWebpImage(full_path, max_img_w, max_img_h, scaled, orig_img_sz);
 	} else {
@@ -157,8 +154,8 @@ void* LoadMonitor(void *args)
 	return nullptr;
 }
 
-QImage LoadWebpImage(const QString &full_path, const int max_img_w,
-	const int max_img_h, QSize &scaled_sz, QSize &orig_img_sz)
+QImage LoadWebpImage(const QString &full_path, cint max_img_w,
+	cint max_img_h, QSize &scaled_sz, QSize &orig_img_sz)
 {
 	QImage img;
 	io::ReadParams rp = {};
@@ -194,7 +191,7 @@ QImage LoadWebpImage(const QString &full_path, const int max_img_w,
 //	mtl_info("Requested stride: %ld", scanline_stride);
 //	mtl_info("max_img_w: %d, h: %d, scaled w: %d, h: %d",
 //		max_img_w, max_img_h, scaled_sz.width(), scaled_sz.height());
-	const i64 external_buf_size = scanline_stride * scaled_sz.height();
+	ci64 external_buf_size = scanline_stride * scaled_sz.height();
 	uchar *external_buf = new uchar[external_buf_size];
 	{
 		// Specify the desired output colorspace:

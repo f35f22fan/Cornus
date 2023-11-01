@@ -29,10 +29,6 @@
 	"%s[%s:%.3d %s]%s " fmt "\n", MTL_COLOR_BLUE, SRC_FILE_NAME, \
 	__LINE__, __FUNCTION__, MTL_COLOR_DEFAULT, ##args)
 
-#define mtl_infon(fmt, args...) fprintf(stdout, \
-	"%s[%s:%.3d %s]%s " fmt "", MTL_COLOR_BLUE, SRC_FILE_NAME, \
-	__LINE__, __FUNCTION__, MTL_COLOR_DEFAULT, ##args)
-
 #define mtl_warn(fmt, args...) fprintf(stdout, \
 	"%s[%s:%.3d %s] " fmt "%s\n", MTL_COLOR_RED, SRC_FILE_NAME, \
 	__LINE__, __FUNCTION__, ##args, MTL_COLOR_DEFAULT)

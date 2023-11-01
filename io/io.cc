@@ -47,7 +47,7 @@ bool CanWriteToDir(const QString &dir_path)
 
 bool CheckDesktopFileABI(ByteArray &ba)
 {
-	return ba.has_more(2) && ba.next_i16() == DesktopFileABI;
+	return ba.has_more(sizeof(DesktopFileABI)) && ba.next_i16() == DesktopFileABI;
 }
 
 int CompareDigits(QStringRef a, QStringRef b)
@@ -183,6 +183,12 @@ media::MediaPreview* CreateMediaPreview(ByteArray &ba)
 	
 	ba.to(at);
 	return p;
+}
+
+bool CreateRegularFile(QStringView full_path)
+{
+	QFile file(full_path.toString());
+	return file.open(QIODevice::WriteOnly);
 }
 
 QStringRef GetDigits(const QString &s, cint from)

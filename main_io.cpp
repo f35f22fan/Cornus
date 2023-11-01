@@ -244,7 +244,7 @@ int main(int argc, char *argv[])
 	{
 		ret = qapp.exec();
 		life->Lock();
-		const bool should_exit = life->exit;
+		cbool should_exit = life->exit;
 		life->Unlock();
 		if (should_exit)
 			break;

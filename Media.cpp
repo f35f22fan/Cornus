@@ -233,11 +233,21 @@ void Media::Reload()
 	io::ReadParams rp = {};
 	rp.can_rely = CanRelyOnStatxSize::Yes;
 	ByteArray ba;
-	MTL_CHECK_VOID(io::ReadFile(prefs::GetMediaFilePath(), ba, rp));
-	{
-		auto g = guard();
-		ReloadDatabaseNTS(ba, data());
-	}
+	bool tried_once = false;
+	do {
+		if (io::ReadFile(prefs::GetMediaFilePath(), ba, rp))
+		{
+			auto g = guard();
+			ReloadDatabaseNTS(ba, data());
+			break;
+		}
+		
+		if (tried_once)
+			break;
+		
+		tried_once = true;
+		Save();
+	} while (true);
 }
 
 void Media::ReloadDatabaseNTS(ByteArray &ba, media::Data &data)
@@ -425,7 +435,9 @@ void Media::Save()
 		}
 	}
 	
-	io::SaveFile save_file(prefs::GetMediaFilePath());
+	cauto file_path = prefs::GetMediaFilePath();
+	mtl_check_void(io::EnsureRegularFile(file_path));
+	io::SaveFile save_file(file_path);
 	if (!io::WriteToFile(save_file.GetPathToWorkWith(), ba.data(), ba.size()))
 	{
 		mtl_trace();

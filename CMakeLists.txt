@@ -108,9 +108,9 @@ set(cornus_src_files main.cpp
     io/SaveFile.cpp io/SaveFile.hpp
     io/socket.cc io/socket.hh
 
-    mc/mc.cc mc/mc.hh
-    mc/mkvparser.cpp mc/mkvparser.hpp
-    mc/mkvreader.cpp mc/mkvreader.hpp
+    # mc/mc.cc mc/mc.hh
+    # mc/mkvparser.cpp mc/mkvparser.hpp
+    # mc/mkvreader.cpp mc/mkvreader.hpp
 )
 
 foreach(f IN LISTS cornus_src_files)
@@ -125,7 +125,7 @@ target_include_directories(${cornus_exe} PRIVATE ${MTP_INCLUDE_DIRS}
     ${UDISKS_INCLUDE_DIRS} ${UDEV_INCLUDE_DIRS}
     ${POLKIT_INCLUDE_DIRS} ${POLKIT_AGENT_INCLUDE_DIRS} ${WEBP_INCLUDE_DIRS})
 target_link_libraries(${cornus_exe}  Qt5::Core Qt5::Gui Qt5::Widgets Qt5::DBus
-    ${MTP_LDFLAGS} ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS} webm
+    ${MTP_LDFLAGS} ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS} #webm
     ${POLKIT_LDFLAGS} ${POLKIT_AGENT_LDFLAGS} ${WEBP_LDFLAGS} pthread zstd)
 
 if (BUILD_CORNUS_IO)

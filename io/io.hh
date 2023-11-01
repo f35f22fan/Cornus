@@ -98,7 +98,8 @@ enum class Message: MessageType {
 };
 
 inline Message operator | (Message a, Message b) {
-	return static_cast<Message>(static_cast<MessageType>(a) | static_cast<MessageType>(b));
+	return static_cast<Message>(static_cast<MessageType>(a)
+	| static_cast<MessageType>(b));
 }
 
 inline Message& operator |= (Message &a, const Message &b) {
@@ -209,6 +210,8 @@ bool CountSizeRecursive(const QString &path, struct statx &stx,
 
 // returns errno, or zero for success
 int CountSizeRecursiveTh(const QString &path, CountFolderData &data, const bool inside_trash);
+
+bool CreateRegularFile(QStringView full_path);
 
 // returns -1 on error, fd otherwise
 int CreateAutoRenamedFile(QString dir_path, QString filename,

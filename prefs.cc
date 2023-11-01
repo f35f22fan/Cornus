@@ -22,7 +22,7 @@ QString GetMediaFilePath() {
 	QString dir = QueryAppConfigPath();
 	if (!dir.endsWith('/'))
 		dir.append('/');
-	return dir + str::MediaFile;
+	return dir + str::MediaDirName;
 }
 
 QString QueryAppConfigPath()

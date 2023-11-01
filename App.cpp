@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <webm/reader.h>
+//#include <webm/reader.h>
 
 #include "App.hpp"
 #include "AutoDelete.hh"
@@ -42,7 +42,7 @@
 #include "gui/TreeItem.hpp"
 #include "gui/TreeModel.hpp"
 #include "gui/TreeView.hpp"
-#include "mc/mc.hh"
+//#include "mc/mc.hh"
 #include "Media.hpp"
 #include "prefs.hh"
 #include "Prefs.hpp"

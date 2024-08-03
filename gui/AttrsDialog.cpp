@@ -56,7 +56,9 @@ void AvailPane::Init()
 
 AssignedPane::AssignedPane(AttrsDialog *ad):
 attrs_dialog_(ad)
-{}
+{
+	mtl_trace();
+}
 
 AssignedPane::~AssignedPane()
 {}
@@ -98,10 +100,10 @@ void AssignedPane::Init()
 	layout->addWidget(rem_btn);
 }
 
-void AssignedPane::WriteTo(ByteArray &ba)
+void AssignedPane::WriteTo(ByteArray &buf)
 {
 	const media::Field f = avp_->category();
-	attrs_dialog_->app()->media()->WriteTo(ba, cb_, f);
+	attrs_dialog_->app()->media()->WriteTo(buf, cb_, f);
 }
 
 AttrsDialog::AttrsDialog(App *app, io::File *file):
@@ -247,7 +249,7 @@ void AttrsDialog::Init()
 		fl->addRow(comment_area_);
 	}
 	
-	SyncWidgetsToFile();
+	SyncWidgetsWithFile();
 }
 
 void AttrsDialog::SaveAssignedAttrs()
@@ -349,27 +351,27 @@ void AttrsDialog::SaveAssignedAttrs()
 	if (ba.size() > sizeof magic_num)
 	{
 		h.insert(media::XAttrName, ba);
-		io::SetXAttr(file_->build_full_path(), media::XAttrName, ba);
+		io::SetEFA(file_->build_full_path(), media::XAttrName, ba);
 	} else {
 		if (h.contains(media::XAttrName)) {
-			io::RemoveXAttr(file_->build_full_path(), media::XAttrName);
+			io::RemoveEFA(file_->build_full_path(), {media::XAttrName});
 			h.remove(media::XAttrName);
 		}
 	}
 }
 
-void AttrsDialog::SyncWidgetsToFile()
+void AttrsDialog::SyncWidgetsWithFile()
 {
 	if (!file_->has_media_attrs())
 		return;
 	was_ = file_->media_attrs();
 	ByteArray &ba = was_;
 	MTL_CHECK_VOID(ba.size() > 4);
-	const i32 magic = ba.next_i32();
+	ci32 magic_num = ba.next_i32();
 	Media *media = app_->media();
-	const i32 media_magic = media->GetMagicNumber();
-	if (media_magic != magic) {
-		mtl_warn("Different magic numbers, file: %d vs media: %d", magic, media_magic);
+	ci32 num = media->GetMagicNumber();
+	if (num != magic_num) {
+		mtl_warn("Different magic numbers, file: %d vs media: %d", magic_num, num);
 		return;
 	}
 	

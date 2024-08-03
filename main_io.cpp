@@ -11,6 +11,8 @@
 #include <pthread.h>
 #include <signal.h>
 
+#include <QMetaMethod>
+
 #include "AutoDelete.hh"
 #include "ByteArray.hpp"
 #include "decl.hxx"
@@ -25,11 +27,12 @@
 #include "MyDaemon.hpp"
 
 Q_DECLARE_METATYPE(cornus::io::Task*);
+Q_DECLARE_METATYPE(cornus::io::Daemon*);
 
 ///#define CORNUS_DEBUG_SERVER_SHUTDOWN
 
 namespace cornus {
-const auto ConnectionType = Qt::BlockingQueuedConnection;
+cauto ConnectionType = Qt::BlockingQueuedConnection;
 void* ProcessRequestTh(void *ptr);
 struct Args
 {
@@ -54,7 +57,7 @@ void* ListenTh(void *ptr)
 	
 	while (true)
 	{
-		const int client_fd = accept(daemon_sock_fd, NULL, NULL);
+		cint client_fd = accept(daemon_sock_fd, NULL, NULL);
 		if (client_fd == -1)
 		{
 			mtl_status(errno);
@@ -87,15 +90,15 @@ void* ProcessRequestTh(void *ptr)
 	pthread_detach(pthread_self());
 	cornus::ByteArray ba;
 	auto *args = (Args*)ptr;
-	const int fd = args->fd;
+	cint fd = args->fd;
 	cornus::io::Daemon *daemon = args->daemon;
 	delete args;
 	args = nullptr;
 	
 	gui::TasksWin *tasks_win = daemon->tasks_win();
 	MTL_CHECK_ARG(ba.Receive(fd, CloseSocket::No), nullptr);
-	const auto msg_int = ba.next_u32() & ~(io::MessageBitsMask << io::MessageBitsStartAt);
-	const auto msg = static_cast<io::Message>(msg_int);
+	cauto msg_int = ba.next_u32() & ~(io::MessageBitsMask << io::MessageBitsStartAt);
+	cauto msg = static_cast<io::Message>(msg_int);
 	switch (msg)
 	{
 	case io::Message::CheckAlive: {
@@ -124,22 +127,36 @@ void* ProcessRequestTh(void *ptr)
 	case io::Message::SendOpenWithList: {
 		QString mime = ba.next_string();
 		QMetaObject::invokeMethod(daemon, "SendOpenWithList",
-		ConnectionType, Q_ARG(QString, mime), Q_ARG(int, fd));
+		ConnectionType, Q_ARG(QString, mime), Q_ARG(cint, fd));
 		return nullptr;
 	}
 	case io::Message::SendDefaultDesktopFileForFullPath: {
-		QMetaObject::invokeMethod(daemon, "SendDefaultDesktopFileForFullPath",
-		ConnectionType, Q_ARG(ByteArray*, &ba), Q_ARG(int, fd));
+		// const QMetaObject *meta = daemon->metaObject();
+		// cint index = meta->indexOfMethod("Send1");
+		// mtl_check_arg(index != -1, nullptr);
+		// QMetaMethod method = meta->method(index);
+		// method.invoke(0, Qt::DirectConnection,
+		// 	&ba, (int)fd);
+		
+		// cint count = meta->methodCount();
+		// for (int i = 0; i < count; i++) {
+		// 	QMetaMethod method = meta->method(i);
+		// 	auto name = method.name();
+		// 	mtl_info("method %d: %s\n", i, name.data());
+		// }
+		
+		QMetaObject::invokeMethod(daemon, "SendDefaultDesktopFileForFullPath", ConnectionType,
+			Q_ARG(ByteArray*, &ba), Q_ARG(cint, fd));
 		return nullptr;
 	}
 	case io::Message::SendDesktopFilesById: {
 		QMetaObject::invokeMethod(daemon, "SendDesktopFilesById",
-		ConnectionType, Q_ARG(ByteArray*, &ba), Q_ARG(int, fd));
+		ConnectionType, Q_ARG(ByteArray*, &ba), Q_ARG(cint, fd));
 		return nullptr;
 	}
 	case io::Message::SendAllDesktopFiles: {
 		QMetaObject::invokeMethod(daemon, "SendAllDesktopFiles",
-		ConnectionType, Q_ARG(int, fd));
+		ConnectionType, Q_ARG(cint, fd));
 		return nullptr;
 	}
 	case io::Message::QuitServer: {

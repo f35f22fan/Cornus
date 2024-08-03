@@ -12,7 +12,7 @@ namespace cornus::gui {
 
 MediaDialog::MediaDialog(App *app): QDialog(app), app_(app)
 {
-	Init();
+	mtl_check_void(Init());
 	resize(800, 600);
 	setModal(true);
 	setWindowTitle(tr("Media database"));
@@ -63,7 +63,7 @@ void MediaDialog::AddNewItem()
 void MediaDialog::ButtonClicked(QAbstractButton *btn)
 {
 	if (btn == button_box_->button(QDialogButtonBox::Save)) {
-		Save();
+		mtl_warn("Saved: %s", Save() ? "yes" : "no");
 	} else if (btn == button_box_->button(QDialogButtonBox::Close)) {
 		this->close();
 	}
@@ -80,11 +80,17 @@ i64 MediaDialog::GetCurrentID() const
 	return v.isValid() ? v.toLongLong() : -1;
 }
 
-void MediaDialog::Init()
+bool MediaDialog::Init()
 {
+mtl_trace();
 	Media *media = app_->media();
-	if (!media->loaded())
+	if (!media->loaded()) {
+		mtl_info("media->Reload()");
 		media->Reload();
+		mtl_info("media->Reload()...Done.");
+	} else {
+		mtl_info("Media already loaded");
+	}
 	
 	QFormLayout *layout = new QFormLayout();
 	setLayout(layout);
@@ -101,8 +107,8 @@ void MediaDialog::Init()
 	});
 	layout->addRow(tr("Category:"), categories_cb_);
 	
-	const int a_size = fontMetrics().boundingRect("a").width();
-	const int fixed_width = a_size * 40;
+	cint a_size = fontMetrics().boundingRect("a").width();
+	cint fixed_width = a_size * 40;
 	
 	category_items_cb_ = new QComboBox();
 	layout->addRow(tr("Pick:"), category_items_cb_);
@@ -130,11 +136,12 @@ void MediaDialog::Init()
 	
 	connect(button_box_, &QDialogButtonBox::clicked, this, &MediaDialog::ButtonClicked);
 	layout->addWidget(button_box_);
-	
 	UpdateCurrentCategoryItems();
+	
+	return true;
 }
 
-void MediaDialog::Save()
+bool MediaDialog::Save()
 {
 	const media::Field f = GetCurrentCategory();
 	QVector<QString> names = {
@@ -161,8 +168,7 @@ void MediaDialog::Save()
 		}
 		SetCurrentByData(category_items_cb_, ID, &names);
 	}
-	media->Save();
-///	media->Print();
+	return media->Save();
 }
 
 void MediaDialog::SetCurrentByData(QComboBox *cb, ci64 ID,
@@ -194,18 +200,24 @@ void MediaDialog::SetCurrentByData(QComboBox *cb, ci64 ID,
 
 void MediaDialog::UpdateCurrentCategoryItems(ci64 select_id)
 {
+mtl_trace();
 	category_items_cb_->clear();
+mtl_trace();
 	const media::Field category = GetCurrentCategory();
-	
+mtl_trace();
 	{
 		Media *media = app_->media();
+mtl_trace();
 		auto g = media->guard();
 		media->FillInNTS(category_items_cb_, category);
+mtl_trace();
 	}
 	
+mtl_trace();
 	SetCurrentByData(category_items_cb_, select_id);
-	
+mtl_trace();
 	UpdateNamesFields();
+mtl_trace();
 }
 
 void MediaDialog::UpdateNamesFields()

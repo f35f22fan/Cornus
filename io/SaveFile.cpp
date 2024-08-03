@@ -37,8 +37,8 @@ bool SaveFile::Commit(const PrintErrors pe)
 		return false;
 	}
 	
-	auto new_ba = original_path_.toLocal8Bit();
-	auto old_ba = temp_path_.toLocal8Bit();
+	cauto new_ba = original_path_.toLocal8Bit();
+	cauto old_ba = temp_path_.toLocal8Bit();
 	
 	if (::rename(old_ba.data(), new_ba.data()) == 0)
 		return true;

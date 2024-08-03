@@ -64,7 +64,7 @@ enum class Path: i8 {
 	Full
 };
 
-enum class PickBy: i8 {
+enum class PickedBy: i8 {
 	Icon,
 	VisibleName,
 };

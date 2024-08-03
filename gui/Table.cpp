@@ -116,11 +116,11 @@ void Table::ApplyPrefs()
 
 void Table::AutoScroll(const VDirection d)
 {
-	const int rh = GetRowHeight();
-	const int scroll = rh / 3;
-	const int amount = (d == VDirection::Up) ? -scroll : scroll;
+	cint rh = GetRowHeight();
+	cint scroll = rh / 3;
+	cint amount = (d == VDirection::Up) ? -scroll : scroll;
 	auto *vs = verticalScrollBar();
-	const int max = vs->maximum();
+	cint max = vs->maximum();
 	int new_val = vs->value() + amount;
 	
 	if (new_val >= 0 && new_val <= max) {
@@ -130,7 +130,7 @@ void Table::AutoScroll(const VDirection d)
 	}
 }
 
-bool Table::CheckIsOnFileName(io::File *file, const int file_row, const QPoint &pos) const
+bool Table::CheckIsOnFileName(io::File *file, cint file_row, const QPoint &pos) const
 {
 	if (!file->is_dir() || pos.y() < 0)
 		return false;
@@ -143,8 +143,8 @@ bool Table::CheckIsOnFileName(io::File *file, const int file_row, const QPoint &
 		return false;
 	
 	QFontMetrics fm = fontMetrics();
-	const int name_w = fm.horizontalAdvance(file->name());
-	const int absolute_name_end = name_w + columnViewportPosition(col);
+	cint name_w = fm.horizontalAdvance(file->name());
+	cint absolute_name_end = name_w + columnViewportPosition(col);
 	
 	return (pos.x() < absolute_name_end + FileNameRelax);
 }
@@ -161,7 +161,7 @@ void Table::ClearDndAnimation(const QPoint &drop_coord)
 		int start = row;
 		if (row > 0)
 			start--;
-		const int end = row + 1;
+		cint end = row + 1;
 		model_->UpdateFileIndexRange(start, end);
 	}
 }
@@ -186,11 +186,11 @@ void Table::dragLeaveEvent(QDragLeaveEvent *evt)
 
 void Table::dragMoveEvent(QDragMoveEvent *evt)
 {
-	drop_coord_ = evt->pos();
+	drop_coord_ = evt->position().toPoint();
 	ClearDndAnimation(drop_coord_);
-	int h = size().height() - horizontalHeader()->size().height();
-	const int y = drop_coord_.y();
-	const int rh = GetRowHeight();
+	cint h = size().height() - horizontalHeader()->size().height();
+	cint y = drop_coord_.y();
+	cint rh = GetRowHeight();
 	
 	if (y >= (h - rh)) {
 		AutoScroll(VDirection::Down);
@@ -227,10 +227,10 @@ io::File* Table::GetFileAt_NoLock(const QPoint &pos, const Clone clone, int *ret
 	return (clone == Clone::Yes) ? file->Clone() : file;
 }
 
-i32 Table::GetFileAt_NoLock(const QPoint &local_pos, const PickBy pb, io::File **ret_file)
+i32 Table::GetFileAt_NoLock(const QPoint &local_pos, const PickedBy pb, io::File **ret_file)
 {
 	const Column col = static_cast<Column>(columnAt(local_pos.x()));
-	const Column curr = (pb == PickBy::Icon) ? Column::Icon : Column::FileName;
+	const Column curr = (pb == PickedBy::Icon) ? Column::Icon : Column::FileName;
 	if (col != curr)
 			return -1;
 	
@@ -238,11 +238,11 @@ i32 Table::GetFileAt_NoLock(const QPoint &local_pos, const PickBy pb, io::File *
 	if (file == nullptr)
 		return -1;
 	
-	if (pb == PickBy::VisibleName)
+	if (pb == PickedBy::VisibleName)
 	{
 		QFontMetrics fm = fontMetrics();
-		const int name_w = std::max(delegate_->min_name_w(), fm.horizontalAdvance(file->name()));
-		const int absolute_name_end = name_w + columnViewportPosition((int)col);
+		cint name_w = std::max(delegate_->min_name_w(), fm.horizontalAdvance(file->name()));
+		cint absolute_name_end = name_w + columnViewportPosition((int)col);
 		
 		if (local_pos.x() > absolute_name_end + gui::FileNameRelax)
 			return -1;
@@ -256,7 +256,7 @@ i32 Table::GetFileAt_NoLock(const QPoint &local_pos, const PickBy pb, io::File *
 
 int Table::GetVisibleFileIndex()
 {
-	const int row = rowAt(0) + GetVisibleRowsCount() / 2;
+	cint row = rowAt(0) + GetVisibleRowsCount() / 2;
 	//mtl_info("row: %d, rh: %d", row, GetRowHeight());
 	return row;
 }
@@ -275,9 +275,9 @@ void Table::HiliteFileUnderMouse()
 	{
 		io::Files &files = tab_->view_files();
 		MutexGuard guard = files.guard();
-		name_row = GetFileAt_NoLock(mouse_pos_, PickBy::VisibleName);
+		name_row = GetFileAt_NoLock(mouse_pos_, PickedBy::VisibleName);
 		if (name_row == -1)
-			icon_row = GetFileAt_NoLock(mouse_pos_, PickBy::Icon);
+			icon_row = GetFileAt_NoLock(mouse_pos_, PickedBy::Icon);
 	}
 	
 	if (icon_row != mouse_over_file_icon_) {
@@ -333,14 +333,14 @@ void Table::mouseDoubleClickEvent(QMouseEvent *evt)
 			{
 				MutexGuard guard = files.guard();
 				io::File *file = nullptr;
-				const int row = GetFileAt_NoLock(evt->pos(), PickBy::VisibleName, &file);
+				cint row = GetFileAt_NoLock(evt->pos(), PickedBy::VisibleName, &file);
 				Q_UNUSED(row);
 				if (file != nullptr)
 					cloned_file = file->Clone();
 			}
 			
 			if (cloned_file)
-				app->FileDoubleClicked(cloned_file, PickBy::VisibleName);
+				app->FileDoubleClicked(cloned_file, PickedBy::VisibleName);
 		}
 	}
 }
@@ -386,8 +386,9 @@ void Table::mousePressEvent(QMouseEvent *evt)
 	drag_start_pos_ = left_click ? evt->pos() : QPoint(-1, -1);
 	
 	if (right_click) {
-		tab_->HandleMouseRightClickSelection(evt->pos(), indices);
-		tab_->ShowRightClickMenu(evt->globalPos(), evt->pos());
+		cauto pos = evt->position().toPoint();
+		tab_->HandleMouseRightClickSelection(pos, indices);
+		tab_->ShowRightClickMenu(evt->globalPosition().toPoint(), pos);
 	}
 	
 	model_->UpdateIndices(indices);
@@ -428,7 +429,7 @@ void Table::mouseReleaseEvent(QMouseEvent *evt)
 			}
 			if (cloned_file) {
 				app_->hid()->SelectFileByIndex(tab_, file_index, DeselectOthers::Yes);
-				app_->FileDoubleClicked(cloned_file, PickBy::Icon);
+				app_->FileDoubleClicked(cloned_file, PickedBy::Icon);
 			}
 		}
 	}
@@ -437,9 +438,13 @@ void Table::mouseReleaseEvent(QMouseEvent *evt)
 void Table::paintEvent(QPaintEvent *evt)
 {
 	QRect r(0, 0, viewport()->width(), viewport()->height());
-	const bool magnify = tab_->magnified();
-	QPaintEvent pe = magnify ? QPaintEvent(r) : *evt;
-	QTableView::paintEvent(&pe);
+	cbool magnify = tab_->magnified();
+	if (magnify) {
+		auto pe = QPaintEvent(r);
+		QTableView::paintEvent(&pe);
+	} else {
+		QTableView::paintEvent(evt);
+	}
 	
 	if (magnify)
 		tab_->PaintMagnified(viewport(), view_options());
@@ -451,12 +456,12 @@ bool Table::ScrollToAndSelect(QString full_path)
 		return false;
 	}
 	
-	QStringRef path_ref;
+	QString path;
 	/// first remove trailing '/' or search will fail:
 	if (full_path.endsWith('/'))
-		path_ref = full_path.midRef(0, full_path.size() - 1);
+		path = full_path.mid(0, full_path.size() - 1);
 	else
-		path_ref = full_path.midRef(0, full_path.size());
+		path = full_path.mid(0, full_path.size());
 	int row_count = -1;
 	int row = -1;
 	{
@@ -468,7 +473,7 @@ bool Table::ScrollToAndSelect(QString full_path)
 		for (int i = 0; i < row_count; i++) {
 			QString file_path = vec[i]->build_full_path();
 			
-			if (file_path == path_ref) {
+			if (file_path == path) {
 				row = i;
 				break;
 			}
@@ -490,14 +495,14 @@ void Table::ScrollToFile(int file_index)
 	if (file_index < 0)
 		return;
 	
-	const int rh = GetRowHeight();
-	const int header_h = horizontalHeader()->height();
+	cint rh = GetRowHeight();
+	cint header_h = horizontalHeader()->height();
 	int visible_rows = GetVisibleRowsCount();
-	const int diff = height() % rh;
+	cint diff = height() % rh;
 	if (diff > 0)
 		visible_rows++;
 	
-	const int row_count = model_->rowCount();
+	cint row_count = model_->rowCount();
 	int max = (rh * row_count) - height() + header_h;
 	if (max < 0) {
 		max = 0;
@@ -532,7 +537,7 @@ void Table::SelectByLowerCase(QVector<QString> filenames,
 	{
 		MutexGuard guard = files.guard();
 		auto &vec = files.data.vec;
-		const int count = vec.size();
+		cint count = vec.size();
 		for (int i = 0; i < count; i++)
 		{
 			io::File *file = vec[i];
@@ -542,7 +547,7 @@ void Table::SelectByLowerCase(QVector<QString> filenames,
 			const auto fn = (are_lower == NamesAreLowerCase::Yes)
 				? file->name_lower() : file->name();
 			
-			const int found_at = filenames.indexOf(fn);
+			cint found_at = filenames.indexOf(fn);
 			if (found_at != -1)
 			{
 				if (full_path.isEmpty()) {
@@ -570,9 +575,9 @@ void Table::SetCustomResizePolicy()
 	QFontMetrics fm = fontMetrics();
 	QString sample_date = QLatin1String("2020-12-01 18:04");
 	
-	const int icon_col_w = fm.horizontalAdvance(QLatin1String("Steam"));
-	const int size_col_w = fm.horizontalAdvance(QLatin1String("1023.9 GiB")) + 2;
-	const int time_col_w = fm.horizontalAdvance(sample_date) + 10;
+	cint icon_col_w = fm.horizontalAdvance(QLatin1String("Steam"));
+	cint size_col_w = fm.horizontalAdvance(QLatin1String("1023.9 GiB")) + 2;
+	cint time_col_w = fm.horizontalAdvance(sample_date) + 10;
 	setColumnWidth(i8(gui::Column::Icon), icon_col_w);
 	setColumnWidth(i8(gui::Column::Size), size_col_w);
 	setColumnWidth(i8(gui::Column::TimeCreated), time_col_w);
@@ -662,7 +667,7 @@ void Table::SyncWith(const cornus::Clipboard &cl, QSet<int> &indices)
 			added = true;
 		}
 		
-		const int count = file_paths.size();
+		cint count = file_paths.size();
 		for (int k = 0; k < count; k++) {
 			if (file_paths[k] == next->name()) {
 				if (!added) {

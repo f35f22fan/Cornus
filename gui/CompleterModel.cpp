@@ -20,8 +20,10 @@ CompleterModel::data(const QModelIndex &index, int role) const
 	if (index.column() != 0)
 		return {};
 	
-	if (role == Qt::TextAlignmentRole)
-		return Qt::AlignLeft + Qt::AlignVCenter;
+	if (role == Qt::TextAlignmentRole) {
+		QFlags<Qt::AlignmentFlag>::Int r = Qt::AlignLeft | Qt::AlignVCenter;
+		return r;
+	}
 	
 	const int row = index.row();
 	

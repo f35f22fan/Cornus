@@ -21,8 +21,8 @@ private:
 	void ButtonClicked(QAbstractButton *button);
 	media::Field GetCurrentCategory() const;
 	i64 GetCurrentID() const;
-	void Init();
-	void Save();
+	bool Init();
+	bool Save();
 	void SetCurrentByData(QComboBox *cb, ci64 ID,
 		const QVector<QString> *names = nullptr);
 	void UpdateCurrentCategoryItems(ci64 select_id = -1);

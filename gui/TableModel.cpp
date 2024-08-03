@@ -20,7 +20,7 @@
 #include <QTime>
 #include <QTimer>
 
-#define CORNUS_DEBUG_INOTIFY
+//#define CORNUS_DEBUG_INOTIFY
 
 namespace cornus::gui {
 
@@ -52,7 +52,7 @@ io::File* Find(const QVector<io::File*> &vec,
 	{
 		i++;
 		if (file->name() == name) {
-			if (index != nullptr)
+			if (index)
 				*index = i;
 			return file;
 		}
@@ -200,7 +200,7 @@ mtl_info("<EVT BATCH>");
 		add = sizeof(struct inotify_event) + ev->len;
 		if (ev->wd != a->wd)
 		{
-			mtl_trace("ev->wd: %d, wd: %d", ev->wd, a->wd);
+//			mtl_trace("ev->wd: %d, wd: %d", ev->wd, a->wd);
 			continue;
 		}
 		
@@ -371,7 +371,7 @@ void ReinterpretRenames(Renames &ren,
 void* WatchDir(void *void_args)
 {
 	pthread_detach(pthread_self());
-	MTL_CHECK_ARG(void_args != nullptr, nullptr);
+	MTL_CHECK_ARG(void_args, nullptr);
 	
 	WatchArgs *args = (WatchArgs*)void_args;
 	TableModel *model = args->table_model;
@@ -667,10 +667,10 @@ mtl_printq2("Selecting name ", select_name);
 			{
 				cint new_count = it.value() + 1;
 				if (new_count > 5) {
-mtl_printq2("Removed from list: ", select_name);
+//mtl_printq2("Removed from list: ", select_name);
 					it = names_to_select.erase(it);
 				} else {
-mtl_printq2("Increased counter for ", select_name);
+//mtl_printq2("Increased counter for ", select_name);
 					names_to_select[select_name] = new_count;
 					it++;
 				}

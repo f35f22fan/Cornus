@@ -21,6 +21,7 @@ namespace media {
 static const QString XAttrName = QStringLiteral("user.CornusMas.m");
 static const QString XAttrLastWatched = QStringLiteral("user.CornusMas.lw");
 static const QString XAttrThumbnail = QStringLiteral("user.CornusMas.thmb");
+static const QString XAttrWatched = QStringLiteral("user.CornusMas.watched");
 
 struct Data {
 	HashI4V actors;
@@ -44,9 +45,9 @@ struct MediaPreview {
 	QVector<i16> genres;
 	QVector<i16> subgenres;
 	QVector<i16> countries;
-	
 	QVector<i16> rips;
 	QVector<i16> video_codecs;
+	
 	i32 video_w = -1;
 	i32 video_h = -1;
 	i32 magic_number = -1;
@@ -54,7 +55,6 @@ struct MediaPreview {
 	i16 year_started = -1;
 	i16 year_end = -1;
 	i16 bit_depth = -1;
-	
 	i8 month_started = -1;
 	i8 day_started = -1;
 };

@@ -71,7 +71,7 @@ struct Progress {
 		at = rhs.at;
 		total = rhs.total;
 		time_worked = rhs.time_worked;
-		if (details_id != rhs.details) {
+		if (details_id != rhs.details_id) {
 			details_id = rhs.details_id;
 			details = rhs.details;
 		}

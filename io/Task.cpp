@@ -81,7 +81,7 @@ void Task::CopyFiles()
 
 void Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 {
-	const QStringRef file_name = io::GetFileNameOfFullPath(file_path);
+	auto file_name = io::GetFileNameOfFullPath(file_path);
 	if (file_name.isEmpty())
 	{
 		data_.ChangeState(TaskState::Abort);
@@ -145,7 +145,7 @@ void Task::CopyFileToDir(const QString &file_path, const QString &in_dir_path)
 		QString link_target_path;
 		if (ReadLinkSimple(file_ba.data(), link_target_path)) {
 			auto target_path_ba = link_target_path.toLocal8Bit();
-			auto new_file_path = (new_dir_path + file_name).toLocal8Bit();
+			auto new_file_path = (new_dir_path + file_name.toString()).toLocal8Bit();
 			int status = symlink(target_path_ba.data(), new_file_path.data());
 			
 			if (status != 0)
@@ -514,8 +514,8 @@ void Task::MoveToTrash()
 	
 	for (auto &next: file_paths_)
 	{
-		QStringRef name = io::GetFileNameOfFullPath(next);
-		auto new_path = (trash_path + time_str + name).toLocal8Bit();
+		auto name = io::GetFileNameOfFullPath(next);
+		auto new_path = (trash_path + time_str + name.toString()).toLocal8Bit();
 		auto old_path = next.toLocal8Bit();
 		//mtl_info("new_path: %s\n, old_path: %s", new_path.data(), old_path.data());
 		cint status = rename(old_path.data(), new_path.data());

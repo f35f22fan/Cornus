@@ -78,7 +78,7 @@ void LoadAllVolumes(QVector<TreeItem*> &vec)
 	ByteArray ba;
 	MTL_CHECK_VOID(io::ReadFile(QLatin1String("/proc/mounts"), ba, read_params));
 	QString data = ba.toString();
-	QVector<QStringRef> lines = data.splitRef('\n');
+	QStringList lines = data.split('\n');
 	
 	for (const auto &line: lines)
 	{
@@ -86,14 +86,14 @@ void LoadAllVolumes(QVector<TreeItem*> &vec)
 		if (tokens.size() <= 1)
 			continue;
 		
-		const QString dev_path = tokens[0].toString();
+		const QString dev_path = tokens[0];
 		if (!io::valid_dev_path(dev_path))
 			continue;
 		const auto &mount_path = tokens[1];
 		TreeItem *mounted_item = FindPartitionByDevPath(dev_path, vec);
 		if (mounted_item) {
 			mounted_item->mounted(true);
-			mounted_item->mount_path(mount_path.toString());
+			mounted_item->mount_path(mount_path);
 		}
 	}
 }

@@ -141,7 +141,7 @@ void Hid::HandleMouseSelectionShift(gui::Tab *tab, const QPoint &pos,
 	gui::ShiftSelect *shift_select = nullptr;
 	if (tab->view_mode() == gui::ViewMode::Details)
 	{
-		file_index = tab->table()->GetFileAt_NoLock(pos, PickBy::VisibleName, &file);
+		file_index = tab->table()->GetFileAt_NoLock(pos, PickedBy::VisibleName, &file);
 		shift_select = tab->table()->shift_select();
 	} else {
 		file = tab->icon_view()->GetFileAt_NoLock(pos, Clone::No, &file_index);
@@ -174,7 +174,7 @@ void Hid::HandleMouseSelectionCtrl(gui::Tab *tab, const QPoint &pos,
 	int row = -1;
 	if (view_mode == gui::ViewMode::Details)
 	{
-		row = tab->table()->GetFileAt_NoLock(pos, PickBy::VisibleName, &file);
+		row = tab->table()->GetFileAt_NoLock(pos, PickedBy::VisibleName, &file);
 	} else if (view_mode == gui::ViewMode::Icons) {
 		file = tab->icon_view()->GetFileAt_NoLock(pos, Clone::No, &row);
 	}
@@ -198,9 +198,9 @@ void Hid::HandleMouseSelectionNoModif(gui::Tab *tab, const QPoint &pos, QSet<int
 	int file_index = -1;
 	if (view_mode == gui::ViewMode::Details)
 	{
-		file_index = tab->table()->GetFileAt_NoLock(pos, PickBy::VisibleName, &file);
+		file_index = tab->table()->GetFileAt_NoLock(pos, PickedBy::VisibleName, &file);
 		if (file_index == -1) {
-			file_index = tab->table()->GetFileAt_NoLock(pos, PickBy::Icon, &file);
+			file_index = tab->table()->GetFileAt_NoLock(pos, PickedBy::Icon, &file);
 		}
 	} else if (view_mode == gui::ViewMode::Icons) {
 		file = tab->icon_view()->GetFileAt_NoLock(pos, Clone::No, &file_index);

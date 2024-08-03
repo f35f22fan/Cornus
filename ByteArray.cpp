@@ -231,10 +231,10 @@ QString ByteArray::next_string()
 	return s;
 }
 
-bool ByteArray::Receive(int fd,  const CloseSocket cs)
+bool ByteArray::Receive(cint fd,  const CloseSocket cs)
 {
-	isize total_bytes;
-	if (read(fd, (char*)&total_bytes, sizeof(total_bytes)) != sizeof(total_bytes))
+	i64 total_bytes;
+	if (::read(fd, (char*)&total_bytes, sizeof(total_bytes)) != sizeof(total_bytes))
 	{
 		mtl_trace();
 		return false;
@@ -245,7 +245,7 @@ bool ByteArray::Receive(int fd,  const CloseSocket cs)
 	
 	while (true)
 	{
-		isize count = read(fd, data_ + size_, total_bytes - size_);
+		i64 count = ::read(fd, data_ + size_, total_bytes - size_);
 		if (count == -1) {
 			perror("read");
 			break;
@@ -260,7 +260,7 @@ bool ByteArray::Receive(int fd,  const CloseSocket cs)
 	
 	if (cs == CloseSocket::Yes)
 	{
-		int status = ::close(fd);
+		cint status = ::close(fd);
 		if (status != 0)
 			mtl_status(errno);
 	}
@@ -272,7 +272,7 @@ bool ByteArray::Send(int fd, const CloseSocket cs) const
 {
 	if (fd == -1)
 		return false;
-	isize so_far;
+	i64 so_far;
 	{ // first send buffer size:
 		so_far = write(fd, (char*)&size_, sizeof(size_));
 		
@@ -287,7 +287,7 @@ bool ByteArray::Send(int fd, const CloseSocket cs) const
 	
 	while (so_far < size_)
 	{
-		isize count = write(fd, data_ + so_far, size_ - so_far);
+		ci64 count = write(fd, data_ + so_far, size_ - so_far);
 		
 		if (count == -1) {
 			if (errno == EAGAIN)
@@ -307,7 +307,7 @@ bool ByteArray::Send(int fd, const CloseSocket cs) const
 	
 	if (cs == CloseSocket::Yes)
 	{
-		int status = ::close(fd);
+		cint status = ::close(fd);
 		if (status != 0)
 			mtl_status(errno);
 	}

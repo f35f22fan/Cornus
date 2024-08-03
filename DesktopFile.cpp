@@ -350,10 +350,10 @@ void Group::ListKV()
 	}
 }
 
-void Group::ParseLine(const QStringRef &line,
+void Group::ParseLine(QStringView line,
 	const QHash<QString, Category> &possible_categories)
 {
-	const int sep = line.indexOf('=');
+	cint sep = line.indexOf('=');
 	if (sep == -1)
 		return;
 	
@@ -378,10 +378,10 @@ void Group::ParseLine(const QStringRef &line,
 	
 	if (key == str::Categories)
 	{
-		auto categories = value.splitRef(';', Qt::SkipEmptyParts);
-		for (QStringRef &next: categories)
+		QStringList categories = value.split(';', Qt::SkipEmptyParts);
+		for (QString &next: categories)
 		{
-			Category c = possible_categories.value(next.toString().toLower(), Category::None);
+			Category c = possible_categories.value(next.toLower(), Category::None);
 			if (c != Category::None)
 				categories_.append(c);
 		}
@@ -390,10 +390,10 @@ void Group::ParseLine(const QStringRef &line,
 	const bool only_show_in = key == str::OnlyShowIn;
 	if (only_show_in || key == str::NotShowIn)
 	{
-		auto categories = value.splitRef(';', Qt::SkipEmptyParts);
-		for (QStringRef &next: categories)
+		QStringList categories = value.split(';', Qt::SkipEmptyParts);
+		for (QString &next: categories)
 		{
-			const QString key = next.toString().toLower();
+			const QString key = next.toLower();
 			Category c = possible_categories.value(key, Category::None);
 			if (c != Category::None)
 			{
@@ -412,7 +412,7 @@ inline i16 Score(const QLocale &lhs, const QLocale &rhs)
 	if (lhs.language() == rhs.language())
 		score += 32;
 	
-	if (lhs.country() == rhs.country())
+	if (lhs.territory() == rhs.territory())
 		score += 16;
 	
 	return score;
@@ -432,7 +432,7 @@ QString Group::PickByLocale(const QLocale &match_locale, const QString &key)
 	
 	const QPair<QLocale, QString> *best_pair = nullptr;
 	i16 best_score = -1;
-	auto &vec = locale_strings_.value(key);
+	auto vec = locale_strings_.value(key);
 	for (auto &pair: vec)
 	{
 		const int score = Score(pair.first, match_locale);
@@ -734,21 +734,21 @@ bool DesktopFile::Init(const QString &full_path,
 	MTL_CHECK(io::ReadFile(full_path, ba, param));
 	
 	QString text = QString::fromLocal8Bit(ba.data(), ba.size());
-	QVector<QStringRef> list = text.splitRef('\n', Qt::SkipEmptyParts);
+	QStringList list = text.split('\n', Qt::SkipEmptyParts);
 	desktopfile::Group *group = nullptr;
 	
-	for (const auto &next: list)
+	for (const QString &next: list)
 	{
-		auto line = next.trimmed();
+		QString line = next.trimmed();
 		if (line.startsWith('#') || line.isEmpty())
 			continue;
 		
 		if (line.startsWith('['))
 		{
-			const int end = line.lastIndexOf(']');
+			cint end = line.lastIndexOf(']');
 			MTL_CHECK(end != -1);
-			QStringRef name = line.mid(1, end - 1);
-			group = new desktopfile::Group(name.toString(), this);
+			QString name = line.mid(1, end - 1);
+			group = new desktopfile::Group(name, this);
 			if (main_group_ == nullptr && name == MainGroupName)
 				main_group_ = group;
 			
@@ -762,14 +762,10 @@ bool DesktopFile::Init(const QString &full_path,
 				continue;
 			auto key = line.mid(0, sep).trimmed();
 			auto value = line.mid(sep + 1).trimmed();
-			
 			if (key.isEmpty())
 				continue;
 			
-			const auto k = key.toString();
-			const auto v = value.toString();
-//			env_.insert(k, v);
-			custom_env_.insert(k, v);
+			custom_env_.insert(key, value);
 		} else {
 			group->ParseLine(line, possible_categories);
 			groups_.insert(group->name(), group);

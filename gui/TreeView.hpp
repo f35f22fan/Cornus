@@ -26,7 +26,7 @@ public:
 	void ExecCommand(TreeItem *item, const PartitionEventType evt);
 	TreeItem* GetSelectedBookmark(QModelIndex *index = nullptr);
 	void MarkCurrentPartition(const QString &full_path);
-	QStyleOptionViewItem option() const { return viewOptions(); }
+	QStyleOptionViewItem option() const { return QStyleOptionViewItem(); }
 	int RowHeight(const QModelIndex &i) const { return rowHeight(i); }
 	void ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_pos);
 	

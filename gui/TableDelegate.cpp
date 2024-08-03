@@ -130,7 +130,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 			painter->drawText(img_dim_rect, text_alignment_, img_wh_str);
 			painter->setPen(saved_pen);
 		}
-	} else if (file->is_regular() && file->has_media_attrs()) {
+	} else if (file->has_media_attrs()) {
 		DrawMediaAttrs(file, painter, option, text_rect, filename_width);
 	}
 	
@@ -218,6 +218,8 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 		QColor color;
 		if (file->has_last_watched_attr()) {
 			color = QColor(255, 0, 0);
+		} else if (file->has_watched_attr()) {
+			color = QColor(100, 100, 100);
 		} else if (file->has_media_attrs())
 			color = QColor(50, 50, 255);
 		else if (file->has_thumbnail_attr()) {
@@ -277,7 +279,7 @@ void TableDelegate::DrawMediaAttrs(io::File *file, QPainter *painter,
 	cbool has_year = m->year_started > 0;
 	if (has_year)
 	{
-		shadow_str.append('(').append(QString::number(m->year_started));
+		shadow_str.append('{').append(QString::number(m->year_started));
 		
 		if (m->month_started > 0 || m->day_started > 0)
 		{
@@ -303,7 +305,7 @@ void TableDelegate::DrawMediaAttrs(io::File *file, QPainter *painter,
 		shadow_str.append('-').append(QString::number(m->year_end));
 	
 	if (has_year)
-		shadow_str.append(')');
+		shadow_str.append('}');
 	
 	bool rip_added = false;
 	if (!m->rips.isEmpty())

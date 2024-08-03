@@ -303,6 +303,14 @@ App::App()
 	printf("%#08x\n", i);   // gives 0x000007
 	*/
 	Init();
+	// QString s = QString::fromUtf8("Schöne Grüße");
+	// auto ba = s.toLocal8Bit();
+	// printf("%s len: %d\n", ba.data(), s.length());
+	// for (int i = 0; i < s.length(); i++) {
+	// 	QChar c = s.at(i);
+	// 	printf
+	// }
+	// printf("(DOne)\n");
 }
 
 App::~App()
@@ -527,7 +535,6 @@ void App::ClipboardChanged(QClipboard::Mode mode)
 {
 	if (mode != QClipboard::Clipboard)
 		return;
-	
 	const QClipboard *clipboard = QApplication::clipboard();
 	const QMimeData *mime = clipboard->mimeData();
 	 // mimeData can be 0 according to https://bugs.kde.org/show_bug.cgi?id=335053
@@ -539,8 +546,9 @@ void App::ClipboardChanged(QClipboard::Mode mode)
 #endif
 	io::GetClipboardFiles(*mime, clipboard_);
 	
-	if (!clipboard_.has_files())
+	if (!clipboard_.has_files()) {
 		return;
+	}
 	
 	QSet<int> indices;
 	tab()->table()->SyncWith(clipboard_, indices);
@@ -891,18 +899,18 @@ void App::ExtractTo(const QString &to_dir)
 	process.startDetached();
 }
 
-void App::FileDoubleClicked(io::File *file, const PickBy pb)
+void App::FileDoubleClicked(io::File *file, const PickedBy pb)
 {
 	cornus::AutoDelete ad(file);
 
-	if (pb == PickBy::Icon)
+	if (pb == PickedBy::Icon)
 	{
 		if (file->is_symlink()) {
 			DisplaySymlinkInfo(*file);
 		} else {
 			DisplayFileContents(-1, file->Clone());
 		}
-	} else if (pb == PickBy::VisibleName) {
+	} else if (pb == PickedBy::VisibleName) {
 		if (file->is_dir()) {
 			QString full_path = file->build_full_path();
 			tab()->GoTo(Action::To, {full_path, Processed::No});
@@ -911,12 +919,11 @@ void App::FileDoubleClicked(io::File *file, const PickBy pb)
 				tab()->GoTo(Action::To, {file->link_target()->path, Processed::Yes});
 			}
 		} else if (file->is_regular() || file->is_symlink()) {
-			
 			QString ext;
 			QString full_path;
 			bool has_exec_bit = false;
 			if (file->is_regular()) {
-				ext = file->cache().ext.toString();
+				ext = file->cache().ext;
 				has_exec_bit = file->has_exec_bit();
 				full_path = file->build_full_path();
 			} else {
@@ -1314,7 +1321,7 @@ QIcon* App::LoadIcon(io::File &file)
 		}
 	}
 	
-	QString filename = icon_names_.value(ext.toString());
+	QString filename = icon_names_.value(ext);
 	
 	if (!filename.isEmpty()) {
 		return GetIconOrLoadExisting(filename);
@@ -1396,7 +1403,7 @@ void App::OpenWithDefaultApp(const QString &full_path)
 	ByteArray ba;
 	ba.set_msg_id(io::Message::SendDefaultDesktopFileForFullPath);
 	ba.add_string(full_path);
-	int fd = io::socket::Client();
+	cint fd = io::socket::Client();
 	MTL_CHECK_VOID(fd != -1);
 	MTL_CHECK_VOID(ba.Send(fd, CloseSocket::No));
 	ba.Clear();
@@ -1418,7 +1425,7 @@ void App::OpenWithDefaultApp(const QString &full_path)
 }
 
 ExecInfo App::QueryExecInfo(io::File &file) {
-	return QueryExecInfo(file.build_full_path(), file.cache().ext.toString());
+	return QueryExecInfo(file.build_full_path(), file.cache().ext);
 }
 
 ExecInfo App::QueryExecInfo(const QString &full_path, const QString &ext)
@@ -1505,33 +1512,25 @@ int App::ReadMTP()
   "this to the libmtp developers");
 		return 1;
 	}
-mtl_trace();
 	/* iterate through connected MTP devices */
 	for (i = 0; i < numrawdevices; i++)
 	{
-mtl_trace();
 		LIBMTP_mtpdevice_t *device = LIBMTP_Open_Raw_Device(&rawdevices[i]);
-mtl_trace();
 		if (device == NULL) {
 			mtl_warn("Unable to open raw device %d", i);
 			continue;
 		}
 		
 		/* Echo the friendly name so we know which device we are working with */
-mtl_trace();
 		char *friendlyname = LIBMTP_Get_Friendlyname(device);
-mtl_trace();
 		if (friendlyname == NULL) {
 			mtl_info("Friendly name is NULL");
 		} else {
 			mtl_info("Friendly name: %s", friendlyname);
 			free(friendlyname);
 		}
-mtl_trace();
 		LIBMTP_Dump_Errorstack(device);
-mtl_trace();
 		LIBMTP_Clear_Errorstack(device);
-mtl_trace();
 		/* Get all storages for this device */
 		int ret = LIBMTP_Get_Storage(device, LIBMTP_STORAGE_SORTBY_NOTSORTED);
 		if (ret != 0) {
@@ -1540,7 +1539,6 @@ mtl_trace();
 			LIBMTP_Clear_Errorstack(device);
 			continue;
 		}
-mtl_trace();
 		LIBMTP_devicestorage_t *storage = nullptr;
 		/* Loop over storages, dump folder for each one */
 		for (storage = device->storage; storage != 0; storage = storage->next)
@@ -1548,7 +1546,6 @@ mtl_trace();
 			LIBMTP_folder_t *folders;
 			mtl_info("Storage: %s", storage->StorageDescription);
 			folders = LIBMTP_Get_Folder_List_For_Storage(device, storage->id);
-mtl_trace();
 			if (folders == NULL) {
 				mtl_info("No folders found");
 				LIBMTP_Dump_Errorstack(device);
@@ -1556,16 +1553,11 @@ mtl_trace();
 			} else {
 				//dump_folder_list(folders,0);
 			}
-mtl_trace();
 			LIBMTP_destroy_folder_t(folders);
-mtl_trace();
 		}
-mtl_trace();
 		LIBMTP_Release_Device(device);
-mtl_trace();
 	}
 	
-mtl_trace();
 	free(rawdevices);
 	mtl_info("Done.");
 	
@@ -1584,7 +1576,7 @@ void App::RegisterShortcuts()
 {
 	QShortcut *sp;
 	{
-		sp = Register(QKeySequence(Qt::ALT + Qt::Key_1));
+		sp = Register(QKeySequence(Qt::ALT | Qt::Key_1));
 		connect(sp, &QShortcut::activated, [=]() {
 			QString config_path = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
 			
@@ -1599,27 +1591,27 @@ void App::RegisterShortcuts()
 	}
 	
 	{
-		sp = Register(QKeySequence(Qt::ALT + Qt::Key_Up));
+		sp = Register(QKeySequence(Qt::ALT | Qt::Key_Up));
 		connect(sp, &QShortcut::activated, this, &App::GoUp);
 	}
 	{
-		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_U));
+		sp = Register(QKeySequence(Qt::CTRL | Qt::Key_U));
 		connect(sp, &QShortcut::activated, [=] {
 //			tab()->UndoDelete(0); // 0 = most recent batch, -1 = all
 		});
 	}
 	{
-		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_O));
+		sp = Register(QKeySequence(Qt::CTRL | Qt::Key_O));
 		connect(sp, &QShortcut::activated, [=] { OpenTerminal(); });
 	}
 	{
-		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_0));
+		sp = Register(QKeySequence(Qt::CTRL | Qt::Key_0));
 		connect(sp, &QShortcut::activated, [=] {
 			prefs_->WheelEventFromMainView(Zoom::Reset);
 		});
 	}
 	{
-		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_H));
+		sp = Register(QKeySequence(Qt::CTRL | Qt::Key_H));
 		connect(sp, &QShortcut::activated, [=] {
 			prefs_->show_hidden_files(!prefs_->show_hidden_files());
 			tab()->GoTo(Action::Reload, {tab()->current_dir(), Processed::Yes}, Reload::Yes);
@@ -1627,7 +1619,7 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
-		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_F));
+		sp = Register(QKeySequence(Qt::CTRL | Qt::Key_F));
 		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
@@ -1638,7 +1630,7 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
-		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_M));
+		sp = Register(QKeySequence(Qt::CTRL | Qt::Key_M));
 		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
@@ -1649,7 +1641,7 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
-		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_W));
+		sp = Register(QKeySequence(Qt::CTRL | Qt::Key_W));
 		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
@@ -1658,13 +1650,13 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
-		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_Q));
+		sp = Register(QKeySequence(Qt::CTRL | Qt::Key_Q));
 		connect(sp, &QShortcut::activated, [=] {
 			QApplication::quit();
 		});
 	}
 	{
-		sp = Register(QKeySequence(Qt::SHIFT + Qt::Key_Delete));
+		sp = Register(QKeySequence(Qt::SHIFT | Qt::Key_Delete));
 		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
@@ -1673,7 +1665,7 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
-		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_I));
+		sp = Register(QKeySequence(Qt::CTRL | Qt::Key_I));
 		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
@@ -1682,7 +1674,7 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
-		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_L));
+		sp = Register(QKeySequence(Qt::CTRL | Qt::Key_L));
 		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
@@ -1692,7 +1684,7 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
-		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_A));
+		sp = Register(QKeySequence(Qt::CTRL | Qt::Key_A));
 		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
@@ -1716,7 +1708,7 @@ void App::RegisterShortcuts()
 		});
 	}
 	{
-		sp = Register(QKeySequence(Qt::CTRL + Qt::Key_T));
+		sp = Register(QKeySequence(Qt::CTRL | Qt::Key_T));
 		connect(sp, &QShortcut::activated, [=] {
 			if (level_browser())
 			{
@@ -2307,7 +2299,7 @@ void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 	if (s.startsWith("#!")) {
 		ret.type |= ExecType::ShellScript;
 		
-		int new_line = s.indexOf('\n');
+		cint new_line = s.indexOf('\n');
 		if (new_line == -1) {
 			return;
 		}
@@ -2315,10 +2307,10 @@ void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 		cint start = 2;
 		cint count = new_line - start;
 		if (count > 0) {
-			QStringRef starter = s.midRef(start, new_line - start);
+			auto starter = s.mid(start, new_line - start);
 			
 			if (!starter.isEmpty())
-				ret.starter = starter.trimmed().toString();
+				ret.starter = starter.trimmed();
 		}
 		return;
 	}

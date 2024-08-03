@@ -29,7 +29,7 @@ QString EnsureTrashForFile(const QString &file_path);
 
 const QString& gitignore_global_path(const QString *override_data = nullptr);
 
-bool ListItems(const QString &dir_path, QMap<i64, QVector<Names>> &hash);
+bool ListItems(QStringView dir_path, QMap<i64, QVector<Names>> &hash);
 
 const QString& name();
 

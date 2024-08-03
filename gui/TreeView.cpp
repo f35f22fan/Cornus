@@ -140,7 +140,7 @@ void TreeView::dragLeaveEvent(QDragLeaveEvent *evt)
 
 void TreeView::dragMoveEvent(QDragMoveEvent *evt)
 {
-	mouse_pos_ = evt->pos();
+	mouse_pos_ = evt->position().toPoint();
 	dragging_ = true;
 	
 	QModelIndex target = indexAt(mouse_pos_);
@@ -190,7 +190,7 @@ void TreeView::dropEvent(QDropEvent *evt)
 				files_vec.append(file);
 		}
 		
-		model_->AddBookmarks(files_vec, evt->pos());
+		model_->AddBookmarks(files_vec, evt->position().toPoint());
 	} else {
 		QByteArray ba = evt->mimeData()->data(BookmarkMime);
 		if (ba.isEmpty())
@@ -199,10 +199,10 @@ void TreeView::dropEvent(QDropEvent *evt)
 		QDataStream dataStreamRead(ba);
 		QStringList str_list;
 		dataStreamRead >> str_list;
-		model_->MoveBookmarks(str_list, evt->pos());
+		model_->MoveBookmarks(str_list, evt->position().toPoint());
 	}
 	
-	AnimateDND(evt->pos());
+	AnimateDND(evt->position().toPoint());
 }
 
 TreeItem* TreeView::GetSelectedBookmark(QModelIndex *index)
@@ -258,7 +258,7 @@ void TreeView::mousePressEvent(QMouseEvent *evt)
 			app_->tab()->GoTo(Action::To, dp);
 		}
 	} else if (btn == Qt::RightButton) {
-		ShowRightClickMenu(evt->globalPos(), evt->pos());
+		ShowRightClickMenu(evt->globalPosition().toPoint(), evt->position().toPoint());
 	}
 }
 

@@ -52,9 +52,9 @@ public Q_SLOTS:
 	void LoadDesktopFilesFrom(QString dir_path, const QProcessEnvironment &env);
 	void QuitGuiApp();
 	void SendAllDesktopFiles(const int fd);
-	void SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd);
-	void SendDesktopFilesById(cornus::ByteArray *ba, const int fd);
-	void SendOpenWithList(QString mime, const int fd);
+	void SendDefaultDesktopFileForFullPath(ByteArray *ba, cint fd);
+	void SendDesktopFilesById(cornus::ByteArray *ba, cint fd);
+	void SendOpenWithList(QString mime, cint fd);
 private:
 	NO_ASSIGN_COPY_MOVE(Daemon);
 	

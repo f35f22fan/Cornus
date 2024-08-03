@@ -53,8 +53,8 @@ void Media::ApplyTo(QComboBox *cb, ByteArray &ba, const media::Field f)
 		|| f == media::Field::Writers)
 	{
 		for (int i = 0; i < count; i++) {
-			const auto id = ba.next_i32();
-			QVector vec = GetNTS(f, id);
+			cauto id = ba.next_i32();
+			auto vec = GetNTS(f, id);
 			if (vec.size() > 0)
 				cb->addItem(vec[0], id);
 		}
@@ -62,7 +62,7 @@ void Media::ApplyTo(QComboBox *cb, ByteArray &ba, const media::Field f)
 		|| f == media::Field::Countries) {
 		for (int i = 0; i < count; i++) {
 			const auto id = ba.next_i16();
-			QVector vec = GetNTS(f, id);
+			auto vec = GetNTS(f, id);
 			if (vec.size() > 0)
 				cb->addItem(vec[0], id);
 		}
@@ -179,9 +179,9 @@ void Media::FillInNTS(QComboBox *cb, const media::Field category, const Fill opt
 
 i32 Media::GetMagicNumber()
 {
-	const bool locked = TryLock();
-	i32 ret = data_.magic_number;
-	if (locked)
+	cbool i_locked_it = TryLock();
+	ci32 ret = data_.magic_number;
+	if (i_locked_it)
 		Unlock();
 	return ret;
 }
@@ -228,17 +228,17 @@ void Media::NewMagicNumber()
 	}
 }
 
-void Media::Reload()
+bool Media::Reload()
 {
 	io::ReadParams rp = {};
 	rp.can_rely = CanRelyOnStatxSize::Yes;
-	ByteArray ba;
-	bool tried_once = false;
+	ByteArray buf;
+	bool tried_once = false, failed = true;
 	do {
-		if (io::ReadFile(prefs::GetMediaFilePath(), ba, rp))
+		if (io::ReadFile(prefs::GetMediaFilePath(), buf, rp))
 		{
 			auto g = guard();
-			ReloadDatabaseNTS(ba, data());
+			ReloadDatabaseNTS(buf, data());
 			break;
 		}
 		
@@ -248,9 +248,11 @@ void Media::Reload()
 		tried_once = true;
 		Save();
 	} while (true);
+	
+	return failed;
 }
 
-void Media::ReloadDatabaseNTS(ByteArray &ba, media::Data &data)
+bool Media::ReloadDatabaseNTS(ByteArray &ba, media::Data &data)
 {
 	Clear();
 	
@@ -325,8 +327,7 @@ void Media::ReloadDatabaseNTS(ByteArray &ba, media::Data &data)
 		else if (field == media::Field::Countries)
 			hi16 = &data.countries;
 		else {
-			mtl_trace();
-			continue;
+			return false;
 		}
 		
 		for (i32 i = 0; i < count; i++)
@@ -343,13 +344,15 @@ void Media::ReloadDatabaseNTS(ByteArray &ba, media::Data &data)
 			} else if (hi16 != nullptr) {
 				hi16->insert(hi16->size(), v);
 			} else {
-				mtl_trace();
+				return false;
 			}
 		}
 	}
+	
+	return true;
 }
 
-void Media::Save()
+bool Media::Save()
 {
 	ByteArray ba;
 	{
@@ -436,14 +439,15 @@ void Media::Save()
 	}
 	
 	cauto file_path = prefs::GetMediaFilePath();
-	mtl_check_void(io::EnsureRegularFile(file_path));
+	mtl_check(io::EnsureRegularFile(file_path));
 	io::SaveFile save_file(file_path);
 	if (!io::WriteToFile(save_file.GetPathToWorkWith(), ba.data(), ba.size()))
 	{
 		mtl_trace();
 		save_file.CommitCancelled();
+		return false;
 	} else {
-		save_file.Commit();
+		return save_file.Commit();
 	}
 }
 
@@ -451,7 +455,7 @@ i64 Media::SetNTS(const media::Field f, const i64 ID,
 	const QVector<QString> &names, i64 *existing_id, const media::Action action,
 	const media::Check check)
 {
-	const bool append = (action == media::Action::Append);
+	cbool append = (action == media::Action::Append);
 	if (!append && (ID == -1))
 	{
 		mtl_trace();
@@ -580,19 +584,8 @@ void Media::WriteTo(ByteArray &ba, QComboBox *cb, const media::Field f)
 			ba.add_i32(n);
 		}
 	} else if (f == media::Field::Genres || f == media::Field::Subgenres
-		|| f == media::Field::Countries) {
-		for (int i = 0; i < count; i++) {
-			QVariant v = cb->itemData(i);
-			ci16 n = v.toInt();
-			ba.add_i16(n);
-		}
-	} else if (f == media::Field::Rip) {
-		for (int i = 0; i < count; i++) {
-			QVariant v = cb->itemData(i);
-			ci16 n = v.toInt();
-			ba.add_i16(n);
-		}
-	} else if (f == media::Field::VideoCodec) {
+		|| f == media::Field::Countries || f == media::Field::Rip
+		|| f == media::Field::VideoCodec) {
 		for (int i = 0; i < count; i++) {
 			QVariant v = cb->itemData(i);
 			ci16 n = v.toInt();

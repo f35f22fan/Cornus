@@ -136,7 +136,7 @@ void Hiliter::SetupAssemblyNasm()
 
 void Hiliter::highlightBlock(const QString &text)
 {
-	for (const HighlightingRule &rule : qAsConst(hiliting_rules_))
+	for (const HighlightingRule &rule : std::as_const(hiliting_rules_))
 	{
 		QRegularExpressionMatchIterator matchIterator = rule.pattern.globalMatch(text);
 		while (matchIterator.hasNext()) {

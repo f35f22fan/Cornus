@@ -201,11 +201,11 @@ void File::ReadExtension()
 {
 	// Must be lower case because other things like image type
 	// detection rely on a lower case filename extension.
-	const auto &str = name_.lower;
-	int index = str.lastIndexOf('.');
+	QStringView str = name_.lower;
+	cint index = str.lastIndexOf('.');
 	
 	if (index >= 0 && index < (str.size() - 1))
-		cache_.ext = str.midRef(index + 1);
+		cache_.ext = str.toString().mid(index + 1);
 	else
 		cache_.ext = {};
 }

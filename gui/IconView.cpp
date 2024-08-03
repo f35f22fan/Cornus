@@ -158,7 +158,7 @@ void IconView::dragLeaveEvent(QDragLeaveEvent *evt)
 
 void IconView::dragMoveEvent(QDragMoveEvent *evt)
 {
-	drop_coord_ = evt->pos();
+	drop_coord_ = evt->position().toPoint();
 	ClearDndAnimation(drop_coord_);
 	int h = size().height();
 	cint y = drop_coord_.y();
@@ -363,7 +363,7 @@ void IconView::mouseDoubleClickEvent(QMouseEvent *evt)
 	int row;
 	io::File *file = GetFileAt_NoLock(evt->pos(), Clone::Yes, &row);
 	if (file) {
-		app_->FileDoubleClicked(file, PickBy::VisibleName);
+		app_->FileDoubleClicked(file, PickedBy::VisibleName);
 		UpdateIndex(row);
 	}
 }
@@ -415,7 +415,7 @@ void IconView::mousePressEvent(QMouseEvent *evt)
 	if (right_click)
 	{
 		tab_->HandleMouseRightClickSelection(evt->pos(), indices);
-		tab_->ShowRightClickMenu(evt->globalPos(), evt->pos());
+		tab_->ShowRightClickMenu(evt->globalPosition().toPoint(), evt->pos());
 	}
 	
 	UpdateIndices(indices);

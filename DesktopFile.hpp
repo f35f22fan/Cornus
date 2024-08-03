@@ -51,7 +51,7 @@ public:
 	void Launch(const QString &working_dir, const QString &full_path);
 	QHash<QString, QString>& map() { return kv_; }
 	const QString& name() const { return group_name_; }
-	void ParseLine(const QStringRef &line, const QHash<QString, Category> &possible_categories);
+	void ParseLine(QStringView line, const QHash<QString, Category> &possible_categories);
 	QString PickByLocale(const QLocale &match_locale, const QString &key);
 	Priority Supports(const QString &mime, const MimeInfo info, const Category desktop) const;
 	void WriteTo(ByteArray &ba);

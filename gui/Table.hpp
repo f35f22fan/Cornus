@@ -29,7 +29,7 @@ public:
 	bool CheckIsOnFileName(io::File *file, const int file_row, const QPoint &pos) const;
 	void ClearMouseOver();
 	const QPoint& drop_coord() const { return drop_coord_; }
-	i32 GetFileAt_NoLock(const QPoint &local_pos, const PickBy pb, io::File **ret_file = nullptr);
+	i32 GetFileAt_NoLock(const QPoint &local_pos, const PickedBy pb, io::File **ret_file = nullptr);
 	io::File* GetFileAt_NoLock(const QPoint &pos, const Clone clone, int *ret_file_index = nullptr);
 	int GetVisibleFileIndex();
 	TableHeader* header() const { return header_; }
@@ -46,7 +46,7 @@ public:
 	void SyncWith(const cornus::Clipboard &cl, QSet<int> &indices);
 	gui::Tab* tab() const { return tab_; }
 	void UpdateColumnSizes() { SetCustomResizePolicy(); }
-	QStyleOptionViewItem view_options() const { return viewOptions(); }
+	QStyleOptionViewItem view_options() const { return QStyleOptionViewItem(); }
 	QScrollBar* scrollbar() const { return verticalScrollBar(); }
 public Q_SLOTS:
 	bool ScrollToAndSelect(QString full_path);

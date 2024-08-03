@@ -45,7 +45,7 @@ public:
 	void avp(AvailPane *p) { avp_ = p; }
 	QComboBox* cb() const { return cb_; }
 	void Init();
-	void WriteTo(ByteArray &ba);
+	void WriteTo(ByteArray &buf);
 	
 private:
 	NO_ASSIGN_COPY_MOVE(AssignedPane);
@@ -70,7 +70,7 @@ private:
 	void CreateRow(QFormLayout *fl, AvailPane **avp, AssignedPane **asp, const media::Field f);
 	void Init();
 	void SaveAssignedAttrs();
-	void SyncWidgetsToFile();
+	void SyncWidgetsWithFile();
 	
 	App *app_ = nullptr;
 	io::File *file_ = nullptr;

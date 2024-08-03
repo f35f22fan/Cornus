@@ -25,7 +25,7 @@
 #include <QMetaType> /// Q_DECLARE_METATYPE()
 #include <QMimeData>
 #include <QProcessEnvironment>
-#include <QStringRef>
+#include <QtCore5Compat/QStringRef>
 #include <QVector>
 #include <QUrl>
 
@@ -170,16 +170,16 @@ namespace cornus::io {
 
 QString BuildTempPathFromID(const DiskFileId &id);
 
-bool CanWriteToDir(const QString &dir_path);
+bool CanWriteToDir(QStringView dir_path);
 
 bool CheckDesktopFileABI(ByteArray &ba);
 
-int CompareStrings(const QString &a, const QString &b);
+int CompareStrings(QStringView a, QStringView b);
 
 // returns a negative number on error
-int CountDirFilesSkippingSubdirs(const QString &dir_path);
+int CountDirFilesSkippingSubdirs(QStringView dir_path);
 
-bool CopyFileFromTo(const QString &from_full_path, QString to_dir);
+bool CopyFileFromTo(QStringView from_full_path, QString to_dir);
 
 struct CountFolderData {
 	io::CountRecursiveInfo info = {};
@@ -261,13 +261,13 @@ void GetClipboardFiles(const QMimeData &mime, Clipboard &cl);
 
 DirType GetDirType(const QString &full_path);
 
-QStringRef GetFileNameExtension(const QString &name, QStringRef *base_name = nullptr);
+QStringView GetFileNameExtension(QStringView name, QStringView *base_name = 0);
 
-QStringRef GetFileNameOfFullPath(const QString &full_path);
+QStringView GetFileNameOfFullPath(QStringView full_path);
 
 QString GetLastingTmpDir();
 
-QStringRef GetParentDirPath(const QString &full_path);
+QStringView GetParentDirPath(QStringView full_path);
 
 Bool HasExecBit(const QString &full_path);
 
@@ -281,7 +281,7 @@ inline bool IsNearlyEqual(double x, double y);
 int ListDirNames(QString dir_path, QVector<QString> &vec,
 	const ListDirOption option = ListDirOption::IncludeLinksToDirs);
 
-bool ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
+bool ListFileNames(QStringView full_dir_path, QVector<QString> &vec,
 	FilterFunc ff = nullptr);
 
 bool ListFiles(FilesData &data, Files *ptr, const QProcessEnvironment &env, const CountDirFiles cdf,
@@ -301,7 +301,9 @@ MapPosixTypeToLocal(const mode_t mode) {
 	}
 }
 
-QString NewNamePattern(const QString &filename, i32 &next);
+QString MergeList(QStringList list, QChar delim);
+
+QString NewNamePattern(QStringView filename, i32 &next);
 
 inline bool NewThread(void* (*start_routine)(void *), void *arg,
 	const PrintErrors pe = PrintErrors::Yes)
@@ -339,7 +341,7 @@ i64 ReadToBuf(const int fd, char *buf, ci64 buf_size,
 bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &env,
 	const PrintErrors pe, QString *dir_path = nullptr);
 
-bool RemoveXAttr(const QString &full_path, const QString &xattr_name,
+void RemoveEFA(const QString &full_path, QVector<QString> names,
 	const PrintErrors pe = PrintErrors::No);
 
 bool SameFiles(const QString &path1, const QString &path2,
@@ -353,7 +355,7 @@ bool valid_dev_path(const QString &name);
 
 QString SizeToString(ci64 sz, const StringLength len = StringLength::Normal);
 
-bool SetXAttr(const QString &full_path, const QString &xattr_name,
+bool SetEFA(const QString &full_path, const QString &xattr_name,
 	const ByteArray &ba, const PrintErrors = PrintErrors::Yes);
 
 bool SortFiles(File *a, File *b);

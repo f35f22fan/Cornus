@@ -39,7 +39,7 @@
 #include <QScrollBar>
 #include <QUrl>
 
-#define CORNUS_WAITED_FOR_WIDGETS
+//#define CORNUS_WAITED_FOR_WIDGETS
 
 namespace cornus {
 
@@ -228,6 +228,34 @@ void Tab::ActionCopy()
 	MTL_CHECK_VOID(SendURLsClipboard(list, io::Message::CopyToClipboard));
 }
 
+QStringList Tab::FetchSelectedPaths()
+{
+	QStringList list;
+	auto &files = view_files();
+	{
+		auto g = files.guard();
+		for (io::File *next: files.data.vec)
+		{
+			if (next->is_selected()) {
+				list.append(next->build_full_path());
+			}
+		}
+	}
+	
+	return list;
+}
+
+void Tab::ActionCopyPaths()
+{
+	auto list = FetchSelectedPaths();
+	QString s;
+	for (auto next: list) {
+		s.append(next + '\n');
+	}
+	QClipboard *clipboard = QApplication::clipboard();
+	clipboard->setText(s);
+}
+
 void Tab::ActionCut()
 {
 	QStringList list;
@@ -309,7 +337,7 @@ void Tab::ActionPasteLinks(const LinkType link)
 		for (const auto &next: clipboard.file_paths)
 		{
 			ba->add_string(next);
-			QStringRef s = io::GetFileNameOfFullPath(next);
+			auto s = io::GetFileNameOfFullPath(next);
 			
 			if (!s.isEmpty())
 				names.append(s.toString());
@@ -338,6 +366,22 @@ void Tab::ActionPasteLinks(const LinkType link)
 	}
 	
 	view_files().SelectFilenamesLater(names, SameDir::Yes);
+}
+
+void Tab::ActionPlayInMpv()
+{
+	auto paths = io::MergeList(FetchSelectedPaths(), '\n');
+	if (paths.isEmpty())
+		return;
+	
+	QString dir = io::GetLastingTmpDir();
+	if (dir.isEmpty())
+		return;
+	
+	QString filepath = dir + QLatin1String("/cornus.m3u");
+	auto buf = paths.toLocal8Bit();
+	mtl_check_void(io::WriteToFile(filepath, buf.data(), buf.size()));
+	QProcess::startDetached(QLatin1String("mpv"), QStringList(filepath));
 }
 
 void Tab::AddIconsView()
@@ -551,7 +595,7 @@ void Tab::DropEvent(QDropEvent *evt, const ForceDropToCurrentDir fdir)
 		
 		if (view_mode_ == ViewMode::Details)
 		{
-			if (table_->GetFileAt_NoLock(evt->pos(), PickBy::VisibleName, &to_dir) != -1
+			if (table_->GetFileAt_NoLock(evt->position().toPoint(), PickedBy::VisibleName, &to_dir) != -1
 				&& to_dir->is_dir_or_so())
 			{
 				to_dir = to_dir->Clone();
@@ -559,7 +603,7 @@ void Tab::DropEvent(QDropEvent *evt, const ForceDropToCurrentDir fdir)
 				to_dir = io::FileFromPath(current_dir());
 			}
 		} else if (view_mode_ == ViewMode::Icons) {
-			to_dir = icon_view_->GetFileAt_NoLock(evt->pos(), Clone::Yes);
+			to_dir = icon_view_->GetFileAt_NoLock(evt->position().toPoint(), Clone::Yes);
 		} else {
 			/// Otherwise drop onto current directory:
 			to_dir = io::FileFromPath(current_dir());
@@ -666,7 +710,7 @@ int Tab::GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file,
 	io::File *file = nullptr;
 	int file_index;
 	if (view_mode_ == ViewMode::Details) {
-		file_index = table_->GetFileAt_NoLock(local_pos, PickBy::VisibleName, &file);
+		file_index = table_->GetFileAt_NoLock(local_pos, PickedBy::VisibleName, &file);
 	} else {
 		file = icon_view_->GetFileAt_NoLock(local_pos, Clone::Yes, &file_index);
 	}
@@ -701,7 +745,7 @@ void Tab::GetSelectedArchives(QVector<QString> &urls)
 		if (!next->is_selected() || !next->is_regular())
 			continue;
 		
-		QString ext = next->cache().ext.toString();
+		QString ext = next->cache().ext;
 		if (ext.isEmpty())
 			continue;
 		
@@ -770,7 +814,7 @@ void Tab::GoToFinish(cornus::io::FilesData *new_data)
 	}
 	
 	AutoDelete ad(new_data);
-	//const int new_file_count = new_data->vec.size();
+	//cint new_file_count = new_data->vec.size();
 	table_->ClearMouseOver();
 /// current_dir_ must be assigned before model->SwitchTo
 /// otherwise won't properly show current partition's free space
@@ -828,7 +872,7 @@ void Tab::GoToInitialDir()
 	
 	const QString SelectCmdName = QLatin1String("select");
 	const QString CmdPrefix = QLatin1String("--");
-	const int arg_count = args.size();
+	cint arg_count = args.size();
 	
 	ViewMode view = ViewMode::None;
 	const QString IconsViewStr = QLatin1String("--view=icons");
@@ -965,7 +1009,7 @@ void Tab::HandleMouseRightClickSelection(const QPoint &pos, QSet<int> &indices)
 	int file_index =  -1;
 	if (view_mode_ == ViewMode::Details)
 	{
-		file_index = table_->GetFileAt_NoLock(pos, PickBy::VisibleName, &file);
+		file_index = table_->GetFileAt_NoLock(pos, PickedBy::VisibleName, &file);
 		shift_select = table_->shift_select();
 	} else if (view_mode_ == ViewMode::Icons) {
 		file = icon_view_->GetFileAt_NoLock(pos, Clone::No, &file_index);
@@ -1002,18 +1046,18 @@ void Tab::Init()
 void Tab::KeyPressEvent(QKeyEvent *evt)
 {
 	auto  &files = view_files();
-	const int key = evt->key();
+	cint key = evt->key();
 	auto *app = app_;
-	const auto modifiers = evt->modifiers();
-	const bool any_modifiers = (modifiers != Qt::NoModifier);
-	const bool shift = (modifiers & Qt::ShiftModifier);
-	const bool ctrl = (modifiers & Qt::ControlModifier);
+	cauto modifiers = evt->modifiers();
+	cbool any_modifiers = (modifiers != Qt::NoModifier);
+	cbool shift = (modifiers & Qt::ShiftModifier);
+	cbool ctrl = (modifiers & Qt::ControlModifier);
 	QSet<int> indices;
 	
 	if (!any_modifiers)
 	{
 		if (key >= Qt::Key_1 && key <= Qt::Key_9) {
-			const int index = key - Qt::Key_0 - 1;
+			cint index = key - Qt::Key_0 - 1;
 			app_->SelectTabAt(index, FocusView::Yes);
 			return;
 		}
@@ -1049,12 +1093,18 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 		app_->RenameSelectedFile();
 	} else if (key == Qt::Key_Return) {
 		if (!any_modifiers) {
+			mtl_trace();
 			io::File *cloned_file = nullptr;
-			int row = files.GetFirstSelectedFile(Lock::Yes, &cloned_file, Clone::Yes);
+			mtl_trace();
+			cint row = files.GetFirstSelectedFile(Lock::Yes, &cloned_file, Clone::Yes);
 			if (row != -1) {
-				app->FileDoubleClicked(cloned_file, PickBy::VisibleName);
+				mtl_trace();
+				app->FileDoubleClicked(cloned_file, PickedBy::VisibleName);
+				mtl_trace();
 				indices.insert(row);
+				mtl_trace();
 			}
+			mtl_trace();
 		}
 	} else if (key == Qt::Key_Down || key == Qt::Key_Right) {
 		if (shift)
@@ -1076,7 +1126,7 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 		else {
 			app_->SetTopLevel(TopLevel::Browser);
 		}
-	} else if (key == Qt::Key_F) {
+	} else if (key == Qt::Key_V) {
 		if (!any_modifiers)
 			SetNextView();
 	} else if (key == Qt::Key_Escape) {
@@ -1084,9 +1134,9 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 	} else if (key == Qt::Key_PageUp) {
 		auto *vs = ViewScrollBar();
 		MTL_CHECK_VOID(vs != nullptr);
-		const int rh = ViewRowHeight();
-		const int page = vs->pageStep() - rh * 2;
-		const int new_val = vs->value() - page;
+		cint rh = ViewRowHeight();
+		cint page = vs->pageStep() - rh * 2;
+		cint new_val = vs->value() - page;
 		vs->setValue(new_val);
 		int r = new_val / rh;
 		if (new_val % rh != 0)
@@ -1096,12 +1146,12 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 	} else if (key == Qt::Key_PageDown) {
 		auto *vs = ViewScrollBar();
 		MTL_CHECK_VOID(vs != nullptr);
-		const int rh = ViewRowHeight();
-		const int page = vs->pageStep() - rh;
-		const int new_val = vs->value() + page;
+		cint rh = ViewRowHeight();
+		cint page = vs->pageStep() - rh;
+		cint new_val = vs->value() + page;
 		vs->setValue(new_val);
 		int new_val2 = new_val + page;
-		const int file_count = files.cached_files_count;
+		cint file_count = files.cached_files_count;
 		int row = std::min(file_count - 1, new_val2 / rh);
 		app_->hid()->SelectFileByIndex(this, row, DeselectOthers::Yes);
 	} else if (key == Qt::Key_Home) {
@@ -1150,7 +1200,7 @@ void Tab::MarkLastWatchedFile()
 	auto &files = view_files();
 	auto guard = files.guard(Lock::Yes);
 	io::File *file;
-	const int index = files.GetFirstSelectedFile(Lock::No, &file, Clone::No);
+	cint index = files.GetFirstSelectedFile(Lock::No, &file, Clone::No);
 	if (index != -1)
 		files.SetLastWatched(Lock::No, file);
 }
@@ -1176,20 +1226,20 @@ void Tab::PaintMagnified(QWidget *viewport, const QStyleOptionViewItem &option)
 	
 	painter->setFont(fnt);
 	QFontMetrics fm(fnt);
-	const int h = fm.height() * 2 + 4;
+	cint h = fm.height() * 2 + 4;
 	int y = (height() - h) / 2;
 	QRect text_rect(2, y, width(), h);
 	auto color_role = QPalette::Base;
 	
 	// Opacity: the value should be in the range 0.0 to 1.0, where 0.0 is fully
 	// transparent and 1.0 is fully opaque.
-	const int saved_opacity = painter->opacity();
+	cint saved_opacity = painter->opacity();
 	painter->setOpacity(app_->magnify_opacity());
 	painter->fillRect(text_rect, option.palette.brush(color_role));
 	painter->setOpacity(saved_opacity);
 	
 	painter->setBrush(option.palette.text());
-	const int flags = Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop;
+	cint flags = Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop;
 	painter->drawText(text_rect, flags, file->name());
 }
 
@@ -1202,7 +1252,7 @@ void Tab::PopulateUndoDelete(QMenu *menu)
 		return;
 	
 	const QString format = QLatin1String("yyyy/MM/dd hh:mm:ss");
-	const int MaxMenuItemsToShow = 3;
+	cint MaxMenuItemsToShow = 3;
 	int counter = 0;
 	int file_count = 0;
 // Note: file_count != items.count(), the former is the file count,
@@ -1324,7 +1374,7 @@ void Tab::resizeEvent(QResizeEvent *ev)
 	QWidget::resizeEvent(ev);
 }
 
-void Tab::ScrollToFile(const int file_index)
+void Tab::ScrollToFile(cint file_index)
 {
 	if (file_index < 0)
 		return;
@@ -1366,7 +1416,7 @@ void Tab::SetNextView()
 	}
 }
 
-void Tab::SetScrollValue(const int n)
+void Tab::SetScrollValue(cint n)
 {
 	if (n == -1)
 		return;
@@ -1386,7 +1436,7 @@ void Tab::SetTitle(const QString &s)
 	QTabWidget *w = app_->tab_widget();
 	int index = w->indexOf(this);
 	QString short_title = title_;
-	const int max_len = 10;
+	cint max_len = 10;
 	if (short_title.size() > max_len)
 	{
 		short_title = short_title.mid(0, max_len);
@@ -1399,7 +1449,7 @@ void Tab::SetTitle(const QString &s)
 void Tab::SetViewMode(const ViewMode mode)
 {
 	const bool sync_scroll = app_->prefs().sync_views_scroll_location();
-	const int last_file_index = sync_scroll ? GetVisibleFileIndex() : -1;
+	cint last_file_index = sync_scroll ? GetVisibleFileIndex() : -1;
 	view_mode_ = mode;
 	switch (view_mode_)
 	{
@@ -1444,7 +1494,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 {
 	auto &files = view_files();
 	QVector<QString> extensions;
-	const int selected_count = files.GetSelectedFilesCount(Lock::Yes, &extensions);
+	cint selected_count = files.GetSelectedFilesCount(Lock::Yes, &extensions);
 	QMenu *menu = new QMenu();
 	menu->setAttribute(Qt::WA_DeleteOnClose);
 	
@@ -1526,7 +1576,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 		{
 			menu->addSeparator();
 			QAction *action = menu->addAction(tr("New Tab"));
-			action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_T));
+			action->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_T));
 			connect(action, &QAction::triggered, [=] {
 				app_->OpenNewTab();
 			});
@@ -1539,18 +1589,27 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 		// cut copy
 		menu->addSeparator();
 		QAction *action = menu->addAction(tr("Cut"));
-		action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_X));
+		action->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_X));
 		connect(action, &QAction::triggered, [=] {
 			ActionCut();
 		});
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-cut")));
 		
 		action = menu->addAction(tr("Copy"));
-		action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_C));
+		action->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_C));
 		connect(action, &QAction::triggered, [=] {
 			ActionCopy();
 		});
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-copy")));
+		
+		action = menu->addAction(tr("Copy Paths"));
+		//action->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_C));
+		connect(action, &QAction::triggered, [=] { ActionCopyPaths(); });
+		action->setIcon(QIcon::fromTheme(QLatin1String("edit-copy")));
+		
+		action = menu->addAction(tr("Play in MPV"));
+		connect(action, &QAction::triggered, [=] { ActionPlayInMpv(); });
+		action->setIcon(QIcon::fromTheme(QLatin1String("media-playback-start")));
 	}
 	
 	const Clipboard &clipboard = app_->clipboard();
@@ -1560,7 +1619,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 			+ QString::number(clipboard.file_count()) + ')';
 		{ // paste
 			QAction *action = menu->addAction(tr("Paste") + file_count_str);
-			action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_V));
+			action->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_V));
 			connect(action, &QAction::triggered, [this] {
 				ActionPaste();
 			});
@@ -1597,7 +1656,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 		{
 			menu->addSeparator();
 			QAction *action = menu->addAction(tr("Delete Permanently"));
-			action->setShortcut(QKeySequence(Qt::SHIFT + Qt::Key_Delete));
+			action->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Delete));
 			connect(action, &QAction::triggered, [=] {ProcessAction(actions::DeleteFiles);});
 			action->setIcon(QIcon::fromTheme(QLatin1String("edit-delete")));
 			menu->addSeparator();
@@ -1613,10 +1672,10 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 		{
 			QVector<QString> videos = { QLatin1String("mkv"), QLatin1String("webm") };
 			
-			if (videos.contains(file_under_mouse->cache().ext.toString())) {
+			if (videos.contains(file_under_mouse->cache().ext)) {
 				QAction *action = menu->addAction(tr("Edit movie title") + QLatin1String(" [mkvpropedit]"));
 				connect(action, &QAction::triggered, [=] { app_->EditSelectedMovieTitle(); });
-				QIcon *icon = app_->GetIcon(file_under_mouse->cache().ext.toString());
+				QIcon *icon = app_->GetIcon(file_under_mouse->cache().ext);
 				if (icon != nullptr) {
 					action->setIcon(*icon);
 				}
@@ -1641,7 +1700,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 	
 	{
 		QAction *action = menu->addAction(tr("Open Terminal"));
-		action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_O));
+		action->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_O));
 		connect(action, &QAction::triggered, [=] {ProcessAction(actions::OpenTerminal);});
 		action->setIcon(QIcon::fromTheme(QLatin1String("utilities-terminal")));
 	}
@@ -1776,8 +1835,8 @@ void Tab::StartDragOperation()
 	
 /// Set a pixmap that will be shown alongside the cursor during the operation:
 	
-	const int img_w = 128;
-	const int img_h = img_w / 2;
+	cint img_w = 128;
+	cint img_h = img_w / 2;
 	QPixmap pixmap(QSize(img_w, img_h));
 	QPainter painter(&pixmap);
 	
@@ -1796,8 +1855,8 @@ void Tab::StartDragOperation()
 	auto r2 = r;
 	r2.setY(r2.y() + str_rect.height());
 	
-	painter.drawText(r, Qt::AlignCenter + Qt::AlignVCenter, dir_str, &r);
-	painter.drawText(r2, Qt::AlignCenter + Qt::AlignVCenter, file_str, &r2);
+	painter.drawText(r, Qt::AlignCenter | Qt::AlignVCenter, dir_str, &r);
+	painter.drawText(r2, Qt::AlignCenter | Qt::AlignVCenter, file_str, &r2);
 
 	QDrag *drag = new QDrag(this);
 	drag->setMimeData(mimedata);

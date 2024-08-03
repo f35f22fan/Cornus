@@ -39,7 +39,7 @@ QString BuildTempPathFromID(const DiskFileId &id)
 	return s;
 }
 
-bool CanWriteToDir(const QString &dir_path)
+bool CanWriteToDir(QStringView dir_path)
 {
 	auto ba = dir_path.toLocal8Bit();
 	return access(ba.data(), W_OK) == 0;
@@ -50,7 +50,7 @@ bool CheckDesktopFileABI(ByteArray &ba)
 	return ba.has_more(sizeof(DesktopFileABI)) && ba.next_i16() == DesktopFileABI;
 }
 
-int CompareDigits(QStringRef a, QStringRef b)
+int CompareDigits(QStringView a, QStringView b)
 {
 	int i = 0;
 	for (; i < a.size(); i++) {
@@ -58,7 +58,7 @@ int CompareDigits(QStringRef a, QStringRef b)
 			break;
 	}
 	if (i != 0)
-		a = a.mid(i);
+		a = a.sliced(i);
 	
 	i = 0;
 	for (; i < b.size(); i++) {
@@ -67,7 +67,7 @@ int CompareDigits(QStringRef a, QStringRef b)
 	}
 	
 	if (i != 0)
-		b = b.mid(i);
+		b = b.sliced(i);
 	
 	if (a.size() != b.size())
 		return a.size() < b.size() ? -1 : 1;
@@ -84,7 +84,7 @@ int CompareDigits(QStringRef a, QStringRef b)
 	return 0;
 }
 
-int CountDirFilesSkippingSubdirs(const QString &dir_path)
+int CountDirFilesSkippingSubdirs(QStringView dir_path)
 {
 	// This function is used to check if the folder has any files.
 	struct dirent *entry;
@@ -112,23 +112,26 @@ int CountDirFilesSkippingSubdirs(const QString &dir_path)
 media::MediaPreview* CreateMediaPreview(ByteArray &ba)
 {
 	cauto at = ba.at();
-	if (ba.size() < sizeof(i32))
-		return nullptr;
+	mtl_check_arg((ba.size() < sizeof(i32)), nullptr);
 	
-	media::MediaPreview *p = new media::MediaPreview();
-	p->magic_number = ba.next_i32();
+	media::MediaPreview *preview = new media::MediaPreview();
+	preview->magic_number = ba.next_i32();
 	
 	while (ba.has_more())
 	{
 		media::Field f = (media::Field) ba.next_u8();
 		QVector<i32> *v32 = nullptr;
 		
-		if (f == media::Field::Actors)
-			v32 = &p->actors;
-		else if (f == media::Field::Directors)
-			v32 = &p->directors;
-		else if (f == media::Field::Writers)
-			v32 = &p->writers;
+		if (f == media::Field::Actors) {
+			v32 = &preview->actors;
+			mtl_info("v32 actors");
+		} else if (f == media::Field::Directors) {
+			v32 = &preview->directors;
+			mtl_info("v32 directors");
+		} else if (f == media::Field::Writers) {
+			v32 = &preview->writers;
+			mtl_info("v32 writers");
+		}
 		
 		if (v32 != nullptr)
 		{
@@ -141,48 +144,56 @@ media::MediaPreview* CreateMediaPreview(ByteArray &ba)
 		
 		QVector<i16> *v2 = nullptr;
 		
-		if (f == media::Field::Genres)
-			v2 = &p->genres;
-		else if (f == media::Field::Subgenres)
-			v2 = &p->subgenres;
-		else if (f == media::Field::Countries)
-			v2 = &p->countries;
-		else if (f == media::Field::Rip)
-			v2 = &p->rips;
-		else if (f == media::Field::VideoCodec)
-			v2 = &p->video_codecs;
+		if (f == media::Field::Genres) {
+			v2 = &preview->genres;
+			mtl_info("v2 genres");
+		} else if (f == media::Field::Subgenres) {
+			v2 = &preview->subgenres;
+			mtl_info("v2 subgenres");
+		} else if (f == media::Field::Countries) {
+			v2 = &preview->countries;
+			mtl_info("v2 countries");
+		} else if (f == media::Field::Rip) {
+			v2 = &preview->rips;
+			mtl_info("v2 rips");
+		} else if (f == media::Field::VideoCodec) {
+			v2 = &preview->video_codecs;
+			mtl_info("v2 video_codecs");
+		}
 		
 		if (v2 != nullptr)
 		{
-			const u16 count = ba.next_u16();
+			cu16 count = ba.next_u16();
+			mtl_info("Count: %u", u32(count));
 			for (int i = 0; i < count; i++) {
 				v2->append(ba.next_i16());
 			}
+			mtl_info("Done");
 			continue;
 		}
 		
 		if (f == media::Field::YearStarted) {
-			p->year_started = ba.next_i16();
+			preview->year_started = ba.next_i16();
 		} else if (f == media::Field::MonthStarted) {
-			p->month_started = ba.next_i8();
+			preview->month_started = ba.next_i8();
 		} else if (f == media::Field::DayStarted) {
-			p->day_started = ba.next_i8();
+			preview->day_started = ba.next_i8();
 		} else if (f == media::Field::YearEnded) {
-			p->year_end = ba.next_i16();
+			preview->year_end = ba.next_i16();
 		} else if (f == media::Field::VideoCodecBitDepth) {
-			p->bit_depth = ba.next_i16();
+			preview->bit_depth = ba.next_i16();
 		} else if (f == media::Field::VideoResolution) {
-			p->video_w = ba.next_i32();
-			p->video_h = ba.next_i32();
+			preview->video_w = ba.next_i32();
+			preview->video_h = ba.next_i32();
 		} else if (f == media::Field::FPS) {
-			p->fps = ba.next_f32();
+			preview->fps = ba.next_f32();
 		} else {
 			/// other fields not needed by media::MediaPreview
 		}
 	}
 	
 	ba.to(at);
-	return p;
+	return preview;
 }
 
 bool CreateRegularFile(QStringView full_path)
@@ -191,7 +202,7 @@ bool CreateRegularFile(QStringView full_path)
 	return file.open(QIODevice::WriteOnly);
 }
 
-QStringRef GetDigits(const QString &s, cint from)
+QStringView GetDigits(QStringView s, cint from)
 {
 	cint max = s.size();
 	int k = from;
@@ -199,13 +210,13 @@ QStringRef GetDigits(const QString &s, cint from)
 	{
 		const QChar c = s[k];
 		if (!c.isDigit())
-			return s.midRef(from, k - from);
+			return s.sliced(from, k - from);
 	}
 	
-	return s.midRef(from);
+	return s.sliced(from);
 }
 
-int CompareStrings(const QString &a, const QString &b)
+int CompareStrings(QStringView a, QStringView b)
 {
 /** Lexically compares this @a with @b and returns
  an integer less than, equal to, or greater than zero if @a
@@ -221,15 +232,10 @@ int CompareStrings(const QString &a, const QString &b)
 			if (!bc.isDigit())
 				return ac < bc ? -1 : 1;
 			
-			QStringRef a_digits = GetDigits(a, i);
-			QStringRef b_digits = GetDigits(b, i);
+			auto a_digits = GetDigits(a, i);
+			auto b_digits = GetDigits(b, i);
 			
 			cint digit_result = CompareDigits(a_digits, b_digits);
-//			if (true) {
-//				auto ax = a_digits.toLocal8Bit();
-//				auto bx = b_digits.toLocal8Bit();
-//				mtl_info("\"%s\" vs \"%s\" = %d", ax.data(), bx.data(), digit_result);
-//			}
 			if (digit_result != 0)
 				return digit_result;
 			
@@ -246,18 +252,18 @@ int CompareStrings(const QString &a, const QString &b)
 	return a.size() < b.size() ? -1 : 1;
 }
 
-bool CopyFileFromTo(const QString &from_full_path, QString to_dir)
+bool CopyFileFromTo(QStringView from_full_path, QString to_dir)
 {
 	if (!to_dir.endsWith('/'))
 		to_dir.append('/');
 	
-	QStringRef name = io::GetFileNameOfFullPath(from_full_path);
+	auto name = io::GetFileNameOfFullPath(from_full_path);
 	
 	if (name.isEmpty())
 		return false;
 	
 	auto from_ba = from_full_path.toLocal8Bit();
-	int input_fd = ::open(from_ba.data(), O_RDONLY | O_LARGEFILE);
+	cint input_fd = ::open(from_ba.data(), O_RDONLY | O_LARGEFILE);
 	
 	if (input_fd == -1) {
 		mtl_warn("%s: %s", from_ba.data(), strerror(errno));
@@ -274,7 +280,7 @@ bool CopyFileFromTo(const QString &from_full_path, QString to_dir)
 		return false;
 	}
 	
-	auto to_full_path = (to_dir + name).toLocal8Bit();
+	auto to_full_path = (to_dir + name.toString()).toLocal8Bit();
 	const auto OverwriteFlags = O_CREAT | O_TRUNC | O_LARGEFILE | O_WRONLY;
 	int output_fd = ::open(to_full_path.data(), OverwriteFlags, stx.stx_mode);
 	
@@ -607,7 +613,7 @@ bool ExpandLinksInDirPath(QString &unprocessed_dir_path,
 		return true;
 	}
 	
-	auto list = dir_path.splitRef('/', Qt::SkipEmptyParts);
+	auto list = dir_path.split('/', Qt::SkipEmptyParts);
 	struct statx stx;
 	const auto flags = AT_SYMLINK_NOFOLLOW;
 	const auto fields = STATX_MODE;
@@ -746,7 +752,7 @@ void GetClipboardFiles(const QMimeData &mime, cornus::Clipboard &cl)
 	QString text = mime.text();
 	/// Need a regex because Nautilus in KDE inserts 'r' instead of just '\n'
 	QRegularExpression regex("[\r\n]");
-	auto list = text.splitRef(regex, Qt::SkipEmptyParts);
+	auto list = text.split(regex, Qt::SkipEmptyParts);
 	const bool is_nautilus = text.startsWith(str::NautilusClipboardMime);
 	
 	if (is_nautilus)
@@ -759,8 +765,7 @@ mtl_info("Nautilus style clipboard");
 			return;
 		
 		for (int i = 2; i < list.size(); i++) {
-			const QString s = list[i].toString();
-			QUrl url(s);
+			QUrl url(list[i]);
 			if (url.isLocalFile()) {
 				cl.file_paths.append(url.toLocalFile());
 			}
@@ -787,11 +792,7 @@ mtl_info("KDE style clipboard");
 mtl_info("is cut: %s", kde_cut_action ? "true" : "false");
 #endif
 	for (const auto &next: list) {
-		const QString s = next.toString();
-#ifdef CORNUS_CLIPBOARD_CLIENT_DEBUG
-mtl_printq(s);
-#endif
-		QUrl url(s);
+		QUrl url(next);
 		if (url.isLocalFile()) {
 			cl.file_paths.append(url.toLocalFile());
 		}
@@ -800,23 +801,23 @@ mtl_printq(s);
 	cl.action = kde_cut_action ? ClipboardAction::Cut : ClipboardAction::Copy;
 }
 
-QStringRef
-GetFileNameExtension(const QString &name, QStringRef *base_name)
+QStringView
+GetFileNameExtension(QStringView name, QStringView *base_name)
 {
-	int dot = name.lastIndexOf('.');
+	cint dot = name.lastIndexOf('.');
 	
 	if (dot == -1 || (dot == name.size() - 1))
-		return QStringRef();
+		return {};
 	
-	if (base_name != nullptr) {
-		*base_name = name.midRef(0, dot);
+	if (base_name) {
+		*base_name = name.sliced(0, dot);
 	}
 	
-	return name.midRef(dot + 1);
+	return name.sliced(dot + 1);
 }
 
-QStringRef
-GetFileNameOfFullPath(const QString &full_path)
+QStringView
+GetFileNameOfFullPath(QStringView full_path)
 {
 	// FullPath: "/home/user/my_dir/"
 	bool already_found_letters = false;
@@ -829,7 +830,7 @@ GetFileNameOfFullPath(const QString &full_path)
 		if (c == '/') {
 			if (already_found_letters) {
 				int at = i + 1;
-				return full_path.midRef(at, count - at - skip_from_end);
+				return full_path.sliced(at, count - at - skip_from_end);
 			} else {
 				skip_from_end++;
 			}
@@ -838,7 +839,7 @@ GetFileNameOfFullPath(const QString &full_path)
 		}
 	}
 	
-	return QStringRef();
+	return {};
 }
 
 QString get_lasting_tmp_dir()
@@ -862,8 +863,7 @@ QString GetLastingTmpDir()
 	return s;
 }
 
-QStringRef
-GetParentDirPath(const QString &full_path)
+QStringView GetParentDirPath(QStringView full_path)
 {
 	int at = full_path.size() - 1;
 	
@@ -878,13 +878,13 @@ GetParentDirPath(const QString &full_path)
 	}
 	
 	if (at < 0) {
-		return QStringRef();
+		return {};
 	}
 	
 	if (at == 0)
 		at = 1;
 	
-	return full_path.midRef(0, at);
+	return full_path.sliced(0, at);
 }
 
 Bool HasExecBit(const QString &full_path)
@@ -928,10 +928,10 @@ QVector<QString> &xdg_data_dirs, QHash<QString, Category> &possible_categories,
 		if (env_xdg_data_dirs.isEmpty())
 			env_xdg_data_dirs = QLatin1String("/usr/local/share/:/usr/share/");
 		
-		auto list = env_xdg_data_dirs.splitRef(':');
+		auto list = env_xdg_data_dirs.split(':');
 		
 		for (const auto &s: list) {
-			xdg_data_dirs.append(s.toString());
+			xdg_data_dirs.append(s);
 		}
 	}
 	
@@ -1008,7 +1008,7 @@ int ListDirNames(QString dir_path, QVector<QString> &vec, const ListDirOption op
 	return 0;
 }
 
-bool ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
+bool ListFileNames(QStringView full_dir_path, QVector<QString> &vec,
 	FilterFunc ff)
 {
 	struct dirent *entry;
@@ -1018,7 +1018,7 @@ bool ListFileNames(const QString &full_dir_path, QVector<QString> &vec,
 	if (dp == NULL)
 		return false;
 	
-	QString dir_path = full_dir_path;
+	QString dir_path = full_dir_path.toString();
 	
 	if (!dir_path.endsWith('/'))
 		dir_path.append('/');
@@ -1104,15 +1104,25 @@ bool ListFiles(io::FilesData &data, io::Files *ptr,
 	return true;
 }
 
-QString NewNamePattern(const QString &filename, i32 &next)
+QString MergeList(QStringList list, QChar delim)
 {
-	QStringRef base_name;
-	const QStringRef ext = io::GetFileNameExtension(filename, &base_name);
-	const QString num_str = QLatin1String(" (") + QString::number(++next) + ')';
+	QString s;
+	for (auto &next: list) {
+		s.append(next + delim);
+	}
+	
+	return s;
+}
+
+QString NewNamePattern(QStringView filename, i32 &next)
+{
+	QStringView base_name;
+	QStringView ext = io::GetFileNameExtension(filename, &base_name);
+	QString num_str = QLatin1String(" (") + QString::number(++next) + ')';
 	if (ext.isEmpty())
-		return filename + num_str;
-		
-	return base_name + num_str + '.' + ext;
+		return filename.toString() + num_str;
+	
+	return base_name.toString() + num_str + '.' + ext.toString();
 }
 
 void PasteLinks(const QVector<QString> &full_paths,
@@ -1372,7 +1382,8 @@ bool ReadLink(const char *file_path, LinkTarget &link_target,
 		
 		if (s.isEmpty())
 		{
-			auto s = io::GetParentDirPath(file_path);
+			QString path_str = file_path;
+			auto s = io::GetParentDirPath(path_str);
 			if (s.isEmpty())
 			{
 				free(buf);
@@ -1600,16 +1611,18 @@ bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &en
 	return true;
 }
 
-bool RemoveXAttr(const QString &full_path, const QString &xattr_name, const PrintErrors pe)
+void RemoveEFA(const QString &full_path, QVector<QString> names, const PrintErrors pe)
 {
 	auto file_path_ba = full_path.toLocal8Bit();
-	auto xattr_name_ba = xattr_name.toLocal8Bit();
-	const bool ok = lremovexattr(file_path_ba.data(), xattr_name_ba.data()) == 0;
 	
-	if (!ok && (pe == PrintErrors::Yes))
-		mtl_warn("lremovexattr on %s: %s", xattr_name_ba.data(), strerror(errno));
-	
-	return ok;
+	for (const auto &name: names)
+	{
+		auto name_ba = name.toLocal8Bit();
+		cbool ok = lremovexattr(file_path_ba.data(), name_ba.data()) == 0;
+		
+		if (!ok && (pe == PrintErrors::Yes))
+			mtl_warn("lremovexattr on %s: %s", name_ba.data(), strerror(errno));
+	}
 }
 
 bool SameFiles(const QString &path1, const QString &path2, int *ret_error)
@@ -1669,7 +1682,7 @@ bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx,
 	
 	if (ok_to_store_thumbnails_in_ext_attrs && (item.dir == TempDir::No))
 	{
-		if (io::SetXAttr(item.full_path, media::XAttrThumbnail, ba, PrintErrors::No))
+		if (io::SetEFA(item.full_path, media::XAttrThumbnail, ba, PrintErrors::No))
 			return true;
 	}
 	
@@ -1700,7 +1713,7 @@ bool valid_dev_path(const QString &name)
 	return name.startsWith(sd) || name.startsWith(nvme);
 }
 
-bool SetXAttr(const QString &full_path, const QString &xattr_name,
+bool SetEFA(const QString &full_path, const QString &xattr_name,
 	const ByteArray &ba, const PrintErrors pe)
 {
 	auto file_path_ba = full_path.toLocal8Bit();

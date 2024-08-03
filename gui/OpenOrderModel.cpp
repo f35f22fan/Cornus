@@ -48,7 +48,8 @@ OpenOrderModel::data(const QModelIndex &index, int role) const
 	}
 	
 	if (role == Qt::TextAlignmentRole) {
-		return Qt::AlignLeft + Qt::AlignVCenter;
+		QFlags<Qt::AlignmentFlag>::Int r = Qt::AlignLeft | Qt::AlignVCenter;
+		return r;
 	}
 	
 	const int row = index.row();

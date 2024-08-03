@@ -11,10 +11,6 @@
 
 namespace cornus {
 
-namespace media {
-media::MediaPreview* DecodeShort(Media *media, ByteArray &ba);
-}
-
 class Media: public QObject {
 	Q_OBJECT
 public:
@@ -39,17 +35,17 @@ public:
 	MutexGuard guard() { return MutexGuard(&mutex); }
 	
 	bool Lock() {
-		int status = pthread_mutex_lock(&mutex);
+		cint status = pthread_mutex_lock(&mutex);
 		if (status != 0)
 			mtl_status(status);
 		return status == 0;
 	}
-	void Reload();
+	bool Reload();
 	bool TryLock() {
 		return pthread_mutex_trylock(&mutex) == 0;
 	}
 	void Unlock() {
-		int status = pthread_mutex_unlock(&mutex);
+		cint status = pthread_mutex_unlock(&mutex);
 		if (status != 0)
 			mtl_status(status);
 	}
@@ -57,8 +53,8 @@ public:
 	i32 GetMagicNumber();
 	i32 magic_number_NTS() const { return data_.magic_number; }
 	void Print();
-	void ReloadDatabaseNTS(ByteArray &ba, media::Data &data);
-	void Save();
+	bool ReloadDatabaseNTS(ByteArray &ba, media::Data &data);
+	bool Save();
 	void WriteTo(ByteArray &ba, QComboBox *cb, const media::Field f);
 	
 	media::Data data_ = {};

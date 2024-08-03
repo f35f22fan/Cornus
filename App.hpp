@@ -46,6 +46,7 @@ public:
 	void AskCreateNewFile(io::File *file, const QString &title);
 	int AvailableCpuCores() const;
 	const Clipboard& clipboard() { return clipboard_; }
+	Clipboard& clipboard_mut() { return clipboard_; }
 	QMenu* CreateNewMenu();
 	DirId current_dir_id() const;
 	void DeleteFilesById(const FilesId id);
@@ -55,7 +56,7 @@ public:
 	const QProcessEnvironment& env() const { return env_; }
 	void ExtractAskDestFolder();
 	void ExtractTo(const QString &to_dir);
-	void FileDoubleClicked(io::File *file, const PickBy pb);
+	void FileDoubleClicked(io::File *file, const PickedBy pb);
 	io::Files* files(const FilesId files_id) const;
 	QIcon* GetIcon(const QString &str);
 	QIcon* GetFileIcon(io::File *file);
@@ -126,13 +127,14 @@ public Q_SLOTS:
 protected:
 	bool event(QEvent *event) override;
 	void showEvent(QShowEvent *evt) override;
+	void ClipboardChanged(QClipboard::Mode mode);
 	
 private:
 	NO_ASSIGN_COPY_MOVE(App);
 	
 	void ApplyDefaultPrefs();
 	void ArchiveAskDestArchivePath(const QString &ext);
-	void ClipboardChanged(QClipboard::Mode mode);
+	
 	void CloseTabAt(const int i);
 	void CloseCurrentTab();
 	void CreateFilesViewPane();
@@ -221,6 +223,6 @@ private:
 	// <== end
 	
 //	friend class cornus::gui::Table;
-//	friend class cornus::gui::Tab;
+	friend class cornus::gui::Tab;
 };
 }

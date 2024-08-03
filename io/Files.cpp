@@ -61,7 +61,7 @@ QString Files::GetFirstSelectedFileFullPath(const cornus::Lock l, QString *ext)
 	for (io::File *file: data.vec) {
 		if (file->is_selected()) {
 			if (ext != nullptr)
-				*ext = file->cache().ext.toString().toLower();
+				*ext = file->cache().ext.toLower();
 			return file->build_full_path();
 		}
 	}
@@ -81,7 +81,7 @@ int Files::GetSelectedFilesCount(const cornus::Lock l, QVector<QString> *extensi
 			selected_count++;
 			if ((extensions != nullptr) && next->is_regular())
 			{
-				extensions->append(next->cache().ext.toString());
+				extensions->append(next->cache().ext);
 			}
 		}
 	}
@@ -148,7 +148,7 @@ QPair<int, int> Files::ListSelectedFiles(const cornus::Lock l, QList<QUrl> &list
 		}
 	}
 	
-	return QPair(num_dirs, num_files);
+	return QPair<int, int> (num_dirs, num_files);
 }
 
 void Files::RemoveThumbnailsFromSelectedFiles()
@@ -160,7 +160,8 @@ void Files::RemoveThumbnailsFromSelectedFiles()
 		if (!next->is_selected() || !next->has_thumbnail_attr())
 			continue;
 		
-		io::RemoveXAttr(next->build_full_path(), media::XAttrThumbnail);
+		const auto path = next->build_full_path();
+		io::RemoveEFA(path, {media::XAttrName, media::XAttrThumbnail});
 	}
 }
 
@@ -225,12 +226,12 @@ void Files::SetLastWatched(const enum Lock l, io::File *file)
 		{
 			ByteArray value;
 			value.add_i64(time(NULL));
-			io::SetXAttr(next->build_full_path(), key, value);
+			io::SetEFA(next->build_full_path(), key, value);
 			continue;
 		}
 		
 		if (next->has_last_watched_attr())
-			io::RemoveXAttr(next->build_full_path(), key);
+			io::RemoveEFA(next->build_full_path(), {key});
 	}
 }
 

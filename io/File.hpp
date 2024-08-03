@@ -17,7 +17,7 @@ namespace cornus::io {
 
 struct FileCache {
 	QString mime;
-	QStringRef ext = QStringRef();
+	QString ext;
 	QIcon *icon = nullptr;
 	DesktopFile *desktop_file = nullptr;
 	const QHash<QString, Category> *possible_categories = nullptr;
@@ -52,10 +52,11 @@ public:
 	QHash<QString, ByteArray>& ext_attrs() { return ext_attrs_; }
 	bool has_ext_attrs() const { return ext_attrs_.size() > 0; }
 	bool has_media_attrs() const { return ext_attrs_.contains(media::XAttrName);}
-	ByteArray& media_attrs() { return ext_attrs_[media::XAttrName]; }
+	ByteArray& media_attrs() { return ext_attrs_[media::XAttrName]; } // rename to media::XMediaAttrs
 	media::MediaPreview* media_attrs_decoded();
 	bool has_last_watched_attr() const { return ext_attrs_.contains(media::XAttrLastWatched); }
 	bool has_thumbnail_attr() const { return ext_attrs_.contains(media::XAttrThumbnail); }
+	bool has_watched_attr() const { return ext_attrs_.contains(media::XAttrWatched); }
 	ByteArray thumbnail_attrs() const { return ext_attrs_.value(media::XAttrThumbnail); }
 	ByteArray& thumbnail_attrs_ref() { return ext_attrs_[media::XAttrThumbnail]; }
 	bool is_desktop_file() const { return is_regular() &&

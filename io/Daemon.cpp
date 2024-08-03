@@ -592,7 +592,7 @@ void Daemon::SendAllDesktopFiles(const int fd)
 	reply.Send(fd);
 }
 
-void Daemon::SendDesktopFilesById(ByteArray *ba, const int fd)
+void Daemon::SendDesktopFilesById(ByteArray *ba, cint fd)
 {
 	ByteArray reply;
 	reply.add_i16(DesktopFileABI);
@@ -616,7 +616,7 @@ void Daemon::SendDesktopFilesById(ByteArray *ba, const int fd)
 	reply.Send(fd);
 }
 
-void Daemon::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
+void Daemon::SendDefaultDesktopFileForFullPath(ByteArray *ba, cint fd)
 {
 	QString full_path = ba->next_string();
 	QMimeType mt = mime_db_.mimeTypeForFile(full_path);
@@ -636,7 +636,7 @@ void Daemon::SendDefaultDesktopFileForFullPath(ByteArray *ba, const int fd)
 	reply.Send(fd);
 }
 
-void Daemon::SendOpenWithList(QString mime, const int fd)
+void Daemon::SendOpenWithList(QString mime, cint fd)
 {
 	QVector<DesktopFile*> show_vec;
 	QVector<DesktopFile*> hide_vec;

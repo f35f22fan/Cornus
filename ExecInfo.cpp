@@ -14,18 +14,18 @@ ExecInfo::~ExecInfo() {}
 bool ExecInfo::Run(const QString &app_path, const QString &working_dir) const
 {
 	QRegularExpression regex("[\\s]+");
-	auto list = starter.splitRef(regex);
+	auto list = starter.split(regex);
 	if (list.isEmpty())
 		return false;
-	QString exe_path = list[0].trimmed().toString();
+	QString exe_path = list[0].trimmed();
 	if (exe_path.isEmpty())
 		return false;
 	QStringList args;
 	
 	for (int i = 1; i < list.size(); i++) {
-		QStringRef next = list[i].trimmed();
+		auto next = list[i].trimmed();
 		if (!next.isEmpty())
-			args.append(next.toString());
+			args.append(next);
 	}
 	
 	args.append(app_path);

@@ -15,7 +15,8 @@ enum class CloseSocket: i8 {
 	No,
 };
 
-class ByteArray {
+class ByteArray: public QObject {
+	Q_OBJECT
 public:
 	ByteArray();
 	ByteArray(const ByteArray &rhs);
@@ -67,7 +68,7 @@ public:
 	void size(isize n) { size_ = n; } // called from inside io::ReadFile(..);
 	void MakeSure(isize more_bytes, const ExactSize es = ExactSize::No);
 	inline void to(isize n) { at_ = n; }
-	bool Receive(int fd, const CloseSocket cs = CloseSocket::Yes);
+	bool Receive(cint fd, const CloseSocket cs = CloseSocket::Yes);
 	bool Send(int fd, const CloseSocket cs = CloseSocket::Yes) const;
 	void set_msg_id(const cornus::io::Message msg_id);
 	QString toString() const { return QString::fromLocal8Bit(data_, size_); }

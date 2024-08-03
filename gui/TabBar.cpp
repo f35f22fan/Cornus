@@ -35,8 +35,8 @@ void TabBar::dragLeaveEvent(QDragLeaveEvent *evt)
 
 void TabBar::dragMoveEvent(QDragMoveEvent *evt)
 {
-	const auto &pos = evt->pos();
-	const int tab_index = tabAt(pos);
+	cauto pos = evt->position().toPoint();
+	cint tab_index = tabAt(pos);
 	if (tab_index != -1) {
 		app_->SelectTabAt(tab_index, FocusView::Yes);
 	}
@@ -44,7 +44,7 @@ void TabBar::dragMoveEvent(QDragMoveEvent *evt)
 
 void TabBar::dropEvent(QDropEvent *evt)
 {
-	const auto &pos = evt->pos();
+	cauto pos = evt->position().toPoint();
 	const int tab_index = tabAt(pos);
 	if (tab_index == -1)
 		return;

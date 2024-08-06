@@ -30,6 +30,25 @@ using DirId = i32;
 using FileId = i32;
 using FilesId = i64;
 
+struct PathAndMode {
+	QString path; // expected to be full path
+	mode_t mode;
+	
+	bool operator==(const PathAndMode &rhs) const {
+		return (S_IFMT & mode) == (S_IFMT & rhs.mode) && path == rhs.path;
+	}
+};
+
+enum class DeleteSubFolders: i8 {
+	Yes,
+	No
+};
+
+enum class DeleteTopFolder: i8 {
+	Yes,
+	No
+};
+
 enum class Exists: i8 {
 	Yes,
 	No
@@ -97,6 +116,11 @@ enum class SameDir: i8 {
 enum class DeselectOthers: i8 {
 	Yes,
 	No
+};
+
+enum class WhichFiles: i8 {
+	Selected,
+	All
 };
 
 enum class Selected: i8 {

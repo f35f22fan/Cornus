@@ -6,27 +6,51 @@
 #include <QApplication>
 #include <QWidget>
 
-#include "tests/FsEvents.hpp"
+#include "tests.hh"
 
 int main(int argc, char *argv[]) {
 	QApplication qapp(argc, argv);
 	cornus::App app;
+	QStringList args = qapp.arguments();
+	QList<cornus::tests::Test*> tests;
 	
-	if ((argc >= 2) && (strncmp("test", argv[1], 4) == 0)) {
-		int status = 0;
+	if (args.size() >= 2 && args[1] == "test") {
+		if (args.size() <= 2) {
+			mtl_info("Too few args");
+			return 1;
+		}
 		
-		auto runTest = [&status, argc , argv](QObject* obj) {
-			status |= QTest::qExec(obj, argc - 1, &argv[1]);
-		};
+		if (args[2] == QLatin1String("newFiles")) {
+			tests.append(new cornus::tests::CreateNewFiles(&app));
+		} else {
+			auto ba = args[2].toLocal8Bit();
+			mtl_warn("No such test: \"%s\"", ba.data());
+		}
 		
-		FsEvents fse;
-		QString root_dir = fse.PrepareFolder(QString("events"));
-		app.tab()->GoToSimple(root_dir);
-		runTest(&fse);
 	}
 	
 	app.show();
-	return qapp.exec();
+	cint app_status = qapp.exec();
+	if (app_status != 0) {
+		mtl_status(app_status);
+	}
+	
+	int status = 0;
+	for (cornus::tests::Test *test: tests) {
+		if (status == 0 && test->status() != 0)
+			status = test->status();
+		delete test;
+	}
+	
+	if (status) {
+		mtl_status(status);
+	} else if (!tests.isEmpty()) {
+		mtl_info("Tests executed successfully");
+	}
+	
+	tests.clear();
+	
+	return status ? status : app_status;
 }
 
 

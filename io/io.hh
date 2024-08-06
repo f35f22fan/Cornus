@@ -72,7 +72,7 @@ enum class PostWrite: i8 {
 };
 
 using MessageType = u32;
-const int MessageBitsStartAt = 28;
+cint MessageBitsStartAt = 28;
 const MessageType MessageBitsMask = 15;
 enum class Message: MessageType {
 	Empty = 0,
@@ -215,13 +215,14 @@ bool CreateRegularFile(QStringView full_path);
 
 // returns -1 on error, fd otherwise
 int CreateAutoRenamedFile(QString dir_path, QString filename,
-	const int file_flags, const mode_t mode);
+	cint file_flags, const mode_t mode);
 
 media::MediaPreview* CreateMediaPreview(ByteArray &ba);
 
 void Delete(io::File *file, const QProcessEnvironment &env);
 
-int DeleteFolder(QString dir_path); // returns 0 on success
+int DeleteFolder(QString dir_path, const DeleteSubFolders dsf = DeleteSubFolders::Yes,
+	const DeleteTopFolder dtf = DeleteTopFolder::Yes); // returns 0 on success
 
 bool DirExists(const QString &full_path);
 
@@ -255,7 +256,7 @@ io::File* FileFromPath(const QString &full_path, int *ret_error = nullptr);
 
 void FillInStx(io::File &file, const struct statx &st, const QString *name);
 
-QString FloatToString(const float number, const int precision);
+QString FloatToString(const float number, cint precision);
 
 void GetClipboardFiles(const QMimeData &mime, Clipboard &cl);
 
@@ -306,19 +307,26 @@ QString MergeList(QStringList list, QChar delim);
 QString NewNamePattern(QStringView filename, i32 &next);
 
 inline bool NewThread(void* (*start_routine)(void *), void *arg,
-	const PrintErrors pe = PrintErrors::Yes)
+	const PrintErrors pe = PrintErrors::Yes, pthread_t *result = 0)
 {
 	pthread_t th;
-	const int status = pthread_create(&th, NULL, start_routine, arg);
+	cint status = pthread_create(&th, NULL, start_routine, arg);
 	if (status != 0 && pe == PrintErrors::Yes)
 		mtl_status(status);
+	
+	if (result)
+		*result = th;
+	
 	return (status == 0);
 }
 
 void PasteLinks(const QVector<QString> &full_paths,
 	QString target_dir, QVector<QString> *filenames, QString *err = nullptr);
+
 void PasteRelativeLinks(const QVector<QString> &full_paths, QString target_dir,
 	QVector<QString> *filenames, QString *err = nullptr);
+
+QString PrepareTestingFolder(QStringView subdir);
 
 void ProcessMime(QString &mime);
 
@@ -335,7 +343,7 @@ bool ReadLink(const char *file_path, LinkTarget &link_target,
 bool ReadLinkSimple(const char *file_path, QString &result);
 
 // returns -1 on error or num read bytes
-i64 ReadToBuf(const int fd, char *buf, ci64 buf_size,
+i64 ReadToBuf(cint fd, char *buf, ci64 buf_size,
 	const PrintErrors pe = PrintErrors::No);
 
 bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &env,
@@ -344,6 +352,9 @@ bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &en
 void RemoveEFA(const QString &full_path, QVector<QString> names,
 	const PrintErrors pe = PrintErrors::No);
 
+// returns 0 on success or errno on failure
+int Rename(QStringView old_path, QStringView new_path);
+
 bool SameFiles(const QString &path1, const QString &path2,
 	int *ret_error = nullptr);
 
@@ -351,6 +362,7 @@ bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx,
 	const bool ok_to_store_thumbnails_in_ext_attrs);
 
 bool sd_nvme(const QString &name);
+
 bool valid_dev_path(const QString &name);
 
 QString SizeToString(ci64 sz, const StringLength len = StringLength::Normal);

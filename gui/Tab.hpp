@@ -8,6 +8,7 @@
 #include "../io/Notify.hpp"
 #include "../trash.hh"
 
+#include <QList>
 #include <QMenu>
 #include <QStyleOptionViewItem>
 #include <QTabBar>
@@ -67,7 +68,8 @@ public:
 	void DropEvent(QDropEvent *evt, const ForceDropToCurrentDir fdir);
 	void ExecuteDrop(QVector<io::File *> *files_vec, io::File *to_dir,
 		Qt::DropAction drop_action, Qt::DropActions possible_actions);
-	QStringList FetchSelectedPaths();
+	QStringList FetchFilePaths(const WhichFiles wf = WhichFiles::All);
+	QList<PathAndMode> FetchFilesInfo(const WhichFiles wf = WhichFiles::All);
 	TabId id() const { return id_; }
 	FilesId files_id() const { return files_id_; }
 	void FileChanged(const io::FileEventType evt, io::File *cloned_file = nullptr);
@@ -79,9 +81,10 @@ public:
 	void GoBack();
 	void GoForward();
 	void GoHome();
-	bool GoTo(const Action action, DirPath dir_path, const cornus::Reload r = Reload::No);
+	bool GoTo(const Action action, DirPath dir_path,
+		const cornus::Reload r = Reload::No);
 	void GoToAndSelect(const QString full_path);
-	void GoToSimple(const QString &full_path);
+	void GoToSimple(QStringView full_path);
 	void GoUp();
 	void GoToInitialDir();
 	void FocusView();
@@ -122,6 +125,10 @@ public:
 	
 	void UpdateIndices(const QSet<int> &indices);
 	void UpdateView();
+	
+Q_SIGNALS:
+	void SwitchedToNewDir(QString unprocessed_dir_path,
+		QString processed_dir_path);
 	
 public Q_SLOTS:
 	void GoToFinish(cornus::io::FilesData *new_data);

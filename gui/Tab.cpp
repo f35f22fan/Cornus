@@ -146,10 +146,9 @@ void* GoToTh(void *p)
 	new_data->action = params->action;
 	new_data->start_time = std::chrono::steady_clock::now();
 	new_data->show_hidden_files(params->show_hidden_files);
+	new_data->unprocessed_dir_path = params->dir_path.path;
 	if (params->dir_path.processed == Processed::Yes)
 		new_data->processed_dir_path = params->dir_path.path;
-	else
-		new_data->unprocessed_dir_path = params->dir_path.path;
 
 	const auto cdf = params->count_dir_files ?
 		io::CountDirFiles::Yes : io::CountDirFiles::No;
@@ -182,6 +181,7 @@ void* GoToTh(void *p)
 			mtl_info("Waited for gui creation: %.1f ms", elapsed);
 		}
 	#endif
+	
 	QMetaObject::invokeMethod(tab, "GoToFinish",
 		Q_ARG(cornus::io::FilesData*, new_data));
 	delete params;
@@ -228,7 +228,7 @@ void Tab::ActionCopy()
 	MTL_CHECK_VOID(SendURLsClipboard(list, io::Message::CopyToClipboard));
 }
 
-QStringList Tab::FetchSelectedPaths()
+QStringList Tab::FetchFilePaths(const WhichFiles wf)
 {
 	QStringList list;
 	auto &files = view_files();
@@ -236,8 +236,25 @@ QStringList Tab::FetchSelectedPaths()
 		auto g = files.guard();
 		for (io::File *next: files.data.vec)
 		{
-			if (next->is_selected()) {
+			if (wf == WhichFiles::All || next->is_selected()) {
 				list.append(next->build_full_path());
+			}
+		}
+	}
+	
+	return list;
+}
+
+QList<PathAndMode> Tab::FetchFilesInfo(const WhichFiles wf)
+{
+	QList<PathAndMode> list;
+	auto &files = view_files();
+	{
+		auto g = files.guard();
+		for (io::File *next: files.data.vec)
+		{
+			if (wf == WhichFiles::All || next->is_selected()) {
+				list.append(next->path_and_mode());
 			}
 		}
 	}
@@ -247,7 +264,7 @@ QStringList Tab::FetchSelectedPaths()
 
 void Tab::ActionCopyPaths()
 {
-	auto list = FetchSelectedPaths();
+	auto list = FetchFilePaths(WhichFiles::Selected);
 	QString s;
 	for (auto next: list) {
 		s.append(next + '\n');
@@ -370,7 +387,7 @@ void Tab::ActionPasteLinks(const LinkType link)
 
 void Tab::ActionPlayInMpv()
 {
-	auto paths = io::MergeList(FetchSelectedPaths(), '\n');
+	auto paths = io::MergeList(FetchFilePaths(WhichFiles::Selected), '\n');
 	if (paths.isEmpty())
 		return;
 	
@@ -824,6 +841,7 @@ void Tab::GoToFinish(cornus::io::FilesData *new_data)
 		io::Files &files = view_files();
 		got_files_to_select = !files.data.filenames_to_select.isEmpty();
 	}
+	
 	table_model_->SwitchTo(new_data);
 	history_->Add(new_data->action, current_dir_);
 	
@@ -854,6 +872,11 @@ void Tab::GoToFinish(cornus::io::FilesData *new_data)
 	
 	SetTitle(dir_name);
 	app_->SelectCurrentTab();
+	
+	// Slots are called when a signal connected to it is emitted. They are
+	// regular C++ functions and can be called normally, their only special
+	// feature is that signals can be connected to them.
+	Q_EMIT SwitchedToNewDir(new_data->unprocessed_dir_path, new_data->processed_dir_path);
 }
 
 void Tab::GoToInitialDir()
@@ -963,8 +986,8 @@ void Tab::GoToInitialDir()
 	}
 }
 
-void Tab::GoToSimple(const QString &full_path) {
-	GoTo(Action::To, {full_path, Processed::No});
+void Tab::GoToSimple(QStringView full_path) {
+	GoTo(Action::To, {full_path.toString(), Processed::No});
 }
 
 void Tab::GoUp()

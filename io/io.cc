@@ -370,8 +370,13 @@ int CreateAutoRenamedFile(QString dir_path, QString filename,
 	}
 }
 
-int DeleteFolder(QString dp)
+int DeleteFolder(QString dp, const DeleteSubFolders dsf, const DeleteTopFolder dtf)
 {
+	if (dsf == DeleteSubFolders::No && dtf == DeleteTopFolder::Yes) {
+		mtl_warn("Can't delete top folder without deleting all of its contents");
+		return EINVAL;
+	}
+	
 	const auto flags = AT_SYMLINK_NOFOLLOW;
 	const auto fields = STATX_MODE;
 	struct statx stx;
@@ -394,9 +399,11 @@ int DeleteFolder(QString dp)
 		}
 		
 		if (S_ISDIR(stx.stx_mode)) {
-			int status = DeleteFolder(full_path);
-			if (status != 0)
-				return status;
+			if (dsf == DeleteSubFolders::Yes) {
+				cint status = DeleteFolder(full_path);
+				if (status != 0)
+					return status;
+			}
 		} else {
 			if(::remove(ba.data()) == -1) {
 				return errno;
@@ -404,8 +411,12 @@ int DeleteFolder(QString dp)
 		}
 	}
 	
-	auto dir_ba = dp.toLocal8Bit();
-	return (::remove(dir_ba.data()) == -1) ? errno : 0;
+	if (dtf == DeleteTopFolder::Yes) {
+		auto dir_ba = dp.toLocal8Bit();
+		return (::remove(dir_ba.data()) == -1) ? errno : 0;
+	}
+	
+	return 0;
 }
 
 int DoStat(const QString &full_path, const QString &name, bool &is_trash_dir,
@@ -645,7 +656,6 @@ bool ExpandLinksInDirPath(QString &unprocessed_dir_path,
 	}
 	
 	processed_dir_path = full_long_path;
-	unprocessed_dir_path.clear();
 	
 	return true;
 }
@@ -1203,6 +1213,21 @@ void PasteRelativeLinks(const QVector<QString> &full_paths,
 	
 }
 
+QString PrepareTestingFolder(QStringView subdir)
+{ // special folder to carry out inotify tests of this app
+	QString test_dir;
+	if (!cornus::io::EnsureDir(QDir::homePath(), subdir.toString(), &test_dir))
+		return QString();
+	
+	cint status = io::DeleteFolder(test_dir, DeleteSubFolders::Yes, DeleteTopFolder::No);
+	if (status != 0) {
+		mtl_status(status);
+		return QString();
+	}
+	
+	return test_dir;
+}
+
 void ProcessMime(QString &mime)
 {
 	const auto PlainText = QLatin1String("text/plain");
@@ -1623,6 +1648,14 @@ void RemoveEFA(const QString &full_path, QVector<QString> names, const PrintErro
 		if (!ok && (pe == PrintErrors::Yes))
 			mtl_warn("lremovexattr on %s: %s", name_ba.data(), strerror(errno));
 	}
+}
+
+int Rename(QStringView old_path, QStringView new_path)
+{
+	auto old_ba = old_path.toLocal8Bit();
+	auto new_ba = new_path.toLocal8Bit();
+	
+	return (::rename(old_ba.data(), new_ba.data()) == 0) ? 0 : errno;
 }
 
 bool SameFiles(const QString &path1, const QString &path2, int *ret_error)

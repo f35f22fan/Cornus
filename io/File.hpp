@@ -122,6 +122,10 @@ public:
 		toggle_flag(AllActions & ~FileBits::ActionPaste, false);
 	}
 	
+	inline PathAndMode path_and_mode() {
+		return PathAndMode {.path = build_full_path(), .mode = mode_};
+	}
+	
 	bool is_selected() const { return (bits_ & FileBits::Selected) != FileBits::Empty; }
 	void set_selected(const bool yes) { toggle_flag(FileBits::Selected, yes); }
 	cornus::Selected selected() const {

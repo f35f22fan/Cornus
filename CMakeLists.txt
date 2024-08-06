@@ -111,7 +111,7 @@ set(cornus_src_files
     io/SaveFile.cpp io/SaveFile.hpp
     io/socket.cc io/socket.hh
 	
-	tests/FsEvents.cpp tests/FsEvents.hpp
+	tests.cc tests.hh
 )
 
 foreach(f IN LISTS cornus_src_files)

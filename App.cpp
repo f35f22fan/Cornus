@@ -1424,6 +1424,11 @@ void App::OpenWithDefaultApp(const QString &full_path)
 	delete p;
 }
 
+void App::GoTo(QStringView path)
+{
+	tab()->GoToSimple(path);
+}
+
 ExecInfo App::QueryExecInfo(io::File &file) {
 	return QueryExecInfo(file.build_full_path(), file.cache().ext);
 }

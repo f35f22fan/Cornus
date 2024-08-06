@@ -64,6 +64,7 @@ public:
 	FilesId GenNextFilesId();
 	
 	void GoUp();
+	void GoTo(QStringView path);
 	GuiBits& gui_bits() { return gui_bits_; }
 	
 	QColor green_color() const { return (theme_type_ == ThemeType::Light) ?

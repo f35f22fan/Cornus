@@ -21,6 +21,7 @@
 *.app
 build/*
 debug/*
+Debug/*
 Release/*
 TODO.*
 TBD*

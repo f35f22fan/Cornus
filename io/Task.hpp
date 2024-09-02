@@ -49,7 +49,7 @@ struct TaskData {
 	}
 	inline i64 GetTimeWorked() {
 		cm.Lock();
-		i64 ret = work_time_recorder_.elapsed_ms();
+		ci64 ret = work_time_recorder_.elapsed_ms();
 		cm.Unlock();
 		return ret;
 	}

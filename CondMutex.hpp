@@ -12,7 +12,10 @@ public:
 	mutable pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 	union Data {
 		char *ptr;
-		bool flag;
+		struct {
+			bool act = false;
+			bool exit = false;
+		};
 	} data;
 	
 	inline void Broadcast() {
@@ -32,10 +35,15 @@ public:
 		if (l != Lock::Yes)
 			return true;
 		cint status = pthread_mutex_lock(&mutex);
-		const bool ok = (status == 0);
+		cbool ok = (status == 0);
 		if (!ok)
 			mtl_status(status);
 		return ok;
+	}
+	
+	inline bool TryLock() {
+		cint status = pthread_mutex_trylock(&mutex);
+		return (status == 0);
 	}
 	
 	inline void Signal() {
@@ -46,20 +54,18 @@ public:
 	
 	inline bool Unlock(const enum Lock l = Lock::Yes)
 	{
-		if (l != Lock::Yes)
-			return true;
-		return (pthread_mutex_unlock(&mutex) == 0);
+		return (l != Lock::Yes) ? true : (pthread_mutex_unlock(&mutex) == 0);
 	}
 	
-	void SetFlag(const bool b, const enum Lock l = Lock::Yes) {
+	void SetFlag(cbool b, const enum Lock l = Lock::Yes) {
 		Lock(l);
-		data.flag = b;
+		data.act = b;
 		Unlock(l);
 	}
 	
 	bool GetFlag(const enum Lock l = Lock::Yes) {
 		Lock(l);
-		const bool b = data.flag;
+		cbool b = data.act;
 		Unlock(l);
 		return b;
 	}
@@ -84,7 +90,7 @@ public:
 	mutable pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 	union Data {
 		char *ptr;
-		bool flag;
+		bool act;
 	} data;
 	
 	MutexGuard guard(const enum Lock l = Lock::Yes) const {
@@ -103,7 +109,7 @@ public:
 		if (l != Lock::Yes)
 			return true;
 		cint status = pthread_mutex_lock(&mutex);
-		const bool ok = (status == 0);
+		cbool ok = (status == 0);
 		if (!ok)
 			mtl_status(status);
 		return ok;
@@ -115,15 +121,15 @@ public:
 		return (pthread_mutex_unlock(&mutex) == 0);
 	}
 	
-	void SetFlag(const bool b) {
+	void SetFlag(cbool b) {
 		Lock();
-		data.flag = b;
+		data.act = b;
 		Unlock();
 	}
 	
 	bool GetFlag(const enum Lock l = Lock::Yes) {
 		Lock(l);
-		const bool b = data.flag;
+		cbool b = data.act;
 		Unlock(l);
 		return b;
 	}

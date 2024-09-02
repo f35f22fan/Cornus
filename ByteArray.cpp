@@ -7,6 +7,12 @@
 namespace cornus {
 
 ByteArray::ByteArray() {}
+ByteArray::ByteArray(i64 num) {
+	add_i64(num);
+}
+ByteArray::ByteArray(u64 num) {
+	add_u64(num);
+}
 ByteArray::ByteArray(const ByteArray &rhs)
 {
 	add(rhs.data(), rhs.size());

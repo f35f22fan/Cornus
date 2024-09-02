@@ -1114,20 +1114,16 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 		MarkLastWatchedFile();
 	} else if (key == Qt::Key_F2) {
 		app_->RenameSelectedFile();
+	} else if (key == Qt::Key_F3) {
+		MarkSelectedFilesAsWatched();
 	} else if (key == Qt::Key_Return) {
 		if (!any_modifiers) {
-			mtl_trace();
 			io::File *cloned_file = nullptr;
-			mtl_trace();
 			cint row = files.GetFirstSelectedFile(Lock::Yes, &cloned_file, Clone::Yes);
 			if (row != -1) {
-				mtl_trace();
 				app->FileDoubleClicked(cloned_file, PickedBy::VisibleName);
-				mtl_trace();
 				indices.insert(row);
-				mtl_trace();
 			}
-			mtl_trace();
 		}
 	} else if (key == Qt::Key_Down || key == Qt::Key_Right) {
 		if (shift)
@@ -1226,6 +1222,13 @@ void Tab::MarkLastWatchedFile()
 	cint index = files.GetFirstSelectedFile(Lock::No, &file, Clone::No);
 	if (index != -1)
 		files.SetLastWatched(Lock::No, file);
+}
+
+void Tab::MarkSelectedFilesAsWatched() {
+	auto &files = view_files();
+	auto g = files.guard(Lock::Yes);
+	QList<io::File*> vec = files.GetSelectedFiles(Lock::No, Clone::No);
+	files.MarkFilesAsWatched(Lock::No, vec);
 }
 
 void Tab::PaintMagnified(QWidget *viewport, const QStyleOptionViewItem &option)

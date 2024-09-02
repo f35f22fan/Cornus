@@ -54,9 +54,23 @@ public:
 	bool has_media_attrs() const { return ext_attrs_.contains(media::XAttrName);}
 	ByteArray& media_attrs() { return ext_attrs_[media::XAttrName]; } // rename to media::XMediaAttrs
 	media::MediaPreview* media_attrs_decoded();
-	bool has_last_watched_attr() const { return ext_attrs_.contains(media::XAttrLastWatched); }
+	bool has_last_watched_attr() const {
+		return watch_props() & media::WatchProps::LastWatched;
+	}
 	bool has_thumbnail_attr() const { return ext_attrs_.contains(media::XAttrThumbnail); }
-	bool has_watched_attr() const { return ext_attrs_.contains(media::XAttrWatched); }
+	bool has_watched_attr() const {
+		return watch_props() & media::WatchProps::Watched;
+	}
+	u64 watch_props() const {
+		cauto loc = ext_attrs_.find(media::WatchProps::Name);
+		if (loc == ext_attrs_.end())
+			return 0;
+		ByteArray ba = loc.value();
+		return ba.next_u64();
+	}
+	
+	void WatchProp(Op op, cu64 prop);
+	
 	ByteArray thumbnail_attrs() const { return ext_attrs_.value(media::XAttrThumbnail); }
 	ByteArray& thumbnail_attrs_ref() { return ext_attrs_[media::XAttrThumbnail]; }
 	bool is_desktop_file() const { return is_regular() &&
@@ -68,8 +82,7 @@ public:
 	
 	bool is_dir() const { return type_ == FileType::Dir; }
 	bool is_link_to_dir() const { return is_symlink() &&
-		(link_target_ != nullptr) &&
-		(link_target_->type == FileType::Dir); }
+		link_target_ && (link_target_->type == FileType::Dir); }
 	bool is_dir_or_so() const { return is_dir() || is_link_to_dir(); }
 	bool is_regular() const { return type_ == FileType::Regular; }
 	bool is_symlink() const { return type_ == FileType::Symlink; }
@@ -77,7 +90,7 @@ public:
 	bool is_socket() const { return type_ == FileType::Socket; }
 	bool is_bloc_device() const { return type_ == FileType::BlockDevice; }
 	bool is_char_device() const { return type_ == FileType::CharDevice; }
-	inline void toggle_flag(const FileBits flag, const bool do_add) {
+	inline void toggle_flag(const FileBits flag, cbool do_add) {
 		if (do_add)
 			bits_ |= flag;
 		else {
@@ -98,47 +111,58 @@ public:
 		return false;
 	}
 	
-	bool action_copy() const { return (bits_ & FileBits::ActionCopy) != FileBits::Empty; }
-	void action_copy(const bool add) {
+	
+	inline bool check_bits(FileBits fb) const {
+		return (bits_ & fb) != FileBits::Empty;
+	}
+	
+	bool action_copy() const { return check_bits(FileBits::ActionCopy); }
+	void action_copy(cbool add) {
 		toggle_flag(FileBits::ActionCopy, add);
 		toggle_flag(AllActions & ~FileBits::ActionCopy, false);
 	}
 	
-	bool action_cut() const { return (bits_ & FileBits::ActionCut) != FileBits::Empty; }
-	void action_cut(const bool add) {
+	bool action_cut() const { return check_bits(FileBits::ActionCut); }
+	void action_cut(cbool add) {
 		toggle_flag(FileBits::ActionCut, add);
 		toggle_flag(AllActions & ~FileBits::ActionCut, false);
 	}
 	
-	bool action_paste_link() const { return (bits_ & FileBits::PasteLink) != FileBits::Empty; }
-	void action_paste_link(const bool add) {
+	bool action_paste_link() const { return check_bits(FileBits::PasteLink); }
+	void action_paste_link(cbool add) {
 		toggle_flag(FileBits::PasteLink, add);
 		toggle_flag(AllActions & ~FileBits::PasteLink, false);
 	}
 	
-	bool action_paste() const { return (bits_ & FileBits::ActionPaste) != FileBits::Empty; }
-	void action_paste(const bool add) {
+	bool action_paste() const { return check_bits(FileBits::ActionPaste); }
+	void action_paste(cbool add) {
 		toggle_flag(FileBits::ActionPaste, add);
 		toggle_flag(AllActions & ~FileBits::ActionPaste, false);
+	}
+	
+	
+	bool needs_meta_update() const { return check_bits(FileBits::NeedsMetaUpdate); }
+	void needs_meta_update(cbool flag) {
+		toggle_flag(FileBits::NeedsMetaUpdate, flag);
 	}
 	
 	inline PathAndMode path_and_mode() {
 		return PathAndMode {.path = build_full_path(), .mode = mode_};
 	}
 	
-	bool is_selected() const { return (bits_ & FileBits::Selected) != FileBits::Empty; }
-	void set_selected(const bool yes) { toggle_flag(FileBits::Selected, yes); }
+	bool is_selected() const { return check_bits(FileBits::Selected); }
+	void set_selected(cbool flag) { toggle_flag(FileBits::Selected, flag); }
 	cornus::Selected selected() const {
 		return is_selected() ? Selected::Yes : Selected::No;
 	}
 	void selected(const Selected flag) { set_selected(flag == Selected::Yes); }
 	void toggle_selected() { set_selected(!is_selected()); }
 	
-	bool selected_by_search() const { return (bits_ & FileBits::SelectedBySearch) != FileBits::Empty; }
-	void selected_by_search(const bool add) { toggle_flag(FileBits::SelectedBySearch, add); }
+	bool selected_by_search() const { return check_bits(FileBits::SelectedBySearch); }
+	void selected_by_search(cbool add) { toggle_flag(FileBits::SelectedBySearch, add); }
 	
-	bool selected_by_search_active() const { return (bits_ & FileBits::SelectedBySearchActive) != FileBits::Empty; }
-	void selected_by_search_active(const bool add) { toggle_flag(FileBits::SelectedBySearchActive, add); }
+	bool selected_by_search_active() const { return check_bits(FileBits::SelectedBySearchActive); }
+	void selected_by_search_active(cbool add) { toggle_flag(FileBits::SelectedBySearchActive, add); }
 	
 	LinkTarget *link_target() const { return link_target_; }
 	void link_target(LinkTarget *p) { link_target_ = p; }

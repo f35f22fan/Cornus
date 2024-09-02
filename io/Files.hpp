@@ -115,6 +115,7 @@ public:
 	int GetFirstSelectedFile(const cornus::Lock l, io::File **ret_cloned_file = nullptr,
 		const Clone c = Clone::Yes);
 	QString GetFirstSelectedFileFullPath(const cornus::Lock l, QString *ext);
+	QList<io::File*> GetSelectedFiles(const cornus::Lock l, const cornus::Clone c);
 	int GetSelectedFilesCount(const cornus::Lock l, QVector<QString> *extensions = nullptr);
 	void GetSelectedFileNames(const cornus::Lock l, QVector<QString> &names, const Path path,
 		const StringCase str_case = StringCase::AsIs);
@@ -126,6 +127,7 @@ public:
 	void SelectFilenamesLater(const QVector<QString> &names, const SameDir sd = SameDir::No);
 	void SelectFileRange(const cornus::Lock l, cint row1, cint row2, QSet<int> &indices);
 	void SetLastWatched(const enum Lock l, io::File *file);
+	void MarkFilesAsWatched(const enum Lock l, QList<io::File*> &vec);
 	
 	CondMutex quit_cm = {};
 	

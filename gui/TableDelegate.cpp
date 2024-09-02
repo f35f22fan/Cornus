@@ -65,7 +65,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	const int str_wide = filename_width + gui::FileNameRelax * 2;
 	const int actual_wide = str_wide < min_name_w_ ? min_name_w_ : str_wide;
 	sel_rect.setWidth(actual_wide);
-	const bool mouse_over = table_->mouse_over_file_name_index() == row;
+	cbool mouse_over = table_->mouse_over_file_name_index() == row;
 	
 	if (mouse_over || paint_as_selected || file->is_selected() || file->selected_by_search()) {
 		QColor c;
@@ -189,7 +189,7 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	const QStyleOptionViewItem &option, QFontMetrics &fm,
 	const QRect &text_rect) const
 {
-	const bool mouse_over = table_->mouse_over_file_icon_index() == row;
+	cbool mouse_over = table_->mouse_over_file_icon_index() == row;
 	
 	if (mouse_over)
 		painter->fillRect(option.rect, app_->hover_bg_color());
@@ -214,15 +214,15 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	QPen pen(brush.color());
 	
 	if (!app_->prefs().mark_extended_attrs_disabled() && file->has_ext_attrs()) {
-		text.append("\u2022");
+		text.append("\u26AB");//2022");
 		QColor color;
 		if (file->has_last_watched_attr()) {
 			color = QColor(255, 0, 0);
 		} else if (file->has_watched_attr()) {
-			color = QColor(100, 100, 100);
-		} else if (file->has_media_attrs())
+			color = QColor(255, 165, 0);
+		} else if (file->has_media_attrs()) {
 			color = QColor(50, 50, 255);
-		else if (file->has_thumbnail_attr()) {
+		} else if (file->has_thumbnail_attr()) {
 			color = QColor(0, 100, 0);
 		} else {
 			color = QColor(100, 100, 100);
@@ -237,7 +237,7 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	if (icon == nullptr)
 		return;
 	
-	const bool transparent = file->action_cut() || file->action_copy() ||
+	cbool transparent = file->action_cut() || file->action_copy() ||
 		file->action_paste();
 	
 	if (transparent)
@@ -245,7 +245,7 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	
 	QRect tr = fm.boundingRect(text);
 	QRect icon_rect = text_rect;
-	icon_rect.setX(tr.width() + 2);
+	icon_rect.setX(tr.width() + 6);
 	icon_rect.setWidth(icon_rect.width() - tr.width() - 2);
 	icon->paint(painter, icon_rect);
 	

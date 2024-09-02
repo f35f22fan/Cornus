@@ -17,7 +17,7 @@ public:
 	ElapsedTimer();
 	~ElapsedTimer();
 	
-	void Continue(const cornus::Reset r = Reset::No);
+	void Continue(const Reset r = Reset::No);
 	void Pause();
 	
 	i64 elapsed_nano();

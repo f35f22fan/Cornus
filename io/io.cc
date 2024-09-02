@@ -1544,8 +1544,8 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 	/// Allocate the buffer.
 	char *buf = new char[buflen];
 	MTL_CHECK_VOID(buf != nullptr);
-	
 	AutoDeleteArr ad(buf);
+	
 	/// Copy the list of attribute keys to the buffer.
 	buflen = llistxattr(full_path.data(), buf, buflen);
 	MTL_CHECK_VOID(buflen != -1);
@@ -1588,7 +1588,7 @@ bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &en
 	const PrintErrors pe, QString *dir_path)
 {
 	QString full_path_str;
-	if (dir_path != nullptr)
+	if (dir_path)
 	{
 		full_path_str = (*dir_path + file.name());
 	} else {
@@ -1636,7 +1636,7 @@ bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &en
 	return true;
 }
 
-void RemoveEFA(const QString &full_path, QVector<QString> names, const PrintErrors pe)
+void RemoveEFA(QStringView full_path, QVector<QString> names, const PrintErrors pe)
 {
 	auto file_path_ba = full_path.toLocal8Bit();
 	
@@ -1751,13 +1751,13 @@ bool SetEFA(const QString &full_path, const QString &xattr_name,
 {
 	auto file_path_ba = full_path.toLocal8Bit();
 	auto xattr_name_ba = xattr_name.toLocal8Bit();
-	const bool ok = lsetxattr(file_path_ba.data(), xattr_name_ba.data(),
+	cbool ok = lsetxattr(file_path_ba.data(), xattr_name_ba.data(),
 		ba.data(), ba.size(), 0) == 0;
 	
 	if (!ok && pe == PrintErrors::Yes)
 	{
-		mtl_warn("lsetxattr on %s: %s, FILE: %s", xattr_name_ba.data(),
-			strerror(errno), qPrintable(full_path));
+		mtl_warn("lsetxattr \"%s\": \"%s\", on file: \"%s\"", xattr_name_ba.data(),
+			strerror(errno), file_path_ba.data());
 	}
 	
 	return ok;
@@ -1861,6 +1861,31 @@ QString thread_id_short(const pthread_t &th)
 {
 	ci64 n = static_cast<i64>(th);
 	return QString::number(n, 36);
+}
+
+struct timespec timespec_diff(const timespec &start, const timespec &stop)
+{
+	struct timespec result;
+	if ((stop.tv_nsec - start.tv_nsec) < 0) {
+		result.tv_sec = stop.tv_sec - start.tv_sec - 1;
+		result.tv_nsec = stop.tv_nsec - start.tv_nsec + 1000000000L;
+	} else {
+		result.tv_sec = stop.tv_sec - start.tv_sec;
+		result.tv_nsec = stop.tv_nsec - start.tv_nsec;
+	}
+	
+	return result;
+}
+
+timespec timespec_now() {
+	timespec now = {};
+	
+	if (clock_gettime(CLOCK_MONOTONIC_RAW, &now) != 0)
+	{
+		mtl_trace("%s", strerror(errno));
+	}
+	
+	return now;
 }
 
 isize TryReadFile(const QString &full_path, char *buf, ci64 how_much,

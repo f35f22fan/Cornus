@@ -1,7 +1,9 @@
 #pragma once
 
 #include "decl.hxx"
+#include "../CondMutex.hpp"
 #include "../decl.hxx"
+#include "../ElapsedTimer.hpp"
 #include "../err.hpp"
 #include "../io/decl.hxx"
 #include "../io/io.hh"
@@ -55,6 +57,8 @@ public:
 		return true;
 	}
 	
+	CondMutex* reload_meta_cm() { return &reload_meta_cm_; }
+	
 	void SwitchTo(io::FilesData *new_data);
 	gui::Tab* tab() const { return tab_; }
 	void UpdateIndices(const QSet<int> &indices);
@@ -73,6 +77,7 @@ public:
 public Q_SLOTS:
 	void InotifyEvent(cornus::io::FileEvent evt);
 	void SelectFilesAfterInotifyBatch();
+	void UpdatedFilesArrived(QList<io::File*> needles);
 	
 private:
 	
@@ -83,6 +88,7 @@ private:
 	
 	mutable QString cached_free_space_;
 	int tried_to_scroll_to_count_ = 0;
+	CondMutex reload_meta_cm_ = {};
 };
 
 

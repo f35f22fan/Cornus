@@ -33,7 +33,7 @@ void Hid::HandleKeySelect(gui::Tab *tab, const VDirection vdir,
 	if (old_file_index == -1)
 		old_file_index = shift_select->base_row;
 	
-	const bool was_set_to_zero = (old_file_index == -1);
+	cbool was_set_to_zero = (old_file_index == -1);
 	if (was_set_to_zero)
 		old_file_index = 0;
 	
@@ -43,8 +43,8 @@ void Hid::HandleKeySelect(gui::Tab *tab, const VDirection vdir,
 	if (vdir == VDirection::Down && old_file_index >= file_count - 1)
 		return;
 	
-	const bool is_icon_view = tab->view_mode() == gui::ViewMode::Icons;
-	const bool up_or_down = key == Qt::Key_Up || key == Qt::Key_Down;
+	cbool is_icon_view = tab->view_mode() == gui::ViewMode::Icons;
+	cbool up_or_down = key == Qt::Key_Up || key == Qt::Key_Down;
 	int new_file_index = -1;
 	QSet<int> indices;
 	{

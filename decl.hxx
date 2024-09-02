@@ -39,6 +39,12 @@ struct PathAndMode {
 	}
 };
 
+enum class Op: i8 {
+	Add,
+	Remove,
+	Invert,
+};
+
 enum class DeleteSubFolders: i8 {
 	Yes,
 	No

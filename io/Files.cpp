@@ -69,6 +69,21 @@ QString Files::GetFirstSelectedFileFullPath(const cornus::Lock l, QString *ext)
 	return QString();
 }
 
+QList<io::File*> Files::GetSelectedFiles(const cornus::Lock l, const cornus::Clone clone)
+{
+	auto g = this->guard(l);
+	QList<io::File*> ret;
+	for (io::File *file: data.vec)
+	{
+		if (file->is_selected())
+		{
+			ret.append((clone == Clone::Yes) ? file->Clone() : file);
+		}
+	}
+	
+	return ret;
+}
+
 int Files::GetSelectedFilesCount(const cornus::Lock l, QVector<QString> *extensions)
 {
 	MutexGuard guard = this->guard(l);
@@ -151,6 +166,35 @@ QPair<int, int> Files::ListSelectedFiles(const cornus::Lock l, QList<QUrl> &list
 	return QPair<int, int> (num_dirs, num_files);
 }
 
+
+void Files::MarkFilesAsWatched(const enum Lock l, QList<io::File*> &vec)
+{
+	if (vec.isEmpty())
+		return;
+	
+	auto g = guard(l);
+	cauto &key = media::WatchProps::Name;
+	
+	for (io::File *file: vec) {
+		for (io::File *next: data.vec)
+		{
+			if (next->id() != file->id())
+				continue;
+			
+			QString full_path = next->build_full_path();
+			if (next->has_watched_attr())
+			{
+				io::RemoveEFA(full_path, {key});
+			} else {
+				ByteArray value;
+				value.add_u64(media::WatchProps::Watched);
+				io::SetEFA(full_path, key, value);
+			}
+			break;
+		}
+	}
+}
+
 void Files::RemoveThumbnailsFromSelectedFiles()
 {
 	MutexGuard guard = this->guard();
@@ -215,23 +259,17 @@ void Files::SelectFileRange(const cornus::Lock l, cint row1, cint row2, QSet<int
 	}
 }
 
-void Files::SetLastWatched(const enum Lock l, io::File *file)
+void Files::SetLastWatched(const enum Lock l, io::File *needle)
 {
-	MTL_CHECK_VOID(file != nullptr);
+	MTL_CHECK_VOID(needle);
 	auto g = guard(l);
-	const auto &key = media::XAttrLastWatched;
 	for (io::File *next: data.vec)
 	{
-		if (next->id() == file->id() && !next->has_last_watched_attr())
+		if (needle->id() == next->id())
 		{
-			ByteArray value;
-			value.add_i64(time(NULL));
-			io::SetEFA(next->build_full_path(), key, value);
-			continue;
+			next->WatchProp(Op::Invert, media::WatchProps::LastWatched);
+			break;
 		}
-		
-		if (next->has_last_watched_attr())
-			io::RemoveEFA(next->build_full_path(), {key});
 	}
 }
 

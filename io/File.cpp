@@ -62,15 +62,12 @@ File* File::Clone() const
 	file->cache_ = cache_;
 	file->cache_.thumbnail = nullptr;
 	file->cache_.media_preview = nullptr;
-	file->cache_.desktop_file = (cache_.desktop_file != nullptr)
-		? cache_.desktop_file->Clone() : nullptr;
+	file->cache_.desktop_file = cache_.desktop_file ? cache_.desktop_file->Clone() : nullptr;
 	file->bits_ = bits_;
 	file->time_created_ = time_created_;
 	file->time_modified_ = time_modified_;
 	file->dir_file_count_ = dir_file_count_;
-	
-	if (link_target_ != nullptr)
-		file->link_target_ = link_target_->Clone();
+	file->link_target_ = link_target_ ? link_target_->Clone() : nullptr;
 	
 	return file;
 }
@@ -185,6 +182,7 @@ File* File::NewTextFile(const QString &dir_path, const QString &name)
 	auto *file = new File(dir_path);
 	file->name(name);
 	file->ReadExtension();
+	file->mode(S_IFREG);
 	file->type_ = FileType::Regular;
 	return file;
 }
@@ -193,6 +191,7 @@ File* File::NewFolder(const QString &dir_path, const QString &name)
 {
 	auto *file = new File(dir_path);
 	file->name(name);
+	file->mode(S_IFDIR);
 	file->type_ = FileType::Dir;
 	return file;
 }
@@ -250,6 +249,33 @@ QString File::SizeToString() const
 	
 	const QString s = QString::number(dir_file_count_);
 	return QChar('(') + s + QChar(')');
+}
+
+void File::WatchProp(Op op, cu64 new_prop)
+{
+	cu64 old_props = watch_props();
+	if (op == Op::Invert)
+		op = (old_props & new_prop) ? Op::Remove : Op::Add;
+	
+	if (op == Op::Add) {
+		if (old_props & new_prop)
+			return; // already exists
+		
+		ByteArray ba(old_props | new_prop);
+		io::SetEFA(build_full_path(), media::WatchProps::Name, ba);
+	} else {
+		if ((old_props & new_prop) == 0)
+			return; // nothing to remove
+		
+		u64 without = old_props & ~new_prop;
+		cauto full_path = build_full_path();
+		if (without) {
+			ByteArray ba(without);
+			io::SetEFA(full_path, media::WatchProps::Name, ba);
+		} else {
+			io::RemoveEFA(full_path, {media::WatchProps::Name});
+		}
+	}
 }
 
 }

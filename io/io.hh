@@ -349,7 +349,7 @@ i64 ReadToBuf(cint fd, char *buf, ci64 buf_size,
 bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &env,
 	const PrintErrors pe, QString *dir_path = nullptr);
 
-void RemoveEFA(const QString &full_path, QVector<QString> names,
+void RemoveEFA(QStringView full_path, QVector<QString> names,
 	const PrintErrors pe = PrintErrors::No);
 
 // returns 0 on success or errno on failure
@@ -373,6 +373,10 @@ bool SetEFA(const QString &full_path, const QString &xattr_name,
 bool SortFiles(File *a, File *b);
 
 QString thread_id_short(const pthread_t &th);
+
+timespec timespec_diff(const timespec &start, const timespec &stop);
+
+timespec timespec_now();
 
 isize TryReadFile(const QString &full_path, char *buf,
 	ci64 how_much, ExecInfo *info = nullptr);

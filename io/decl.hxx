@@ -133,6 +133,10 @@ enum class FileBits: u8 {
 	ActionCopy = 1u << 4,
 	ActionPaste = 1u << 5,
 	PasteLink = 1u << 6,
+	
+	// The meta info (size, type, xattrs...) might need to be updated
+	// in a separate (batch) call later on
+	NeedsMetaUpdate = 1u << 7,
 };
 
 inline FileBits operator | (FileBits a, FileBits b) {
@@ -198,7 +202,11 @@ struct DiskFileId {
 	}
 	
 	inline bool
-	Equals(const DiskFileId &rhs) const {
+	operator != (const DiskFileId &rhs) const {
+		return !Equals(rhs);
+	}
+	
+	inline bool Equals(const DiskFileId &rhs) const {
 		return inode_number == rhs.inode_number &&
 		dev_major == rhs.dev_major && dev_minor == rhs.dev_minor;
 	}

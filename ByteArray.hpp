@@ -19,6 +19,8 @@ class ByteArray: public QObject {
 	Q_OBJECT
 public:
 	ByteArray();
+	explicit ByteArray(i64 num);
+	explicit ByteArray(u64 num);
 	ByteArray(const ByteArray &rhs);
 	ByteArray& operator = (const ByteArray &rhs);
 	bool operator == (const ByteArray &rhs);

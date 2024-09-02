@@ -721,7 +721,7 @@ DirId App::current_dir_id() const
 void App::DeleteFilesById(const FilesId id)
 {
 	io::Files *p = files_.value(id, nullptr);
-	if (p != nullptr)
+	if (p)
 	{
 		files_.remove(id);
 		delete p;

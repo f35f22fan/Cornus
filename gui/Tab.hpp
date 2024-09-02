@@ -76,6 +76,7 @@ public:
 	int GetScrollValue() const;
 	int GetVisibleFileIndex();
 	void MarkLastWatchedFile();
+	void MarkSelectedFilesAsWatched();
 	void SetScrollValue(const int n);
 	void GetSelectedArchives(QVector<QString> &urls);
 	void GoBack();

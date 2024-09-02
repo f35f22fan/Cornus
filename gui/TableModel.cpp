@@ -38,6 +38,23 @@ struct Renames {
 	Mutex m = {};
 };
 
+struct EventArgs {
+	~EventArgs()
+	{
+		delete[] buf;
+	}
+	char *buf;
+	const isize num_read;
+	cornus::io::Files *files;
+	CondMutex &has_been_unmounted_or_deleted;
+	cbool include_hidden_files;
+	cornus::gui::TableModel *model;
+	cint dir_id;
+	cint wd;
+	Renames &renames;
+	const QProcessEnvironment &env;
+};
+
 struct WatchArgs {
 	DirId dir_id = 0;
 	QString dir_path;
@@ -52,6 +69,23 @@ io::File* Find(const QVector<io::File*> &vec,
 	{
 		i++;
 		if (file->name() == name) {
+			if (index)
+				*index = i;
+			return file;
+		}
+	}
+	
+	return nullptr;
+}
+
+io::File* FindFile(const QVector<io::File*> &haystack,
+	const io::File *needle, int *index)
+{
+	int i = -1;
+	for (io::File *file : haystack)
+	{
+		i++;
+		if (file->id() == needle->id()) {
 			if (index)
 				*index = i;
 			return file;
@@ -89,10 +123,8 @@ QString TakeTheOtherNameByCookie(Renames &ren, const u32 cookie)
 void InsertFile(io::File *new_file, QVector<io::File*> &files_vec,
 	int *inserted_at)
 {
-	int index = FindPlace(new_file, files_vec);
-	if (inserted_at != nullptr)
-		*inserted_at = index;
-	
+	mtl_check_void(inserted_at != 0);
+	*inserted_at = FindPlace(new_file, files_vec);
 	files_vec.insert(*inserted_at, new_file);
 }
 
@@ -101,6 +133,7 @@ void SendCreateEvent(TableModel *model, cornus::io::Files *files,
 {
 	io::File *new_file = new io::File(files);
 	new_file->name(new_name);
+	
 	struct statx stx;
 	auto &env = model->app()->env();
 	if (!io::ReloadMeta(*new_file, stx, env, PrintErrors::No))
@@ -143,19 +176,18 @@ void SendModifiedEvent(TableModel *model, cornus::io::Files *files,
 	{
 		auto g = files->guard();
 		found = Find(files->data.vec, name, &index);
-		MTL_CHECK_VOID(found != nullptr);
+		MTL_CHECK_VOID(found);
+		found->needs_meta_update(true);
 		struct statx stx;
 		PrintErrors pe = PrintErrors::No;
 #ifdef CORNUS_DEBUG_INOTIFY
 		pe = PrintErrors::Yes;
 #endif
-		if (!io::ReloadMeta(*found, stx, model->app()->env(), pe))
-		{
-			found->size(-1);
-		}
-		
 		found = (cwe == io::CloseWriteEvent::Yes) ? found->Clone() : nullptr;
 	}
+	
+	// if (found)
+	// 	found->needs_meta_update(true);
 	
 	io::FileEvent evt = {};
 	evt.new_file = found;
@@ -166,28 +198,10 @@ void SendModifiedEvent(TableModel *model, cornus::io::Files *files,
 		ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
 }
 
-struct EventArgs {
-	
-	~EventArgs()
-	{
-		delete[] buf;
-	}
-	char *buf;
-	const isize num_read;
-	cornus::io::Files *files;
-	CondMutex &has_been_unmounted_or_deleted;
-	const bool include_hidden_files;
-	cornus::gui::TableModel *model;
-	cint dir_id;
-	cint wd;
-	Renames &renames;
-	const QProcessEnvironment &env;
-};
-
 void ProcessEvents(EventArgs *a)
 {
 #ifdef CORNUS_DEBUG_INOTIFY
-mtl_info("<EVT BATCH>");
+	mtl_info("<EVT BATCH>");
 #endif
 	AutoDelete a_(a);
 	struct statx stx;
@@ -200,7 +214,7 @@ mtl_info("<EVT BATCH>");
 		add = sizeof(struct inotify_event) + ev->len;
 		if (ev->wd != a->wd)
 		{
-//			mtl_trace("ev->wd: %d, wd: %d", ev->wd, a->wd);
+			//			mtl_trace("ev->wd: %d, wd: %d", ev->wd, a->wd);
 			continue;
 		}
 		
@@ -216,21 +230,21 @@ mtl_info("<EVT BATCH>");
 		}
 		
 		const auto mask = ev->mask;
-		//const bool is_dir = mask & IN_ISDIR;
+		//cbool is_dir = mask & IN_ISDIR;
 		if (mask & (IN_ATTRIB | IN_MODIFY))
 		{
 #ifdef CORNUS_DEBUG_INOTIFY
-mtl_trace("(IN_ATTRIB | IN_MODIFY): %s", ev->name);
+			mtl_trace("(IN_ATTRIB | IN_MODIFY): %s", ev->name);
 #endif		
 			SendModifiedEvent(model, a->files, name, a->dir_id, io::CloseWriteEvent::No);
 		} else if (mask & IN_CREATE) {
 #ifdef CORNUS_DEBUG_INOTIFY
-mtl_trace("IN_CREATE: %s", ev->name);
+			mtl_trace("IN_CREATE: %s", ev->name);
 #endif
 			SendCreateEvent(model, a->files, name, a->dir_id);
 		} else if (mask & IN_DELETE) {
 #ifdef CORNUS_DEBUG_INOTIFY
-mtl_trace("IN_DELETE: %s", ev->name);
+			mtl_trace("IN_DELETE: %s", ev->name);
 #endif
 			SendDeleteEvent(model, a->files, name, a->dir_id);
 		} else if (mask & IN_DELETE_SELF) {
@@ -241,8 +255,8 @@ mtl_trace("IN_DELETE: %s", ev->name);
 			mtl_warn("IN_MOVE_SELF");
 		} else if (mask & IN_MOVED_FROM) {
 #ifdef CORNUS_DEBUG_INOTIFY
-mtl_info("IN_MOVED_FROM, from: %s, len: %d, cookie: %d",
-	qPrintable(name), ev->len, ev->cookie);
+			mtl_info("IN_MOVED_FROM, from: %s, len: %d, cookie: %d",
+				qPrintable(name), ev->len, ev->cookie);
 #endif
 			auto &ren = a->renames;
 			ren.m.Lock();
@@ -258,8 +272,8 @@ mtl_info("IN_MOVED_FROM, from: %s, len: %d, cookie: %d",
 			QString old_name = TakeTheOtherNameByCookie(ren, ev->cookie);
 			ren.m.Unlock();
 #ifdef CORNUS_DEBUG_INOTIFY
-mtl_info("IN_MOVED_TO new_name: %s, from_name: %s, cookie %d",
-	qPrintable(name), qPrintable(old_name), ev->cookie);
+			mtl_info("IN_MOVED_TO new_name: %s, from_name: %s, cookie %d",
+				qPrintable(name), qPrintable(old_name), ev->cookie);
 #endif
 			if (old_name.isEmpty())
 			{
@@ -274,9 +288,8 @@ mtl_info("IN_MOVED_TO new_name: %s, from_name: %s, cookie %d",
 				io::File *new_file = Find(files_vec, new_name, &new_file_index);
 				QIcon *new_icon = nullptr;
 				bool selected = false;
-				if (new_file != nullptr)
+				if (new_file)
 				{
-mtl_trace();
 					selected = new_file->is_selected();
 					new_icon = new_file->cache().icon;
 					files_vec.remove(new_file_index);
@@ -292,9 +305,8 @@ mtl_trace();
 				}
 				old_file->name(new_name);
 				old_file->set_selected(selected);
-				if (new_icon != nullptr)
+				if (new_icon)
 				{
-mtl_trace();
 					old_file->cache().icon = new_icon;
 				}
 				
@@ -317,7 +329,7 @@ mtl_trace();
 			evt.index = new_file_index;
 			evt.type = io::FileEventType::Renamed;
 			QMetaObject::invokeMethod(model, "InotifyEvent",
-			ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
+				ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
 		} else if (mask & IN_Q_OVERFLOW) {
 			mtl_warn("IN_Q_OVERFLOW");
 		} else if (mask & IN_UNMOUNT) {
@@ -327,7 +339,7 @@ mtl_trace();
 			QString name(ev->name);
 			if (!a->include_hidden_files && name.startsWith('.'))
 				continue;
-			
+				
 #ifdef CORNUS_DEBUG_INOTIFY
 			if (ev->len > 0)
 				mtl_trace("IN_CLOSE: %s", ev->name);
@@ -340,10 +352,10 @@ mtl_trace();
 			mtl_warn("Unhandled inotify event: %u", mask);
 		}
 	}
-	
-	#ifdef CORNUS_DEBUG_INOTIFY
+
+#ifdef CORNUS_DEBUG_INOTIFY
 	mtl_info("</EVT BATCH>");
-	#endif
+#endif
 }
 
 void ReinterpretRenames(Renames &ren,
@@ -368,6 +380,78 @@ void ReinterpretRenames(Renames &ren,
 	}
 }
 
+void* ReloadMetaTh(void *p)
+{
+	pthread_detach(pthread_self());
+	gui::TableModel *model = (gui::TableModel*)p;
+	auto *tab = model->tab();
+	io::Files &files = tab->view_files();
+	CondMutex *cm = model->reload_meta_cm();
+	
+	struct statx stx;
+	PrintErrors pe = PrintErrors::No;
+	cauto &env = model->app()->env();
+	
+	while (true) {
+		{
+			auto g = cm->guard();
+			while (!cm->data.act && !cm->data.exit) {
+				cm->CondWait();
+			}
+			cm->data.act = false;
+			cbool exit = cm->data.exit;
+			
+			if (exit) {
+				//mtl_info("Received exit signal");
+				return 0;
+			}
+		}
+		
+		QList<io::File*> files_to_update;
+		{ // don't block UI on locked files,
+			// just do it on cloned files and send them.
+			auto g = files.guard();
+			for (io::File *next: files.data.vec)
+			{
+				if (next->needs_meta_update()) {
+					//auto ba = next->build_full_path().toLocal8Bit();
+					//mtl_info("To be sent: \"%s\"", ba.data());
+					next->needs_meta_update(false);
+					files_to_update.append(next->Clone());
+				}
+			}
+		}
+		
+		if (files_to_update.isEmpty())
+			continue;
+		
+		for (io::File *cloned: files_to_update)
+		{
+			if (!io::ReloadMeta(*cloned, stx, env, pe))
+			{
+				auto ba = cloned->name().toLocal8Bit();
+				mtl_trace("Failed to reload meta of file: \"%s\"", ba.data());
+			}
+		}
+		
+		{
+			auto g = cm->guard();
+			cbool exit = cm->data.exit;
+			if (exit) {
+				for (auto *file: files_to_update) {
+					delete file;
+				}
+				break;
+			} else {
+				QMetaObject::invokeMethod(model, "UpdatedFilesArrived",
+					ConnectionType, Q_ARG(QList<cornus::io::File*>, files_to_update));
+			}
+		}
+	}
+	
+	return 0;
+}
+
 void* WatchDir(void *void_args)
 {
 	pthread_detach(pthread_self());
@@ -381,8 +465,8 @@ void* WatchDir(void *void_args)
 	io::Notify &notify = tab->notify();
 	cint notify_fd = notify.fd;
 	QProcessEnvironment env = app->env();
-	
 	io::Files &files = tab->view_files();
+	
 	files.Lock();
 	cint signal_quit_fd = files.data.signal_quit_fd;
 	files.Unlock();
@@ -460,7 +544,7 @@ mtl_info("ms: %d", ms);
 		bool signalled_from_event_fd = false;
 		for (int i = 0; i < num_fds; i++)
 		{
-			const auto &evt = evt_vec[i];
+			cauto &evt = evt_vec[i];
 			if ((evt.events & EPOLLIN) == 0)
 				continue;
 #ifdef CORNUS_DEBUG_INOTIFY
@@ -478,7 +562,7 @@ mtl_info("ms: %d", ms);
 					return nullptr;
 				}
 				files.Lock();
-				const bool include_hidden_files = files.data.show_hidden_files();
+				cbool include_hidden_files = files.data.show_hidden_files();
 				files.Unlock();
 				EventArgs *a = new EventArgs {
 					.buf = buf,
@@ -564,9 +648,20 @@ mtl_info("has_been_unmounted_or_deleted");
 }
 
 TableModel::TableModel(cornus::App *app, gui::Tab *tab): app_(app), tab_(tab)
-{}
+{
+	reload_meta_cm_.data.act = false;
+	io::NewThread(ReloadMetaTh, this);
+}
 
-TableModel::~TableModel() {}
+TableModel::~TableModel()
+{
+	{
+		CondMutex *cm = &reload_meta_cm_;
+		auto g = cm->guard();
+		cm->data.exit = true;
+		cm->Signal();
+	}
+}
 
 QModelIndex
 TableModel::index(int row, int column, const QModelIndex &parent) const
@@ -708,6 +803,11 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 #endif
 		UpdateSingleRow(evt.index);
 		tab_->FileChanged(evt.type, evt.new_file);
+		if (reload_meta_cm_.TryLock()) {
+			reload_meta_cm_.data.act = true;
+			reload_meta_cm_.Signal();
+			reload_meta_cm_.Unlock();
+		}
 		break;
 	}
 	case io::FileEventType::Created: {
@@ -778,8 +878,8 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 			if (real_index > evt.index)
 				real_index--;
 			if (real_index >= 0) {
-mtl_info("real_index: %d, renaming_deleted_file_at: %d, evt.index: %d", real_index,
-	evt.renaming_deleted_file_at, evt.index);
+// mtl_info("real_index: %d, renaming_deleted_file_at: %d, evt.index: %d", real_index,
+// 	evt.renaming_deleted_file_at, evt.index);
 				beginRemoveRows(QModelIndex(), real_index, real_index);
 				endRemoveRows();
 				tab_->FileChanged(io::FileEventType::Modified, evt.new_file);
@@ -793,6 +893,8 @@ mtl_info("real_index: %d, renaming_deleted_file_at: %d, evt.index: %d", real_ind
 		mtl_trace();
 	}
 	} /// switch()
+	
+	
 }
 
 bool TableModel::InsertRows(const i32 at, const QVector<cornus::io::File*> &files_to_add)
@@ -913,6 +1015,31 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 	SelectFilesAfterInotifyBatch();
 	tab_->DisplayingNewDirectory(dir_id, reload);
 	io::NewThread(gui::WatchDir, args);
+}
+
+void TableModel::UpdatedFilesArrived(QList<io::File*> updated_files)
+{
+	int index = -1;
+	io::File *old_file = nullptr;
+	{
+		auto &files = tab_->view_files();
+		auto g = files.guard();
+		auto &haystack = files.data.vec;
+		for (io::File *updated_file: updated_files)
+		{
+			old_file = FindFile(haystack, updated_file, &index);
+			if (old_file) {
+				haystack[index] = updated_file;
+				delete old_file;
+			} else {
+				auto ba = updated_file->build_full_path().toLocal8Bit();
+				mtl_warn("Failed to find '%s'\n", ba.data());
+				delete updated_file;
+			}
+		}
+	}
+	
+	UpdateVisibleArea();
 }
 
 void TableModel::UpdateIndices(const QSet<int> &indices)

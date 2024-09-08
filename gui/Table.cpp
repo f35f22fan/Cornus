@@ -265,33 +265,35 @@ int Table::GetRowHeight() const { return verticalHeader()->defaultSectionSize();
 
 i32 Table::GetVisibleRowsCount() const
 {
-	return (height() - horizontalHeader()->height()) / GetRowHeight();
+	cint row_count = model_->rowCount();
+	cint computed = (height() - horizontalHeader()->height()) / GetRowHeight();
+	return std::min(std::max(row_count - 1, 0), std::max(computed - 1, 0));
 }
 
 void Table::HiliteFileUnderMouse()
 {
 	QSet<int> indices;
-	i32 name_row = -1, icon_row = -1;
+	i32 row_by_name = -1, row_by_icon = -1;
 	{
 		io::Files &files = tab_->view_files();
-		MutexGuard guard = files.guard();
-		name_row = GetFileAt_NoLock(mouse_pos_, PickedBy::VisibleName);
-		if (name_row == -1)
-			icon_row = GetFileAt_NoLock(mouse_pos_, PickedBy::Icon);
+		auto g = files.guard();
+		row_by_name = GetFileAt_NoLock(mouse_pos_, PickedBy::VisibleName);
+		if (row_by_name == -1)
+			row_by_icon = GetFileAt_NoLock(mouse_pos_, PickedBy::Icon);
 	}
 	
-	if (icon_row != mouse_over_file_icon_) {
-		if (icon_row != -1)
-			indices.insert(icon_row);
+	if (row_by_icon != mouse_over_file_icon_) {
+		if (row_by_icon != -1)
+			indices.insert(row_by_icon);
 		if (mouse_over_file_icon_ != -1)
 			indices.insert(mouse_over_file_icon_);
-		mouse_over_file_icon_ = icon_row;
-	} else if (name_row != mouse_over_file_name_) {
-		if (name_row != -1)
-			indices.insert(name_row);
+		mouse_over_file_icon_ = row_by_icon;
+	} else if (row_by_name != mouse_over_file_name_) {
+		if (row_by_name != -1)
+			indices.insert(row_by_name);
 		if (mouse_over_file_name_ != -1)
 			indices.insert(mouse_over_file_name_);
-		mouse_over_file_name_ = name_row;
+		mouse_over_file_name_ = row_by_name;
 	}
 	
 	model_->UpdateIndices(indices);

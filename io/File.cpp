@@ -251,26 +251,35 @@ QString File::SizeToString() const
 	return QChar('(') + s + QChar(')');
 }
 
-void File::WatchProp(Op op, cu64 new_prop)
+void File::WatchProp(Op op, cu64 prop)
 {
+	// const u64 LastWatched = 1;
+	// const u64 Watched = 1 << 1;
 	cu64 old_props = watch_props();
 	if (op == Op::Invert)
-		op = (old_props & new_prop) ? Op::Remove : Op::Add;
+		op = (old_props & prop) ? Op::Remove : Op::Add;
 	
+	mtl_info("%s prop %lu", (op == Op::Add) ? "Add" : "Remove", prop);
 	if (op == Op::Add) {
-		if (old_props & new_prop)
+		if (old_props & prop) {
+mtl_trace();
 			return; // already exists
+		}
 		
-		ByteArray ba(old_props | new_prop);
+		cu64 flags = old_props | prop;
+//		mtl_info("flags: %lu", flags);
+		ByteArray ba(flags);
 		io::SetEFA(build_full_path(), media::WatchProps::Name, ba);
 	} else {
-		if ((old_props & new_prop) == 0)
+		if ((old_props & prop) == 0)
 			return; // nothing to remove
 		
-		u64 without = old_props & ~new_prop;
+		u64 without = old_props & ~prop;
 		cauto full_path = build_full_path();
 		if (without) {
-			ByteArray ba(without);
+			ByteArray ba;
+			ba.add_u64(without);
+//			mtl_info("without: %lu, old props: %lu", without, old_props);
 			io::SetEFA(full_path, media::WatchProps::Name, ba);
 		} else {
 			io::RemoveEFA(full_path, {media::WatchProps::Name});

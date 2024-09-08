@@ -1645,7 +1645,7 @@ void RemoveEFA(QStringView full_path, QVector<QString> names, const PrintErrors 
 		auto name_ba = name.toLocal8Bit();
 		cbool ok = lremovexattr(file_path_ba.data(), name_ba.data()) == 0;
 		
-		if (!ok && (pe == PrintErrors::Yes))
+		if (!ok)// && (pe == PrintErrors::Yes))
 			mtl_warn("lremovexattr on %s: %s", name_ba.data(), strerror(errno));
 	}
 }

@@ -24,8 +24,8 @@ static const QString XAttrWatched = QStringLiteral("user.CornusMas.watched");
 
 namespace WatchProps {
 static const QString Name = QStringLiteral("user.CornusMas.wp");
-const u64 LastWatched = 1;
-const u64 Watched = 1 << 1;
+const u64 LastWatched =   1u << 0;
+const u64 Watched =       1u << 1;
 }
 
 struct Data {

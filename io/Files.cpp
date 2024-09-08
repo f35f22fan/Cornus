@@ -175,22 +175,14 @@ void Files::MarkFilesAsWatched(const enum Lock l, QList<io::File*> &vec)
 	auto g = guard(l);
 	cauto &key = media::WatchProps::Name;
 	
-	for (io::File *file: vec) {
+	for (io::File *needle: vec) {
 		for (io::File *next: data.vec)
 		{
-			if (next->id() != file->id())
-				continue;
-			
-			QString full_path = next->build_full_path();
-			if (next->has_watched_attr())
+			if (next->id() == needle->id())
 			{
-				io::RemoveEFA(full_path, {key});
-			} else {
-				ByteArray value;
-				value.add_u64(media::WatchProps::Watched);
-				io::SetEFA(full_path, key, value);
+				next->WatchProp(Op::Invert, media::WatchProps::Watched);
+				break;
 			}
-			break;
 		}
 	}
 }

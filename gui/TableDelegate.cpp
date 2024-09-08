@@ -46,7 +46,7 @@ TableDelegate::~TableDelegate() {
 
 void
 TableDelegate::DrawFileName(QPainter *painter, io::File *file,
-	const int row, const QStyleOptionViewItem &option,
+	cint row, const QStyleOptionViewItem &option,
 	QFontMetrics &fm, const QRect &text_rect) const
 {
 	const auto filename_width = fm.horizontalAdvance(file->name());
@@ -62,8 +62,8 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	}
 	
 	QRectF sel_rect = option.rect;
-	const int str_wide = filename_width + gui::FileNameRelax * 2;
-	const int actual_wide = str_wide < min_name_w_ ? min_name_w_ : str_wide;
+	cint str_wide = filename_width + gui::FileNameRelax * 2;
+	cint actual_wide = str_wide < min_name_w_ ? min_name_w_ : str_wide;
 	sel_rect.setWidth(actual_wide);
 	cbool mouse_over = table_->mouse_over_file_name_index() == row;
 	
@@ -185,7 +185,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 
 void
 TableDelegate::DrawIcon(QPainter *painter, io::File *file,
-	const int row,
+	cint row,
 	const QStyleOptionViewItem &option, QFontMetrics &fm,
 	const QRect &text_rect) const
 {
@@ -196,7 +196,7 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	
 	QString text;
 	if (file->is_symlink()) {
-		if (file->link_target() != nullptr && file->link_target()->is_relative)
+		if (file->link_target() && file->link_target()->is_relative)
 			text = QLatin1String("l");
 		else
 			text = QLatin1String("L");
@@ -270,7 +270,7 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 
 void TableDelegate::DrawMediaAttrs(io::File *file, QPainter *painter,
 	const QStyleOptionViewItem &option, const QRect &text_rect,
-	const int filename_w) const
+	cint filename_w) const
 {
 	media::MediaPreview *m = file->media_attrs_decoded();
 	mtl_check_void(m != nullptr);
@@ -403,7 +403,7 @@ TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 	initStyleOption(const_cast<QStyleOptionViewItem*>(&option), index);
 	io::Files &files = tab_->view_files();
 	auto g = files.guard();
-	const int row = index.row();
+	cint row = index.row();
 	
 	if (row >= files.data.vec.size())
 		return;

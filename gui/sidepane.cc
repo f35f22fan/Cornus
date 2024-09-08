@@ -135,7 +135,8 @@ void* LoadItems(void *args)
 	LoadAllVolumes(method_args.partitions);
 #ifdef CORNUS_PRINT_PARTITIONS_LOAD_TIME
 	ci64 mc = timer.elapsed_mc();
-	mtl_info("Partitions load time: %ld mc", mc);
+	Q_UNUSED(mc);
+//	mtl_info("Partitions load time: %ld mc", mc);
 #endif
 	
 	LoadBookmarks(method_args.bookmarks);

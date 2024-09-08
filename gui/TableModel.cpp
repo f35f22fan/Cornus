@@ -1019,6 +1019,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 
 void TableModel::UpdatedFilesArrived(QList<io::File*> updated_files)
 {
+	mtl_info("num files: %d", updated_files.size());
 	int index = -1;
 	io::File *old_file = nullptr;
 	{
@@ -1079,14 +1080,12 @@ void TableModel::UpdateIndices(const QSet<int> &indices)
 
 void TableModel::UpdateRange(int row1, Column c1, int row2, Column c2)
 {
-	int first, last;
+	int first = row1;
+	int last = row2;
 	
 	if (row1 > row2) {
 		first = row2;
 		last = row1;
-	} else {
-		first = row1;
-		last = row2;
 	}
 	
 	const QModelIndex top_left = createIndex(first, int(c1));
@@ -1097,9 +1096,11 @@ void TableModel::UpdateRange(int row1, Column c1, int row2, Column c2)
 void TableModel::UpdateVisibleArea()
 {
 	gui::Table *table = tab_->table();
-	int row_start = table->verticalScrollBar()->value() / table->GetRowHeight();
-	int count_per_page = table->GetVisibleRowsCount();
-	UpdateFileIndexRange(row_start, row_start + count_per_page);
+	cint row_start = table->verticalScrollBar()->value() / table->GetRowHeight();
+	cint count_per_page = table->GetVisibleRowsCount();
+	cint row_end = row_start + count_per_page;
+	mtl_info("row_start: %d, row_end: %d", row_start, row_end);
+	UpdateFileIndexRange(row_start, row_end);
 }
 
 void TableModel::UpdateHeaderNameColumn()

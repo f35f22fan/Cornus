@@ -35,10 +35,7 @@ public:
 		if (l != Lock::Yes)
 			return true;
 		cint status = pthread_mutex_lock(&mutex);
-		cbool ok = (status == 0);
-		if (!ok)
-			mtl_status(status);
-		return ok;
+		return (status == 0);
 	}
 	
 	inline bool TryLock() {
@@ -47,9 +44,7 @@ public:
 	}
 	
 	inline void Signal() {
-		cint status = pthread_cond_signal(&cond);
-		if (status != 0)
-			mtl_status(status);
+		pthread_cond_signal(&cond);
 	}
 	
 	inline bool Unlock(const enum Lock l = Lock::Yes)
@@ -98,21 +93,14 @@ public:
 	}
 	
 	inline bool TryLock() {
-		cint status = pthread_mutex_trylock(&mutex);
-		if (status == 0)
-			return true;
-		mtl_status(status);
-		return false;
+		return (pthread_mutex_trylock(&mutex) == 0);
 	}
 	
 	inline bool Lock(const enum Lock l = Lock::Yes) {
 		if (l != Lock::Yes)
 			return true;
 		cint status = pthread_mutex_lock(&mutex);
-		cbool ok = (status == 0);
-		if (!ok)
-			mtl_status(status);
-		return ok;
+		return (status == 0);
 	}
 	
 	inline bool Unlock(const enum Lock l = Lock::Yes) {

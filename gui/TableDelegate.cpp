@@ -212,26 +212,47 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	
 	QBrush brush = option.palette.brush(QPalette::QPalette::PlaceholderText);
 	QPen pen(brush.color());
-	
-	if (!app_->prefs().mark_extended_attrs_disabled() && file->has_ext_attrs()) {
-		text.append("\u26AB");//2022");
-		QColor color;
-		if (file->has_last_watched_attr()) {
-			color = QColor(255, 0, 0);
-		} else if (file->has_watched_attr()) {
-			color = QColor(255, 165, 0);
-		} else if (file->has_media_attrs()) {
-			color = QColor(50, 50, 255);
-		} else if (file->has_thumbnail_attr()) {
-			color = QColor(0, 100, 0);
-		} else {
-			color = QColor(100, 100, 100);
-		}
-		pen.setColor(color);
-	}
-	
 	painter->setPen(pen);
 	painter->drawText(text_rect, text_alignment_, text);
+	
+	if (!app_->prefs().mark_extended_attrs_disabled() && file->has_ext_attrs()) {
+		QChar circle = QChar(0x26AB);//'\u26AB');
+		QList<QColor> colors;
+		
+		if (file->has_last_watched_attr()) {
+			//mtl_info("last watched");
+			colors.append(QColor(255, 0, 0));
+		}
+		if (file->has_watched_attr()) {
+			//mtl_info("watched");
+			colors.append(QColor(255, 165, 0));
+		}
+		if (file->has_media_attrs()) {
+			//mtl_info("media attrs");
+			colors.append(QColor(50, 50, 255));
+		}
+		if (file->has_thumbnail_attr()) {
+			//mtl_info("has thumbnail");
+			colors.append(QColor(0, 100, 0));
+		}
+		
+		if (colors.isEmpty()) {
+			//mtl_info("is empty");
+			colors.append(QColor(100, 100, 100));
+		}
+		
+		cint count = colors.size();
+		cauto br = fm.boundingRect(circle);
+		cauto h = fm.height();
+		auto r = text_rect;
+		for (int i = 0; i < count; i++)
+		{
+			pen.setColor(colors[i]);
+			painter->setPen(pen);
+			r.setY(r.y() + (i * br.height()));
+			painter->drawText(r, Qt::AlignLeft, circle);
+		}
+	}
 	
 	QIcon *icon = app_->GetFileIcon(file);
 	if (icon == nullptr)
@@ -409,7 +430,7 @@ TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 		return;
 	
 	io::File *file = files.data.vec[row];
-	auto &r = option.rect;
+	cauto &r = option.rect;
 	QRect text_rect(r.x() + gui::FileNameRelax, r.y(),
 		r.width() - gui::FileNameRelax, r.height());
 	auto color_role = (row % 2) ? QPalette::AlternateBase : QPalette::Base;

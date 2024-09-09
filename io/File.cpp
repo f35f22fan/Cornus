@@ -259,10 +259,9 @@ void File::WatchProp(Op op, cu64 prop)
 	if (op == Op::Invert)
 		op = (old_props & prop) ? Op::Remove : Op::Add;
 	
-	mtl_info("%s prop %lu", (op == Op::Add) ? "Add" : "Remove", prop);
+//	mtl_info("%s prop %lu", (op == Op::Add) ? "Add" : "Remove", prop);
 	if (op == Op::Add) {
 		if (old_props & prop) {
-mtl_trace();
 			return; // already exists
 		}
 		

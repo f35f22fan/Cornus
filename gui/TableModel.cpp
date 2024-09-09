@@ -177,17 +177,13 @@ void SendModifiedEvent(TableModel *model, cornus::io::Files *files,
 		auto g = files->guard();
 		found = Find(files->data.vec, name, &index);
 		MTL_CHECK_VOID(found);
-		found->needs_meta_update(true);
-		struct statx stx;
-		PrintErrors pe = PrintErrors::No;
-#ifdef CORNUS_DEBUG_INOTIFY
-		pe = PrintErrors::Yes;
-#endif
-		found = (cwe == io::CloseWriteEvent::Yes) ? found->Clone() : nullptr;
+		//found = (cwe == io::CloseWriteEvent::Yes) ? found->Clone() : nullptr;
 	}
 	
-	// if (found)
-	// 	found->needs_meta_update(true);
+	if (found) {
+		found->needs_meta_update(true);
+		found = found->Clone();
+	}
 	
 	io::FileEvent evt = {};
 	evt.new_file = found;
@@ -339,12 +335,11 @@ void ProcessEvents(EventArgs *a)
 			QString name(ev->name);
 			if (!a->include_hidden_files && name.startsWith('.'))
 				continue;
-				
 #ifdef CORNUS_DEBUG_INOTIFY
 			if (ev->len > 0)
-				mtl_trace("IN_CLOSE: %s", ev->name);
+				mtl_trace("IN_CLOSE_WRITE: %s", ev->name);
 			else
-				mtl_trace("IN_CLOSE");
+				mtl_trace("IN_CLOSE_WRITE");
 #endif
 			SendModifiedEvent(model, a->files, name, a->dir_id, io::CloseWriteEvent::Yes);
 		} else if (mask & (IN_IGNORED | IN_CLOSE_NOWRITE)) {
@@ -414,8 +409,8 @@ void* ReloadMetaTh(void *p)
 			for (io::File *next: files.data.vec)
 			{
 				if (next->needs_meta_update()) {
-					//auto ba = next->build_full_path().toLocal8Bit();
-					//mtl_info("To be sent: \"%s\"", ba.data());
+					// auto ba = next->build_full_path().toLocal8Bit();
+					// mtl_info("To be updated: \"%s\"", ba.data());
 					next->needs_meta_update(false);
 					files_to_update.append(next->Clone());
 				}
@@ -435,8 +430,9 @@ void* ReloadMetaTh(void *p)
 		}
 		
 		{
-			auto g = cm->guard();
+			cm->Lock();
 			cbool exit = cm->data.exit;
+			cm->Unlock();
 			if (exit) {
 				for (auto *file: files_to_update) {
 					delete file;
@@ -803,10 +799,13 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 #endif
 		UpdateSingleRow(evt.index);
 		tab_->FileChanged(evt.type, evt.new_file);
-		if (reload_meta_cm_.TryLock()) {
+		if (reload_meta_cm_.Lock()) {
 			reload_meta_cm_.data.act = true;
 			reload_meta_cm_.Signal();
 			reload_meta_cm_.Unlock();
+		} else {
+			cauto name = evt.new_file->name().toLocal8Bit();
+			mtl_info("Failed to lock for file %s", name.data());
 		}
 		break;
 	}
@@ -1019,7 +1018,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 
 void TableModel::UpdatedFilesArrived(QList<io::File*> updated_files)
 {
-	mtl_info("num files: %d", updated_files.size());
+//	mtl_info("num files: %d", updated_files.size());
 	int index = -1;
 	io::File *old_file = nullptr;
 	{
@@ -1030,6 +1029,8 @@ void TableModel::UpdatedFilesArrived(QList<io::File*> updated_files)
 		{
 			old_file = FindFile(haystack, updated_file, &index);
 			if (old_file) {
+				// auto name = old_file->name().toLocal8Bit();
+				// mtl_info("%s", name.data());
 				haystack[index] = updated_file;
 				delete old_file;
 			} else {
@@ -1099,7 +1100,7 @@ void TableModel::UpdateVisibleArea()
 	cint row_start = table->verticalScrollBar()->value() / table->GetRowHeight();
 	cint count_per_page = table->GetVisibleRowsCount();
 	cint row_end = row_start + count_per_page;
-	mtl_info("row_start: %d, row_end: %d", row_start, row_end);
+//	mtl_info("row_start: %d, row_end: %d", row_start, row_end);
 	UpdateFileIndexRange(row_start, row_end);
 }
 

@@ -37,8 +37,8 @@
 	"%s%s[%s:%.3d %s]%s%s " fmt "\n", MTL_BOLD_START, MTL_COLOR_MAGENTA, SRC_FILE_NAME, \
 	__LINE__, __FUNCTION__, MTL_BOLD_END, MTL_COLOR_DEFAULT, ##args)
 
-#define mtl_status(status) fprintf (stdout, "%s[%s %.3d] %s%s\n", \
-	MTL_COLOR_RED, SRC_FILE_NAME, \
+#define mtl_status(status) fprintf (stdout, "%s[%s %s %.3d] %s%s\n", \
+	MTL_COLOR_RED, SRC_FILE_NAME, __FUNCTION__,\
 	__LINE__, strerror(status), MTL_COLOR_DEFAULT)
 
 #define mtl_errno() mtl_status(errno)

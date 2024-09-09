@@ -1112,6 +1112,7 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 		DeleteSelectedFiles(shift ? ShiftPressed::Yes : ShiftPressed::No);
 	} else if (key == Qt::Key_F1) {
 		MarkLastWatchedFile();
+		UpdateView();
 	} else if (key == Qt::Key_F2) {
 		app_->RenameSelectedFile();
 	} else if (key == Qt::Key_F3) {

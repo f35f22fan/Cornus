@@ -134,9 +134,7 @@ public:
 	void WakeUpInotify(const enum Lock l);
 	
 	inline void Broadcast() {
-		cint status = pthread_cond_broadcast(&cond);
-		if (status != 0)
-			mtl_status(status);
+		pthread_cond_broadcast(&cond);
 	}
 	
 	MutexGuard guard(const enum Lock l = Lock::Yes) const {
@@ -152,10 +150,7 @@ public:
 	
 	inline bool TryLock() {
 		cint status = pthread_mutex_trylock(&mutex);
-		if (status == 0)
-			return true;
-		mtl_status(status);
-		return false;
+		return (status == 0);
 	}
 	
 	inline void Signal() {

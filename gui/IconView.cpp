@@ -186,7 +186,7 @@ DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
 	cauto max_img_h = cell.h_and_gaps - cell.text_h;
 	cauto max_img_w = cell.w_and_gaps;
 	QPixmap pixmap;
-	if (file->thumbnail() != nullptr)
+	if (file->thumbnail())
 	{
 		pixmap = QPixmap::fromImage(file->thumbnail()->img);
 	} else {
@@ -498,6 +498,7 @@ void IconView::paintEvent(QPaintEvent *ev)
 				io::File *file = files.data.vec[file_index];
 				file_index++;
 				file_name = file->name();
+				auto name = file_name.toLocal8Bit();
 				if (mouse_over || file->is_selected())
 				{
 					QColor c = option.palette.highlight().color();
@@ -510,10 +511,13 @@ void IconView::paintEvent(QPaintEvent *ev)
 				
 				draw_border = DrawThumbnail(file, painter, x, y);
 				const Thumbnail *thmb = file->thumbnail();
-				if (thmb != nullptr)
+				if (thmb)
 				{
+					//mtl_info("has thumb: %s", name.data());
 					img_wh_str = thumbnail::SizeToString(thmb->original_image_w,
 						thmb->original_image_h, ViewMode::Icons);
+				} else {
+					//mtl_info("Doesn't have thumb: %s", name.data());
 				}
 			}
 			
@@ -634,8 +638,7 @@ void IconView::SendLoadingNewThumbnailsBatch()
 {
 	auto &files = tab_->view_files();
 	MTL_CHECK_VOID(files.Lock());
-	
-	const DirId dir_id = files.data.dir_id;
+		const DirId dir_id = files.data.dir_id;
 	files.Unlock();
 	
 	if (dir_id == last_thumbnail_submission_for_)

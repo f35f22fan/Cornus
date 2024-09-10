@@ -201,7 +201,7 @@ void* ThumbnailLoader (void *args)
 	th_data->Unlock();
 	
 	// signal that the thread exited
-	const bool unlock = global_data->Lock();
+	cbool unlock = global_data->Lock();
 	global_data->Broadcast();
 	if (unlock)
 		global_data->Unlock();
@@ -1189,47 +1189,6 @@ void App::InitThumbnailPoolIfNeeded()
 	if (!global_thumb_loader_data_.threads.isEmpty())
 		return;
 	
-	int status;
-	if (false)
-	{
-		static bool first_time = true;
-		if (first_time)
-		{
-			first_time = false;
-			SetThreadPolicyAndPriority(pthread_self(), SCHED_RR, 2);
-		}
-		
-		pthread_attr_t th_attr;
-		status = pthread_attr_init (&th_attr);
-		if (status != 0)
-		{
-			mtl_status(status);
-			return;
-		}
-		
-		int current_policy;
-		status = pthread_attr_getschedpolicy(&th_attr, &current_policy);
-		if (status != 0)
-		{
-			mtl_status(status);
-			return;
-		}
-		
-		mtl_info("Current policy: %d", current_policy);
-		const Range range = get_policy_range(current_policy);
-		MTL_CHECK_VOID(range.is_valid());
-		
-		mtl_info("Policy SCHED_OTHER: %d", SCHED_OTHER);
-		get_policy_range(SCHED_OTHER);
-		
-		mtl_info("Policy SCHED_FIFO: %d", SCHED_FIFO);
-		get_policy_range(SCHED_FIFO);
-		
-		mtl_info("Policy SCHED_RR: %d", SCHED_RR);
-		get_policy_range(SCHED_RR);
-	}
-	
-	// leave a thread for other background tasks
 	cint max_thread_count = std::max(1, AvailableCpuCores()/* - 1*/);
 	for (int i = 0; i < max_thread_count; i++)
 	{
@@ -1245,14 +1204,10 @@ void App::InitThumbnailPoolIfNeeded()
 	}
 	
 	io::NewThread(thumbnail::LoadMonitor, &global_thumb_loader_data_);
-	
-//	status = pthread_attr_destroy(&th_attr);
-//	if (status != 0)
-//		mtl_status(status);
 }
 
 void App::LaunchOrOpenDesktopFile(const QString &full_path,
-	const bool has_exec_bit, const RunAction action)
+	cbool has_exec_bit, const RunAction action)
 {
 	bool open = action == RunAction::Open;
 	if (!open)
@@ -2108,7 +2063,7 @@ void App::ShutdownThumbnailThreads()
 		{
 			ThumbLoaderData *item = threads_vec[i];
 			item->Lock();
-			const bool exited = item->thread_exited;
+			cbool exited = item->thread_exited;
 			item->Unlock();
 			if (exited)
 			{
@@ -2132,9 +2087,11 @@ void App::ShutdownThumbnailThreads()
 	global_thumb_loader_data_.Unlock();
 }
 
-void App::SubmitThumbLoaderBatchFromTab(QVector<ThumbLoaderArgs*> *new_work_vec,
+void App::SubmitThumbLoaderBatchFromTab(
+	QVector<ThumbLoaderArgs*> *new_work_vec,
 	const TabId tab_id, const DirId dir_id)
 {
+	mtl_info("count: %d", new_work_vec->size());
 	if (new_work_vec->isEmpty())
 	{
 		delete new_work_vec;
@@ -2323,7 +2280,7 @@ void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 
 void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 {
-//	mtl_info("Thumbnail ID: %lu", thumbnail->file_id);
+	//mtl_info("Thumbnail arrived with ID: %lu", thumbnail->file_id);
 	gui::Tab *tab = this->tab(thumbnail->tab_id);
 	if (tab == nullptr || tab->icon_view() == nullptr)
 	{
@@ -2344,17 +2301,17 @@ void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 			return;
 		}
 		
-		const bool can_write_to_dir = io::CanWriteToDir(files.data.processed_dir_path);
+		cbool can_write_to_dir = io::CanWriteToDir(files.data.processed_dir_path);
 		for (io::File *file: files.data.vec)
 		{
 			if (file->id_num() != thumbnail->file_id)
 				continue;
 			
-			//mtl_printq2("Found file: ", file->name());
+//mtl_printq2("Found file: ", file->name());
 			file->thumbnail(thumbnail);
 			const io::DiskFileId file_id = file->id();
 			QString full_path = file->build_full_path();
-			//mtl_printq2("Full path: ", full_path);
+//mtl_printq2("Full path: ", full_path);
 			files.Unlock();
 			tab->icon_view()->RepaintLater();
 			

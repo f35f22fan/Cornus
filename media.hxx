@@ -43,6 +43,28 @@ struct Data {
 };
 
 struct MediaPreview {
+	inline MediaPreview* Clone() {
+		auto *p = new MediaPreview();
+		p->actors = actors;
+		p->directors = directors;
+		p->writers = writers;
+		p->genres = genres;
+		p->subgenres = subgenres;
+		p->countries = countries;
+		p->rips = rips;
+		p->video_codecs = video_codecs;
+		p->video_w = video_w;
+		p->video_h = video_h;
+		p->magic_number = magic_number;
+		p->fps = fps;
+		p->year_started = year_started;
+		p->year_end = year_end;
+		p->bit_depth = bit_depth;
+		p->month_started = month_started;
+		p->day_started = day_started;
+		
+		return p;
+	}
 	QVector<i32> actors;
 	QVector<i32> directors;
 	QVector<i32> writers;

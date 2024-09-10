@@ -18,14 +18,17 @@ File::~File()
 {
 	if (link_target_ != nullptr) {
 		delete link_target_;
-		link_target_ = nullptr;
+		link_target_ = 0;
 	}
 	
 	delete cache_.thumbnail;
-	cache_.thumbnail = nullptr;
+	cache_.thumbnail = 0;
 	
 	delete cache_.desktop_file;
-	cache_.desktop_file = nullptr;
+	cache_.desktop_file = 0;
+	
+	delete cache_.media_preview;
+	cache_.media_preview = 0;
 }
 
 QString File::build_full_path() const
@@ -60,9 +63,9 @@ File* File::Clone() const
 	file->type_ = type_;
 	file->id_ = id_;
 	file->cache_ = cache_;
-	file->cache_.thumbnail = nullptr;
-	file->cache_.media_preview = nullptr;
-	file->cache_.desktop_file = cache_.desktop_file ? cache_.desktop_file->Clone() : nullptr;
+	file->cache_.thumbnail = cache_.thumbnail ? cache_.thumbnail->Clone() : 0;
+	file->cache_.media_preview = cache_.media_preview ? cache_.media_preview->Clone() : 0;
+	file->cache_.desktop_file = cache_.desktop_file ? cache_.desktop_file->Clone() : 0;
 	file->bits_ = bits_;
 	file->time_created_ = time_created_;
 	file->time_modified_ = time_modified_;

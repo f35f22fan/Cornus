@@ -34,6 +34,7 @@ enum class Origin: i8 {
 const bool DebugThumbnailExit = false;
 
 struct Thumbnail {
+	Thumbnail* Clone();
 	QImage img;
 	u64 file_id = 0;
 	i64 time_generated = -1;
@@ -60,7 +61,7 @@ public:
 	int icon_h = -1;
 	
 //	static ThumbLoaderArgs* FromFile(gui::Tab *tab,
-//		io::File *file, const DirId dir_id, const int max_img_w, const int max_img_h);
+//		io::File *file, const DirId dir_id, cint max_img_w, cint max_img_h);
 };
 
 struct GlobalThumbLoaderData;
@@ -74,7 +75,7 @@ struct ThumbLoaderData {
 	bool thread_exited = false;
 	
 	bool Lock() const {
-		const int status = pthread_mutex_lock(&mutex);
+		cint status = pthread_mutex_lock(&mutex);
 		if (status != 0) {
 			printf("ThumbLoaderData::Lock() failed!\n");
 			mtl_status(status);
@@ -87,7 +88,7 @@ struct ThumbLoaderData {
 	}
 	
 	void Unlock() const {
-		const int status = pthread_mutex_unlock(&mutex);
+		cint status = pthread_mutex_unlock(&mutex);
 		if (status != 0)
 			mtl_status(status);
 	}
@@ -101,7 +102,7 @@ struct ThumbLoaderData {
 	}
 	
 	int CondWaitForNewWork() const {
-		const int status = pthread_cond_wait(&new_work_cond, &mutex);
+		cint status = pthread_cond_wait(&new_work_cond, &mutex);
 		if (status != 0)
 			mtl_status(status);
 		return status;
@@ -119,7 +120,7 @@ struct GlobalThumbLoaderData {
 	mutable pthread_cond_t new_work_cond = PTHREAD_COND_INITIALIZER;
 	
 	bool Lock() const {
-		const int status = pthread_mutex_lock(&mutex);
+		cint status = pthread_mutex_lock(&mutex);
 		if (status != 0)
 			mtl_status(status);
 		return status == 0;
@@ -130,7 +131,7 @@ struct GlobalThumbLoaderData {
 	}
 	
 	void Unlock() const {
-		const int status = pthread_mutex_unlock(&mutex);
+		cint status = pthread_mutex_unlock(&mutex);
 		if (status != 0)
 			mtl_status(status);
 	}
@@ -144,7 +145,7 @@ struct GlobalThumbLoaderData {
 	}
 	
 	int CondWaitForWorkQueueChange() const {
-		const int status = pthread_cond_wait(&new_work_cond, &mutex);
+		cint status = pthread_cond_wait(&new_work_cond, &mutex);
 		if (status != 0)
 			mtl_status(status);
 		return status;
@@ -164,7 +165,7 @@ namespace thumbnail {
 // returns true on success
 bool GetOriginalImageSize(ByteArray &ba, i32 &w, i32 &h);
 
-QSize GetScaledSize(const QSize &input, const int max_img_w, const int max_img_h);
+QSize GetScaledSize(const QSize &input, cint max_img_w, cint max_img_h);
 
 void* LoadMonitor(void *args);
 
@@ -172,11 +173,11 @@ QImage ImageFromByteArray(ByteArray &ba, i32 &img_w, i32 &img_h,
 	AbiType &abi_version, ZSTD_DCtx *decompress_context);
 
 Thumbnail* Load(const QString &full_path, const u64 &file_id,
-	const QByteArray &ext, const int max_img_w, const int max_img_h,
+	const QByteArray &ext, cint max_img_w, cint max_img_h,
 	const TabId tab_id, const DirId dir_id);
 
-QImage LoadWebpImage(const QString &full_path, const int max_img_w,
-	const int max_img_h, QSize &scaled_sz, QSize &orig_img_sz);
+QImage LoadWebpImage(const QString &full_path, cint max_img_w,
+	cint max_img_h, QSize &scaled_sz, QSize &orig_img_sz);
 
 inline QString SizeToString(const i32 w, const i32 h, const gui::ViewMode vm)
 {

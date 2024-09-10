@@ -166,7 +166,6 @@ QPair<int, int> Files::ListSelectedFiles(const cornus::Lock l, QList<QUrl> &list
 	return QPair<int, int> (num_dirs, num_files);
 }
 
-
 void Files::MarkFilesAsWatched(const enum Lock l, QList<io::File*> &vec)
 {
 	if (vec.isEmpty())
@@ -196,7 +195,7 @@ void Files::RemoveThumbnailsFromSelectedFiles()
 		if (!next->is_selected() || !next->has_thumbnail_attr())
 			continue;
 		
-		const auto path = next->build_full_path();
+		cauto path = next->build_full_path();
 		io::RemoveEFA(path, {media::XAttrName, media::XAttrThumbnail});
 	}
 }
@@ -220,7 +219,7 @@ void Files::SelectFilenamesLater(const QVector<QString> &names, const SameDir sd
 {
 	auto g = this->guard();
 	data.skip_dir_id = (sd == SameDir::Yes) ? -1 : data.dir_id;
-	for (const auto &name: names)
+	for (cauto &name: names)
 	{
 		data.filenames_to_select.insert(name, 0);
 	}

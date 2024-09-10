@@ -17,6 +17,23 @@ void CornusFreeQImageMemory(void *data)
 
 namespace cornus {
 
+Thumbnail* Thumbnail::Clone() {
+	Thumbnail *t = new Thumbnail();
+	t->img = img;
+	t->file_id = file_id;
+	t->time_generated = time_generated;
+	t->tab_id = tab_id;
+	t->dir_id = dir_id;
+	t->w = w;
+	t->h = h;
+	t->original_image_w = original_image_w;
+	t->original_image_h = original_image_h;
+	t->abi_version = abi_version;
+	t->origin = origin;
+	
+	return t;
+}
+
 namespace thumbnail {
 bool GetOriginalImageSize(ByteArray &ba, i32 &w, i32 &h)
 {
@@ -143,7 +160,7 @@ void* LoadMonitor(void *args)
 			th_data->SignalNewWorkAvailable();
 		}
 		
-		int status = global_data->CondWaitForWorkQueueChange();
+		cint status = global_data->CondWaitForWorkQueueChange();
 		if (status != 0)
 		{
 			mtl_status(status);

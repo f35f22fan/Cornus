@@ -10,7 +10,7 @@ namespace cornus::wayland {
 static void
 wl_buffer_release(void *data, struct wl_buffer *wl_buffer)
 {
-	mtl_info("Releasing buffer");
+	//mtl_info("Releasing buffer");
 	/* Sent by the compositor when it's no longer using this buffer */
 	wl_buffer_destroy(wl_buffer);
 }
@@ -74,10 +74,29 @@ void wl_surface_frame_done(void *data, struct wl_callback *cb, uint32_t time)
 	state->last_frame = time;
 }
 
+static void
+wl_seat_capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities)
+{
+	struct ClientState *state = (ClientState*)data;
+	/* TODO */
+}
+
+static void
+wl_seat_name(void *data, struct wl_seat *wl_seat, const char *name)
+{
+	struct ClientState *state = (ClientState*)data;
+	fprintf(stderr, "seat name: %s\n", name);
+}
+
+static const struct wl_seat_listener wl_seat_listener = {
+	.capabilities = wl_seat_capabilities,
+	.name = wl_seat_name,
+};
+
 static void registry_handle_global(void *data, struct wl_registry *registry,
 	uint32_t name, const char *interface, uint32_t version)
 {
-	printf("interface: %-30s version: %d, name: %d\n", interface, version, name);
+	//mtl_info("Interface: %-30s version: %d, name: %d\n", interface, version, name);
 	auto *state = (struct ClientState*)data;
 	if (strcmp(interface, wl_compositor_interface.name) == 0) {
 		state->compositor = (struct wl_compositor*)wl_registry_bind(
@@ -90,6 +109,11 @@ static void registry_handle_global(void *data, struct wl_registry *registry,
 			registry, name, &xdg_wm_base_interface, 1);
 		xdg_wm_base_add_listener(state->xdg_wm_base,
 			&xdg_wm_base_listener, state);
+	} else if (strcmp(interface, wl_seat_interface.name) == 0) {
+		state->wl_seat = (wl_seat*)wl_registry_bind(
+			registry, name, &wl_seat_interface, 7);
+		wl_seat_add_listener(state->wl_seat,
+			&wl_seat_listener, state);
 	}
 }
 

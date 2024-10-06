@@ -6,6 +6,8 @@
 namespace cornus::wayland {
 
 struct ClientState {
+	
+	struct wl_seat *wl_seat;
 	// ...
 	struct wl_compositor *compositor = 0;
 	struct wl_shm *shm = 0;
@@ -18,6 +20,9 @@ struct ClientState {
 	struct wl_surface *surface;
 	struct xdg_surface *xdg_surface;
 	struct xdg_toplevel *xdg_toplevel;
+	struct wl_keyboard *wl_keyboard;
+	struct wl_pointer *wl_pointer;
+	struct wl_touch *wl_touch;
 	
 	float offset;
 	uint32_t last_frame;

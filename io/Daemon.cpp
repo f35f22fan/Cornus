@@ -329,9 +329,10 @@ void Daemon::CopyURLsToClipboard(ByteArray *ba)
 	QMimeData *mime = new QMimeData();
 	
 	QList<QUrl> urls;
+	QString prefix = QLatin1String("file://");
 	while (ba->has_more())
 	{
-		QString s = ba->next_string();
+		QString s = prefix + ba->next_string();
 		mtl_printq2("URL: ", s);
 		urls.append(QUrl(s));
 	}

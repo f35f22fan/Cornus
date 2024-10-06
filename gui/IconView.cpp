@@ -232,18 +232,16 @@ void IconView::DisplayingNewDirectory(const DirId dir_id, const Reload r)
 
 void IconView::FileChanged(const io::FileEventType evt, io::File *cloned_file)
 {
-	//auto &id = cloned_file->id();
-	//mtl_info("File ID: %lu, %u, %u", id.inode_number, id.dev_major, id.dev_minor);
-	
-	if (cloned_file != nullptr)
+	if (cloned_file)
 	{
-		SendLoadingNewThumbnail(cloned_file);
+		if (evt != io::FileEventType::Renamed)
+			SendLoadingNewThumbnail(cloned_file);
 		delete cloned_file;
 	}
 	
 	if (is_current_view())
 	{
-		const bool file_count_changed = (evt == io::FileEventType::Created)
+		cbool file_count_changed = (evt == io::FileEventType::Created)
 			|| (evt == io::FileEventType::Deleted);
 		if (file_count_changed)
 		{
@@ -670,12 +668,9 @@ void IconView::SendLoadingNewThumbnailsBatch()
 
 void IconView::SendLoadingNewThumbnail(io::File *cloned_file)
 {
-	if (cloned_file == nullptr || !cloned_file->ShouldTryLoadingThumbnail())
-	{
-		if (cloned_file == nullptr)
-			mtl_trace();
+	mtl_check_void(cloned_file);
+	if (!cloned_file->ShouldTryLoadingThumbnail())
 		return;
-	}
 	
 	auto &files = tab_->view_files();
 	MTL_CHECK_VOID(files.Lock());

@@ -168,6 +168,10 @@ Q_DECLARE_METATYPE(cornus::io::CountRecursiveInfo*);
 
 namespace cornus::io {
 
+void randname(char *buf);
+int create_shm_file(void);
+int allocate_shm_file(size_t size);
+
 QString BuildTempPathFromID(const DiskFileId &id);
 
 bool CanWriteToDir(QStringView dir_path);
@@ -258,7 +262,7 @@ void FillInStx(io::File &file, const struct statx &st, const QString *name);
 
 QString FloatToString(const float number, cint precision);
 
-void GetClipboardFiles(const QMimeData &mime, Clipboard &cl);
+QList<QUrl> GetClipboardFiles(const QMimeData *mime);
 
 DirType GetDirType(const QString &full_path);
 
@@ -320,10 +324,10 @@ inline bool NewThread(void* (*start_routine)(void *), void *arg,
 	return (status == 0);
 }
 
-void PasteLinks(const QVector<QString> &full_paths,
+void PasteLinks(const QList<QUrl> &urls,
 	QString target_dir, QVector<QString> *filenames, QString *err = nullptr);
 
-void PasteRelativeLinks(const QVector<QString> &full_paths, QString target_dir,
+void PasteRelativeLinks(QList<QUrl> &full_paths, QString target_dir,
 	QVector<QString> *filenames, QString *err = nullptr);
 
 QString PrepareTestingFolder(QStringView subdir);

@@ -43,7 +43,6 @@ public:
 	void SelectByLowerCase(QVector<QString> filenames, const NamesAreLowerCase are_lower);
 	ShiftSelect* shift_select() { return &shift_select_; }
 	void ShowVisibleColumnOptions(QPoint pos);
-	void SyncWith(const cornus::Clipboard &cl, QSet<int> &indices);
 	gui::Tab* tab() const { return tab_; }
 	void UpdateColumnSizes() { SetCustomResizePolicy(); }
 	QStyleOptionViewItem view_options() const { return QStyleOptionViewItem(); }

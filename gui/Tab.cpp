@@ -189,12 +189,12 @@ void* GoToTh(void *p)
 	return nullptr;
 }
 
-bool SendURLsClipboard(const QStringList &list, io::Message msg_id) {
+bool SendURLsClipboard(QList<QUrl> list, io::Message msg_id) {
 	auto ba = new ByteArray();
 	ba->set_msg_id(msg_id);
 	for (const auto &next: list)
 	{
-		ba->add_string(next);
+		ba->add_string(next.toLocalFile());
 	}
 	return io::socket::SendAsync(ba);
 }
@@ -223,9 +223,8 @@ Tab::~Tab()
 
 void Tab::ActionCopy()
 {
-	QStringList list;
-	MTL_CHECK_VOID(CreateMimeWithSelectedFiles(ClipboardAction::Copy, list));
-	MTL_CHECK_VOID(SendURLsClipboard(list, io::Message::CopyToClipboard));
+	QList<QUrl> list = CreateMimeWithSelectedFiles(ClipboardAction::Copy);
+	SendURLsClipboard(list, io::Message::CopyToClipboard);
 }
 
 QStringList Tab::FetchFilePaths(const WhichFiles wf)
@@ -275,19 +274,18 @@ void Tab::ActionCopyPaths()
 
 void Tab::ActionCut()
 {
-	QStringList list;
-	if (!CreateMimeWithSelectedFiles(ClipboardAction::Cut, list))
-		return;
-	
+	QList<QUrl> list = CreateMimeWithSelectedFiles(ClipboardAction::Cut);
 	SendURLsClipboard(list, io::Message::CutToClipboard);
 }
 
 void Tab::ActionPaste()
 {
-	const Clipboard &clipboard = app_->clipboard();
+	QClipboard *clipboard = QApplication::clipboard();
+	const QMimeData *mime_data = clipboard->mimeData();
+	const ClipboardAction action = ClipboardAction::Copy;
 	
 	io::Message io_op = io::Message::Pasted_Hint;
-	if (clipboard.action == ClipboardAction::Copy) {
+	if (action == ClipboardAction::Copy) {
 		io_op |= io::Message::Copy;
 		io_op |= io::Message::DontTryAtomicMove;
 	} else {
@@ -312,8 +310,9 @@ void Tab::ActionPaste()
 	ba->set_msg_id(io_op);
 	ba->add_string(to_dir);
 	QVector<QString> names;
-	for (const auto &full_path: clipboard.file_paths)
+	for (const QUrl &url: mime_data->urls())
 	{
+		QString full_path = url.toLocalFile();
 		QString filename = io::GetFileNameOfFullPath(full_path).toString();
 		mtl_printq2("Filename: ", filename);
 		names.append(filename);
@@ -322,16 +321,17 @@ void Tab::ActionPaste()
 	
 	view_files().SelectFilenamesLater(names, SameDir::Yes);
 	io::socket::SendAsync(ba, socket_path);
-	if (clipboard.action == ClipboardAction::Cut)
+	if (action == ClipboardAction::Cut)
 	{
 		/// Not using qclipboard->clear() because it doesn't work:
-		QApplication::clipboard()->setMimeData(new QMimeData());
+		clipboard->setMimeData(new QMimeData());
 	}
 }
 
 void Tab::ActionPasteLinks(const LinkType link)
 {
-	const Clipboard &clipboard = app_->clipboard();
+	QClipboard *clipboard = QApplication::clipboard();
+	cauto action = ClipboardAction::Copy;
 	QString err;
 	QVector<QString> names;
 	QString to_dir_path = app_->tab()->current_dir();
@@ -339,6 +339,8 @@ void Tab::ActionPasteLinks(const LinkType link)
 	bool needs_root;
 	const char *socket_path = io::QuerySocketFor(to_dir_path, needs_root);
 	HashInfo hash_info;
+	cauto *mime_data = clipboard->mimeData();
+	QList<QUrl> urls = mime_data->urls();
 	if (needs_root)
 	{
 		hash_info = app_->WaitForRootDaemon(CanOverwrite::Yes);
@@ -351,10 +353,11 @@ void Tab::ActionPasteLinks(const LinkType link)
 		ba->set_msg_id(msg);
 		ba->add_string(to_dir_path);
 		
-		for (const auto &next: clipboard.file_paths)
+		for (const auto &next: urls)
 		{
-			ba->add_string(next);
-			auto s = io::GetFileNameOfFullPath(next);
+			QString full_path = next.toLocalFile();
+			ba->add_string(full_path);
+			auto s = io::GetFileNameOfFullPath(full_path);
 			
 			if (!s.isEmpty())
 				names.append(s.toString());
@@ -363,18 +366,18 @@ void Tab::ActionPasteLinks(const LinkType link)
 		io::socket::SendAsync(ba, socket_path);
 	} else {
 		if (link == LinkType::Absolute)
-			io::PasteLinks(clipboard.file_paths, to_dir_path, &names, &err);
+			io::PasteLinks(urls, to_dir_path, &names, &err);
 		else if (link == LinkType::Relative)
-			io::PasteRelativeLinks(clipboard.file_paths, to_dir_path, &names, &err);
+			io::PasteRelativeLinks(urls, to_dir_path, &names, &err);
 		else {
 			mtl_trace();
 			return;
 		}
 		
-		if (clipboard.action == ClipboardAction::Cut)
+		if (action == ClipboardAction::Cut)
 		{
 			/// Not using qclipboard->clear() because it doesn't work:
-			QApplication::clipboard()->setMimeData(new QMimeData());
+			clipboard->setMimeData(new QMimeData());
 		}
 		
 		if (!err.isEmpty()) {
@@ -464,8 +467,7 @@ void Tab::CreateGui()
 	layout->addWidget(viewmode_stack_);
 }
 
-bool Tab::CreateMimeWithSelectedFiles(const ClipboardAction action,
-	QStringList &list)
+QList<QUrl> Tab::CreateMimeWithSelectedFiles(const ClipboardAction action)
 {
 	auto &files = view_files();
 	MutexGuard guard = files.guard();
@@ -480,6 +482,7 @@ bool Tab::CreateMimeWithSelectedFiles(const ClipboardAction action,
 	else if (action == ClipboardAction::Link)
 		flag = io::FileBits::PasteLink;
 	
+	QList<QUrl> list;
 	QSet<int> indices;
 	int i = -1;
 	for (io::File *next: files.data.vec)
@@ -490,7 +493,7 @@ bool Tab::CreateMimeWithSelectedFiles(const ClipboardAction action,
 			indices.insert(i);
 			next->toggle_flag(flag, true);
 			QString s = next->build_full_path();
-			list.append(QUrl::fromLocalFile(s).toString());
+			list.append(QUrl::fromLocalFile(s));
 		} else {
 			if (next->clear_all_actions_if_needed())
 				indices.insert(i);
@@ -498,7 +501,7 @@ bool Tab::CreateMimeWithSelectedFiles(const ClipboardAction action,
 	}
 	
 	UpdateIndices(indices);
-	return true;
+	return list;
 }
 
 QVector<QAction*>
@@ -699,7 +702,7 @@ void Tab::FileChanged(const io::FileEventType evt, io::File *cloned_file)
 	// the detailed view, which is why the detailed view uses
 	// this method to inform the icon view of changes.
 	auto *iv = icon_view();
-	if (iv != nullptr)
+	if (iv)
 	{
 		iv->FileChanged(evt, cloned_file);
 	}
@@ -1639,11 +1642,13 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 		action->setIcon(QIcon::fromTheme(QLatin1String("media-playback-start")));
 	}
 	
-	const Clipboard &clipboard = app_->clipboard();
-	if (clipboard.has_files())
+	QClipboard *clipboard = QApplication::clipboard();
+	const QMimeData *mimedata = clipboard->mimeData();
+	if (mimedata->hasUrls())
 	{
+		QList<QUrl> urls = mimedata->urls();
 		QString file_count_str = QLatin1String(" (")
-			+ QString::number(clipboard.file_count()) + ')';
+			+ QString::number(urls.count()) + ')';
 		{ // paste
 			QAction *action = menu->addAction(tr("Paste") + file_count_str);
 			action->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_V));

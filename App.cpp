@@ -535,7 +535,7 @@ void App::ClipboardChanged(QClipboard::Mode mode)
 {
 	if (mode != QClipboard::Clipboard)
 		return;
-	const QClipboard *clipboard = QApplication::clipboard();
+	QClipboard *clipboard = QApplication::clipboard();
 	const QMimeData *mime = clipboard->mimeData();
 	 // mimeData can be 0 according to https://bugs.kde.org/show_bug.cgi?id=335053
 	if (!mime) {
@@ -544,15 +544,15 @@ void App::ClipboardChanged(QClipboard::Mode mode)
 #ifdef DEBUG_CLIPBOARD
 	mtl_info("Clipboard changed");
 #endif
-	io::GetClipboardFiles(*mime, clipboard_);
+	QList<QUrl> urls = io::GetClipboardFiles(mime);
 	
-	if (!clipboard_.has_files()) {
+	if (urls.isEmpty()) {
 		return;
 	}
-	
-	QSet<int> indices;
-	tab()->table()->SyncWith(clipboard_, indices);
-	tab()->table_model()->UpdateIndices(indices);
+	mtl_tbd();
+	// QSet<int> indices;
+	// tab()->table()->SyncWith(clipboard_, indices);
+	// tab()->table_model()->UpdateIndices(indices);
 }
 
 void App::CloseCurrentTab()

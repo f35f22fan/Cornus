@@ -68,6 +68,8 @@ set(cornus_src_files
     thumbnail.cc thumbnail.hh
     TreeData.cpp TreeData.hpp
     ui.cc ui.hh
+    wayland.cc wayland.hh
+    xdg-shell-protocol.c xdg-shell-client-protocol.h
 
     gui/actions.hxx
     gui/AttrsDialog.cpp gui/AttrsDialog.hpp
@@ -128,7 +130,7 @@ target_include_directories(${cornus_exe} PRIVATE ${MTP_INCLUDE_DIRS}
 target_link_libraries(${cornus_exe} PRIVATE Qt6::Core5Compat
 	Qt6::Core Qt6::Gui Qt6::Widgets Qt6::DBus Qt6::Test
     ${MTP_LDFLAGS} ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS}
-    ${POLKIT_LDFLAGS} ${POLKIT_AGENT_LDFLAGS} ${WEBP_LDFLAGS} pthread zstd)
+    ${POLKIT_LDFLAGS} ${POLKIT_AGENT_LDFLAGS} ${WEBP_LDFLAGS} pthread zstd wayland-client)
 
 
 set_target_properties(${cornus_exe} PROPERTIES

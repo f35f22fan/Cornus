@@ -12,7 +12,6 @@
 #include "thumbnail.hh"
 
 #include <QClipboard>
-
 #include <QHash>
 #include <QIcon>
 #include <QLocale>
@@ -45,8 +44,6 @@ public:
 	void ArchiveTo(const QString &target_dir_path, const QString &ext);
 	void AskCreateNewFile(io::File *file, const QString &title);
 	int AvailableCpuCores() const;
-	const Clipboard& clipboard() { return clipboard_; }
-	Clipboard& clipboard_mut() { return clipboard_; }
 	QMenu* CreateNewMenu();
 	DirId current_dir_id() const;
 	void DeleteFilesById(const FilesId id);
@@ -196,7 +193,25 @@ private:
 	
 	Hid *hid_ = nullptr;
 	TopLevelStack top_level_stack_ = {};
-	Clipboard clipboard_ = {};
+	/*
+void DropArea::paste()
+{
+    const QClipboard *clipboard = QApplication::clipboard();
+    const QMimeData *mimeData = clipboard->mimeData();
+
+    if (mimeData->hasImage()) {
+        setPixmap(qvariant_cast<QPixmap>(mimeData->imageData()));
+    } else if (mimeData->hasHtml()) {
+        setText(mimeData->html());
+        setTextFormat(Qt::RichText);
+    } else if (mimeData->hasText()) {
+        setText(mimeData->text());
+        setTextFormat(Qt::PlainText);
+    } else {
+        setText(tr("Cannot display data"));
+    }
+}
+	*/
 	gui::SearchPane *search_pane_ = nullptr;
 	Category desktop_ = Category::None;
 	QHash<QString, Category> possible_categories_;

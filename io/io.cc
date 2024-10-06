@@ -19,15 +19,65 @@
 #include <algorithm>
 #include <cmath>
 #include <bits/stdc++.h> /// std::sort()
+#include <sys/mman.h>
 #include <sys/xattr.h>
 #include <fcntl.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 #include <zstd.h>
+
+
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200112L
+#endif
 
 namespace cornus::io {
 
 const QString DesktopExt = QLatin1String("desktop");
+
+void randname(char *buf)
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_REALTIME, &ts);
+	long r = ts.tv_nsec;
+	for (int i = 0; i < 6; ++i) {
+		buf[i] = 'A'+(r&15)+(r&16)*2;
+		r >>= 5;
+	}
+}
+
+int create_shm_file(void)
+{
+	int retries = 100;
+	do {
+		char name[] = "/wl_shm-XXXXXX";
+		randname(name + sizeof(name) - 7);
+		--retries;
+		int fd = shm_open(name, O_RDWR | O_CREAT | O_EXCL, 0600);
+		if (fd >= 0) {
+			shm_unlink(name);
+			return fd;
+		}
+	} while (retries > 0 && errno == EEXIST);
+	return -1;
+}
+
+int allocate_shm_file(size_t size)
+{
+	int fd = create_shm_file();
+	if (fd < 0)
+		return -1;
+	int ret;
+	do {
+		ret = ftruncate(fd, size);
+	} while (ret < 0 && errno == EINTR);
+	if (ret < 0) {
+		close(fd);
+		return -1;
+	}
+	return fd;
+}
 
 QString BuildTempPathFromID(const DiskFileId &id)
 {
@@ -319,7 +369,7 @@ bool CountSizeRecursive(const QString &path, struct statx &stx,
 		return false;
 	}
 	
-	const bool is_dir = S_ISDIR(stx.stx_mode);
+	cbool is_dir = S_ISDIR(stx.stx_mode);
 	info.size += stx.stx_size;
 	if (!is_dir)
 	{
@@ -420,7 +470,7 @@ int DeleteFolder(QString dp, const DeleteSubFolders dsf, const DeleteTopFolder d
 }
 
 int DoStat(const QString &full_path, const QString &name, bool &is_trash_dir,
-	const bool do_check, CountFolderData &data)
+	cbool do_check, CountFolderData &data)
 {
 	const auto flags = AT_SYMLINK_NOFOLLOW;
 	const auto fields = STATX_SIZE | STATX_MODE;
@@ -443,9 +493,9 @@ int DoStat(const QString &full_path, const QString &name, bool &is_trash_dir,
 }
 
 int CountSizeRecursiveTh(const QString &path,
-	CountFolderData &data, const bool inside_trash)
+	CountFolderData &data, cbool inside_trash)
 {
-	const bool is_dir = S_ISDIR(data.stx.stx_mode);
+	cbool is_dir = S_ISDIR(data.stx.stx_mode);
 	{
 		auto guard = data.guard();
 		if (data.app_has_quit)
@@ -486,7 +536,7 @@ int CountSizeRecursiveTh(const QString &path,
 		if (err != 0)
 			return err;
 		
-		const bool inside_trash2 = inside_trash ? inside_trash : is_trash_dir;
+		cbool inside_trash2 = inside_trash ? inside_trash : is_trash_dir;
 		err = CountSizeRecursiveTh(full_path, data, inside_trash2);
 		if (err != 0)
 			return err;
@@ -753,49 +803,46 @@ FloatToString(const float number, cint precision)
 	return QString::number(number, 'f', precision);
 }
 
-void GetClipboardFiles(const QMimeData &mime, cornus::Clipboard &cl)
+QList<QUrl> GetClipboardFiles(const QMimeData *mime)
 {
-	cl.file_paths.clear();
-	cl.action = ClipboardAction::None;
-	cl.type = ClipboardType::None;
-	
-	QString text = mime.text();
+	QString text = mime->text();
 	/// Need a regex because Nautilus in KDE inserts 'r' instead of just '\n'
 	QRegularExpression regex("[\r\n]");
 	auto list = text.split(regex, Qt::SkipEmptyParts);
-	const bool is_nautilus = text.startsWith(str::NautilusClipboardMime);
+	cbool is_nautilus = text.startsWith(str::NautilusClipboardMime);
+	QList<QUrl> urls;
 	
 	if (is_nautilus)
 	{
 #ifdef CORNUS_CLIPBOARD_CLIENT_DEBUG
 mtl_info("Nautilus style clipboard");
 #endif
-		cl.type = ClipboardType::Nautilus;
+		//cl.type = ClipboardType::Nautilus;
 		if (list.size() < 3)
-			return;
+			return urls;
 		
 		for (int i = 2; i < list.size(); i++) {
 			QUrl url(list[i]);
 			if (url.isLocalFile()) {
-				cl.file_paths.append(url.toLocalFile());
+				urls.append(url);
 			}
 		}
 		
-		if (list[1] == QLatin1String("cut"))
-			cl.action = ClipboardAction::Cut;
-		else
-			cl.action = ClipboardAction::Copy;
-		return;
+		// if (list[1] == QLatin1String("cut"))
+		// 	cl.action = ClipboardAction::Cut;
+		// else
+		// 	cl.action = ClipboardAction::Copy;
+		return urls;
 	}
 #ifdef CORNUS_CLIPBOARD_CLIENT_DEBUG
 mtl_info("KDE style clipboard");
 #endif
 	
-	const QByteArray kde_ba = mime.data(str::KdeCutMime);
-	const bool kde_cut_action = (!kde_ba.isEmpty() && kde_ba.at(0) == QLatin1Char('1'));
+	const QByteArray kde_ba = mime->data(str::KdeCutMime);
+	cbool kde_cut_action = (!kde_ba.isEmpty() && kde_ba.at(0) == QLatin1Char('1'));
 	
 	if (kde_cut_action) {
-		cl.type = ClipboardType::KDE;
+		//cl.type = ClipboardType::KDE;
 	}
 	
 #ifdef CORNUS_CLIPBOARD_CLIENT_DEBUG
@@ -804,11 +851,12 @@ mtl_info("is cut: %s", kde_cut_action ? "true" : "false");
 	for (const auto &next: list) {
 		QUrl url(next);
 		if (url.isLocalFile()) {
-			cl.file_paths.append(url.toLocalFile());
+			urls.append(url);
 		}
 	}
 	
-	cl.action = kde_cut_action ? ClipboardAction::Cut : ClipboardAction::Copy;
+	//cl.action = kde_cut_action ? ClipboardAction::Cut : ClipboardAction::Copy;
+	return urls;
 }
 
 QStringView
@@ -1073,7 +1121,7 @@ bool ListFiles(io::FilesData &data, io::Files *ptr,
 	if (dp == NULL)
 		return false;//errno;
 	
-	const bool hide_hidden_files = !data.show_hidden_files();
+	cbool hide_hidden_files = !data.show_hidden_files();
 	struct dirent *entry;
 	struct statx stx;
 	const QString dot = QLatin1String(".");
@@ -1107,7 +1155,7 @@ bool ListFiles(io::FilesData &data, io::Files *ptr,
 	
 	closedir(dp);
 	
-	const bool can_write = access(dir_path_ba.data(), W_OK) == 0;
+	cbool can_write = access(dir_path_ba.data(), W_OK) == 0;
 	data.can_write_to_dir(can_write);
 	std::sort(data.vec.begin(), data.vec.end(), cornus::io::SortFiles);
 	
@@ -1135,14 +1183,15 @@ QString NewNamePattern(QStringView filename, i32 &next)
 	return base_name.toString() + num_str + '.' + ext.toString();
 }
 
-void PasteLinks(const QVector<QString> &full_paths,
+void PasteLinks(const QList<QUrl> &urls,
 	QString target_dir, QVector<QString> *filenames, QString *error)
 {
 	if (!target_dir.endsWith('/'))
 		target_dir.append('/');
 	
-	for (const QString &in_full_path: full_paths)
+	for (cauto &url: urls)
 	{
+		QString in_full_path = url.toLocalFile();
 		QString filename = io::GetFileNameOfFullPath(in_full_path).toString();
 		if (filename.isEmpty())
 			continue;
@@ -1171,15 +1220,16 @@ void PasteLinks(const QVector<QString> &full_paths,
 	}
 }
 
-void PasteRelativeLinks(const QVector<QString> &full_paths,
+void PasteRelativeLinks(QList<QUrl> &full_paths,
 	QString target_dir, QVector<QString> *filenames, QString *error)
 {
 	if (!target_dir.endsWith('/'))
 		target_dir.append('/');
 	
-	for (const QString &in_full_path: full_paths)
+	for (const QUrl &url: full_paths)
 	{
-		QString filename = io::GetFileNameOfFullPath(in_full_path).toString();
+		const QString full_path = url.toLocalFile();
+		QString filename = io::GetFileNameOfFullPath(full_path).toString();
 		if (filename.isEmpty()) {
 			mtl_trace();
 			continue;
@@ -1187,7 +1237,7 @@ void PasteRelativeLinks(const QVector<QString> &full_paths,
 		if (filenames)
 			filenames->append(filename);
 		
-		QString target = in_full_path;
+		QString target = full_path;
 		if (target.startsWith(target_dir)) {
 			target = target.mid(target_dir.size());
 		}
@@ -1645,7 +1695,7 @@ void RemoveEFA(QStringView full_path, QVector<QString> names, const PrintErrors 
 		auto name_ba = name.toLocal8Bit();
 		cbool ok = lremovexattr(file_path_ba.data(), name_ba.data()) == 0;
 		
-		if (!ok)// && (pe == PrintErrors::Yes))
+		if (!ok && (pe == PrintErrors::Yes))
 			mtl_warn("lremovexattr on %s: %s", name_ba.data(), strerror(errno));
 	}
 }
@@ -1691,7 +1741,7 @@ bool SameFiles(const QString &path1, const QString &path2, int *ret_error)
 }
 
 bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx,
-	const bool ok_to_store_thumbnails_in_ext_attrs)
+	cbool ok_to_store_thumbnails_in_ext_attrs)
 {
 	ByteArray ba;
 	ba.MakeSure(thumbnail::HeaderSize, ExactSize::Yes);
@@ -1794,6 +1844,9 @@ bool SortFiles(io::File *a, io::File *b)
   otherwise it randomly crashes (because of undefined behavior),
   more info here:
  https://stackoverflow.com/questions/979759/operator-and-strict-weak-ordering/981299#981299 */
+	
+	if (!a->files())
+		mtl_warn("a->files is null on %s", qPrintable(a->name()));
 	const SortingOrder order = a->files()->data.sorting_order;
 	
 	if (a->is_dir_or_so() && !b->is_dir_or_so())
@@ -1808,21 +1861,21 @@ bool SortFiles(io::File *a, io::File *b)
 		return order.ascending ? result : !result;
 	}
 	
-	const bool by_created = (order.column == gui::Column::TimeCreated);
+	cbool by_created = (order.column == gui::Column::TimeCreated);
 	if (by_created || (order.column == gui::Column::TimeModified))
 	{
 		auto &tc = by_created ? a->time_created() : a->time_modified();
 		auto &tc2 = by_created ? b->time_created() : b->time_modified();
 		
 		if (tc.tv_sec != tc2.tv_sec) {
-			const bool less_sec = (tc.tv_sec < tc2.tv_sec);
+			cbool less_sec = (tc.tv_sec < tc2.tv_sec);
 			return order.ascending ? less_sec : !less_sec;
 		}
 		
 		if (tc.tv_nsec == tc2.tv_nsec)
 			return false;
 		
-		const bool less_nsec = tc.tv_nsec < tc2.tv_nsec;
+		cbool less_nsec = tc.tv_nsec < tc2.tv_nsec;
 		return order.ascending ? less_nsec : !less_nsec;
 	}
 	
@@ -1832,14 +1885,14 @@ bool SortFiles(io::File *a, io::File *b)
 			bool result = n >= 0 ? false : true;
 			return order.ascending ? result : !result;
 		}
-		const bool less_size = a->size() < b->size();
+		cbool less_size = a->size() < b->size();
 		return order.ascending ? less_size : !less_size;
 	}
 	
 	if (order.column == gui::Column::Icon) {
 		// order by file type..
 		if (a->type() != b->type()) {
-			const bool less_type = a->type() < b->type();
+			cbool less_type = a->type() < b->type();
 			return order.ascending ? less_type : !less_type;
 		}
 		// next, order by extension:
@@ -1849,7 +1902,7 @@ bool SortFiles(io::File *a, io::File *b)
 			return order.ascending ? result : !result;
 		}
 		
-		const bool less_ext = a->cache().ext < b->cache().ext;
+		cbool less_ext = a->cache().ext < b->cache().ext;
 		return order.ascending ? less_ext : !less_ext;
 	}
 	

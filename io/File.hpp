@@ -15,6 +15,24 @@
 
 namespace cornus::io {
 
+enum class CloneFileOption: u32 {
+	Empty = 0,
+	NoThumbnail = 1,
+};
+
+inline CloneFileOption operator | (CloneFileOption a, CloneFileOption b) {
+	return static_cast<CloneFileOption>(static_cast<u32>(a) | static_cast<u32>(b));
+}
+
+inline CloneFileOption& operator |= (CloneFileOption &a, const CloneFileOption b) {
+	a = a | b;
+	return a;
+}
+
+inline bool operator & (const CloneFileOption a, const CloneFileOption b) {
+	return (static_cast<u32>(a) & static_cast<u32>(b));
+}
+
 struct FileCache {
 	QString mime;
 	QString ext;
@@ -36,7 +54,7 @@ public:
 	static File* NewFolder(const QString &dir_path, const QString &name);
 	int Delete(); // returns 0 on success
 	
-	File* Clone() const;
+	File* Clone(const CloneFileOption = CloneFileOption::Empty) const;
 	void CopyBits(File *rhs) {
 		bits_ = rhs->bits_;
 	}

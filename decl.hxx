@@ -324,20 +324,6 @@ enum class ClipboardType: i8 {
 	KDE
 };
 
-struct Clipboard {
-	QVector<QString> file_paths;
-	ClipboardAction action = ClipboardAction::None;
-	ClipboardType type = ClipboardType::None;
-	
-	inline bool has_files() const {
-		return action != ClipboardAction::None && !file_paths.isEmpty();
-	}
-	
-	inline int file_count() const { 
-		return file_paths.size();
-	}
-};
-
 enum class PartitionEventType: i8 {
 	None = 0,
 	Mount,

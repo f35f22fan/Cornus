@@ -105,8 +105,10 @@ Thumbnail* Load(const QString &full_path, const u64 &file_id,
 {
 	QSize scaled, orig_img_sz;
 	QImage img;
-	if (ext == QByteArray("webp"))
-	{ // WebP is disabled in Qt5 on Ubuntu 21.10, so load webp files manually.
+	if (false) { //ext == QByteArray("webp"))
+	// WebP is disabled in Qt5 on Ubuntu 21.10, so load webp files manually.
+	// Update from 2024: Since the app switched to Qt6 this is no longer an issue.
+	// Later the custom webp support should be fully deleted.
 		img = LoadWebpImage(full_path, max_img_w, max_img_h, scaled, orig_img_sz);
 	} else {
 		QImageReader reader = QImageReader(full_path, ext);

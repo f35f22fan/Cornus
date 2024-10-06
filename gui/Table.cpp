@@ -620,69 +620,6 @@ void Table::SortingChanged(int logical, Qt::SortOrder order)
 	model_->UpdateVisibleArea();
 }
 
-void Table::SyncWith(const cornus::Clipboard &cl, QSet<int> &indices)
-{
-	auto &files = *app_->files(tab_->files_id());
-	MutexGuard guard = files.guard();
-	
-	QVector<QString> file_paths = cl.file_paths;
-	QString dir_path = files.data.processed_dir_path;
-	
-	for (int i = file_paths.size() - 1; i >= 0; i--)
-	{
-		const QString full_path = QDir::cleanPath(file_paths[i]);
-		auto name = io::GetFileNameOfFullPath(full_path).toString();
-		
-		if (name.isEmpty() || (dir_path + name != full_path)) {
-			file_paths.remove(i);
-			continue;
-		}
-		
-		file_paths[i] = name;
-	}
-	
-	if (file_paths.isEmpty())
-		return;
-	
-	io::FileBits flag = io::FileBits::Empty;
-	if (cl.action == ClipboardAction::Cut) {
-///		mtl_info("Cut");
-		flag = io::FileBits::ActionCut;
-	} else if (cl.action == ClipboardAction::Copy) {
-///		mtl_info("Copy");
-		flag = io::FileBits::ActionCopy;
-	} else if (cl.action == ClipboardAction::Paste) {
-//		mtl_info("Paste");
-		flag = io::FileBits::ActionPaste;
-	} else if (cl.action == ClipboardAction::Link) {
-//		mtl_info("Link");
-		flag = io::FileBits::PasteLink;
-	}
-	
-	int i = -1;
-	for (io::File *next: files.data.vec)
-	{
-		i++;
-		bool added = false;
-		if (next->clear_all_actions_if_needed()) {
-			indices.insert(i);
-			added = true;
-		}
-		
-		cint count = file_paths.size();
-		for (int k = 0; k < count; k++) {
-			if (file_paths[k] == next->name()) {
-				if (!added) {
-					indices.insert(i);
-				}
-				next->toggle_flag(flag, true);
-				file_paths.remove(k);
-				break;
-			}
-		}
-	}
-}
-
 void Table::UpdateLineHeight()
 {
 	auto *vh = verticalHeader();

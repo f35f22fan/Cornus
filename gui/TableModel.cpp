@@ -268,60 +268,54 @@ void ProcessEvents(EventArgs *a)
 			QString old_name = TakeTheOtherNameByCookie(ren, ev->cookie);
 			ren.m.Unlock();
 #ifdef CORNUS_DEBUG_INOTIFY
-			mtl_info("IN_MOVED_TO new_name: %s, from_name: %s, cookie %d",
+			mtl_info("IN_MOVED_TO new_name: \"%s\", old_name: \"%s\", cookie %d",
 				qPrintable(name), qPrintable(old_name), ev->cookie);
 #endif
 			if (old_name.isEmpty())
 			{
+				mtl_info("was dragged into this dir");
 				SendCreateEvent(model, a->files, new_name, a->dir_id);
 				return;
 			}
-			int delete_file_index = -1, new_file_index = -1, old_file_index = -1;
-			io::File *cloned_file = nullptr;
-			{
-				auto g = a->files->guard();
-				auto &files_vec = a->files->data.vec;
-				io::File *new_file = Find(files_vec, new_name, &new_file_index);
-				QIcon *new_icon = nullptr;
-				bool selected = false;
-				if (new_file)
-				{
-					selected = new_file->is_selected();
-					new_icon = new_file->cache().icon;
-					files_vec.remove(new_file_index);
-					delete_file_index = new_file_index;
-					delete new_file;
-				}
-				
-				io::File *old_file = Find(files_vec, old_name, &old_file_index);
-				if (old_file == nullptr)
-				{
-					mtl_warn("File %s not found", ev->name);
-					continue;
-				}
-				old_file->name(new_name);
-				old_file->set_selected(selected);
-				if (new_icon)
-				{
-					old_file->cache().icon = new_icon;
-				}
-				
-				if (old_file->size() == -1)
-				{
-					PrintErrors pe = PrintErrors::No;
-#ifdef CORNUS_DEBUG_INOTIFY
-					pe = PrintErrors::Yes;
-#endif
-					io::ReloadMeta(*old_file, stx, a->env, pe);
-				}
-				cloned_file = old_file->Clone();
-				std::sort(files_vec.begin(), files_vec.end(), cornus::io::SortFiles);
-				Find(files_vec, new_name, &new_file_index);
-			}
+			
 			io::FileEvent evt = {};
-			evt.new_file = cloned_file;
+			evt.from_name = old_name;
 			evt.dir_id = a->dir_id;
-			evt.renaming_deleted_file_at = delete_file_index;
+			evt.to_name = new_name;
+			evt.type = io::FileEventType::Renamed;
+			QMetaObject::invokeMethod(model, "InotifyEvent",
+				ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
+			
+			if (true)
+				continue;
+			
+			int new_file_index = -1;
+			
+			{
+				auto *files = a->files;
+				auto g = files->guard();
+				auto &files_vec = a->files->data.vec;
+				int file_index;
+				io::File *file_to_replace = Find(files_vec, new_name, &file_index);
+				if (file_to_replace) {
+					auto path = file_to_replace->build_full_path().toLocal8Bit();
+					delete file_to_replace;
+					files_vec.remove(file_index);
+				}
+				
+				io::File *new_file = Find(files_vec, old_name, &file_index);
+				if (new_file) {
+					new_file->name(new_name);
+					io::ReloadMeta(*new_file, stx, a->env, PrintErrors::No);
+				}
+				std::sort(files_vec.begin(), files_vec.end(), cornus::io::SortFiles);
+				auto *f = Find(files_vec, new_name, &new_file_index);
+				auto ba = f->build_full_path().toLocal8Bit();
+			}
+			
+			evt = {};
+			evt.new_file = 0;
+			evt.dir_id = a->dir_id;
 			evt.index = new_file_index;
 			evt.type = io::FileEventType::Renamed;
 			QMetaObject::invokeMethod(model, "InotifyEvent",
@@ -785,7 +779,7 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 		auto g = files.guard();
 		if (evt.dir_id != files.data.dir_id)
 		{
-			if (evt.new_file != nullptr)
+			if (evt.new_file)
 				delete evt.new_file;
 			return;
 		}
@@ -869,23 +863,43 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 	}
 	case io::FileEventType::Renamed: {
 #ifdef CORNUS_DEBUG_INOTIFY
-		mtl_trace("RENAMED, index: %d", evt.index);
+		mtl_trace("RENAMED, old_name: %s, new_name: %s",
+			qPrintable(evt.from_name),
+			qPrintable(evt.to_name)
+		);
 #endif
-		if (evt.renaming_deleted_file_at != -1)
+		auto &files = tab_->view_files();
+		int file_index = -1;
 		{
-			int real_index = evt.renaming_deleted_file_at;
-			if (real_index > evt.index)
-				real_index--;
-			if (real_index >= 0) {
-// mtl_info("real_index: %d, renaming_deleted_file_at: %d, evt.index: %d", real_index,
-// 	evt.renaming_deleted_file_at, evt.index);
-				beginRemoveRows(QModelIndex(), real_index, real_index);
+			struct statx stx;
+			auto g = files.guard();
+			auto &files_vec = files.data.vec;
+			io::File *file_to_replace = Find(files_vec, evt.to_name, &file_index);
+			if (file_to_replace) {
+				beginRemoveRows(QModelIndex(), file_index, file_index);
+				delete file_to_replace;
+				files_vec.remove(file_index);
 				endRemoveRows();
-				tab_->FileChanged(io::FileEventType::Modified, evt.new_file);
 			}
+			
+			io::File *new_file = Find(files_vec, evt.from_name, &file_index);
+			if (new_file) {
+				new_file->name(evt.to_name);
+			} else {
+				new_file = new io::File(&files);
+				new_file->name(evt.to_name);
+				beginInsertRows(QModelIndex(), 0, 0);
+				files_vec.append(new_file);
+				endInsertRows();
+			}
+			io::ReloadMeta(*new_file, stx, app_->env(), PrintErrors::No);
+			std::sort(files_vec.begin(), files_vec.end(), cornus::io::SortFiles);
+			Find(files_vec, evt.to_name, &file_index);
+			mtl_info("file_index: %d, name: %s", file_index, qPrintable(evt.to_name));
 		}
 		
-		UpdateSingleRow(evt.index);
+		UpdateVisibleArea();
+		//tab_->FileChanged(io::FileEventType::Renamed, evt.new_file);
 		break;
 	}
 	default: {
@@ -1002,7 +1016,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 	endInsertRows();
 	
 	QSet<int> indices;
-	tab_->table()->SyncWith(app_->clipboard(), indices);
+	//tab_->table()->SyncWith(app_->clipboard(), indices);
 	WatchArgs *args = new WatchArgs {
 		.dir_id = dir_id,
 		.dir_path = new_data->processed_dir_path,

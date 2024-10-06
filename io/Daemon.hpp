@@ -69,7 +69,6 @@ private:
 	
 	CondMutex *cm_ = nullptr;
 	gui::TasksWin *tasks_win_ = nullptr;
-	cornus::Clipboard clipboard_ = {};
 	QVector<QString> search_icons_dirs_;
 	QVector<QString> xdg_data_dirs_;
 	DesktopFiles desktop_files_ = {};

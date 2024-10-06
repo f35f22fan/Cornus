@@ -53,9 +53,10 @@ void File::ClearXAttrs()
 	}
 }
 
-File* File::Clone() const
+File* File::Clone(const CloneFileOption opt) const
 {
 	File *file = new File(dir_path(Lock::No));
+	file->files_ = files_;
 	file->name_ = name_;
 	file->size_ = size_;
 	file->mode_ = mode_;
@@ -63,7 +64,13 @@ File* File::Clone() const
 	file->type_ = type_;
 	file->id_ = id_;
 	file->cache_ = cache_;
-	file->cache_.thumbnail = cache_.thumbnail ? cache_.thumbnail->Clone() : 0;
+	
+	if (opt & CloneFileOption::NoThumbnail) {
+		file->cache_.thumbnail = 0;
+	} else {
+		if (cache_.thumbnail)
+			file->cache_.thumbnail = cache_.thumbnail->Clone();
+	}
 	file->cache_.media_preview = cache_.media_preview ? cache_.media_preview->Clone() : 0;
 	file->cache_.desktop_file = cache_.desktop_file ? cache_.desktop_file->Clone() : 0;
 	file->bits_ = bits_;

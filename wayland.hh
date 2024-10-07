@@ -9,7 +9,7 @@
 
 #include <wayland-client.h>
 #include "xdg-shell-client-protocol.h"
-#include "types.hxx"
+#include "decl.hxx"
 
 namespace cornus::wayland {
 
@@ -46,6 +46,7 @@ struct pointer_event {
 };
 
 struct ClientState {
+	cornus::App *app = 0;
 	struct wl_seat *wl_seat = 0;
 	struct wl_compositor *compositor = 0;
 	struct wl_shm *shm = 0;
@@ -79,8 +80,8 @@ static void wl_seat_capabilities(void *data, struct wl_seat *wl_seat, uint32_t c
 wl_buffer* DrawFrame(ClientState *state);
 void wl_surface_frame_done(void *data, struct wl_callback *cb, uint32_t time);
 void xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
-		i32 width, i32 height, struct wl_array *states);
-wl_display *test();
+	i32 width, i32 height, struct wl_array *states);
+wl_display* test(cornus::App *app);
 
 
 }

@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <sys/mman.h>
 
+#include <QApplication>
+
 namespace cornus::wayland {
 
 static void
@@ -21,7 +23,7 @@ static const struct wl_buffer_listener wl_buffer_listener = {
 
 static void
 xdg_surface_configure(void *data,
-	struct xdg_surface *xdg_surface, uint32_t serial)
+	struct xdg_surface *xdg_surface, u32 serial)
 {
 	ClientState *state = (ClientState*)data;
 	
@@ -37,7 +39,7 @@ static const struct xdg_surface_listener xdg_surface_listener = {
 };
 
 static void
-xdg_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base, uint32_t serial)
+xdg_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base, u32 serial)
 {
 	xdg_wm_base_pong(xdg_wm_base, serial);
 }
@@ -50,7 +52,7 @@ static const struct wl_callback_listener wl_surface_frame_listener = {
 	.done = wl_surface_frame_done,
 };
 
-void wl_surface_frame_done(void *data, struct wl_callback *cb, uint32_t time)
+void wl_surface_frame_done(void *data, struct wl_callback *cb, u32 time)
 {
 	/* Destroy this callback */
 	wl_callback_destroy(cb);
@@ -77,7 +79,7 @@ void wl_surface_frame_done(void *data, struct wl_callback *cb, uint32_t time)
 
 static void
 wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
-	uint32_t serial, struct wl_surface *surface,
+	u32 serial, struct wl_surface *surface,
 	wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
 	struct ClientState *client_state = (ClientState*)data;
@@ -89,7 +91,7 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
 
 static void
 wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
-	uint32_t serial, struct wl_surface *surface)
+	u32 serial, struct wl_surface *surface)
 {
 	ClientState *client_state = (ClientState*)data;
 	client_state->pointer_event.serial = serial;
@@ -97,7 +99,7 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
 }
 
 static void
-wl_pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time,
+wl_pointer_motion(void *data, struct wl_pointer *wl_pointer, u32 time,
 	wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
 	ClientState *client_state = (ClientState*)data;
@@ -108,8 +110,8 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time,
 }
 
 static void
-wl_pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial,
-	uint32_t time, uint32_t button, uint32_t state)
+wl_pointer_button(void *data, struct wl_pointer *wl_pointer, u32 serial,
+	u32 time, u32 button, u32 state)
 {
 	ClientState *client_state = (ClientState*)data;
 	client_state->pointer_event.event_mask |= POINTER_EVENT_BUTTON;
@@ -120,8 +122,8 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial,
 }
 
 static void
-wl_pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time,
-	uint32_t axis, wl_fixed_t value)
+wl_pointer_axis(void *data, struct wl_pointer *wl_pointer, u32 time,
+	u32 axis, wl_fixed_t value)
 {
 	ClientState *client_state = (ClientState*)data;
 	client_state->pointer_event.event_mask |= POINTER_EVENT_AXIS;
@@ -132,7 +134,7 @@ wl_pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time,
 
 static void
 wl_pointer_axis_source(void *data, struct wl_pointer *wl_pointer,
-	uint32_t axis_source)
+	u32 axis_source)
 {
 	ClientState *client_state = (ClientState*)data;
 	client_state->pointer_event.event_mask |= POINTER_EVENT_AXIS_SOURCE;
@@ -141,7 +143,7 @@ wl_pointer_axis_source(void *data, struct wl_pointer *wl_pointer,
 
 static void
 wl_pointer_axis_stop(void *data, struct wl_pointer *wl_pointer,
-	uint32_t time, uint32_t axis)
+	u32 time, u32 axis)
 {
 	ClientState *client_state = (ClientState*)data;
 	client_state->pointer_event.time = time;
@@ -151,7 +153,7 @@ wl_pointer_axis_stop(void *data, struct wl_pointer *wl_pointer,
 
 static void
 wl_pointer_axis_discrete(void *data, struct wl_pointer *wl_pointer,
-	uint32_t axis, int32_t discrete)
+	u32 axis, i32 discrete)
 {
 	ClientState *client_state = (ClientState*)data;
 	client_state->pointer_event.event_mask |= POINTER_EVENT_AXIS_DISCRETE;
@@ -188,7 +190,7 @@ wl_pointer_frame(void *data, struct wl_pointer *wl_pointer)
 		fprintf(stderr, "button %d %s ", event->button, state);
 	}
 	
-	uint32_t axis_events = POINTER_EVENT_AXIS
+	u32 axis_events = POINTER_EVENT_AXIS
 						   | POINTER_EVENT_AXIS_SOURCE
 						   | POINTER_EVENT_AXIS_STOP
 						   | POINTER_EVENT_AXIS_DISCRETE;
@@ -244,7 +246,7 @@ static const struct wl_pointer_listener wl_pointer_listener = {
 
 static void
 wl_keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
-	uint32_t format, int32_t fd, uint32_t size)
+	u32 format, i32 fd, u32 size)
 {
 	struct ClientState *client_state = (ClientState*)data;
 	assert(format == WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1);
@@ -267,14 +269,14 @@ wl_keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
 
 static void
 wl_keyboard_enter(void *data, struct wl_keyboard *wl_keyboard,
-	uint32_t serial, struct wl_surface *surface,
+	u32 serial, struct wl_surface *surface,
 	struct wl_array *keys)
 {
 	struct ClientState *client_state = (ClientState*)data;
 	fprintf(stderr, "keyboard enter; keys pressed are:\n");
-	uint32_t *key;
+	u32 *key;
 	//wl_array_for_each(key, keys) {
-	WL_ARRAY_FOR_EACH(key, keys, uint32_t*) {
+	WL_ARRAY_FOR_EACH(key, keys, u32*) {
 		char buf[128];
 		xkb_keysym_t sym = xkb_state_key_get_one_sym(
 			client_state->xkb_state, *key + 8);
@@ -288,11 +290,11 @@ wl_keyboard_enter(void *data, struct wl_keyboard *wl_keyboard,
 
 static void
 wl_keyboard_key(void *data, struct wl_keyboard *wl_keyboard,
-	uint32_t serial, uint32_t time, uint32_t key, uint32_t state)
+	u32 serial, u32 time, u32 key, u32 state)
 {
 	struct ClientState *client_state = (ClientState*)data;
 	char buf[128];
-	uint32_t keycode = key + 8;
+	u32 keycode = key + 8;
 	xkb_keysym_t sym = xkb_state_key_get_one_sym(
 		client_state->xkb_state, keycode);
 	xkb_keysym_get_name(sym, buf, sizeof(buf));
@@ -306,16 +308,16 @@ wl_keyboard_key(void *data, struct wl_keyboard *wl_keyboard,
 
 static void
 wl_keyboard_leave(void *data, struct wl_keyboard *wl_keyboard,
-	uint32_t serial, struct wl_surface *surface)
+	u32 serial, struct wl_surface *surface)
 {
 	fprintf(stderr, "keyboard leave\n");
 }
 
 static void
 wl_keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard,
-	uint32_t serial, uint32_t mods_depressed,
-	uint32_t mods_latched, uint32_t mods_locked,
-	uint32_t group)
+	u32 serial, u32 mods_depressed,
+	u32 mods_latched, u32 mods_locked,
+	u32 group)
 {
 	struct ClientState *client_state = (ClientState*)data;
 	xkb_state_update_mask(client_state->xkb_state,
@@ -324,7 +326,7 @@ wl_keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard,
 
 static void
 wl_keyboard_repeat_info(void *data, struct wl_keyboard *wl_keyboard,
-	int32_t rate, int32_t delay)
+	i32 rate, i32 delay)
 {
 	/* Left as an exercise for the reader */
 }
@@ -339,7 +341,7 @@ static const struct wl_keyboard_listener wl_keyboard_listener = {
 };
 
 static void
-wl_seat_capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities)
+wl_seat_capabilities(void *data, struct wl_seat *wl_seat, u32 capabilities)
 {
 	struct ClientState *state = (ClientState*)data;
 	cbool have_pointer = capabilities & WL_SEAT_CAPABILITY_POINTER;
@@ -377,7 +379,7 @@ static const struct wl_seat_listener wl_seat_listener = {
 };
 
 static void registry_handle_global(void *data, struct wl_registry *registry,
-	uint32_t name, const char *interface, uint32_t version)
+	u32 name, const char *interface, u32 version)
 {
 	//mtl_info("Interface: %-30s version: %d, name: %d\n", interface, version, name);
 	auto *state = (struct ClientState*)data;
@@ -402,7 +404,7 @@ static void registry_handle_global(void *data, struct wl_registry *registry,
 
 static void
 registry_handle_global_remove(void *data, struct wl_registry *registry,
-	uint32_t name)
+	u32 name)
 {
 	// This space deliberately left blank
 }
@@ -413,7 +415,7 @@ static const struct wl_registry_listener registry_listener = {
 };
 
 void xdg_toplevel_configure(void *data,
-	struct xdg_toplevel *xdg_toplevel, int32_t width, int32_t height,
+	struct xdg_toplevel *xdg_toplevel, i32 width, i32 height,
 	struct wl_array *states)
 {
 	struct ClientState *state = (struct ClientState*)data;
@@ -430,7 +432,10 @@ void xdg_toplevel_configure(void *data,
 void xdg_toplevel_close(void *data, struct xdg_toplevel *toplevel)
 {
 	struct ClientState *state = (struct ClientState*)data;
-	state->closed = true;
+	state->closed = true;   
+	mtl_warn("Received window close event");
+	QApplication::quit();
+	exit(EXIT_SUCCESS);
 }
 
 static const struct xdg_toplevel_listener xdg_toplevel_listener = {
@@ -475,9 +480,10 @@ wl_buffer* DrawFrame(struct ClientState *state)
 	return buffer;
 }
 
-wl_display* test()
+wl_display* test(cornus::App *app)
 {
 	struct ClientState state = {};
+	state.app = app;
 	state.display = wl_display_connect(NULL);
 	state.registry = wl_display_get_registry(state.display);
 	state.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);

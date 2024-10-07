@@ -340,7 +340,7 @@ void Group::Launch(const QString &working_dir, const QString &full_path)
 void Group::ListKV()
 {
 	auto it = kv_.constBegin();
-	mtl_info("kv_map size: %d",  kv_.size());
+	mtl_info("kv_map size: %lld",  kv_.size());
 	while (it != kv_.constEnd())
 	{
 		auto key = it.key().toLocal8Bit();

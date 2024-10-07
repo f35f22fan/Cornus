@@ -2091,7 +2091,7 @@ void App::SubmitThumbLoaderBatchFromTab(
 	QVector<ThumbLoaderArgs*> *new_work_vec,
 	const TabId tab_id, const DirId dir_id)
 {
-	mtl_info("count: %d", new_work_vec->size());
+	mtl_info("count: %lld", new_work_vec->size());
 	if (new_work_vec->isEmpty())
 	{
 		delete new_work_vec;

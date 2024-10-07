@@ -11,9 +11,9 @@
 
 int main(int argc, char *argv[])
 {
-	wl_display *display = cornus::wayland::test();
 	QApplication qapp(argc, argv);
 	cornus::App app;
+	wl_display *display = cornus::wayland::test(&app);
 	QStringList args = qapp.arguments();
 	QList<cornus::tests::Test*> tests;
 	

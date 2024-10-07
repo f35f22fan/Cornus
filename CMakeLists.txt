@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_EXTENSIONS ON)
-#set_target_properties(Cornus PROPERTIES C_STANDARD 99)
+
 add_definitions(-DQT_NO_KEYWORDS)
 
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
@@ -134,7 +134,7 @@ target_link_libraries(${cornus_exe} PRIVATE Qt6::Core5Compat
 	Qt6::Core Qt6::Gui Qt6::Widgets Qt6::DBus Qt6::Test
     ${MTP_LDFLAGS} ${UDISKS_LDFLAGS} ${UDEV_LDFLAGS}
     ${POLKIT_LDFLAGS} ${POLKIT_AGENT_LDFLAGS} ${WEBP_LDFLAGS} pthread zstd wayland-client xkbcommon)
-
+target_compile_options(${cornus_exe} PRIVATE "-Wno-c99-designator")
 
 set_target_properties(${cornus_exe} PROPERTIES
 	WIN32_EXECUTABLE TRUE

@@ -173,6 +173,44 @@ void Table::ClearMouseOver()
 	mouse_over_file_icon_ = -1;
 }
 
+void Table::ClipboardChanged(const ClipboardData &cd, QSet<int> &affected_indices)
+{
+	if (cd.urls.isEmpty()) {
+		return;
+	}
+	
+	io::Files &files = tab_->view_files();
+	{
+		auto g = files.guard();
+		auto &vec = files.data.vec;
+		for (io::File *file: vec)
+		{
+			file->clear_all_actions_if_needed();
+		}
+		int i = -1;
+		for (QUrl url: cd.urls) {
+			i++;
+			QString fp = url.toLocalFile();
+			for (io::File *file: vec)
+			{
+				if (file->build_full_path() == fp) {
+					affected_indices.insert(i);
+					if (cd.action == ClipboardAction::Copy) {
+						file->action_copy(true);
+					} else if (cd.action == ClipboardAction::Cut) {
+						file->action_cut(true);
+					} else if (cd.action == ClipboardAction::Paste) {
+						file->action_paste(true);
+					} else if (cd.action == ClipboardAction::PasteLink) {
+						file->action_paste_link(true);
+					}
+					break;
+				}
+			}
+		}
+	}
+}
+
 void Table::dragEnterEvent(QDragEnterEvent *evt)
 {
 	tab_->DragEnterEvent(evt);

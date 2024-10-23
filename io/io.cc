@@ -803,60 +803,50 @@ FloatToString(const float number, cint precision)
 	return QString::number(number, 'f', precision);
 }
 
-QList<QUrl> GetClipboardFiles(const QMimeData *mime)
+ClipboardData GetClipboardFiles(const QMimeData *mime)
 {
 	QString text = mime->text();
 	/// Need a regex because Nautilus in KDE inserts 'r' instead of just '\n'
 	QRegularExpression regex("[\r\n]");
 	auto list = text.split(regex, Qt::SkipEmptyParts);
 	cbool is_nautilus = text.startsWith(str::NautilusClipboardMime);
-	QList<QUrl> urls;
-	
+	cornus::ClipboardData cd;
 	if (is_nautilus)
 	{
-#ifdef CORNUS_CLIPBOARD_CLIENT_DEBUG
-mtl_info("Nautilus style clipboard");
-#endif
-		//cl.type = ClipboardType::Nautilus;
+		cd.type = ClipboardType::Nautilus;
 		if (list.size() < 3)
-			return urls;
+			return cd;
 		
 		for (int i = 2; i < list.size(); i++) {
 			QUrl url(list[i]);
 			if (url.isLocalFile()) {
-				urls.append(url);
+				cd.urls.append(url);
 			}
 		}
 		
-		// if (list[1] == QLatin1String("cut"))
-		// 	cl.action = ClipboardAction::Cut;
-		// else
-		// 	cl.action = ClipboardAction::Copy;
-		return urls;
+		if (list[1] == QLatin1String("cut"))
+			cd.action = ClipboardAction::Cut;
+		else
+			cd.action = ClipboardAction::Copy;
+		
+		return cd;
 	}
-#ifdef CORNUS_CLIPBOARD_CLIENT_DEBUG
-mtl_info("KDE style clipboard");
-#endif
 	
 	const QByteArray kde_ba = mime->data(str::KdeCutMime);
 	cbool kde_cut_action = (!kde_ba.isEmpty() && kde_ba.at(0) == QLatin1Char('1'));
-	
+	cd.action = kde_cut_action ? ClipboardAction::Cut : ClipboardAction::Copy;
 	if (kde_cut_action) {
-		//cl.type = ClipboardType::KDE;
+		cd.type = ClipboardType::KDE;
 	}
 	
-#ifdef CORNUS_CLIPBOARD_CLIENT_DEBUG
-mtl_info("is cut: %s", kde_cut_action ? "true" : "false");
-#endif
 	for (const auto &next: list) {
 		QUrl url(next);
 		if (url.isLocalFile()) {
-			urls.append(url);
+			cd.urls.append(url);
 		}
 	}
 	
-	//cl.action = kde_cut_action ? ClipboardAction::Cut : ClipboardAction::Copy;
-	return urls;
+	return cd;
 }
 
 QStringView

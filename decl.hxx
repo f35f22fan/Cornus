@@ -310,18 +310,25 @@ enum class FileAs: i8 {
 	FilePath,
 };
 
-enum class ClipboardAction: i8 {
-	None,
+enum class ClipboardAction: u8 {
+	None = 0,
 	Cut,
 	Copy,
 	Link,
 	Paste,
+	PasteLink,
 };
 
-enum class ClipboardType: i8 {
-	None,
+enum class ClipboardType: u8 {
+	None = 0,
 	Nautilus,
 	KDE
+};
+
+struct ClipboardData {
+	QList<QUrl> urls;
+	ClipboardAction action = ClipboardAction::None;
+	ClipboardType type = ClipboardType::None;
 };
 
 enum class PartitionEventType: i8 {

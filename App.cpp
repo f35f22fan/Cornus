@@ -303,6 +303,7 @@ App::App()
 	printf("%#08x\n", i);   // gives 0x000007
 	*/
 	Init();
+	AccessWayland();
 	// QString s = QString::fromUtf8("Schöne Grüße");
 	// auto ba = s.toLocal8Bit();
 	// printf("%s len: %d\n", ba.data(), s.length());
@@ -367,6 +368,11 @@ App::~App()
 	for (auto *shortcut: shortcuts_)
 		delete shortcut;
 	shortcuts_.clear();
+}
+
+void App::AccessWayland()
+{
+	
 }
 
 void App::ApplyDefaultPrefs()
@@ -535,24 +541,17 @@ void App::ClipboardChanged(QClipboard::Mode mode)
 {
 	if (mode != QClipboard::Clipboard)
 		return;
-	QClipboard *clipboard = QApplication::clipboard();
+	QClipboard *clipboard = QGuiApplication::clipboard();
 	const QMimeData *mime = clipboard->mimeData();
 	 // mimeData can be 0 according to https://bugs.kde.org/show_bug.cgi?id=335053
 	if (!mime) {
 		return;
 	}
-#ifdef DEBUG_CLIPBOARD
-	mtl_info("Clipboard changed");
-#endif
-	QList<QUrl> urls = io::GetClipboardFiles(mime);
 	
-	if (urls.isEmpty()) {
-		return;
-	}
-	mtl_tbd();
-	// QSet<int> indices;
-	// tab()->table()->SyncWith(clipboard_, indices);
-	// tab()->table_model()->UpdateIndices(indices);
+	ClipboardData cd = io::GetClipboardFiles(mime);
+	QSet<int> indices;
+	tab()->table()->ClipboardChanged(cd, indices);
+	tab()->table_model()->UpdateIndices(indices);
 }
 
 void App::CloseCurrentTab()

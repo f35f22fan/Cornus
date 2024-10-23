@@ -39,7 +39,7 @@ class App : public QMainWindow {
 public:
 	App();
 	virtual ~App();
-	
+	void AccessWayland();
 	int app_quitting_fd() const { return app_quitting_fd_; }
 	void ArchiveTo(const QString &target_dir_path, const QString &ext);
 	void AskCreateNewFile(io::File *file, const QString &title);

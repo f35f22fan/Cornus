@@ -24,7 +24,7 @@
 
 namespace cornus::gui {
 
-const auto ConnectionType = Qt::BlockingQueuedConnection;
+cauto ConnectionType = Qt::QueuedConnection;
 
 struct RenameData {
 // helper struct to deal with inotify's shitty rename support.
@@ -153,6 +153,9 @@ void SendCreateEvent(TableModel *model, cornus::io::Files *files,
 void SendDeleteEvent(TableModel *model, cornus::io::Files *files,
 	const QString name, const i32 dir_id)
 {
+#ifdef CORNUS_DEBUG_INOTIFY
+	mtl_info("filename: %s", qPrintable(name));
+#endif
 	int index = -1;
 	{
 		auto g = files->guard();
@@ -225,7 +228,7 @@ void ProcessEvents(EventArgs *a)
 #endif
 		}
 		
-		const auto mask = ev->mask;
+		cauto mask = ev->mask;
 		//cbool is_dir = mask & IN_ISDIR;
 		if (mask & (IN_ATTRIB | IN_MODIFY))
 		{
@@ -262,7 +265,7 @@ void ProcessEvents(EventArgs *a)
 				.checked_times = 0 });
 			ren.m.Unlock();
 		} else if (mask & IN_MOVED_TO) {
-			const auto &new_name = name;
+			cauto &new_name = name;
 			Renames &ren = a->renames;
 			ren.m.Lock();
 			QString old_name = TakeTheOtherNameByCookie(ren, ev->cookie);
@@ -278,19 +281,7 @@ void ProcessEvents(EventArgs *a)
 				return;
 			}
 			
-			io::FileEvent evt = {};
-			evt.from_name = old_name;
-			evt.dir_id = a->dir_id;
-			evt.to_name = new_name;
-			evt.type = io::FileEventType::Renamed;
-			QMetaObject::invokeMethod(model, "InotifyEvent",
-				ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
-			
-			if (true)
-				continue;
-			
 			int new_file_index = -1;
-			
 			{
 				auto *files = a->files;
 				auto g = files->guard();
@@ -309,12 +300,12 @@ void ProcessEvents(EventArgs *a)
 					io::ReloadMeta(*new_file, stx, a->env, PrintErrors::No);
 				}
 				std::sort(files_vec.begin(), files_vec.end(), cornus::io::SortFiles);
-				auto *f = Find(files_vec, new_name, &new_file_index);
-				auto ba = f->build_full_path().toLocal8Bit();
 			}
 			
-			evt = {};
+			io::FileEvent evt = {};
 			evt.new_file = 0;
+			evt.from_name = old_name;
+			evt.to_name = new_name;
 			evt.dir_id = a->dir_id;
 			evt.index = new_file_index;
 			evt.type = io::FileEventType::Renamed;
@@ -347,24 +338,21 @@ void ProcessEvents(EventArgs *a)
 #endif
 }
 
-void ReinterpretRenames(Renames &ren,
+void CleanupRenames(Renames &ren,
 	TableModel *model, cornus::io::Files *files, const DirId dir_id)
 {
 	auto g = ren.m.guard();
 	for (int i = ren.vec.size() - 1; i >= 0; i--)
 	{
-		RenameData &next = ren.vec[i];
-		next.checked_times++;
-		if (next.checked_times > 2)
+		RenameData &item = ren.vec[i];
+		item.checked_times++;
+		if (item.checked_times > 2)
 		{
 			// It means that the proper IN_MOVED_TO never arrived, which
 			// means the file was moved to another folder,
 			// not renamed in place, so it's the same as a delete event:
-			SendDeleteEvent(model, files, next.name, dir_id);
+			SendDeleteEvent(model, files, item.name, dir_id);
 			ren.vec.remove(i);
-#ifdef CORNUS_DEBUG_INOTIFY
-			mtl_info("Removed from rename_vec: %s", qPrintable(next.name));
-#endif
 		}
 	}
 }
@@ -463,8 +451,8 @@ void* WatchDir(void *void_args)
 #ifdef CORNUS_DEBUG_INOTIFY
 		mtl_info(" === WatchDir() inotify fd: %d, signal_fd: %d", notify_fd, signal_quit_fd);
 #endif
-	const auto path = args->dir_path.toLocal8Bit();
-	const auto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE
+	cauto path = args->dir_path.toLocal8Bit();
+	cauto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE
 		| IN_DELETE_SELF | IN_MOVE_SELF | IN_CLOSE_WRITE
 		| IN_MOVE;// | IN_MODIFY;
 	cint wd = inotify_add_watch(notify_fd, path.data(), event_types);
@@ -481,7 +469,11 @@ void* WatchDir(void *void_args)
 	files.Unlock();
 	
 	Renames renames = {};
+	
 	CondMutex has_been_unmounted_or_deleted = {};
+	// cause since it's a union it must be set by hand:
+	has_been_unmounted_or_deleted.SetFlag(false);
+	
 	cint epoll_fd = epoll_create(1);
 	if (epoll_fd == -1)
 	{
@@ -514,9 +506,6 @@ void* WatchDir(void *void_args)
 		}
 		
 		cint ms = ren_is_empty ? 50000 : 20;
-#ifdef CORNUS_DEBUG_INOTIFY
-mtl_info("ms: %d", ms);
-#endif
 		cint num_fds = epoll_wait(epoll_fd, evt_vec.data(), evt_vec.size(), ms);
 		if (num_fds == -1)
 		{
@@ -527,9 +516,6 @@ mtl_info("ms: %d", ms);
 			mtl_status(errno);
 			break;
 		}
-		
-//		static int gg = 0;
-//		mtl_info("%d", gg++);
 		
 		bool signalled_from_event_fd = false;
 		for (int i = 0; i < num_fds; i++)
@@ -544,11 +530,11 @@ mtl_info("ms: %d", ms);
 			{
 				cisize buf_len = 4096 * 4;
 				char *buf = new char[buf_len];
-				
 				cisize num_read = read(evt.data.fd, buf, buf_len);
 				if (num_read <= 0) {
 					if (num_read == -1)
 						mtl_status(errno);
+					delete []buf;
 					return nullptr;
 				}
 				files.Lock();
@@ -566,7 +552,6 @@ mtl_info("ms: %d", ms);
 					.renames = renames,
 					.env = env
 				};
-				//std::memcpy(buf, data->iv.iov_base, num_read);
 				ProcessEvents(a);
 			} else if (evt.data.fd == signal_quit_fd) {
 				//mtl_info("Quit fd!");
@@ -584,7 +569,7 @@ mtl_info("ms: %d", ms);
 		
 		if (has_been_unmounted_or_deleted.GetFlag())
 		{
-mtl_info("has_been_unmounted_or_deleted");
+			mtl_info("has_been_unmounted_or_deleted");
 			arw.RemoveWatch(wd);
 			break;
 		}
@@ -602,7 +587,7 @@ mtl_info("has_been_unmounted_or_deleted");
 		cint count_was = renames.vec.size();
 		renames.m.Unlock();
 		if (count_was > 0)
-			ReinterpretRenames(renames, args->table_model, &files, args->dir_id);
+			CleanupRenames(renames, args->table_model, &files, args->dir_id);
 		
 #ifdef CORNUS_DEBUG_INOTIFY
 		renames.m.Lock();
@@ -779,6 +764,7 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 		auto g = files.guard();
 		if (evt.dir_id != files.data.dir_id)
 		{
+			mtl_info("evt.dir_id != files.data.dir_id");
 			if (evt.new_file)
 				delete evt.new_file;
 			return;

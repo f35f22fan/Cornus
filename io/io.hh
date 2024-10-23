@@ -262,7 +262,7 @@ void FillInStx(io::File &file, const struct statx &st, const QString *name);
 
 QString FloatToString(const float number, cint precision);
 
-QList<QUrl> GetClipboardFiles(const QMimeData *mime);
+ClipboardData GetClipboardFiles(const QMimeData *mime);
 
 DirType GetDirType(const QString &full_path);
 

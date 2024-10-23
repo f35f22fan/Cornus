@@ -223,8 +223,12 @@ Tab::~Tab()
 
 void Tab::ActionCopy()
 {
-	QList<QUrl> list = CreateMimeWithSelectedFiles(ClipboardAction::Copy);
-	SendURLsClipboard(list, io::Message::CopyToClipboard);
+	auto *cb = QGuiApplication::clipboard();
+	QList<QUrl> urls = CreateMimeWithSelectedFiles(ClipboardAction::Copy);
+	auto *mime = new QMimeData();
+	mime->setUrls(urls);
+	cb->setMimeData(mime);
+	//SendURLsClipboard(urls, io::Message::CopyToClipboard);
 }
 
 QStringList Tab::FetchFilePaths(const WhichFiles wf)
@@ -274,8 +278,11 @@ void Tab::ActionCopyPaths()
 
 void Tab::ActionCut()
 {
-	QList<QUrl> list = CreateMimeWithSelectedFiles(ClipboardAction::Cut);
-	SendURLsClipboard(list, io::Message::CutToClipboard);
+	auto *cb = QGuiApplication::clipboard();
+	QList<QUrl> urls = CreateMimeWithSelectedFiles(ClipboardAction::Cut);
+	auto *mime = new QMimeData();
+	mime->setUrls(urls);
+	cb->setMimeData(mime);
 }
 
 void Tab::ActionPaste()
@@ -314,7 +321,6 @@ void Tab::ActionPaste()
 	{
 		QString full_path = url.toLocalFile();
 		QString filename = io::GetFileNameOfFullPath(full_path).toString();
-		mtl_printq2("Filename: ", filename);
 		names.append(filename);
 		ba->add_string(full_path);
 	}

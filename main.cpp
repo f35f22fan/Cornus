@@ -7,13 +7,11 @@
 #include <QWidget>
 
 #include "tests.hh"
-#include "wayland.hh"
 
 int main(int argc, char *argv[])
 {
 	QApplication qapp(argc, argv);
 	cornus::App app;
-	wl_display *display = cornus::wayland::test(&app);
 	QStringList args = qapp.arguments();
 	QList<cornus::tests::Test*> tests;
 	
@@ -38,20 +36,15 @@ int main(int argc, char *argv[])
 		mtl_status(app_status);
 	}
 	
-	if (display) {
-		wl_display_disconnect(display);
-		mtl_info("Disconnected");
-	}
-	
-	int status = 0;
+	int last_error = 0;
 	for (cornus::tests::Test *test: tests) {
-		if (status == 0 && test->status() != 0)
-			status = test->status();
+		if (last_error == 0 && test->status() != 0)
+			last_error = test->status();
 		delete test;
 	}
 	
-	if (status) {
-		mtl_status(status);
+	if (last_error) {
+		mtl_status(last_error);
 	} else if (!tests.isEmpty()) {
 		mtl_info("Tests executed successfully");
 	}
@@ -60,7 +53,7 @@ int main(int argc, char *argv[])
 	
 	
 	
-	return status ? status : app_status;
+	return last_error ? last_error : app_status;
 }
 
 

@@ -28,6 +28,7 @@ public:
 	void AutoScroll(const VDirection d);
 	bool CheckIsOnFileName(io::File *file, const int file_row, const QPoint &pos) const;
 	void ClearMouseOver();
+	void ClipboardChanged(const ClipboardData &cd, QSet<int> &affected_indices);
 	const QPoint& drop_coord() const { return drop_coord_; }
 	i32 GetFileAt_NoLock(const QPoint &local_pos, const PickedBy pb, io::File **ret_file = nullptr);
 	io::File* GetFileAt_NoLock(const QPoint &pos, const Clone clone, int *ret_file_index = nullptr);

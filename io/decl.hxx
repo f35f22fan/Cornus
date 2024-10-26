@@ -20,7 +20,7 @@ class Notify;
 class SaveFile;
 class Task;
 
-enum class CloseWriteEvent: i8 {
+enum class IsCloseWriteEvent: i8 {
 	Yes,
 	No
 };

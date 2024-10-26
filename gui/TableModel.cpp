@@ -24,7 +24,7 @@
 
 namespace cornus::gui {
 
-cauto ConnectionType = Qt::QueuedConnection;
+cauto ConnectionType = Qt::BlockingQueuedConnection;
 
 struct RenameData {
 // helper struct to deal with inotify's shitty rename support.
@@ -172,20 +172,22 @@ void SendDeleteEvent(TableModel *model, cornus::io::Files *files,
 }
 
 void SendModifiedEvent(TableModel *model, cornus::io::Files *files,
-	const QString name, const i32 dir_id, const io::CloseWriteEvent cwe)
+	const QString name, const i32 dir_id, const io::IsCloseWriteEvent cwe)
 {
+	//mtl_info("Modified");
 	int index = -1;
 	io::File *found = nullptr;
 	{
 		auto g = files->guard();
 		found = Find(files->data.vec, name, &index);
 		MTL_CHECK_VOID(found);
-		//found = (cwe == io::CloseWriteEvent::Yes) ? found->Clone() : nullptr;
 	}
 	
 	if (found) {
 		found->needs_meta_update(true);
 		found = found->Clone();
+	} else {
+		mtl_warn("File not found");
 	}
 	
 	io::FileEvent evt = {};
@@ -235,7 +237,7 @@ void ProcessEvents(EventArgs *a)
 #ifdef CORNUS_DEBUG_INOTIFY
 			mtl_trace("(IN_ATTRIB | IN_MODIFY): %s", ev->name);
 #endif		
-			SendModifiedEvent(model, a->files, name, a->dir_id, io::CloseWriteEvent::No);
+			SendModifiedEvent(model, a->files, name, a->dir_id, io::IsCloseWriteEvent::No);
 		} else if (mask & IN_CREATE) {
 #ifdef CORNUS_DEBUG_INOTIFY
 			mtl_trace("IN_CREATE: %s", ev->name);
@@ -326,7 +328,7 @@ void ProcessEvents(EventArgs *a)
 			else
 				mtl_trace("IN_CLOSE_WRITE");
 #endif
-			SendModifiedEvent(model, a->files, name, a->dir_id, io::CloseWriteEvent::Yes);
+			SendModifiedEvent(model, a->files, name, a->dir_id, io::IsCloseWriteEvent::Yes);
 		} else if (mask & (IN_IGNORED | IN_CLOSE_NOWRITE)) {
 		} else {
 			mtl_warn("Unhandled inotify event: %u", mask);
@@ -586,15 +588,16 @@ void* WatchDir(void *void_args)
 		renames.m.Lock();
 		cint count_was = renames.vec.size();
 		renames.m.Unlock();
-		if (count_was > 0)
+		if (count_was > 0) {
 			CleanupRenames(renames, args->table_model, &files, args->dir_id);
 		
-#ifdef CORNUS_DEBUG_INOTIFY
-		renames.m.Lock();
-		cint count_is = renames.vec.size();
-		renames.m.Unlock();
-		mtl_trace("was: %d, is: %d", count_was, count_is);
-#endif
+			#ifdef CORNUS_DEBUG_INOTIFY
+					renames.m.Lock();
+					cint count_is = renames.vec.size();
+					renames.m.Unlock();
+					mtl_trace("was: %d, is: %d", count_was, count_is);
+			#endif
+		}
 
 		files.Lock();
 		cint fn_count = files.data.filenames_to_select.size();
@@ -777,8 +780,13 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 #ifdef CORNUS_DEBUG_INOTIFY
 		mtl_info("MODIFIED");
 #endif
-		UpdateSingleRow(evt.index);
 		tab_->FileChanged(evt.type, evt.new_file);
+		
+		//UpdateSingleRow(evt.index);
+		update_index_ = evt.index;
+		QTimer::singleShot(1000, this, &TableModel::UpdateProxy);
+		
+		//mtl_info("MODIFIED");
 		if (reload_meta_cm_.Lock()) {
 			reload_meta_cm_.data.act = true;
 			reload_meta_cm_.Signal();
@@ -1077,6 +1085,11 @@ void TableModel::UpdateIndices(const QSet<int> &indices)
 	} else {
 		UpdateFileIndexRange(min, max);
 	}
+}
+
+void TableModel::UpdateProxy()
+{
+	UpdateSingleRow(update_index_);
 }
 
 void TableModel::UpdateRange(int row1, Column c1, int row2, Column c2)

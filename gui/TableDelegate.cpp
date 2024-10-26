@@ -216,7 +216,7 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	painter->drawText(text_rect, text_alignment_, text);
 	
 	if (!app_->prefs().mark_extended_attrs_disabled() && file->has_ext_attrs()) {
-		QChar circle = QChar(0x26AB);//'\u26AB');
+		QChar circle_str = QChar(0x26AB);//'\u26AB');
 		QList<QColor> colors;
 		
 		if (file->has_last_watched_attr()) {
@@ -242,15 +242,16 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 		}
 		
 		cint count = colors.size();
-		cauto br = fm.boundingRect(circle);
+		cauto circle_h = fm.boundingRect(circle_str).height();
 		cauto h = fm.height();
-		auto r = text_rect;
 		for (int i = 0; i < count; i++)
 		{
 			pen.setColor(colors[i]);
 			painter->setPen(pen);
-			r.setY(r.y() + (i * br.height()));
-			painter->drawText(r, Qt::AlignLeft, circle);
+			auto r = text_rect;
+			cauto y = r.y() + (i * circle_h);
+			r.setY(y);
+			painter->drawText(r, Qt::AlignLeft, circle_str);
 		}
 	}
 	

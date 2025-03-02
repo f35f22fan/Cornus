@@ -156,16 +156,9 @@ void SendDeleteEvent(TableModel *model, cornus::io::Files *files,
 #ifdef CORNUS_DEBUG_INOTIFY
 	mtl_info("filename: %s", qPrintable(name));
 #endif
-	int index = -1;
-	{
-		auto g = files->guard();
-		Find(files->data.vec, name, &index);
-	}
-	
-	MTL_CHECK_VOID(index != -1);
 	io::FileEvent evt = {};
 	evt.dir_id = dir_id;
-	evt.index = index;
+	evt.from_name = name;
 	evt.type = io::FileEventType::Deleted;
 	QMetaObject::invokeMethod(model, "InotifyEvent",
 		ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
@@ -840,18 +833,20 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 		break;
 	}
 	case io::FileEventType::Deleted: {
-		beginRemoveRows(QModelIndex(), evt.index, evt.index);
+		int index = -1;
 		{
 			auto g = files.guard();
-			io::File *file_to_delete = files.data.vec[evt.index]; // ====== here crashes!
-#ifdef CORNUS_DEBUG_INOTIFY
-		mtl_printq2("DELETED: ", file_to_delete->name());
-#endif
-			delete file_to_delete;
-			files.data.vec.remove(evt.index);
-			files.cached_files_count = files.data.vec.size();
+			Find(files.data.vec, evt.from_name, &index);
+			if (index == -1) {
+				return;
+			}
+			beginRemoveRows(QModelIndex(), index, index);
+			{
+				files.data.vec.remove(index);
+				files.cached_files_count = files.data.vec.size();
+			}
+			endRemoveRows();
 		}
-		endRemoveRows();
 		tab_->FileChanged(evt.type);
 		break;
 	}

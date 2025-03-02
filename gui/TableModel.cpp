@@ -24,7 +24,7 @@
 
 namespace cornus::gui {
 
-cauto ConnectionType = Qt::BlockingQueuedConnection;
+cauto ConnectionType = Qt::QueuedConnection;
 
 struct RenameData {
 // helper struct to deal with inotify's shitty rename support.
@@ -843,7 +843,7 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 		beginRemoveRows(QModelIndex(), evt.index, evt.index);
 		{
 			auto g = files.guard();
-			io::File *file_to_delete = files.data.vec[evt.index];
+			io::File *file_to_delete = files.data.vec[evt.index]; // ====== here crashes!
 #ifdef CORNUS_DEBUG_INOTIFY
 		mtl_printq2("DELETED: ", file_to_delete->name());
 #endif

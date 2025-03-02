@@ -89,7 +89,7 @@ QStringList SplitIntoArgs(QString s)
 		
 		if (c == quote)
 		{
-			const bool last_was_bs = last_was_ctrl_bs && (i - 1 >= 0) && (s.at(i - 1) == bs);
+			cbool last_was_bs = last_was_ctrl_bs && (i - 1 >= 0) && (s.at(i - 1) == bs);
 			if (last_was_bs) {
 				arg.append(c);
 				continue;
@@ -387,7 +387,7 @@ void Group::ParseLine(QStringView line,
 		}
 		return;
 	}
-	const bool only_show_in = key == str::OnlyShowIn;
+	cbool only_show_in = key == str::OnlyShowIn;
 	if (only_show_in || key == str::NotShowIn)
 	{
 		QStringList categories = value.split(';', Qt::SkipEmptyParts);
@@ -464,7 +464,7 @@ Priority Group::Supports(const QString &mime, const MimeInfo info,
 		return Priority::Ignore;
 	
 	const Category toolkit = GetToolkitFor(desktop);
-	const bool has_tk = categories_.contains(toolkit);
+	cbool has_tk = categories_.contains(toolkit);
 	
 	if (info != MimeInfo::None)
 	{

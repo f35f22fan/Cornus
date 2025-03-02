@@ -53,7 +53,7 @@ public:
 	virtual ~Tab();
 	
 	void ActionCopy();
-	void ActionCopyPaths();
+	void ActionCopyPaths(const Path path);
 	void ActionPlayInMpv();
 	void ActionCut();
 	void ActionPaste();
@@ -68,7 +68,7 @@ public:
 	void DropEvent(QDropEvent *evt, const ForceDropToCurrentDir fdir);
 	void ExecuteDrop(QVector<io::File *> *files_vec, io::File *to_dir,
 		Qt::DropAction drop_action, Qt::DropActions possible_actions);
-	QStringList FetchFilePaths(const WhichFiles wf = WhichFiles::All);
+	QStringList FetchFilePaths(const Path path, const WhichFiles wf = WhichFiles::All);
 	QList<PathAndMode> FetchFilesInfo(const WhichFiles wf = WhichFiles::All);
 	TabId id() const { return id_; }
 	FilesId files_id() const { return files_id_; }

@@ -76,6 +76,7 @@
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QToolButton>
+#include <QWindow>
 #include <QUrl>
 
 #include <sched.h>
@@ -1141,6 +1142,8 @@ void App::Init()
 	io::NewThread(gui::sidepane::LoadItems, this);
 	io::socket::AutoLoadRegularIODaemon();
 	setWindowIcon(QIcon(cornus::AppIconPath));
+	if (windowHandle())
+		windowHandle()->setIcon(QIcon(cornus::AppIconPath));
 	prefs_ = new Prefs(this);
 	if (!prefs_->Load())
 		ApplyDefaultPrefs();

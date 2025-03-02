@@ -231,7 +231,7 @@ void Tab::ActionCopy()
 	//SendURLsClipboard(urls, io::Message::CopyToClipboard);
 }
 
-QStringList Tab::FetchFilePaths(const WhichFiles wf)
+QStringList Tab::FetchFilePaths(const Path path, const WhichFiles wf)
 {
 	QStringList list;
 	auto &files = view_files();
@@ -240,7 +240,8 @@ QStringList Tab::FetchFilePaths(const WhichFiles wf)
 		for (io::File *next: files.data.vec)
 		{
 			if (wf == WhichFiles::All || next->is_selected()) {
-				list.append(next->build_full_path());
+				const auto s = (path == Path::Full) ? next->build_full_path() : next->name();
+				list.append(s);
 			}
 		}
 	}
@@ -265,9 +266,9 @@ QList<PathAndMode> Tab::FetchFilesInfo(const WhichFiles wf)
 	return list;
 }
 
-void Tab::ActionCopyPaths()
+void Tab::ActionCopyPaths(const Path path)
 {
-	auto list = FetchFilePaths(WhichFiles::Selected);
+	auto list = FetchFilePaths(path, WhichFiles::Selected);
 	QString s;
 	for (auto next: list) {
 		s.append(next + '\n');
@@ -396,7 +397,7 @@ void Tab::ActionPasteLinks(const LinkType link)
 
 void Tab::ActionPlayInMpv()
 {
-	auto paths = io::MergeList(FetchFilePaths(WhichFiles::Selected), '\n');
+	auto paths = io::MergeList(FetchFilePaths(Path::Full, WhichFiles::Selected), '\n');
 	if (paths.isEmpty())
 		return;
 	
@@ -1638,9 +1639,13 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 		});
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-copy")));
 		
+		action = menu->addAction(tr("Copy Names"));
+		connect(action, &QAction::triggered, [=] { ActionCopyPaths(Path::OnlyName); });
+		action->setIcon(QIcon::fromTheme(QLatin1String("edit-copy")));
+		
 		action = menu->addAction(tr("Copy Paths"));
 		//action->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_C));
-		connect(action, &QAction::triggered, [=] { ActionCopyPaths(); });
+		connect(action, &QAction::triggered, [=] { ActionCopyPaths(Path::Full); });
 		action->setIcon(QIcon::fromTheme(QLatin1String("edit-copy")));
 		
 		action = menu->addAction(tr("Play in MPV"));

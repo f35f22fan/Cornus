@@ -2,7 +2,7 @@
 #include "gui/Tab.hpp"
 
 #include <cstdlib>
-
+#include <iostream>
 #include <QApplication>
 #include <QWidget>
 
@@ -11,6 +11,12 @@
 int main(int argc, char *argv[])
 {
 	QApplication qapp(argc, argv);
+	
+	// QString s = "Jos\u{65}\u{301}";
+	// mtl_info("String count: %lld (%s)", s.size(), qPrintable(s));
+	// s = QString::fromUtf8(u8"abc\U00010139def\U00010102g");
+	// mtl_info("Size: %lld, \"%s\"", s.size(), qPrintable(s));
+	
 	cornus::App app;
 	QStringList args = qapp.arguments();
 	QList<cornus::tests::Test*> tests;
@@ -50,8 +56,6 @@ int main(int argc, char *argv[])
 	}
 	
 	tests.clear();
-	
-	
 	
 	return last_error ? last_error : app_status;
 }

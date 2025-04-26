@@ -72,7 +72,7 @@ public:
 	QList<PathAndMode> FetchFilesInfo(const WhichFiles wf = WhichFiles::All);
 	TabId id() const { return id_; }
 	FilesId files_id() const { return files_id_; }
-	void FileChanged(const io::FileEventType evt, io::File *cloned_file = nullptr);
+	void NotivyViewsOfFileChange(const io::FileEventType evt, io::File *cloned_file = nullptr);
 	int GetScrollValue() const;
 	int GetVisibleFileIndex();
 	void MarkLastWatchedFile();

@@ -703,8 +703,10 @@ void Tab::ExecuteDrop(QVector<io::File*> *files_vec,
 	io::socket::SendAsync(ba, socket_path);
 }
 
-void Tab::FileChanged(const io::FileEventType evt, io::File *cloned_file)
+void Tab::NotivyViewsOfFileChange(const io::FileEventType evt, io::File *cloned_file)
 {
+	// The detailed view processes first in TableModel::InotifyEvent()
+	AutoDelete ad(cloned_file);
 	// File changes are monitored only in TableModel.cpp which represents
 	// the detailed view, which is why the detailed view uses
 	// this method to inform the icon view of changes.

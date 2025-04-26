@@ -1636,21 +1636,17 @@ bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &en
 	}
 	
 	QByteArray full_path = full_path_str.toLocal8Bit();
-	const auto flags = AT_SYMLINK_NOFOLLOW;
-	const auto fields = STATX_ALL;
-	bool stat_ok = true;
+	cauto flags = AT_SYMLINK_NOFOLLOW;
+	cauto fields = STATX_ALL;
 	if (statx(0, full_path.data(), flags, fields, &stx) != 0)
 	{
 		if (pe == PrintErrors::Yes)
 			mtl_warn("statx(): %s: \"%s\"", strerror(errno), full_path.data());
-		stat_ok = false;
+		return false;
 	}
 	
-	if (stat_ok)
-	{
-		FillInStx(file, stx, nullptr);
-		ReadXAttrs(file, full_path);
-	}
+	FillInStx(file, stx, nullptr);
+	ReadXAttrs(file, full_path);
 	
 	if (file.is_symlink())
 	{

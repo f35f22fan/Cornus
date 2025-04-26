@@ -232,11 +232,9 @@ void IconView::DisplayingNewDirectory(const DirId dir_id, const Reload r)
 
 void IconView::FileChanged(const io::FileEventType evt, io::File *cloned_file)
 {
-	if (cloned_file)
+	if (evt == io::FileEventType::Modified && cloned_file)
 	{
-		if (evt != io::FileEventType::Renamed)
-			SendLoadingNewThumbnail(cloned_file);
-		delete cloned_file;
+		SendLoadingNewThumbnail(cloned_file);
 	}
 	
 	if (is_current_view())

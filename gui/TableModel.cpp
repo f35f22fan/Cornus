@@ -129,7 +129,7 @@ void InsertFile(io::File *new_file, QVector<io::File*> &files_vec,
 }
 
 void SendCreateEvent(TableModel *model, cornus::io::Files *files,
-	const QString new_name, const i32 dir_id)
+	const QString new_name, ci32 dir_id)
 {
 	io::File *new_file = new io::File(files);
 	new_file->name(new_name);
@@ -138,20 +138,22 @@ void SendCreateEvent(TableModel *model, cornus::io::Files *files,
 	auto &env = model->app()->env();
 	if (!io::ReloadMeta(*new_file, stx, env, PrintErrors::No))
 	{
+		mtl_trace();
 		delete new_file;
 		return;
 	}
 	
 	io::FileEvent evt = {};
+	evt.type = io::FileEventType::Created;
 	evt.new_file = new_file;
 	evt.dir_id = dir_id;
-	evt.type = io::FileEventType::Created;
-	QMetaObject::invokeMethod(model, "InotifyEvent",
+	
+	QMetaObject::invokeMethod(model, "InotifyEventInGuiThread",
 		ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
 }
 
 void SendDeleteEvent(TableModel *model, cornus::io::Files *files,
-	const QString name, const i32 dir_id)
+	const QString name, ci32 dir_id)
 {
 #ifdef CORNUS_DEBUG_INOTIFY
 	mtl_info("filename: %s", qPrintable(name));
@@ -160,35 +162,17 @@ void SendDeleteEvent(TableModel *model, cornus::io::Files *files,
 	evt.dir_id = dir_id;
 	evt.from_name = name;
 	evt.type = io::FileEventType::Deleted;
-	QMetaObject::invokeMethod(model, "InotifyEvent",
+	QMetaObject::invokeMethod(model, "InotifyEventInGuiThread",
 		ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
 }
 
-void SendModifiedEvent(TableModel *model, cornus::io::Files *files,
-	const QString name, const i32 dir_id, const io::IsCloseWriteEvent cwe)
+void SendModifiedEvent(TableModel *model, QString name, ci32 dir_id)
 {
-	//mtl_info("Modified");
-	int index = -1;
-	io::File *found = nullptr;
-	{
-		auto g = files->guard();
-		found = Find(files->data.vec, name, &index);
-		MTL_CHECK_VOID(found);
-	}
-	
-	if (found) {
-		found->needs_meta_update(true);
-		found = found->Clone();
-	} else {
-		mtl_warn("File not found");
-	}
-	
 	io::FileEvent evt = {};
-	evt.new_file = found;
+	evt.from_name = name;
 	evt.dir_id = dir_id;
-	evt.index = index;
 	evt.type = io::FileEventType::Modified;
-	QMetaObject::invokeMethod(model, "InotifyEvent",
+	QMetaObject::invokeMethod(model, "InotifyEventInGuiThread",
 		ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
 }
 
@@ -230,7 +214,7 @@ void ProcessEvents(EventArgs *a)
 #ifdef CORNUS_DEBUG_INOTIFY
 			mtl_trace("(IN_ATTRIB | IN_MODIFY): %s", ev->name);
 #endif		
-			SendModifiedEvent(model, a->files, name, a->dir_id, io::IsCloseWriteEvent::No);
+			SendModifiedEvent(model, name, a->dir_id);
 		} else if (mask & IN_CREATE) {
 #ifdef CORNUS_DEBUG_INOTIFY
 			mtl_trace("IN_CREATE: %s", ev->name);
@@ -271,40 +255,18 @@ void ProcessEvents(EventArgs *a)
 #endif
 			if (old_name.isEmpty())
 			{
-				mtl_info("was dragged into this dir");
+				mtl_info("was dragged from the outside into this dir");
 				SendCreateEvent(model, a->files, new_name, a->dir_id);
 				return;
 			}
 			
-			int new_file_index = -1;
-			{
-				auto *files = a->files;
-				auto g = files->guard();
-				auto &files_vec = a->files->data.vec;
-				int file_index;
-				io::File *file_to_replace = Find(files_vec, new_name, &file_index);
-				if (file_to_replace) {
-					auto path = file_to_replace->build_full_path().toLocal8Bit();
-					delete file_to_replace;
-					files_vec.remove(file_index);
-				}
-				
-				io::File *new_file = Find(files_vec, old_name, &file_index);
-				if (new_file) {
-					new_file->name(new_name);
-					io::ReloadMeta(*new_file, stx, a->env, PrintErrors::No);
-				}
-				std::sort(files_vec.begin(), files_vec.end(), cornus::io::SortFiles);
-			}
-			
 			io::FileEvent evt = {};
+			evt.type = io::FileEventType::Renamed;
 			evt.new_file = 0;
 			evt.from_name = old_name;
 			evt.to_name = new_name;
 			evt.dir_id = a->dir_id;
-			evt.index = new_file_index;
-			evt.type = io::FileEventType::Renamed;
-			QMetaObject::invokeMethod(model, "InotifyEvent",
+			QMetaObject::invokeMethod(model, "InotifyEventInGuiThread",
 				ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
 		} else if (mask & IN_Q_OVERFLOW) {
 			mtl_warn("IN_Q_OVERFLOW");
@@ -321,7 +283,7 @@ void ProcessEvents(EventArgs *a)
 			else
 				mtl_trace("IN_CLOSE_WRITE");
 #endif
-			SendModifiedEvent(model, a->files, name, a->dir_id, io::IsCloseWriteEvent::Yes);
+			SendModifiedEvent(model, name, a->dir_id);
 		} else if (mask & (IN_IGNORED | IN_CLOSE_NOWRITE)) {
 		} else {
 			mtl_warn("Unhandled inotify event: %u", mask);
@@ -753,7 +715,7 @@ mtl_printq2("Selecting name ", select_name);
 	}
 }
 
-void TableModel::InotifyEvent(cornus::io::FileEvent evt)
+void TableModel::InotifyEventInGuiThread(cornus::io::FileEvent evt)
 {
 	auto &files = tab_->view_files();
 	{
@@ -770,23 +732,25 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 	switch (evt.type)
 	{
 	case io::FileEventType::Modified: {
-#ifdef CORNUS_DEBUG_INOTIFY
-		mtl_info("MODIFIED");
-#endif
-		tab_->FileChanged(evt.type, evt.new_file);
-		
-		//UpdateSingleRow(evt.index);
-		update_index_ = evt.index;
-		QTimer::singleShot(1000, this, &TableModel::UpdateProxy);
-		
-		//mtl_info("MODIFIED");
-		if (reload_meta_cm_.Lock()) {
-			reload_meta_cm_.data.act = true;
-			reload_meta_cm_.Signal();
-			reload_meta_cm_.Unlock();
-		} else {
-			cauto name = evt.new_file->name().toLocal8Bit();
-			mtl_info("Failed to lock for file %s", name.data());
+		io::File *cloned_file = nullptr;
+		{
+			auto g = files.guard();
+			
+			int index;
+			Find(files.data.vec, evt.from_name, &index);
+			delete evt.new_file;
+			evt.new_file = nullptr;
+			if (index == -1) {
+				return;
+			}
+			io::File *file = files.data.vec[index];
+			struct statx stx;
+			if (io::ReloadMeta(*file, stx, app_->env(), PrintErrors::No))
+				cloned_file = file->Clone();
+		}
+		if (cloned_file) {
+			tab_->NotivyViewsOfFileChange(evt.type, cloned_file);
+			UpdateVisibleArea();
 		}
 		break;
 	}
@@ -797,39 +761,20 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 		io::File *cloned_file = nullptr;
 		int index = -1;
 		{
-			files.Lock();
-			QVector<io::File*> &files_vec = files.data.vec;
-			cint count = files_vec.size();
-			for (int i = 0; i < count; i++)
-			{
-				io::File *next = files_vec[i];
-				if (next->name() == evt.new_file->name())
-				{
-					evt.new_file->CopyBits(next);
-					cloned_file = evt.new_file->Clone();
-					delete next;
-					files_vec[i] = evt.new_file;
-					evt.new_file = nullptr;
-					files.Unlock();
-					tab_->FileChanged(io::FileEventType::Modified, cloned_file);
-					return;
-				}
-			}
-			
-			index = FindPlace(evt.new_file, files_vec);
-			files.Unlock();
+			auto g = files.guard();
+			index = FindPlace(evt.new_file, files.data.vec);
 		}
 		beginInsertRows(QModelIndex(), index, index);
 		{
 			auto g = files.guard();
-			evt.new_file->CountDirFiles();
+			// evt.new_file->CountDirFiles();
 			files.data.vec.insert(index, evt.new_file);
 			cloned_file = evt.new_file->Clone();
 			evt.new_file = nullptr;
 			files.cached_files_count = files.data.vec.size();
 		}
 		endInsertRows();
-		tab_->FileChanged(evt.type, cloned_file);
+		tab_->NotivyViewsOfFileChange(evt.type, cloned_file);
 		break;
 	}
 	case io::FileEventType::Deleted: {
@@ -837,17 +782,20 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 		{
 			auto g = files.guard();
 			Find(files.data.vec, evt.from_name, &index);
-			if (index == -1) {
-				return;
-			}
-			beginRemoveRows(QModelIndex(), index, index);
-			{
-				files.data.vec.remove(index);
-				files.cached_files_count = files.data.vec.size();
-			}
-			endRemoveRows();
 		}
-		tab_->FileChanged(evt.type);
+	
+		if (index == -1)
+			return;
+		
+		beginRemoveRows(QModelIndex(), index, index);
+		{
+			auto g = files.guard();
+			files.data.vec.remove(index);
+			files.cached_files_count = files.data.vec.size();
+		}
+		endRemoveRows();
+		
+		tab_->NotivyViewsOfFileChange(evt.type);
 		break;
 	}
 	case io::FileEventType::Renamed: {
@@ -860,35 +808,21 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 		auto &files = tab_->view_files();
 		int file_index = -1;
 		{
-			struct statx stx;
 			auto g = files.guard();
 			auto &files_vec = files.data.vec;
-			io::File *file_to_replace = Find(files_vec, evt.to_name, &file_index);
-			if (file_to_replace) {
-				beginRemoveRows(QModelIndex(), file_index, file_index);
-				delete file_to_replace;
-				files_vec.remove(file_index);
-				endRemoveRows();
+			io::File *file_to_rename = Find(files_vec, evt.from_name, &file_index);
+			file_to_rename->name(evt.to_name);
+			QStringView ext1 = io::GetFileNameExtension(evt.from_name);
+			QStringView ext2 = io::GetFileNameExtension(evt.to_name);
+			if (ext1 != ext2) {
+				struct statx stx;
+				io::ReloadMeta(*file_to_rename, stx, app_->env(), PrintErrors::No);
 			}
-			
-			io::File *new_file = Find(files_vec, evt.from_name, &file_index);
-			if (new_file) {
-				new_file->name(evt.to_name);
-			} else {
-				new_file = new io::File(&files);
-				new_file->name(evt.to_name);
-				beginInsertRows(QModelIndex(), 0, 0);
-				files_vec.append(new_file);
-				endInsertRows();
-			}
-			io::ReloadMeta(*new_file, stx, app_->env(), PrintErrors::No);
 			std::sort(files_vec.begin(), files_vec.end(), cornus::io::SortFiles);
-			Find(files_vec, evt.to_name, &file_index);
-			mtl_info("file_index: %d, name: %s", file_index, qPrintable(evt.to_name));
 		}
 		
 		UpdateVisibleArea();
-		//tab_->FileChanged(io::FileEventType::Renamed, evt.new_file);
+		tab_->NotivyViewsOfFileChange(io::FileEventType::Renamed, nullptr);
 		break;
 	}
 	default: {
@@ -899,7 +833,7 @@ void TableModel::InotifyEvent(cornus::io::FileEvent evt)
 	
 }
 
-bool TableModel::InsertRows(const i32 at, const QVector<cornus::io::File*> &files_to_add)
+bool TableModel::InsertRows(ci32 at, const QVector<cornus::io::File*> &files_to_add)
 {
 	io::Files &files = tab_->view_files();
 	{
@@ -942,7 +876,7 @@ bool TableModel::removeRows(int row, int count, const QModelIndex &parent)
 		auto &vec = files.data.vec;
 		
 		for (int i = count - 1; i >= 0; i--) {
-			const i32 index = first + i;
+			ci32 index = first + i;
 			auto *item = vec[index];
 			vec.erase(vec.begin() + index);
 			delete item;

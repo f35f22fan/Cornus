@@ -75,7 +75,7 @@ public:
 	void UpdateHeaderNameColumn();
 	
 public Q_SLOTS:
-	void InotifyEvent(cornus::io::FileEvent evt);
+	void InotifyEventInGuiThread(cornus::io::FileEvent evt);
 	void SelectFilesAfterInotifyBatch();
 	void UpdatedFilesArrived(QList<io::File*> needles);
 	void UpdateProxy();

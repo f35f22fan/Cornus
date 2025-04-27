@@ -251,7 +251,7 @@ void ProcessEvents(EventArgs *a)
 			ren.m.Unlock();
 #ifdef CORNUS_DEBUG_INOTIFY
 			mtl_info("IN_MOVED_TO new_name: \"%s\", old_name: \"%s\", cookie %d",
-				qPrintable(name), qPrintable(old_name), ev->cookie);
+				qPrintable(new_name), qPrintable(old_name), ev->cookie);
 #endif
 			if (old_name.isEmpty())
 			{
@@ -758,23 +758,7 @@ void TableModel::InotifyEventInGuiThread(cornus::io::FileEvent evt)
 #ifdef CORNUS_DEBUG_INOTIFY
 		mtl_printq2("CREATED: ", evt.new_file->name());
 #endif
-		io::File *cloned_file = nullptr;
-		int index = -1;
-		{
-			auto g = files.guard();
-			index = FindPlace(evt.new_file, files.data.vec);
-		}
-		beginInsertRows(QModelIndex(), index, index);
-		{
-			auto g = files.guard();
-			// evt.new_file->CountDirFiles();
-			files.data.vec.insert(index, evt.new_file);
-			cloned_file = evt.new_file->Clone();
-			evt.new_file = nullptr;
-			files.cached_files_count = files.data.vec.size();
-		}
-		endInsertRows();
-		tab_->NotivyViewsOfFileChange(evt.type, cloned_file);
+		InsertFile(evt.new_file);
 		break;
 	}
 	case io::FileEventType::Deleted: {
@@ -784,17 +768,7 @@ void TableModel::InotifyEventInGuiThread(cornus::io::FileEvent evt)
 			Find(files.data.vec, evt.from_name, &index);
 		}
 	
-		if (index == -1)
-			return;
-		
-		beginRemoveRows(QModelIndex(), index, index);
-		{
-			auto g = files.guard();
-			files.data.vec.remove(index);
-			files.cached_files_count = files.data.vec.size();
-		}
-		endRemoveRows();
-		
+		RemoveFile(index);
 		tab_->NotivyViewsOfFileChange(evt.type);
 		break;
 	}
@@ -806,23 +780,45 @@ void TableModel::InotifyEventInGuiThread(cornus::io::FileEvent evt)
 		);
 #endif
 		auto &files = tab_->view_files();
-		int file_index = -1;
+		int remove_index = -1;
 		{
 			auto g = files.guard();
-			auto &files_vec = files.data.vec;
-			io::File *file_to_rename = Find(files_vec, evt.from_name, &file_index);
-			file_to_rename->name(evt.to_name);
-			QStringView ext1 = io::GetFileNameExtension(evt.from_name);
-			QStringView ext2 = io::GetFileNameExtension(evt.to_name);
-			if (ext1 != ext2) {
-				struct statx stx;
-				io::ReloadMeta(*file_to_rename, stx, app_->env(), PrintErrors::No);
+			Find(files.data.vec, evt.to_name, &remove_index);
+		}
+			
+		RemoveFile(remove_index);
+		bool found_from_file = false;
+		{
+			auto g = files.guard();
+			for (io::File *file: files.data.vec) {
+				if (file->name() == evt.from_name) {
+					found_from_file = true;
+					file->name(evt.to_name);
+					QStringView ext1 = io::GetFileNameExtension(evt.from_name);
+					QStringView ext2 = io::GetFileNameExtension(evt.to_name);
+					if (ext1 != ext2) {
+						struct statx stx;
+						io::ReloadMeta(*file, stx, app_->env(), PrintErrors::No);
+					}
+					std::sort(files.data.vec.begin(), files.data.vec.end(), cornus::io::SortFiles);
+					break;
+				}
 			}
-			std::sort(files_vec.begin(), files_vec.end(), cornus::io::SortFiles);
 		}
 		
-		UpdateVisibleArea();
-		tab_->NotivyViewsOfFileChange(io::FileEventType::Renamed, nullptr);
+		if (!found_from_file) {
+			io::File *new_file = new io::File(&files);
+			new_file->name(evt.to_name);
+			struct statx stx;
+			io::ReloadMeta(*new_file, stx, app_->env(), PrintErrors::No);
+			io::File *cloned_file = new_file->Clone();
+			InsertFile(new_file);
+			UpdateVisibleArea();
+			tab_->NotivyViewsOfFileChange(io::FileEventType::Created, cloned_file);
+		} else {
+			UpdateVisibleArea();
+			tab_->NotivyViewsOfFileChange(io::FileEventType::Renamed, nullptr);
+		}
 		break;
 	}
 	default: {
@@ -886,6 +882,40 @@ bool TableModel::removeRows(int row, int count, const QModelIndex &parent)
 	endRemoveRows();
 	
 	return true;
+}
+
+void TableModel::InsertFile(io::File *new_file) {
+	io::File *cloned_file = nullptr;
+	auto &files = tab_->view_files();
+	int index = -1;
+	{
+		auto g = files.guard();
+		index = FindPlace(new_file, files.data.vec);
+	}
+	beginInsertRows(QModelIndex(), index, index);
+	{
+		auto g = files.guard();
+		files.data.vec.insert(index, new_file);
+		cloned_file = new_file->Clone();
+		files.cached_files_count = files.data.vec.size();
+	}
+	endInsertRows();
+	tab_->NotivyViewsOfFileChange(io::FileEventType::Created, cloned_file);
+}
+
+void TableModel::RemoveFile(cint index) {
+	if (index < 0) {
+		return;
+	}
+	beginRemoveRows(QModelIndex(), index, index);
+	{
+		auto &files = tab_->view_files();
+		auto g = files.guard();
+		delete files.data.vec[index];
+		files.data.vec.remove(index);
+		files.cached_files_count = files.data.vec.size();
+	}
+	endRemoveRows();
 }
 
 int TableModel::rowCount(const QModelIndex &parent) const

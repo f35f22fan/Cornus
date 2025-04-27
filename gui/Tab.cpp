@@ -703,20 +703,6 @@ void Tab::ExecuteDrop(QVector<io::File*> *files_vec,
 	io::socket::SendAsync(ba, socket_path);
 }
 
-void Tab::NotivyViewsOfFileChange(const io::FileEventType evt, io::File *cloned_file)
-{
-	// The detailed view processes first in TableModel::InotifyEvent()
-	AutoDelete ad(cloned_file);
-	// File changes are monitored only in TableModel.cpp which represents
-	// the detailed view, which is why the detailed view uses
-	// this method to inform the icon view of changes.
-	auto *iv = icon_view();
-	if (iv)
-	{
-		iv->FileChanged(evt, cloned_file);
-	}
-}
-
 int Tab::GetScrollValue() const
 {
 	if (view_mode_ == ViewMode::Details)
@@ -1242,6 +1228,25 @@ void Tab::MarkSelectedFilesAsWatched() {
 	auto g = files.guard(Lock::Yes);
 	QList<io::File*> vec = files.GetSelectedFiles(Lock::No, Clone::No);
 	files.MarkFilesAsWatched(Lock::No, vec);
+}
+
+void Tab::NotivyViewsOfFileChange(const io::FileEventType evt, io::File *cloned_file)
+{
+	// The detailed view processes first in TableModel::InotifyEvent()
+	AutoDelete ad(cloned_file);
+	// File changes are monitored only in TableModel.cpp which represents
+	// the detailed view, which is why the detailed view uses
+	// this method to inform the icon view of changes.
+	auto *iv = icon_view();
+	if (iv)
+	{
+		io::File *file = (cloned_file != nullptr) ? cloned_file->Clone() : nullptr;
+		// it's because each view might use a new thread to load specific data
+		// like thumbnail of this file and it might be in a separate thread,
+		// thus each view must get its clone, and `cloned_file` must be freed at
+		// this function's end no matter what.
+		iv->FileChanged(evt, file);
+	}
 }
 
 void Tab::PaintMagnified(QWidget *viewport, const QStyleOptionViewItem &option)

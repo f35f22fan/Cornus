@@ -82,6 +82,8 @@ public Q_SLOTS:
 private:
 	
 	QString GetName() const;
+	void InsertFile(io::File *new_file);
+	void RemoveFile(cint index);
 	
 	cornus::App *app_ = nullptr;
 	gui::Tab *tab_ = nullptr;

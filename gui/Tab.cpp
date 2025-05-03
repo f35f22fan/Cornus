@@ -1052,6 +1052,13 @@ void Tab::HandleMouseRightClickSelection(const QPoint &pos, QSet<int> &indices)
 	}
 }
 
+gui::IconView* Tab::icon_view() {
+	if (!icon_view_) {
+		AddIconsView();
+	}
+	return icon_view_;
+}
+
 void Tab::Init()
 {
 	setFocusPolicy(Qt::WheelFocus);
@@ -1246,6 +1253,8 @@ void Tab::NotivyViewsOfFileChange(const io::FileEventType evt, io::File *cloned_
 		// thus each view must get its clone, and `cloned_file` must be freed at
 		// this function's end no matter what.
 		iv->FileChanged(evt, file);
+	} else {
+		mtl_warn("icon view is null!");
 	}
 }
 

@@ -21,8 +21,7 @@ File::~File()
 		link_target_ = 0;
 	}
 	
-	delete cache_.thumbnail;
-	cache_.thumbnail = 0;
+	ClearThumbnail();
 	
 	delete cache_.desktop_file;
 	cache_.desktop_file = 0;
@@ -51,6 +50,14 @@ void File::ClearXAttrs()
 		delete cache_.media_preview;
 		cache_.media_preview = nullptr;
 	}
+}
+
+void File::ClearThumbnail() {
+	delete cache_.thumbnail;
+	cache_.thumbnail = 0;
+	ext_attrs_.remove(media::XAttrThumbnail);
+	// QVector<QString> names = {media::XAttrThumbnail};
+	// io::RemoveEFA(build_full_path(), names);
 }
 
 File* File::Clone(const CloneFileOption opt) const
@@ -142,6 +149,16 @@ const QString& File::dir_path(const Lock l) const
 	if (unlock)
 		files_->Unlock();
 	return s;
+}
+
+bool File::extensionCanHaveThumbnail() const {
+	if (cache_.ext == QLatin1String("webp"))
+		return true;
+	
+	auto extension = cache_.ext.toLocal8Bit();
+	static cauto formats = QImageReader::supportedImageFormats();
+	
+	return formats.contains(extension);
 }
 
 bool File::has_exec_bit() const {
@@ -236,14 +253,11 @@ bool File::ShouldTryLoadingThumbnail()
 	if (!is_regular() || cache_.tried_loading_thumbnail)
 		return false;
 	
-	static cauto formats = QImageReader::supportedImageFormats();
-	cbool is_webp = (cache_.ext == QLatin1String("webp"));
-	auto ext_ba = cache_.ext.toLocal8Bit();
-	
-	if (!is_webp && !formats.contains(ext_ba))
+	if (!extensionCanHaveThumbnail()) {
 		return false;
+	}
 	
-	if (has_thumbnail_attr() && IsThumbnailMarkedFailed())
+	if (has_thumbnail_attr() || IsThumbnailMarkedFailed())
 		return false;
 	
 	return (cache_.thumbnail == nullptr);

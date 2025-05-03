@@ -64,6 +64,8 @@ struct WatchArgs {
 io::File* Find(const QVector<io::File*> &vec,
 	const QString &name, int *index)
 {
+	if (index)
+		*index = -1;
 	int i = -1;
 	for (io::File *file : vec)
 	{
@@ -118,14 +120,6 @@ QString TakeTheOtherNameByCookie(Renames &ren, const u32 cookie)
 	}
 	
 	return QString();
-}
-
-void InsertFile(io::File *new_file, QVector<io::File*> &files_vec,
-	int *inserted_at)
-{
-	mtl_check_void(inserted_at != 0);
-	*inserted_at = FindPlace(new_file, files_vec);
-	files_vec.insert(*inserted_at, new_file);
 }
 
 void SendCreateEvent(TableModel *model, cornus::io::Files *files,
@@ -787,26 +781,32 @@ void TableModel::InotifyEventInGuiThread(cornus::io::FileEvent evt)
 		}
 			
 		RemoveFile(remove_index);
-		bool found_from_file = false;
+		io::File *from_file = nullptr;
 		{
 			auto g = files.guard();
 			for (io::File *file: files.data.vec) {
 				if (file->name() == evt.from_name) {
-					found_from_file = true;
 					file->name(evt.to_name);
+					// file->ClearThumbnail();
 					QStringView ext1 = io::GetFileNameExtension(evt.from_name);
 					QStringView ext2 = io::GetFileNameExtension(evt.to_name);
 					if (ext1 != ext2) {
 						struct statx stx;
 						io::ReloadMeta(*file, stx, app_->env(), PrintErrors::No);
 					}
+					from_file = file->Clone();
 					std::sort(files.data.vec.begin(), files.data.vec.end(), cornus::io::SortFiles);
 					break;
 				}
 			}
 		}
 		
-		if (!found_from_file) {
+		if (from_file) {
+			mtl_trace();
+			UpdateVisibleArea();
+			tab_->NotivyViewsOfFileChange(io::FileEventType::Renamed, from_file);
+		} else {
+			mtl_trace();
 			io::File *new_file = new io::File(&files);
 			new_file->name(evt.to_name);
 			struct statx stx;
@@ -815,9 +815,6 @@ void TableModel::InotifyEventInGuiThread(cornus::io::FileEvent evt)
 			InsertFile(new_file);
 			UpdateVisibleArea();
 			tab_->NotivyViewsOfFileChange(io::FileEventType::Created, cloned_file);
-		} else {
-			UpdateVisibleArea();
-			tab_->NotivyViewsOfFileChange(io::FileEventType::Renamed, nullptr);
 		}
 		break;
 	}
@@ -895,8 +892,8 @@ void TableModel::InsertFile(io::File *new_file) {
 	beginInsertRows(QModelIndex(), index, index);
 	{
 		auto g = files.guard();
-		files.data.vec.insert(index, new_file);
 		cloned_file = new_file->Clone();
+		files.data.vec.insert(index, new_file);
 		files.cached_files_count = files.data.vec.size();
 	}
 	endInsertRows();

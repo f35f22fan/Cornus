@@ -232,8 +232,11 @@ void IconView::DisplayingNewDirectory(const DirId dir_id, const Reload r)
 
 void IconView::FileChanged(const io::FileEventType evt, io::File *cloned_file)
 {
-	if (evt == io::FileEventType::Modified && cloned_file)
+	cbool anyof = (evt == io::FileEventType::Modified) ||
+		(evt == io::FileEventType::Created) || (evt == io::FileEventType::Renamed);
+	if (anyof && cloned_file)
 	{
+		// mtl_info("Sending loading new thumbnail for %s", qPrintable(cloned_file->name()));
 		SendLoadingNewThumbnail(cloned_file);
 	}
 	
@@ -667,8 +670,11 @@ void IconView::SendLoadingNewThumbnailsBatch()
 void IconView::SendLoadingNewThumbnail(io::File *cloned_file)
 {
 	mtl_check_void(cloned_file);
-	if (!cloned_file->ShouldTryLoadingThumbnail())
+	// if (!cloned_file->ShouldTryLoadingThumbnail())
+	// 	return;
+	if (!cloned_file->extensionCanHaveThumbnail()) {
 		return;
+	}
 	
 	auto &files = tab_->view_files();
 	MTL_CHECK_VOID(files.Lock());

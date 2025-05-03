@@ -91,7 +91,7 @@ public:
 	void FocusView();
 	void HandleMouseRightClickSelection(const QPoint &pos, QSet<int> &indices);
 	History* history() const { return history_; }
-	gui::IconView* icon_view() const { return icon_view_; }
+	gui::IconView* icon_view();
 	void KeyPressEvent(QKeyEvent *evt);
 	float list_speed() const { return list_speed_; }
 	QString ListSpeedString() const;

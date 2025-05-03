@@ -106,10 +106,12 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 			drect.setX(drect.x() + bounding_rect.width());
 			painter->drawText(drect, text_alignment_, desktop_fn);
 		}
-	} else if (file->thumbnail() != nullptr || file->has_thumbnail_attr()) {
+	} else if (file->thumbnail() || file->has_thumbnail_attr()) {
+		mtl_info("%s has thumbnail_attr(): %s", qPrintable(file->name()),
+			file->has_thumbnail_attr() ? "true" : "false");
 		i32 w = -1, h = -1;
 		Thumbnail *thmb = file->thumbnail();
-		if (thmb != nullptr) {
+		if (thmb) {
 			w = thmb->original_image_w;
 			h = thmb->original_image_h;
 		} else {

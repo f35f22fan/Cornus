@@ -256,14 +256,13 @@ void Files::SetLastWatched(const enum Lock l, io::File *needle)
 	auto g = guard(l);
 	for (io::File *next: data.vec)
 	{
-		//cauto name = next->name().toLocal8Bit();
 		if (needle->id() == next->id())
 		{
 			next->WatchProp(Op::Invert, media::WatchProps::LastWatched);
-			//mtl_info("Inverted: %s", name.data());
+			// mtl_info("LastWatched Inverted: %s", qPrintable(next->name()));
 		} else if (next->has_last_watched_attr()) {
 			next->WatchProp(Op::Remove, media::WatchProps::LastWatched);
-			//mtl_info("Removed: %s", name.data());
+			// mtl_info("LastWatched Removed: %s", qPrintable(next->name()));
 		}
 	}
 }

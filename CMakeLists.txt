@@ -71,8 +71,6 @@ set(cornus_src_files
     thumbnail.cc thumbnail.hh
     TreeData.cpp TreeData.hpp
     ui.cc ui.hh
-    wayland.cc wayland.hh
-    xdg-shell-protocol.c xdg-shell-client-protocol.h
 
     gui/actions.hxx
     gui/AttrsDialog.cpp gui/AttrsDialog.hpp

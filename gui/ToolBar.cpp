@@ -59,6 +59,26 @@ ToolBar::Add(QMenu *menu, const QString &text,
 	
 }
 
+void ToolBar::ChangeView()
+{
+	Tab *tab = app_->tab();
+	cauto from_mode = tab->view_mode();
+	ViewMode to_mode = ViewMode::None;
+	
+	if (from_mode == ViewMode::Details)
+	{
+		to_mode = ViewMode::Icons;
+		AdjustGui(to_mode);
+	} else if (from_mode == ViewMode::Icons || from_mode == ViewMode::None) {
+		to_mode = ViewMode::Details;
+		AdjustGui(to_mode);
+	}
+	
+	if (from_mode != ViewMode::None) {
+		tab->SetViewMode(to_mode);
+	}
+}
+
 void ToolBar::CreateGui()
 {
 	action_back_ = Add(actions::GoBack, QLatin1String("go-previous"));
@@ -72,7 +92,7 @@ void ToolBar::CreateGui()
 	view_action_ = new QAction();
 	actions_.append(view_action_);
 	addAction(view_action_);
-	connect(view_action_, &QAction::triggered, this, &ToolBar::ViewChanged);
+	connect(view_action_, &QAction::triggered, this, &ToolBar::ChangeView);
 	
 	QToolButton* prefs_menu_btn = new QToolButton(this);
 	addWidget(prefs_menu_btn);
@@ -189,26 +209,6 @@ void ToolBar::UpdateIcons(History *p)
 	action_back_->setEnabled(index > 0);
 	action_fwd_->setEnabled(index < (size - 1));
 	action_up_->setEnabled(app_->tab()->current_dir() != QLatin1String("/"));
-}
-
-void ToolBar::ViewChanged()
-{
-	Tab *tab = app_->tab();
-	const auto view_was = tab->view_mode();
-	ViewMode mode = ViewMode::None;
-	
-	if (view_was == ViewMode::Details)
-	{
-		mode = ViewMode::Icons;
-		AdjustGui(mode);
-	} else if (view_was == ViewMode::Icons || view_was == ViewMode::None) {
-		mode = ViewMode::Details;
-		AdjustGui(mode);
-	}
-	
-	if (view_was != ViewMode::None) {
-		tab->SetViewMode(mode);
-	}
 }
 
 void ToolBar::AdjustGui(const ViewMode new_mode)

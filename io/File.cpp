@@ -257,8 +257,12 @@ bool File::ShouldTryLoadingThumbnail()
 		return false;
 	}
 	
-	if (has_thumbnail_attr() || IsThumbnailMarkedFailed())
-		return false;
+	// if (has_thumbnail_attr()) // || IsThumbnailMarkedFailed())
+	// {
+	// 	mtl_warn("%s: has_th_attr: %d, isThMarkedFailed: %d",
+	// 		qPrintable(name()), has_thumbnail_attr(), IsThumbnailMarkedFailed());
+	// 	return false;
+	// }
 	
 	return (cache_.thumbnail == nullptr);
 }

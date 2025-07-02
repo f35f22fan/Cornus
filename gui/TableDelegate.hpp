@@ -31,11 +31,11 @@ public:
 	
 private:
 	void DrawFileName(QPainter *painter, io::File *file, const int row,
-		const QStyleOptionViewItem &option, QFontMetrics &fm,
+		const QStyleOptionViewItem &option, QFontMetricsF &fm,
 		const QRect &text_rect) const;
 	
 	void DrawIcon(QPainter *painter, io::File *file, const int row,
-		const QStyleOptionViewItem &option, QFontMetrics &fm,
+		const QStyleOptionViewItem &option, QFontMetricsF &fm,
 		const QRect &text_rect) const;
 	
 	void DrawMediaAttrs(io::File *file, QPainter *painter,
@@ -43,11 +43,11 @@ private:
 		const int filename_w) const;
 	
 	void DrawSize(QPainter *painter, io::File *file,
-		const QStyleOptionViewItem &option, QFontMetrics &fm,
+		const QStyleOptionViewItem &option, QFontMetricsF &fm,
 		const QRect &text_rect) const;
 	
 	void DrawTime(QPainter *painter, io::File *file,
-		const QStyleOptionViewItem &option, QFontMetrics &fm,
+		const QStyleOptionViewItem &option, QFontMetricsF &fm,
 		const QRect &text_rect, const Column col) const;
 	
 	App *app_ = nullptr;

@@ -68,7 +68,7 @@ public:
 	int CellIndexInNextRow(const int file_index, const VDirection vdir);
 	void SendLoadingNewThumbnailsBatch();
 	void SendLoadingNewThumbnail(io::File *cloned_file);
-	void SetAsCurrentView(const NewState ns);
+	void SetViewState(const NewState ns);
 	QSize size() const;
 	virtual QSize sizeHint() const override { return size(); }
 	

@@ -658,8 +658,7 @@ void IconView::SendLoadingNewThumbnailsBatch()
 				continue;
 			
 			file->cache().tried_loading_thumbnail = true;
-			auto *arg = ThumbLoaderArgsFromFile(tab_, file, dir_id,
-				max_img_w, max_img_h);
+			auto *arg = ThumbLoaderArgsFromFile(tab_, file, dir_id, max_img_w, max_img_h);
 			work_stack->append(arg);
 		}
 	}
@@ -693,14 +692,14 @@ void IconView::SendLoadingNewThumbnail(io::File *cloned_file)
 	app_->SubmitThumbLoaderFromTab(arg);
 }
 
-void IconView::SetAsCurrentView(const NewState ns)
+void IconView::SetViewState(const NewState ns)
 {
 	if (ns == NewState::AboutToSet)
 	{
 		UpdateScrollRange();
-		SendLoadingNewThumbnailsBatch();
+		// SendLoadingNewThumbnailsBatch();
 	} else if (ns == NewState::Set) {
-		//SendLoadingNewThumbnailsBatch();
+		SendLoadingNewThumbnailsBatch();
 	}
 }
 

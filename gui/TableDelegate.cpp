@@ -47,7 +47,7 @@ TableDelegate::~TableDelegate() {
 void
 TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	cint row, const QStyleOptionViewItem &option,
-	QFontMetrics &fm, const QRect &text_rect) const
+	QFontMetricsF &fm, const QRect &text_rect) const
 {
 	const auto filename_width = fm.horizontalAdvance(file->name());
 	
@@ -107,8 +107,8 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 			painter->drawText(drect, text_alignment_, desktop_fn);
 		}
 	} else if (file->thumbnail() || file->has_thumbnail_attr()) {
-		mtl_info("%s has thumbnail_attr(): %s", qPrintable(file->name()),
-			file->has_thumbnail_attr() ? "true" : "false");
+		// mtl_info("%s has thumbnail_attr(): %s", qPrintable(file->name()),
+		// 	file->has_thumbnail_attr() ? "true" : "false");
 		i32 w = -1, h = -1;
 		Thumbnail *thmb = file->thumbnail();
 		if (thmb) {
@@ -188,7 +188,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 void
 TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	cint row,
-	const QStyleOptionViewItem &option, QFontMetrics &fm,
+	const QStyleOptionViewItem &option, QFontMetricsF &fm,
 	const QRect &text_rect) const
 {
 	cbool mouse_over = table_->mouse_over_file_icon_index() == row;
@@ -218,7 +218,7 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	painter->drawText(text_rect, text_alignment_, text);
 	
 	if (!app_->prefs().mark_extended_attrs_disabled() && file->has_ext_attrs()) {
-		QChar circle_str = QChar(0x26AB);//'\u26AB');
+		QChar circle_str = 'o';// QChar(0x26AB);//'\u26AB');
 		QList<QColor> colors;
 		
 		if (file->has_last_watched_attr()) {
@@ -235,12 +235,12 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 		}
 		if (file->has_thumbnail_attr()) {
 			//mtl_info("has thumbnail");
-			colors.append(QColor(0, 100, 0));
+			colors.append(QColor(159, 0, 255)); // violet
 		}
 		
 		if (colors.isEmpty()) {
-			//mtl_info("is empty");
-			colors.append(QColor(100, 100, 100));
+			// mtl_info("is empty: %s", qPrintable(file->name()));
+			// colors.append(QColor(100, 100, 100));
 		}
 		
 		cint count = colors.size();
@@ -251,7 +251,7 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 			pen.setColor(colors[i]);
 			painter->setPen(pen);
 			auto r = text_rect;
-			cauto y = r.y() + (i * circle_h);
+			cauto y = r.y() + (i * circle_h) - circle_h + 1;
 			r.setY(y);
 			painter->drawText(r, Qt::AlignLeft, circle_str);
 		}
@@ -267,7 +267,7 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	if (transparent)
 		painter->setOpacity(0.5f);
 	
-	QRect tr = fm.boundingRect(text);
+	QRectF tr = fm.boundingRect(text);
 	QRect icon_rect = text_rect;
 	icon_rect.setX(tr.width() + 6);
 	icon_rect.setWidth(icon_rect.width() - tr.width() - 2);
@@ -383,7 +383,7 @@ void TableDelegate::DrawMediaAttrs(io::File *file, QPainter *painter,
 
 void
 TableDelegate::DrawSize(QPainter *painter, io::File *file,
-	const QStyleOptionViewItem &option, QFontMetrics &fm,
+	const QStyleOptionViewItem &option, QFontMetricsF &fm,
 	const QRect &text_rect) const
 {
 	QString text = file->SizeToString();
@@ -400,7 +400,7 @@ TableDelegate::DrawSize(QPainter *painter, io::File *file,
 
 void
 TableDelegate::DrawTime(QPainter *painter, io::File *file,
-	const QStyleOptionViewItem &option, QFontMetrics &fm,
+	const QStyleOptionViewItem &option, QFontMetricsF &fm,
 	const QRect &text_rect, const Column col) const
 {
 	const struct statx_timestamp &stx = (col == Column::TimeCreated)
@@ -417,7 +417,7 @@ TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 {
 	RestorePainter rp(painter);
 	painter->setRenderHint(QPainter::Antialiasing);
-	QFontMetrics fm(option.font);
+	QFontMetricsF fm(option.font);
 	
 	if (min_name_w_ == -1) {
 		min_name_w_ = fm.horizontalAdvance(QLatin1String("w")) * 7;

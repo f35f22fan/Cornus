@@ -20,7 +20,7 @@ public:
 	void SyncViewModeWithCurrentTab();
 	
 protected:
-	void ViewChanged();
+	void ChangeView();
 	
 private:
 	QAction* Add(QMenu *menu, const QString &text, const QString &action_name,

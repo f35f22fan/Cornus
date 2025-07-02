@@ -231,41 +231,6 @@ void Tab::ActionCopy()
 	//SendURLsClipboard(urls, io::Message::CopyToClipboard);
 }
 
-QStringList Tab::FetchFilePaths(const Path path, const WhichFiles wf)
-{
-	QStringList list;
-	auto &files = view_files();
-	{
-		auto g = files.guard();
-		for (io::File *next: files.data.vec)
-		{
-			if (wf == WhichFiles::All || next->is_selected()) {
-				const auto s = (path == Path::Full) ? next->build_full_path() : next->name();
-				list.append(s);
-			}
-		}
-	}
-	
-	return list;
-}
-
-QList<PathAndMode> Tab::FetchFilesInfo(const WhichFiles wf)
-{
-	QList<PathAndMode> list;
-	auto &files = view_files();
-	{
-		auto g = files.guard();
-		for (io::File *next: files.data.vec)
-		{
-			if (wf == WhichFiles::All || next->is_selected()) {
-				list.append(next->path_and_mode());
-			}
-		}
-	}
-	
-	return list;
-}
-
 void Tab::ActionCopyPaths(const Path path)
 {
 	auto list = FetchFilePaths(path, WhichFiles::Selected);
@@ -282,6 +247,7 @@ void Tab::ActionCut()
 	auto *cb = QGuiApplication::clipboard();
 	QList<QUrl> urls = CreateMimeWithSelectedFiles(ClipboardAction::Cut);
 	auto *mime = new QMimeData();
+	mime->data(str::KdeCutMime);
 	mime->setUrls(urls);
 	cb->setMimeData(mime);
 }
@@ -701,6 +667,41 @@ void Tab::ExecuteDrop(QVector<io::File*> *files_vec,
 	}
 	
 	io::socket::SendAsync(ba, socket_path);
+}
+
+QStringList Tab::FetchFilePaths(const Path path, const WhichFiles wf)
+{
+	QStringList list;
+	auto &files = view_files();
+	{
+		auto g = files.guard();
+		for (io::File *next: files.data.vec)
+		{
+			if (wf == WhichFiles::All || next->is_selected()) {
+				const auto s = (path == Path::Full) ? next->build_full_path() : next->name();
+				list.append(s);
+			}
+		}
+	}
+	
+	return list;
+}
+
+QList<PathAndMode> Tab::FetchFilesInfo(const WhichFiles wf)
+{
+	QList<PathAndMode> list;
+	auto &files = view_files();
+	{
+		auto g = files.guard();
+		for (io::File *next: files.data.vec)
+		{
+			if (wf == WhichFiles::All || next->is_selected()) {
+				list.append(next->path_and_mode());
+			}
+		}
+	}
+	
+	return list;
 }
 
 int Tab::GetScrollValue() const
@@ -1222,19 +1223,25 @@ QString Tab::ListSpeedString() const
 
 void Tab::MarkLastWatchedFile()
 {
-	auto &files = view_files();
-	auto guard = files.guard(Lock::Yes);
-	io::File *file;
-	cint index = files.GetFirstSelectedFile(Lock::No, &file, Clone::No);
-	if (index != -1)
-		files.SetLastWatched(Lock::No, file);
+	{
+		auto &files = view_files();
+		auto guard = files.guard(Lock::Yes);
+		io::File *file;
+		cint index = files.GetFirstSelectedFile(Lock::No, &file, Clone::No);
+		if (index != -1)
+			files.SetLastWatched(Lock::No, file);
+	}
+	UpdateView();
 }
 
 void Tab::MarkSelectedFilesAsWatched() {
-	auto &files = view_files();
-	auto g = files.guard(Lock::Yes);
-	QList<io::File*> vec = files.GetSelectedFiles(Lock::No, Clone::No);
-	files.MarkFilesAsWatched(Lock::No, vec);
+	{
+		auto &files = view_files();
+		auto g = files.guard(Lock::Yes);
+		QList<io::File*> vec = files.GetSelectedFiles(Lock::No, Clone::No);
+		files.MarkFilesAsWatched(Lock::No, vec);
+	}
+	UpdateView();
 }
 
 void Tab::NotivyViewsOfFileChange(const io::FileEventType evt, io::File *cloned_file)
@@ -1499,12 +1506,12 @@ void Tab::SetTitle(const QString &s)
 	w->setTabText(index, short_title);
 }
 
-void Tab::SetViewMode(const ViewMode mode)
+void Tab::SetViewMode(const ViewMode to_mode)
 {
-	const bool sync_scroll = app_->prefs().sync_views_scroll_location();
+	cbool sync_scroll = app_->prefs().sync_views_scroll_location();
 	cint last_file_index = sync_scroll ? GetVisibleFileIndex() : -1;
-	view_mode_ = mode;
-	switch (view_mode_)
+	view_mode_ = to_mode;
+	switch (to_mode)
 	{
 	case ViewMode::Details: {
 		viewmode_stack_->setCurrentIndex(details_view_index_);
@@ -1515,9 +1522,9 @@ void Tab::SetViewMode(const ViewMode mode)
 		if (icon_view_ == nullptr) {
 			AddIconsView();
 		}
-		icon_view_->SetAsCurrentView(NewState::AboutToSet);
+		icon_view_->SetViewState(NewState::AboutToSet);
 		viewmode_stack_->setCurrentIndex(icons_view_index_);
-		icon_view_->SetAsCurrentView(NewState::Set);
+		icon_view_->SetViewState(NewState::Set);
 		break;
 	}
 	default: {

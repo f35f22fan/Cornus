@@ -8,6 +8,7 @@
 #include "TreeModel.hpp"
 
 #include <QApplication>
+#include <QClipboard>
 #include <QDir>
 #include <QDrag>
 #include <QMouseEvent>
@@ -254,6 +255,7 @@ void TreeView::mousePressEvent(QMouseEvent *evt)
 		MTL_CHECK_VOID(node != nullptr);
 		
 		if (node->mounted() || node->is_bookmark()) {
+			mtl_info("%s", qPrintable(node->mount_path()));
 			DirPath dp = { node->mount_path(), Processed::No };
 			app_->tab()->GoTo(Action::To, dp);
 		}
@@ -346,17 +348,32 @@ void TreeView::ShowRightClickMenu(const QPoint &global_pos, const QPoint &local_
 		action->setIcon(QIcon::fromTheme(QLatin1String("insert-text")));
 	} else if (node->is_partition()) {
 		if (node->mounted()) {
-			QAction *action = menu_->addAction(tr("&Unmount"));
-			action->setIcon(QIcon::fromTheme(QLatin1String("media-eject")));
-			connect(action, &QAction::triggered, [=] () {
-				ExecCommand(node, PartitionEventType::Unmount);
-			});
+			{
+				QAction *action = menu_->addAction(tr("&Unmount"));
+				action->setIcon(QIcon::fromTheme(QLatin1String("media-eject")));
+				connect(action, &QAction::triggered, [=] () {
+					ExecCommand(node, PartitionEventType::Unmount);
+				});
+			}
 		} else {
 			QAction *action = menu_->addAction(tr("&Mount"));
 			action->setIcon(QIcon::fromTheme(QLatin1String("media-eject")));
 			connect(action, &QAction::triggered, [=] () {
 				ExecCommand(node, PartitionEventType::Mount);
 			});
+		}
+		
+		{
+			QString path = node->mount_path();
+			if (path.isEmpty()) {
+				path = node->dev_path();
+			}
+			QString c = tr("Copy");
+			c.append(' ');
+			QAction *action = menu_->addAction(c + path);
+			action->setIcon(QIcon::fromTheme(QLatin1String("edit-copy")));
+			QClipboard *clipboard = QGuiApplication::clipboard();
+			clipboard->setText(path);
 		}
 	}
 	

@@ -141,9 +141,10 @@ private:
 	void AddIconsView();
 	void AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path);
 	bool AnyArchive(const QVector<QString> &extensions) const;
-	QList<QUrl> CreateMimeWithSelectedFiles(const ClipboardAction action);
+	QMimeData* CreateMimeWithSelectedFiles(const ClipboardAction action);
 	QVector<QAction*>
 	CreateOpenWithList(const QString &full_path);
+	ClipboardAction GetClipboardAction(const QMimeData *mime);
 	/// returns row index & cloned file if on file name, otherwise -1
 	int GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file, QString *full_path = nullptr);
 	void Init();

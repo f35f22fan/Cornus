@@ -81,8 +81,8 @@ enum class Message: MessageType {
 	SendDefaultDesktopFileForFullPath,
 	SendDesktopFilesById,
 	SendAllDesktopFiles,
-	CopyToClipboard,
-	CutToClipboard,
+	// CopyToClipboard,
+	// CutToClipboard,
 	DeleteFiles,
 	EmptyTrashRecursively,
 	MoveToTrash,
@@ -323,10 +323,10 @@ inline bool NewThread(void* (*start_routine)(void *), void *arg,
 	return (status == 0);
 }
 
-void PasteLinks(const QList<QUrl> &urls,
+void PasteLinks(const QList<QString> &urls,
 	QString target_dir, QVector<QString> *filenames, QString *err = nullptr);
 
-void PasteRelativeLinks(QList<QUrl> &full_paths, QString target_dir,
+void PasteRelativeLinks(QList<QString> &full_paths, QString target_dir,
 	QVector<QString> *filenames, QString *err = nullptr);
 
 QString PrepareTestingFolder(QStringView subdir);

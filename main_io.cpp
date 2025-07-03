@@ -105,18 +105,6 @@ void* ProcessRequestTh(void *ptr)
 		close(fd);
 		return nullptr;
 	}
-	case io::Message::CopyToClipboard: {
-		close(fd);
-		QMetaObject::invokeMethod(daemon, "CopyURLsToClipboard",
-		ConnectionType, Q_ARG(ByteArray*, &ba));
-		return nullptr;
-	}
-	case io::Message::CutToClipboard: {
-		close(fd);
-		QMetaObject::invokeMethod(daemon, "CutURLsToClipboard",
-		ConnectionType, Q_ARG(ByteArray*, &ba));
-		return nullptr;
-	}
 	case io::Message::EmptyTrashRecursively: {
 		close(fd);
 		QString dir_path = ba.next_string();

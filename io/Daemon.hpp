@@ -45,8 +45,6 @@ public:
 	QProcessEnvironment env() { return env_; }
 	
 public Q_SLOTS:
-	void CutURLsToClipboard(ByteArray *ba);
-	void CopyURLsToClipboard(ByteArray *ba);
 	bool EmptyTrashRecursively(QString dir_path, const bool notify_user);
 	void LoadDesktopFiles();
 	void LoadDesktopFilesFrom(QString dir_path, const QProcessEnvironment &env);

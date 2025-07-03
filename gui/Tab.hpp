@@ -144,7 +144,7 @@ private:
 	QMimeData* CreateMimeWithSelectedFiles(const ClipboardAction action);
 	QVector<QAction*>
 	CreateOpenWithList(const QString &full_path);
-	ClipboardAction GetClipboardAction(const QMimeData *mime);
+	ClipboardAction GetClipboardData(QList<QString> &urls);
 	/// returns row index & cloned file if on file name, otherwise -1
 	int GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file, QString *full_path = nullptr);
 	void Init();

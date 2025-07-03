@@ -324,44 +324,6 @@ void Daemon::CheckOldThumbnails()
 	}
 }
 
-void Daemon::CopyURLsToClipboard(ByteArray *ba)
-{
-	QMimeData *mime = new QMimeData();
-	
-	QList<QUrl> urls;
-	QString prefix = QLatin1String("file://");
-	while (ba->has_more())
-	{
-		QString s = prefix + ba->next_string();
-		mtl_printq2("URL: ", s);
-		urls.append(QUrl(s));
-	}
-	
-	mime->setUrls(urls);
-	QClipboard *clip = QApplication::clipboard();
-	clip->setMimeData(mime);
-	mtl_info("Done");
-}
-
-void Daemon::CutURLsToClipboard(ByteArray *ba)
-{
-	QMimeData *mime = new QMimeData();
-	
-	QList<QUrl> urls;
-	while (ba->has_more()) {
-		urls.append(QUrl(ba->next_string()));
-	}
-	
-	mime->setUrls(urls);
-	
-	QByteArray kde_mark;
-	char c = '1';
-	kde_mark.append(c);
-	mime->setData(str::KdeCutMime, kde_mark);
-	
-	QApplication::clipboard()->setMimeData(mime);
-}
-
 bool Daemon::EmptyTrashRecursively(QString dp, const bool notify_user)
 {
 	if (!dp.endsWith('/'))

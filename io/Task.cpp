@@ -491,7 +491,9 @@ Task* Task::From(cornus::ByteArray &ba, const HasSecret hs)
 	while(ba.has_more())
 	{
 		QString s = ba.next_string();
-		task->file_paths_.append(s);
+		QUrl url = QUrl::fromUserInput(s);
+		task->urls_.append(url);
+		task->file_paths_.append(url.toLocalFile());
 		//mtl_printq(s);
 	}
 	
@@ -592,9 +594,7 @@ mtl_trace();
 			data().ChangeState(io::TaskState::Finished);
 			return;
 		}
-mtl_trace();
 		CopyFiles();
-mtl_trace();
 	} else if (ops_ & (MessageType)Message::Move) {
 		if (!FixDestDir())
 		{

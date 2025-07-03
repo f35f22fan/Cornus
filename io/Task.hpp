@@ -168,6 +168,7 @@ private:
 	io::MessageType ops_ = 0;
 	QString to_dir_path_;
 	QVector<QString> file_paths_;
+	QList<QUrl> urls_;
 	struct statx stx_;
 };
 

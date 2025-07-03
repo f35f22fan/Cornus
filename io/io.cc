@@ -1173,7 +1173,7 @@ QString NewNamePattern(QStringView filename, i32 &next)
 	return base_name.toString() + num_str + '.' + ext.toString();
 }
 
-void PasteLinks(const QList<QUrl> &urls,
+void PasteLinks(const QList<QString> &urls,
 	QString target_dir, QVector<QString> *filenames, QString *error)
 {
 	if (!target_dir.endsWith('/'))
@@ -1181,7 +1181,7 @@ void PasteLinks(const QList<QUrl> &urls,
 	
 	for (cauto &url: urls)
 	{
-		QString in_full_path = url.toLocalFile();
+		QString in_full_path = url;//url.toLocalFile();
 		QString filename = io::GetFileNameOfFullPath(in_full_path).toString();
 		if (filename.isEmpty())
 			continue;
@@ -1210,15 +1210,15 @@ void PasteLinks(const QList<QUrl> &urls,
 	}
 }
 
-void PasteRelativeLinks(QList<QUrl> &full_paths,
+void PasteRelativeLinks(QList<QString> &full_paths,
 	QString target_dir, QVector<QString> *filenames, QString *error)
 {
 	if (!target_dir.endsWith('/'))
 		target_dir.append('/');
 	
-	for (const QUrl &url: full_paths)
+	for (const QString &url: full_paths)
 	{
-		const QString full_path = url.toLocalFile();
+		const QString full_path = url;// url.toLocalFile();
 		QString filename = io::GetFileNameOfFullPath(full_path).toString();
 		if (filename.isEmpty()) {
 			mtl_trace();

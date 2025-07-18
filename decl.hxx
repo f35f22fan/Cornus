@@ -314,14 +314,13 @@ enum class ClipboardAction: u8 {
 	None = 0,
 	Cut,
 	Copy,
-	Link,
 	Paste,
 	PasteLink,
 };
 
 enum class ClipboardType: u8 {
 	None = 0,
-	Nautilus,
+	Gnome,
 	KDE
 };
 

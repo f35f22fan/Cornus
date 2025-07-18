@@ -202,7 +202,8 @@ DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
 	scaled_h = pic_h / scale_ratio;
 	
 	cauto img_x = x + (max_img_w - scaled_w) / 2;
-	painter.drawPixmap(img_x, y, scaled_w, scaled_h, pixmap);
+	cint off = 10;
+	painter.drawPixmap(img_x + off, y + off, scaled_w - off*2, scaled_h - off*2, pixmap);
 	
 	return DrawBorder::Yes;
 //	cauto area_img = scaled_w * scaled_h;

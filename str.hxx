@@ -3,7 +3,6 @@
 #include <QString>
 
 namespace cornus::str {
-static const QString NautilusClipboardMime = QLatin1String("x-special/nautilus-clipboard");
 static const QString GnomeCopiedFiles = QLatin1String("x-special/gnome-copied-files");
 static const QString KdeCutMime = QStringLiteral("application/x-kde-cutselection");
 static const QString Desktop = QStringLiteral("desktop");

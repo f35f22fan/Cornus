@@ -549,7 +549,7 @@ void App::ClipboardChanged(QClipboard::Mode mode)
 		return;
 	}
 	
-	ClipboardData cd = io::GetClipboardFiles(mime);
+	ClipboardData cd = GetClipboardData();
 	QSet<int> indices;
 	tab()->table()->ClipboardChanged(cd, indices);
 	tab()->table_model()->UpdateIndices(indices);
@@ -962,6 +962,57 @@ FilesId App::GenNextFilesId()
 	next_files_id_++;
 	files_.insert(next_files_id_, new io::Files());
 	return next_files_id_;
+}
+
+ClipboardData App::GetClipboardData() {
+	QClipboard *clipboard = QApplication::clipboard();
+	const QMimeData *mime = clipboard->mimeData();
+	cornus::ClipboardData cb_data = {};
+	QByteArray ba = mime->data(str::KdeCutMime);
+	if (!ba.isEmpty()) {
+		cb_data.type = ClipboardType::KDE;
+		cb_data.action = (ba == "1") ? ClipboardAction::Cut : ClipboardAction::Copy;
+		
+		for (const QUrl &url: mime->urls())
+		{
+			cb_data.urls.append(url);
+		}
+		
+		return cb_data;
+	}
+	
+	ba = mime->data(str::GnomeCopiedFiles);
+	if (!ba.isEmpty()) {
+		cb_data.type = ClipboardType::Gnome;
+		QString s(ba);
+		QRegularExpression regex("[\r\n]");
+		QList<QString> lines = s.split(regex, Qt::SkipEmptyParts);
+		if (lines.isEmpty()) {
+			return cb_data;
+		}
+		
+		QString action = lines[0];
+		if (action == "cut") {
+			cb_data.action = ClipboardAction::Cut;
+		} else if (action == "copy") {
+			cb_data.action = ClipboardAction::Copy;
+		}
+		
+		for (qsizetype i = 1; i < lines.size(); i++) {
+			cb_data.urls.append(QUrl(lines[i]));
+		}
+		
+		return cb_data;
+	}
+	
+	if (mime->hasUrls()) {
+		cb_data.type = ClipboardType::KDE;
+		cb_data.action = ClipboardAction::Copy;
+		QList<QUrl> urls = mime->urls();
+		cb_data.urls = urls;
+	}
+	
+	return cb_data;
 }
 
 QIcon* App::GetDefaultIcon()

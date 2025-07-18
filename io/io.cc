@@ -803,52 +803,6 @@ FloatToString(const float number, cint precision)
 	return QString::number(number, 'f', precision);
 }
 
-ClipboardData GetClipboardFiles(const QMimeData *mime)
-{
-	QString text = mime->text();
-	/// Need a regex because Nautilus in KDE inserts 'r' instead of just '\n'
-	QRegularExpression regex("[\r\n]");
-	auto list = text.split(regex, Qt::SkipEmptyParts);
-	cbool is_nautilus = text.startsWith(str::NautilusClipboardMime);
-	cornus::ClipboardData cd;
-	if (is_nautilus)
-	{
-		cd.type = ClipboardType::Nautilus;
-		if (list.size() < 3)
-			return cd;
-		
-		for (int i = 2; i < list.size(); i++) {
-			QUrl url(list[i]);
-			if (url.isLocalFile()) {
-				cd.urls.append(url);
-			}
-		}
-		
-		if (list[1] == QLatin1String("cut"))
-			cd.action = ClipboardAction::Cut;
-		else
-			cd.action = ClipboardAction::Copy;
-		
-		return cd;
-	}
-	
-	const QByteArray kde_ba = mime->data(str::KdeCutMime);
-	cbool kde_cut_action = (!kde_ba.isEmpty() && kde_ba.at(0) == QLatin1Char('1'));
-	cd.action = kde_cut_action ? ClipboardAction::Cut : ClipboardAction::Copy;
-	if (kde_cut_action) {
-		cd.type = ClipboardType::KDE;
-	}
-	
-	for (const auto &next: list) {
-		QUrl url(next);
-		if (url.isLocalFile()) {
-			cd.urls.append(url);
-		}
-	}
-	
-	return cd;
-}
-
 QStringView
 GetFileNameExtension(QStringView name, QStringView *base_name)
 {
@@ -1173,7 +1127,7 @@ QString NewNamePattern(QStringView filename, i32 &next)
 	return base_name.toString() + num_str + '.' + ext.toString();
 }
 
-void PasteLinks(const QList<QString> &urls,
+void PasteLinks(const QList<QUrl> &urls,
 	QString target_dir, QVector<QString> *filenames, QString *error)
 {
 	if (!target_dir.endsWith('/'))
@@ -1181,7 +1135,7 @@ void PasteLinks(const QList<QString> &urls,
 	
 	for (cauto &url: urls)
 	{
-		QString in_full_path = url;//url.toLocalFile();
+		QString in_full_path = url.toLocalFile();
 		QString filename = io::GetFileNameOfFullPath(in_full_path).toString();
 		if (filename.isEmpty())
 			continue;
@@ -1210,15 +1164,15 @@ void PasteLinks(const QList<QString> &urls,
 	}
 }
 
-void PasteRelativeLinks(QList<QString> &full_paths,
+void PasteRelativeLinks(const QList<QUrl> &full_paths,
 	QString target_dir, QVector<QString> *filenames, QString *error)
 {
 	if (!target_dir.endsWith('/'))
 		target_dir.append('/');
 	
-	for (const QString &url: full_paths)
+	for (cauto &url: full_paths)
 	{
-		const QString full_path = url;// url.toLocalFile();
+		const QString full_path = url.toLocalFile();
 		QString filename = io::GetFileNameOfFullPath(full_path).toString();
 		if (filename.isEmpty()) {
 			mtl_trace();

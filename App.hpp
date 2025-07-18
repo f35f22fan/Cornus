@@ -55,6 +55,7 @@ public:
 	void ExtractTo(const QString &to_dir);
 	void FileDoubleClicked(io::File *file, const PickedBy pb);
 	io::Files* files(const FilesId files_id) const;
+	static ClipboardData GetClipboardData();
 	QIcon* GetIcon(const QString &str);
 	QIcon* GetFileIcon(io::File *file);
 	QString GetPartitionFreeSpace();

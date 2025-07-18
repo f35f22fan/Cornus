@@ -261,8 +261,6 @@ void FillInStx(io::File &file, const struct statx &st, const QString *name);
 
 QString FloatToString(const float number, cint precision);
 
-ClipboardData GetClipboardFiles(const QMimeData *mime);
-
 DirType GetDirType(const QString &full_path);
 
 QStringView GetFileNameExtension(QStringView name, QStringView *base_name = 0);
@@ -323,10 +321,10 @@ inline bool NewThread(void* (*start_routine)(void *), void *arg,
 	return (status == 0);
 }
 
-void PasteLinks(const QList<QString> &urls,
+void PasteLinks(const QList<QUrl> &urls,
 	QString target_dir, QVector<QString> *filenames, QString *err = nullptr);
 
-void PasteRelativeLinks(QList<QString> &full_paths, QString target_dir,
+void PasteRelativeLinks(const QList<QUrl> &full_paths, QString target_dir,
 	QVector<QString> *filenames, QString *err = nullptr);
 
 QString PrepareTestingFolder(QStringView subdir);

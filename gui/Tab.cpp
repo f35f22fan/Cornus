@@ -231,8 +231,14 @@ void Tab::ActionCopyPaths(const Path path)
 {
 	auto list = FetchFilePaths(path, WhichFiles::Selected);
 	QString s;
-	for (auto next: list) {
-		s.append(next + '\n');
+	cauto count = list.size();
+	
+	for (int i = 0; i < count; i++) {
+		cauto next = list.at(i);
+		s.append(next);
+		if (i < (count - 1)) {
+			s.append('\n');
+		}
 	}
 	QClipboard *clipboard = QApplication::clipboard();
 	clipboard->setText(s);

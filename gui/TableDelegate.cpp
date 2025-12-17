@@ -381,6 +381,43 @@ void TableDelegate::DrawMediaAttrs(io::File *file, QPainter *painter,
 	painter->setPen(saved_pen);
 }
 
+void strmode_orig(mode_t mode, char *buf) {
+	const char chars[] = "rwxrwxrwx";
+	for (size_t i = 0; i < 9; i++) {
+		buf[i] = (mode & (1 << (8-i))) ? chars[i] : '-';
+	}
+	buf[9] = '\0';
+}
+
+void strmode(mode_t mode, char *buf) {
+	const char chars[] = "rwxrwxrwx";
+	int index = 0;
+	for (size_t i = 0; i < 9; i++) {
+		if (i > 0 && ((i % 3) == 0)) {
+			buf[index] = ' ';
+			buf[index + 1] = ' ';
+			index += 2;
+		}
+		
+		cbool ok = mode & (1 << (8 - i));
+		buf[index] = ok ? chars[i] : '-';
+		index++;
+	}
+	
+	buf[13] = '\0';
+}
+
+void
+TableDelegate::DrawPermission(QPainter *painter, io::File *file,
+	const QStyleOptionViewItem &option, QFontMetricsF &fm,
+	const QRect &text_rect, const Column col) const
+{
+	char buf[14];
+	strmode(file->mode(), buf);
+	QString s(buf);
+	painter->drawText(text_rect, text_alignment_, s);
+}
+
 void
 TableDelegate::DrawSize(QPainter *painter, io::File *file,
 	const QStyleOptionViewItem &option, QFontMetricsF &fm,
@@ -453,6 +490,8 @@ TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 		DrawSize(painter, file, option, fm, text_rect);
 	} else if (col == Column::TimeCreated || col == Column::TimeModified) {
 		DrawTime(painter, file, option, fm, text_rect, col);
+	} else if (col == Column::Permissions) {
+		DrawPermission(painter, file, option, fm, text_rect, col);
 	} else {
 		QStyledItemDelegate::paint(painter, option, index);
 	}

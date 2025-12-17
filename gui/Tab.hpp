@@ -8,6 +8,8 @@
 #include "../io/Notify.hpp"
 #include "../trash.hh"
 
+#include <sys/fanotify.h>
+
 #include <QList>
 #include <QMenu>
 #include <QStyleOptionViewItem>

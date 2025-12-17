@@ -42,6 +42,10 @@ private:
 		const QStyleOptionViewItem &option, const QRect &text_rect,
 		const int filename_w) const;
 	
+	void DrawPermission(QPainter *painter, io::File *file,
+		const QStyleOptionViewItem &option, QFontMetricsF &fm,
+		const QRect &text_rect, const Column col) const;
+	
 	void DrawSize(QPainter *painter, io::File *file,
 		const QStyleOptionViewItem &option, QFontMetricsF &fm,
 		const QRect &text_rect) const;

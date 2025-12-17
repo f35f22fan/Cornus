@@ -612,6 +612,7 @@ void Table::SetCustomResizePolicy()
 	hh->setSectionResizeMode(i8(gui::Column::Size), QHeaderView::Fixed);
 	hh->setSectionResizeMode(i8(gui::Column::TimeCreated), QHeaderView::Fixed);
 	hh->setSectionResizeMode(i8(gui::Column::TimeModified), QHeaderView::Fixed);
+	hh->setSectionResizeMode(i8(gui::Column::Permissions), QHeaderView::Fixed);
 	QFontMetrics fm = fontMetrics();
 	QString sample_date = QLatin1String("2020-12-01 18:04");
 	
@@ -622,6 +623,7 @@ void Table::SetCustomResizePolicy()
 	setColumnWidth(i8(gui::Column::Size), size_col_w);
 	setColumnWidth(i8(gui::Column::TimeCreated), time_col_w);
 	setColumnWidth(i8(gui::Column::TimeModified), time_col_w);
+	setColumnWidth(i8(gui::Column::Permissions), time_col_w);
 }
 
 void Table::ShowVisibleColumnOptions(QPoint pos)

@@ -93,6 +93,7 @@ enum class Column : i8 {
 	Size,
 	TimeCreated,
 	TimeModified,
+	Permissions,
 	Count,
 };
 

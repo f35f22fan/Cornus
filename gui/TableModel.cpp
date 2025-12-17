@@ -640,6 +640,7 @@ QVariant TableModel::headerData(int section_i, Qt::Orientation orientation, int 
 			case Column::Size: return tr("Size");
 			case Column::TimeCreated: return tr("Created");
 			case Column::TimeModified: return tr("Modified");
+			case Column::Permissions: return tr("Permissions");
 			default: {
 				mtl_trace();
 				return {};
@@ -802,11 +803,9 @@ void TableModel::InotifyEventInGuiThread(cornus::io::FileEvent evt)
 		}
 		
 		if (from_file) {
-			mtl_trace();
 			UpdateVisibleArea();
 			tab_->NotivyViewsOfFileChange(io::FileEventType::Renamed, from_file);
 		} else {
-			mtl_trace();
 			io::File *new_file = new io::File(&files);
 			new_file->name(evt.to_name);
 			struct statx stx;
@@ -1056,6 +1055,14 @@ void TableModel::UpdateRange(int row1, Column c1, int row2, Column c2)
 	if (row1 > row2) {
 		first = row2;
 		last = row1;
+	}
+	
+	if (first < 0) {
+		first = 0;
+	}
+	
+	if (last < 0) {
+		last = 0;
 	}
 	
 	const QModelIndex top_left = createIndex(first, int(c1));

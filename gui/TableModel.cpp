@@ -1012,7 +1012,7 @@ void TableModel::UpdateIndices(const QSet<int> &indices)
 	if (indices.isEmpty())
 		return;
 	
-	int min = -1, max = -1;
+	int min_row = -1, max_row = -1;
 	bool initialize = true;
 	
 	QSetIterator<int> it(indices);
@@ -1021,24 +1021,24 @@ void TableModel::UpdateIndices(const QSet<int> &indices)
 		cint next = it.next();
 		if (initialize) {
 			initialize = false;
-			min = next;
-			max = next;
+			min_row = next;
+			max_row = next;
 		} else {
-			if (next < min)
-				min = next;
-			else if (next > max)
-				max = next;
+			if (next < min_row)
+				min_row = next;
+			else if (next > max_row)
+				max_row = next;
 		}
 	}
 	
 	cint count_per_page = tab_->table()->GetVisibleRowsCount();
 	
-	if (min == -1 || max == -1) {
+	if (min_row == -1 || max_row == -1) {
 		UpdateVisibleArea();
-	} else if ((max - min) > count_per_page) {
+	} else if ((max_row - min_row) > count_per_page) {
 		UpdateVisibleArea();
 	} else {
-		UpdateFileIndexRange(min, max);
+		UpdateFileIndexRange(min_row, max_row);
 	}
 }
 

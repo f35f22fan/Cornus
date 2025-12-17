@@ -469,12 +469,21 @@ TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 	if (row >= files.data.vec.size())
 		return;
 	
+	cint mouse_over_row = table_->rowAt(table_->mouse_pos().y());
+	cbool mouse_over = (mouse_over_row == row);
+	
 	io::File *file = files.data.vec[row];
 	cauto &r = option.rect;
-	QRect text_rect(r.x() + gui::FileNameRelax, r.y(),
-		r.width() - gui::FileNameRelax, r.height());
-	auto color_role = (row % 2) ? QPalette::AlternateBase : QPalette::Base;
-	painter->fillRect(option.rect, option.palette.brush(color_role));
+	QRect text_rect(r.x() + gui::FileNameRelax, r.y(), r.width() - gui::FileNameRelax, r.height());
+	auto role = (mouse_over || (row % 2)) ? QPalette::AlternateBase : QPalette::Base;
+	QBrush bg_brush = option.palette.brush(role);
+	if (mouse_over) {
+		cint increase = app_->isDarkMode() ? 200 : 50;
+		QColor color = bg_brush.color().lighter(increase);
+		bg_brush.setColor(color);
+	}
+	
+	painter->fillRect(r, bg_brush);
 	
 	if (option.state & QStyle::State_Selected) {
 		painter->setBrush(option.palette.highlightedText());
@@ -482,18 +491,14 @@ TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 		painter->setBrush(option.palette.text());
 	}
 	
-	if (col == Column::Icon) {
-		DrawIcon(painter, file, row, option, fm, text_rect);
-	} else if (col == Column::FileName) {
-		DrawFileName(painter, file, row, option, fm, text_rect);
-	} else if (col == Column::Size) {
-		DrawSize(painter, file, option, fm, text_rect);
-	} else if (col == Column::TimeCreated || col == Column::TimeModified) {
-		DrawTime(painter, file, option, fm, text_rect, col);
-	} else if (col == Column::Permissions) {
-		DrawPermission(painter, file, option, fm, text_rect, col);
-	} else {
-		QStyledItemDelegate::paint(painter, option, index);
+	switch (col) {
+	case Column::Icon: DrawIcon(painter, file, row, option, fm, text_rect); break;
+	case Column::FileName: DrawFileName(painter, file, row, option, fm, text_rect); break;
+	case Column::Size: DrawSize(painter, file, option, fm, text_rect); break;
+	case Column::TimeCreated:
+	case Column::TimeModified: DrawTime(painter, file, option, fm, text_rect, col); break;
+	case Column::Permissions: DrawPermission(painter, file, option, fm, text_rect, col); break;
+	default: QStyledItemDelegate::paint(painter, option, index);
 	}
 }
 

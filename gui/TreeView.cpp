@@ -255,7 +255,6 @@ void TreeView::mousePressEvent(QMouseEvent *evt)
 		MTL_CHECK_VOID(node != nullptr);
 		
 		if (node->mounted() || node->is_bookmark()) {
-			mtl_info("%s", qPrintable(node->mount_path()));
 			DirPath dp = { node->mount_path(), Processed::No };
 			app_->tab()->GoTo(Action::To, dp);
 		}

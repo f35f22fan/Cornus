@@ -243,7 +243,8 @@ void Table::dropEvent(QDropEvent *evt)
 	drop_coord_ = {-1, -1};
 }
 
-io::File* Table::GetFileAt_NoLock(const QPoint &pos, const Clone clone, int *ret_file_index)
+io::File* Table::GetFileAt_NoLock(const QPoint &pos, const Clone clone,
+	int *ret_file_index)
 {
 	int row = rowAt(pos.y());
 	if (row == -1) {
@@ -269,8 +270,9 @@ i32 Table::GetFileAt_NoLock(const QPoint &local_pos, const PickedBy pb, io::File
 {
 	const Column col = static_cast<Column>(columnAt(local_pos.x()));
 	const Column curr = (pb == PickedBy::Icon) ? Column::Icon : Column::FileName;
-	if (col != curr)
-			return -1;
+	if (col != curr) {
+		return -1;
+	}
 	
 	io::File *file = GetFileAt_NoLock(local_pos, Clone::No);
 	if (file == nullptr)
@@ -311,30 +313,41 @@ i32 Table::GetVisibleRowsCount() const
 void Table::HiliteFileUnderMouse()
 {
 	QSet<int> indices;
-	i32 row_by_name = -1, row_by_icon = -1;
-	{
-		io::Files &files = tab_->view_files();
-		auto g = files.guard();
-		row_by_name = GetFileAt_NoLock(mouse_pos_, PickedBy::VisibleName);
-		if (row_by_name == -1)
-			row_by_icon = GetFileAt_NoLock(mouse_pos_, PickedBy::Icon);
+	cint row = rowAt(mouse_pos_.y());
+	if (row != last_row_mouse_over_) {
+		if (row != -1) {
+			indices.insert(row);
+		}
+		if (last_row_mouse_over_ != -1) {
+			indices.insert(last_row_mouse_over_);
+		}
+		last_row_mouse_over_ = row;
+		model_->UpdateIndices(indices);
 	}
+	// i32 row_by_name = -1, row_by_icon = -1;
+	// {
+	// 	io::Files &files = tab_->view_files();
+	// 	auto g = files.guard();
+	// 	row_by_name = GetFileAt_NoLock(mouse_pos_, PickedBy::VisibleName);
+	// 	if (row_by_name == -1)
+	// 		row_by_icon = GetFileAt_NoLock(mouse_pos_, PickedBy::Icon);
+	// }
 	
-	if (row_by_icon != mouse_over_file_icon_) {
-		if (row_by_icon != -1)
-			indices.insert(row_by_icon);
-		if (mouse_over_file_icon_ != -1)
-			indices.insert(mouse_over_file_icon_);
-		mouse_over_file_icon_ = row_by_icon;
-	} else if (row_by_name != mouse_over_file_name_) {
-		if (row_by_name != -1)
-			indices.insert(row_by_name);
-		if (mouse_over_file_name_ != -1)
-			indices.insert(mouse_over_file_name_);
-		mouse_over_file_name_ = row_by_name;
-	}
+	// if (row_by_icon != mouse_over_file_icon_) {
+	// 	if (row_by_icon != -1)
+	// 		indices.insert(row_by_icon);
+	// 	if (mouse_over_file_icon_ != -1)
+	// 		indices.insert(mouse_over_file_icon_);
+	// 	mouse_over_file_icon_ = row_by_icon;
+	// } else if (row_by_name != mouse_over_file_name_) {
+	// 	if (row_by_name != -1)
+	// 		indices.insert(row_by_name);
+	// 	if (mouse_over_file_name_ != -1)
+	// 		indices.insert(mouse_over_file_name_);
+	// 	mouse_over_file_name_ = row_by_name;
+	// }
 	
-	model_->UpdateIndices(indices);
+	// model_->UpdateIndices(indices);
 }
 
 void Table::keyPressEvent(QKeyEvent *evt)
@@ -355,7 +368,8 @@ void Table::leaveEvent(QEvent *evt)
 	const i32 row = (mouse_over_file_name_ == -1)
 		? mouse_over_file_icon_ : mouse_over_file_name_;
 	ClearMouseOver();
-	model_->UpdateSingleRow(row);
+	//model_->UpdateSingleRow(row);
+	model_->UpdateVisibleArea();
 }
 
 void Table::mouseDoubleClickEvent(QMouseEvent *evt)

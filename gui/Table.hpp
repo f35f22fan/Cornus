@@ -38,6 +38,7 @@ public:
 	int GetRowHeight() const;
 	i32 GetVisibleRowsCount() const;
 	bool mouse_down() const { return mouse_down_; }
+	QPoint mouse_pos() const { return mouse_pos_; }
 	i32 mouse_over_file_icon_index() const { return mouse_over_file_icon_; }
 	i32 mouse_over_file_name_index() const { return mouse_over_file_name_; }
 	void ScrollToFile(int file_index);
@@ -93,6 +94,7 @@ private:
 	QPoint drop_coord_ = {-1, -1};
 	QPoint drag_start_pos_ = {-1, -1};
 	QPoint mouse_pos_ = {-1, -1};
+	int last_row_mouse_over_ = -1;
 	TableHeader *header_ = nullptr;
 	
 	input::TriggerOn trigger_on_ = input::TriggerOn::FileName;

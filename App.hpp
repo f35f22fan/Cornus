@@ -73,6 +73,7 @@ public:
 	QColor hover_bg_color() const { return (theme_type_ == ThemeType::Light)
 		? QColor(150, 255, 150) : QColor(0, 80, 0); }
 	QColor hover_bg_color_gray(const QColor &c) const;
+	bool isDarkMode() const { return theme_type_ == ThemeType::Dark; }
 	void LaunchOrOpenDesktopFile(const QString &full_path, const bool has_exec_bit, const RunAction action);
 	bool level_browser() const { return top_level_stack_.level == TopLevel::Browser; }
 	const QLocale& locale() const { return locale_; }

@@ -61,6 +61,7 @@ public:
 	AttrsDialog(App *app, io::File *file);
 	virtual ~AttrsDialog();
 	
+	void Accept();
 	int fixed_width() const { return fixed_width_; }
 	App* app() const { return app_; }
 

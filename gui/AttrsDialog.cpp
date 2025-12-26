@@ -7,6 +7,7 @@
 #include "TextField.hpp"
 
 #include <QBoxLayout>
+#include <QDialogButtonBox>
 #include <QLabel>
 
 namespace cornus::gui {
@@ -123,9 +124,13 @@ QDialog(app), app_(app), file_(file)
 
 AttrsDialog::~AttrsDialog()
 {
-	SaveAssignedAttrs();
 	delete file_;
 	file_ = nullptr;
+}
+
+void AttrsDialog::Accept() {
+	SaveAssignedAttrs();
+	accept();
 }
 
 void AttrsDialog::CreateRow(QFormLayout *fl, AvailPane **avp, AssignedPane **asp,
@@ -159,10 +164,10 @@ void AttrsDialog::Init()
 	cint a_size = fontMetrics().boundingRect('a').width();
 	fixed_width_ = a_size * 30;
 	
-	QFormLayout *fl = new QFormLayout();
-	fl->setContentsMargins(0, 0, 0, 0);
-	fl->setSpacing(0);
-	setLayout(fl);
+	QFormLayout *form_layout = new QFormLayout();
+	form_layout->setContentsMargins(0, 0, 0, 0);
+	form_layout->setSpacing(0);
+	setLayout(form_layout);
 	{
 		QWidget *w = new QWidget();
 		QBoxLayout *horiz = new QBoxLayout(QBoxLayout::LeftToRight);
@@ -175,20 +180,20 @@ void AttrsDialog::Init()
 		text_field->setText(file_->build_full_path());
 		horiz->addWidget(text_field);
 		
-		fl->addRow(w);
+		form_layout->addRow(w);
 	}
 	{
 		QLabel *assigned = new QLabel(tr("Assigned to the file ↓"));
-		fl->addRow(tr("↓ Available items |"), assigned);
+		form_layout->addRow(tr("↓ Available items |"), assigned);
 	}
-	CreateRow(fl, &actors_avp_, &actors_asp_, media::Field::Actors);
-	CreateRow(fl, &directors_avp_, &directors_asp_, media::Field::Directors);
-	CreateRow(fl, &writers_avp_, &writers_asp_, media::Field::Writers);
-	CreateRow(fl, &genres_avp_, &genres_asp_, media::Field::Genres);
-	CreateRow(fl, &subgenres_avp_, &subgenres_asp_, media::Field::Subgenres);
-	CreateRow(fl, &countries_avp_, &countries_asp_, media::Field::Countries);
-	CreateRow(fl, &rip_avp_, &rip_asp_, media::Field::Rip);
-	CreateRow(fl, &video_codec_avp_, &video_codec_asp_, media::Field::VideoCodec);
+	CreateRow(form_layout, &actors_avp_, &actors_asp_, media::Field::Actors);
+	CreateRow(form_layout, &directors_avp_, &directors_asp_, media::Field::Directors);
+	CreateRow(form_layout, &writers_avp_, &writers_asp_, media::Field::Writers);
+	CreateRow(form_layout, &genres_avp_, &genres_asp_, media::Field::Genres);
+	CreateRow(form_layout, &subgenres_avp_, &subgenres_asp_, media::Field::Subgenres);
+	CreateRow(form_layout, &countries_avp_, &countries_asp_, media::Field::Countries);
+	CreateRow(form_layout, &rip_avp_, &rip_asp_, media::Field::Rip);
+	CreateRow(form_layout, &video_codec_avp_, &video_codec_asp_, media::Field::VideoCodec);
 	{
 		QWidget *pane = new QWidget();
 		
@@ -222,7 +227,7 @@ void AttrsDialog::Init()
 		layout->addWidget(fps_tf_);
 		layout->addStretch(2);
 		
-		fl->addRow(tr("Video resolution, bit depth, FPS:"), pane);
+		form_layout->addRow(tr("Video resolution, bit depth, FPS:"), pane);
 	}
 	
 	{
@@ -246,12 +251,19 @@ void AttrsDialog::Init()
 		layout->addWidget(year_ended_tf_);
 		
 		layout->addStretch(2);
-		fl->addRow(tr("Years start - end:"), pane);
+		form_layout->addRow(tr("Years start - end:"), pane);
 	}
 	{
 		comment_area_ = new QPlainTextEdit();
 		comment_area_->setPlaceholderText(tr("Comments"));
-		fl->addRow(comment_area_);
+		form_layout->addRow(comment_area_);
+	}
+	
+	{
+		auto *button_box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+		connect(button_box, &QDialogButtonBox::accepted, this, &AttrsDialog::Accept);
+		connect(button_box, &QDialogButtonBox::rejected, this, &QDialog::reject);
+		form_layout->addRow(button_box);
 	}
 	
 	SyncWidgetsWithFile();

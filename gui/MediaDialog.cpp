@@ -82,14 +82,9 @@ i64 MediaDialog::GetCurrentID() const
 
 bool MediaDialog::Init()
 {
-mtl_trace();
 	Media *media = app_->media();
 	if (!media->loaded()) {
-		mtl_info("media->Reload()");
 		media->Reload();
-		mtl_info("media->Reload()...Done.");
-	} else {
-		mtl_info("Media already loaded");
 	}
 	
 	QFormLayout *layout = new QFormLayout();
@@ -200,24 +195,16 @@ void MediaDialog::SetCurrentByData(QComboBox *cb, ci64 ID,
 
 void MediaDialog::UpdateCurrentCategoryItems(ci64 select_id)
 {
-mtl_trace();
 	category_items_cb_->clear();
-mtl_trace();
 	const media::Field category = GetCurrentCategory();
-mtl_trace();
 	{
 		Media *media = app_->media();
-mtl_trace();
 		auto g = media->guard();
 		media->FillInNTS(category_items_cb_, category);
-mtl_trace();
 	}
 	
-mtl_trace();
 	SetCurrentByData(category_items_cb_, select_id);
-mtl_trace();
 	UpdateNamesFields();
-mtl_trace();
 }
 
 void MediaDialog::UpdateNamesFields()

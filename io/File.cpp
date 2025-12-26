@@ -42,16 +42,11 @@ QString File::build_full_path() const
 	return s + name_.orig;
 }
 
-// void File::ClearXAttrs()
-// {
-// 	mtl_warn("ClearXAttrs %s", qPrintable(name()));
-// 	ext_attrs_.clear();
-	
-// 	if (cache_.media_preview != nullptr) {
-// 		delete cache_.media_preview;
-// 		cache_.media_preview = nullptr;
-// 	}
-// }
+void File::ClearXAttrs()
+{
+	ext_attrs_.clear();
+	DeleteMediaPreview();
+}
 
 void File::ClearThumbnail() {
 	delete cache_.thumbnail;

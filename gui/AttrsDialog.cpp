@@ -352,16 +352,17 @@ void AttrsDialog::SaveAssignedAttrs()
 		return;
 	}
 	
-	auto &h = file_->ext_attrs();
+	auto &ext_attrs = file_->ext_attrs();
 	cbool contains_data = ba.size() > sizeof magic_num;
 	if (contains_data)
 	{
-		h.insert(media::XAttrName, ba);
+		ext_attrs.insert(media::XAttrName, ba);
 		io::SetEFA(file_->build_full_path(), media::XAttrName, ba);
 	} else {
-		if (h.contains(media::XAttrName)) {
+		if (ext_attrs.contains(media::XAttrName)) {
+			file_->DeleteMediaPreview();
+			// ext_attrs.remove(media::XAttrName);
 			io::RemoveEFA(file_->build_full_path(), {media::XAttrName});
-			h.remove(media::XAttrName);
 		}
 	}
 }
@@ -369,7 +370,7 @@ void AttrsDialog::SaveAssignedAttrs()
 void AttrsDialog::SyncWidgetsWithFile()
 {
 	if (!file_->has_media_attrs()) {
-		mtl_info("file has no media attrs");
+		// mtl_info("file has no media attrs");
 		return;
 	}
 	was_ = file_->media_attrs();

@@ -1533,7 +1533,7 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 		return;
 	}
 
-	// file.ClearXAttrs();
+	file.ClearXAttrs();
 	QHash<QString, ByteArray> &ext_attrs = file.ext_attrs();
 	
 	isize buflen = llistxattr(full_path.data(), NULL, 0);
@@ -1639,6 +1639,10 @@ void RemoveEFA(QStringView full_path, QVector<QString> names, const PrintErrors 
 	{
 		auto name_ba = name.toLocal8Bit();
 		cbool ok = lremovexattr(file_path_ba.data(), name_ba.data()) == 0;
+		
+		// if (ok) {
+		// 	mtl_info("Removed %s for %s", name_ba.data(), file_path_ba.data());
+		// }
 		
 		if (!ok && (pe == PrintErrors::Yes))
 			mtl_warn("lremovexattr on %s: %s", name_ba.data(), strerror(errno));

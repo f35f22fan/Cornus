@@ -97,7 +97,7 @@ public:
 	bool is_desktop_file() const { return is_regular() &&
 		cache_.ext == str::Desktop; }
 	bool IsThumbnailMarkedFailed();
-	// void ClearXAttrs();
+	void ClearXAttrs();
 	void MarkThumbnailFailed();
 	void ReadLinkTarget(const Lock l);
 	

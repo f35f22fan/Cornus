@@ -174,7 +174,9 @@ void ReadEvent(int inotify_fd, char *buf,
 void* WatchDesktopFileDirs(void *void_args)
 {
 	pthread_detach(pthread_self());
-	MTL_CHECK_ARG(void_args != NULL, NULL);
+	if (!void_args) {
+		return NULL;
+	}
 	
 	QScopedPointer<DesktopFileWatchArgs> args((DesktopFileWatchArgs*) void_args);
 	Daemon *server = args->server;

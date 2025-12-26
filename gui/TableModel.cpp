@@ -384,7 +384,9 @@ void* ReloadMetaTh(void *p)
 void* WatchDir(void *void_args)
 {
 	pthread_detach(pthread_self());
-	MTL_CHECK_ARG(void_args, nullptr);
+	if (!void_args) {
+		return NULL;
+	}
 	
 	WatchArgs *args = (WatchArgs*)void_args;
 	TableModel *model = args->table_model;

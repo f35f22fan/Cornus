@@ -213,7 +213,10 @@ TreeItem* TreeView::GetSelectedBookmark(QModelIndex *index)
 		return nullptr;
 	}
 	TreeItem *node = static_cast<TreeItem*>(indexes[0].internalPointer());
-	MTL_CHECK_ARG(node != nullptr, nullptr);
+	if (!node) {
+		return nullptr;
+	}
+	
 	if (node->is_bookmark()) {
 		if (index)
 			*index = indexes[0];

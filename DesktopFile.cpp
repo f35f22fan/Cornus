@@ -155,7 +155,10 @@ Group* Group::Clone(DesktopFile *new_parent) const
 
 QString Group::ExpandEnvVars(QString s, const QHash<QString, QString> *primary)
 {
-	MTL_CHECK_ARG(parent_ != nullptr, QString());
+	if (!parent_) {
+		return QString();
+	}
+	
 	QRegularExpressionMatch match;
 	while (true)
 	{

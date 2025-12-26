@@ -90,7 +90,10 @@ void* ThumbnailLoader (void *args)
 {
 	pthread_detach(pthread_self());
 	cornus::ThumbLoaderData *th_data = (cornus::ThumbLoaderData*) args;
-	MTL_CHECK_ARG(th_data->Lock(), NULL);
+	if (!th_data->Lock()) {
+		return NULL;
+	}
+	
 	ZSTD_DCtx *decompress_context = ZSTD_createDCtx();
 	ByteArray temp_ba;
 	io::ReadParams read_params = {};
@@ -1033,7 +1036,10 @@ QIcon* App::GetDefaultIcon()
 
 QIcon* App::GetFileIcon(io::File *file)
 {
-	MTL_CHECK_ARG(file != nullptr, nullptr);
+	if (!file) {
+		return nullptr;
+	}
+	
 	if (file->cache().icon == nullptr)
 		file->cache().icon = LoadIcon(*file);
 	
@@ -1288,7 +1294,9 @@ QIcon* App::LoadIcon(io::File &file)
 		if (icon_cache_.folder == nullptr)
 		{
 			QString full_path = GetIconThatStartsWith(QLatin1String("special_folder"));
-			MTL_CHECK_ARG(!full_path.isEmpty(), nullptr);
+			if (full_path.isEmpty()) {
+				return nullptr;
+			}
 			icon_cache_.folder = GetIconOrLoadExisting(full_path);
 		}
 		
@@ -1305,7 +1313,9 @@ QIcon* App::LoadIcon(io::File &file)
 		{
 			if (icon_cache_.lib == nullptr) {
 				QString full_path = GetIconThatStartsWith(QLatin1String("special_sharedlib"));
-				MTL_CHECK_ARG(!full_path.isEmpty(), nullptr);
+				if (full_path.isEmpty()) {
+					return nullptr;
+				}
 				icon_cache_.lib = GetIconOrLoadExisting(full_path);
 			}
 			return icon_cache_.lib;
@@ -1337,8 +1347,9 @@ QIcon* App::LoadIcon(io::File &file)
 	
 	if (ext.startsWith(QLatin1String("blend"))) {
 		QString full_path = GetIconThatStartsWith(QLatin1String("special_blender"));
-		MTL_CHECK_ARG(full_path.size() > 0, nullptr);
-		return GetIconOrLoadExisting(full_path);
+		if (!full_path.isEmpty()) {
+			return GetIconOrLoadExisting(full_path);
+		}
 	}
 	
 	return GetDefaultIcon();

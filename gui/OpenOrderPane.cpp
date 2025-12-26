@@ -157,7 +157,9 @@ QWidget* OpenOrderPane::CreateAddingCustomItem()
 	}
 	
 	query_ba.Clear();
-	MTL_CHECK_ARG(query_ba.Receive(fd), nullptr);
+	if (!query_ba.Receive(fd)) {
+		return nullptr;
+	}
 	
 	if (!io::CheckDesktopFileABI(query_ba))
 	{

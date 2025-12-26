@@ -96,7 +96,10 @@ void* ProcessRequestTh(void *ptr)
 	args = nullptr;
 	
 	gui::TasksWin *tasks_win = daemon->tasks_win();
-	MTL_CHECK_ARG(ba.Receive(fd, CloseSocket::No), nullptr);
+	if (!ba.Receive(fd, CloseSocket::No)) {
+		return nullptr;
+	}
+	
 	cauto msg_int = ba.next_u32() & ~(io::MessageBitsMask << io::MessageBitsStartAt);
 	cauto msg = static_cast<io::Message>(msg_int);
 	switch (msg)
@@ -193,11 +196,15 @@ void* PutTrashInGlobalGitignoreTh(void *args)
 		trash::gitignore_global_path(&gitignore_path);
 		mtl_printq2("New global gitignore ", trash::gitignore_global_path());
 	} else {
-		MTL_CHECK_ARG(io::EnsureRegularFile(gitignore_path), nullptr);
+		if (!io::EnsureRegularFile(gitignore_path)) {
+			return NULL;
+		}
 	}
 	
 	if (!io::FileContentsContains(gitignore_path, trash::basename_regex())) {
-		MTL_CHECK_ARG(trash::AddTrashNameToGitignore(gitignore_path), nullptr);
+		if (!trash::AddTrashNameToGitignore(gitignore_path)) {
+			return nullptr;
+		}
 		mtl_info("Added %s to global gitignore", qPrintable(trash::basename_regex()));
 	}
 	

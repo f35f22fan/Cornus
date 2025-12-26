@@ -70,12 +70,6 @@
 	}\
 }
 
-#define mtl_check_arg(flag, ret) {\
-	if (!(flag)) {\
-		return ret;\
-	}\
-}
-
 #define mtl_check_void(flag) {\
 	if (!(flag)) {\
 		return;\
@@ -86,13 +80,6 @@
 	if (!(flag)) {\
 		mtl_trace();\
 		return false;\
-	}\
-}
-
-#define MTL_CHECK_ARG(flag, ret) {\
-	if (!(flag)) {\
-		mtl_trace();\
-		return ret;\
 	}\
 }
 

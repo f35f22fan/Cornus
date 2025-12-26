@@ -49,7 +49,9 @@ TreeItem* TreeItem::FromDevice(struct udev_device *device,
 	io::DiskInfo *disk_info)
 {
 	PartitionInfo *info = PartitionInfo::FromDevice(device);
-	MTL_CHECK_ARG(info != nullptr, nullptr);
+	if (!info) {
+		return nullptr;
+	}
 	
 	TreeItem *item = new TreeItem();
 	item->set_partition();
@@ -59,7 +61,9 @@ TreeItem* TreeItem::FromDevice(struct udev_device *device,
 		item->info_->disk_info = *disk_info;
 	} else {
 		auto *parent_device = udev_device_get_parent(device);
-		MTL_CHECK_ARG(parent_device != nullptr, nullptr);
+		if (!parent_device) {
+			return nullptr;
+		}
 		sidepane::ReadDiskInfo(parent_device, item->info_->disk_info);
 	}
 	

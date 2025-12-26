@@ -275,7 +275,9 @@ void* monitor_devices(void *args)
 	
 	App *app = (App*) args;
 	struct udev *udev = udev_new();
-	MTL_CHECK_ARG(udev != nullptr, nullptr);
+	if (!udev) {
+		return NULL;
+	}
 	UdevAutoUnref auto_unref_udev(udev);
 
 	struct udev_monitor *monitor = udev_monitor_new_from_netlink(udev, "udev");

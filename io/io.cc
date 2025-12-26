@@ -159,35 +159,39 @@ int CountDirFilesSkippingSubdirs(QStringView dir_path)
 	return count;
 }
 
-media::MediaPreview* CreateMediaPreview(ByteArray &ba)
+media::MediaPreview* CreateMediaPreview(ByteArray &media_data)
 {
-	cauto at = ba.at();
-	mtl_check_arg((ba.size() < sizeof(i32)), nullptr);
+	cauto at = media_data.at();
+	if (media_data.size() < sizeof(i32)) {
+		mtl_trace();
+		return nullptr;
+	}
 	
 	media::MediaPreview *preview = new media::MediaPreview();
-	preview->magic_number = ba.next_i32();
+	preview->magic_number = media_data.next_i32();
 	
-	while (ba.has_more())
+	while (media_data.has_more())
 	{
-		media::Field f = (media::Field) ba.next_u8();
+		// mtl_info();
+		media::Field f = (media::Field) media_data.next_u8();
 		QVector<i32> *v32 = nullptr;
 		
 		if (f == media::Field::Actors) {
 			v32 = &preview->actors;
-			mtl_info("v32 actors");
+			// mtl_info("v32 actors");
 		} else if (f == media::Field::Directors) {
 			v32 = &preview->directors;
-			mtl_info("v32 directors");
+			// mtl_info("v32 directors");
 		} else if (f == media::Field::Writers) {
 			v32 = &preview->writers;
-			mtl_info("v32 writers");
+			// mtl_info("v32 writers");
 		}
 		
 		if (v32 != nullptr)
 		{
-			const u16 count = ba.next_u16();
+			const u16 count = media_data.next_u16();
 			for (int i = 0; i < count; i++) {
-				v32->append(ba.next_i32());
+				v32->append(media_data.next_i32());
 			}
 			continue;
 		}
@@ -196,53 +200,53 @@ media::MediaPreview* CreateMediaPreview(ByteArray &ba)
 		
 		if (f == media::Field::Genres) {
 			v2 = &preview->genres;
-			mtl_info("v2 genres");
+			// mtl_info("v2 genres");
 		} else if (f == media::Field::Subgenres) {
 			v2 = &preview->subgenres;
-			mtl_info("v2 subgenres");
+			// mtl_info("v2 subgenres");
 		} else if (f == media::Field::Countries) {
 			v2 = &preview->countries;
-			mtl_info("v2 countries");
+			// mtl_info("v2 countries");
 		} else if (f == media::Field::Rip) {
 			v2 = &preview->rips;
-			mtl_info("v2 rips");
+			// mtl_info("v2 rips");
 		} else if (f == media::Field::VideoCodec) {
 			v2 = &preview->video_codecs;
-			mtl_info("v2 video_codecs");
+			// mtl_info("v2 video_codecs");
 		}
 		
 		if (v2 != nullptr)
 		{
-			cu16 count = ba.next_u16();
-			mtl_info("Count: %u", u32(count));
+			cu16 count = media_data.next_u16();
+			// mtl_info("Count: %u", u32(count));
 			for (int i = 0; i < count; i++) {
-				v2->append(ba.next_i16());
+				v2->append(media_data.next_i16());
 			}
-			mtl_info("Done");
+			// mtl_info("Done");
 			continue;
 		}
 		
 		if (f == media::Field::YearStarted) {
-			preview->year_started = ba.next_i16();
+			preview->year_started = media_data.next_i16();
 		} else if (f == media::Field::MonthStarted) {
-			preview->month_started = ba.next_i8();
+			preview->month_started = media_data.next_i8();
 		} else if (f == media::Field::DayStarted) {
-			preview->day_started = ba.next_i8();
+			preview->day_started = media_data.next_i8();
 		} else if (f == media::Field::YearEnded) {
-			preview->year_end = ba.next_i16();
+			preview->year_end = media_data.next_i16();
 		} else if (f == media::Field::VideoCodecBitDepth) {
-			preview->bit_depth = ba.next_i16();
+			preview->bit_depth = media_data.next_i16();
 		} else if (f == media::Field::VideoResolution) {
-			preview->video_w = ba.next_i32();
-			preview->video_h = ba.next_i32();
+			preview->video_w = media_data.next_i32();
+			preview->video_h = media_data.next_i32();
 		} else if (f == media::Field::FPS) {
-			preview->fps = ba.next_f32();
+			preview->fps = media_data.next_f32();
 		} else {
 			/// other fields not needed by media::MediaPreview
 		}
 	}
 	
-	ba.to(at);
+	media_data.to(at);
 	return preview;
 }
 
@@ -1524,10 +1528,12 @@ i64 ReadToBuf(cint fd, char *buf, ci64 buf_size,
 
 void ReadXAttrs(io::File &file, const QByteArray &full_path)
 {
-	if (!file.can_have_xattr())
+	if (!file.can_have_xattr()) {
+		mtl_warn("can't have xattr: %s", qPrintable(file.name()));
 		return;
+	}
 
-	file.ClearXAttrs();
+	// file.ClearXAttrs();
 	QHash<QString, ByteArray> &ext_attrs = file.ext_attrs();
 	
 	isize buflen = llistxattr(full_path.data(), NULL, 0);
@@ -1566,9 +1572,7 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 		
 		ext_attrs.insert(key, ba);
 		{
-//			auto name = file.name().toLocal8Bit();
-//			mtl_info("Ext attr: \"%s\": \"%s\" (%s)", key,
-//				qPrintable(ba.toString()), name.data());
+			// mtl_info("Ext attr: \"%s\": \"%s\" (%s)", key, qPrintable(ba.toString()), qPrintable(file.name()));
 		}
 		
 		/// Forward to next attribute key.
@@ -1600,6 +1604,7 @@ bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &en
 	}
 	
 	FillInStx(file, stx, nullptr);
+	file.DeleteMediaPreview();
 	ReadXAttrs(file, full_path);
 	
 	if (file.is_symlink())

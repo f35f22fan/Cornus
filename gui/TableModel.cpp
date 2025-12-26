@@ -404,8 +404,7 @@ void* WatchDir(void *void_args)
 #endif
 	cauto path = args->dir_path.toLocal8Bit();
 	cauto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE
-		| IN_DELETE_SELF | IN_MOVE_SELF | IN_CLOSE_WRITE
-		| IN_MOVE;// | IN_MODIFY;
+		| IN_DELETE_SELF | IN_MOVE_SELF | IN_CLOSE_WRITE | IN_MOVE;// | IN_MODIFY;
 	cint wd = inotify_add_watch(notify_fd, path.data(), event_types);
 	if (wd == -1)
 	{
@@ -712,6 +711,7 @@ mtl_printq2("Selecting name ", select_name);
 
 void TableModel::InotifyEventInGuiThread(cornus::io::FileEvent evt)
 {
+	// mtl_warn("RECEIVED: %s", qPrintable(evt.from_name));
 	auto &files = tab_->view_files();
 	{
 		auto g = files.guard();
@@ -730,18 +730,22 @@ void TableModel::InotifyEventInGuiThread(cornus::io::FileEvent evt)
 		io::File *cloned_file = nullptr;
 		{
 			auto g = files.guard();
-			
 			int index;
 			Find(files.data.vec, evt.from_name, &index);
 			delete evt.new_file;
 			evt.new_file = nullptr;
 			if (index == -1) {
+				mtl_trace();
 				return;
 			}
 			io::File *file = files.data.vec[index];
+			// mtl_warn("Modified %s", qPrintable(file->name()));
 			struct statx stx;
-			if (io::ReloadMeta(*file, stx, app_->env(), PrintErrors::No))
+			if (io::ReloadMeta(*file, stx, app_->env(), PrintErrors::No)) {
 				cloned_file = file->Clone();
+			} else {
+				mtl_warn("%s", qPrintable(file->name()));
+			}
 		}
 		if (cloned_file) {
 			tab_->NotivyViewsOfFileChange(evt.type, cloned_file);
@@ -750,6 +754,7 @@ void TableModel::InotifyEventInGuiThread(cornus::io::FileEvent evt)
 		break;
 	}
 	case io::FileEventType::Created: {
+		mtl_warn("Created %s", qPrintable(evt.from_name));
 #ifdef CORNUS_DEBUG_INOTIFY
 		mtl_printq2("CREATED: ", evt.new_file->name());
 #endif
@@ -939,8 +944,10 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 	{
 		auto g = files.guard();
 		auto &old_vec = files.data.vec;
-		for (auto *file: old_vec)
+		for (auto *file: old_vec) {
+			// mtl_info("delete %s", qPrintable(file->name()));
 			delete file;
+		}
 		old_vec.clear();
 		tab_->table()->ClearMouseOver();
 		files.cached_files_count = 0;
@@ -961,6 +968,12 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 		files.data.vec = new_data->vec;
 		new_data->vec.clear();
 		files.cached_files_count = files.data.vec.size();
+		
+		// for(io::File *f: files.data.vec) {
+		// 	if (f->has_media_attrs()) {
+		// 		mtl_info("file %s has media attrs", qPrintable(f->name()));
+		// 	}
+		// }
 	}
 	endInsertRows();
 	

@@ -57,7 +57,7 @@ void AvailPane::Init()
 AssignedPane::AssignedPane(AttrsDialog *ad):
 attrs_dialog_(ad)
 {
-	mtl_trace();
+	// mtl_trace();
 }
 
 AssignedPane::~AssignedPane()
@@ -69,7 +69,7 @@ void AssignedPane::AddItemFromAvp()
 	if (rhs->count() == 0)
 		return;
 	QVariant data = rhs->currentData();
-	const int data_index = cb_->findData(data);
+	cint data_index = cb_->findData(data);
 	if (data_index == -1) {
 		cb_->addItem(rhs->currentText(), data);
 		cb_->model()->sort(0, Qt::AscendingOrder);
@@ -91,7 +91,7 @@ void AssignedPane::Init()
 	
 	QPushButton *rem_btn = new QPushButton();
 	connect(rem_btn, &QPushButton::clicked, [=] {
-		const int index = cb_->currentIndex();
+		cint index = cb_->currentIndex();
 		if (index != -1)
 			cb_->removeItem(index);
 	});
@@ -103,7 +103,12 @@ void AssignedPane::Init()
 void AssignedPane::WriteTo(ByteArray &buf)
 {
 	const media::Field f = avp_->category();
+	// cauto was_size = buf.size();
 	attrs_dialog_->app()->media()->WriteTo(buf, cb_, f);
+	// cauto is_size = buf.size();
+	// if (f == media::Field::VideoCodec) {
+	// 	mtl_info("was: %ld, is: %ld", (i64)was_size, (i64)is_size);
+	// }
 }
 
 AttrsDialog::AttrsDialog(App *app, io::File *file):
@@ -149,9 +154,9 @@ void AttrsDialog::Init()
 {
 	Media *media = app_->media();
 	if (!media->loaded())
-		media->Reload();
+		mtl_check_void(media->Reload());
 	
-	const int a_size = fontMetrics().boundingRect('a').width();
+	cint a_size = fontMetrics().boundingRect('a').width();
 	fixed_width_ = a_size * 30;
 	
 	QFormLayout *fl = new QFormLayout();
@@ -191,8 +196,8 @@ void AttrsDialog::Init()
 		pane->setLayout(layout);
 		QString tooltip = tr("Video resolution, e.g. 1920x1080");
 		
-		const int fixed_w = a_size * 8;
-		const int small_w = a_size * 6;
+		cint fixed_w = a_size * 8;
+		cint small_w = a_size * 6;
 		resolution_w_tf_ = new TextField();
 		resolution_w_tf_->setToolTip(tooltip);
 		resolution_w_tf_->setPlaceholderText(tr("width"));
@@ -226,7 +231,7 @@ void AttrsDialog::Init()
 		QBoxLayout *layout = new QBoxLayout(QBoxLayout::LeftToRight);
 		pane->setLayout(layout);
 		
-		const int fixed_w = a_size * 8;
+		cint fixed_w = a_size * 8;
 		year_started_tf_ = CreateField(fixed_w, tr("Year Start"));
 		layout->addWidget(year_started_tf_);
 		
@@ -343,12 +348,13 @@ void AttrsDialog::SaveAssignedAttrs()
 	}
 	
 	if (ba == was_) {
-///		mtl_info("Nothing changed, returning.");
+		// mtl_info("Nothing changed, returning.");
 		return;
 	}
 	
 	auto &h = file_->ext_attrs();
-	if (ba.size() > sizeof magic_num)
+	cbool contains_data = ba.size() > sizeof magic_num;
+	if (contains_data)
 	{
 		h.insert(media::XAttrName, ba);
 		io::SetEFA(file_->build_full_path(), media::XAttrName, ba);
@@ -362,8 +368,10 @@ void AttrsDialog::SaveAssignedAttrs()
 
 void AttrsDialog::SyncWidgetsWithFile()
 {
-	if (!file_->has_media_attrs())
+	if (!file_->has_media_attrs()) {
+		mtl_info("file has no media attrs");
 		return;
+	}
 	was_ = file_->media_attrs();
 	ByteArray &ba = was_;
 	MTL_CHECK_VOID(ba.size() > 4);
@@ -422,7 +430,7 @@ void AttrsDialog::SyncWidgetsWithFile()
 			comment_area_->setPlainText(ba.next_string());
 		}
 		default:{
-			mtl_trace();
+			// mtl_trace();
 		}
 		}
 

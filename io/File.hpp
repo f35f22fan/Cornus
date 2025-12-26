@@ -63,6 +63,7 @@ public:
 	FileCache& cache() { return cache_; }
 	void ClearCache();
 	void ClearThumbnail();
+	void DeleteMediaPreview();
 	bool extensionCanHaveThumbnail() const;
 	bool has(const io::FileBits bits) { return (bits_ & bits) != FileBits::Empty; }
 	bool has_exec_bit() const;
@@ -72,7 +73,7 @@ public:
 	QHash<QString, ByteArray>& ext_attrs() { return ext_attrs_; }
 	bool has_ext_attrs() const { return ext_attrs_.size() > 0; }
 	bool has_media_attrs() const { return ext_attrs_.contains(media::XAttrName);}
-	ByteArray& media_attrs() { return ext_attrs_[media::XAttrName]; } // rename to media::XMediaAttrs
+	ByteArray& media_attrs() { return ext_attrs_[media::XAttrName]; }
 	media::MediaPreview* media_attrs_decoded();
 	bool has_last_watched_attr() const {
 		return watch_props() & media::WatchProps::LastWatched;
@@ -96,7 +97,7 @@ public:
 	bool is_desktop_file() const { return is_regular() &&
 		cache_.ext == str::Desktop; }
 	bool IsThumbnailMarkedFailed();
-	void ClearXAttrs();
+	// void ClearXAttrs();
 	void MarkThumbnailFailed();
 	void ReadLinkTarget(const Lock l);
 	

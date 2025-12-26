@@ -42,22 +42,23 @@ QString File::build_full_path() const
 	return s + name_.orig;
 }
 
-void File::ClearXAttrs()
-{
-	ext_attrs_.clear();
+// void File::ClearXAttrs()
+// {
+// 	mtl_warn("ClearXAttrs %s", qPrintable(name()));
+// 	ext_attrs_.clear();
 	
-	if (cache_.media_preview != nullptr) {
-		delete cache_.media_preview;
-		cache_.media_preview = nullptr;
-	}
-}
+// 	if (cache_.media_preview != nullptr) {
+// 		delete cache_.media_preview;
+// 		cache_.media_preview = nullptr;
+// 	}
+// }
 
 void File::ClearThumbnail() {
 	delete cache_.thumbnail;
 	cache_.thumbnail = 0;
 	ext_attrs_.remove(media::XAttrThumbnail);
-	// QVector<QString> names = {media::XAttrThumbnail};
-	// io::RemoveEFA(build_full_path(), names);
+	QVector<QString> names = {media::XAttrThumbnail};
+	io::RemoveEFA(build_full_path(), names);
 }
 
 File* File::Clone(const CloneFileOption opt) const
@@ -94,10 +95,7 @@ void File::ClearCache()
 	cache_.icon = nullptr;
 	cache_.mime.clear();
 	
-	if (cache_.media_preview != nullptr) {
-		delete cache_.media_preview;
-		cache_.media_preview = nullptr;
-	}
+	DeleteMediaPreview();
 }
 
 void File::CountDirFiles()
@@ -135,6 +133,13 @@ void File::CountDirFiles()
 int File::Delete() {
 	auto ba = build_full_path().toLocal8Bit();
 	return remove(ba.data());
+}
+
+void File::DeleteMediaPreview() {
+	if (cache_.media_preview != nullptr) {
+		delete cache_.media_preview;
+		cache_.media_preview = nullptr;
+	}
 }
 
 const QString& File::dir_path(const Lock l) const
@@ -187,12 +192,14 @@ File::media_attrs_decoded()
 	if (cache_.media_preview != nullptr)
 		return cache_.media_preview;
 	
-	if (!has_media_attrs())
+	if (!has_media_attrs()) {
 		return nullptr;
+	}
 	
 	cache_.media_preview = io::CreateMediaPreview(media_attrs());
-	if (cache_.media_preview == nullptr)
+	if (cache_.media_preview == nullptr) {
 		ext_attrs_.remove(media::XAttrName);
+	}
 	
 	return cache_.media_preview;
 }
@@ -257,12 +264,12 @@ bool File::ShouldTryLoadingThumbnail()
 		return false;
 	}
 	
-	// if (has_thumbnail_attr()) // || IsThumbnailMarkedFailed())
-	// {
-	// 	mtl_warn("%s: has_th_attr: %d, isThMarkedFailed: %d",
-	// 		qPrintable(name()), has_thumbnail_attr(), IsThumbnailMarkedFailed());
-	// 	return false;
-	// }
+	if (has_thumbnail_attr()) // || IsThumbnailMarkedFailed())
+	{
+		mtl_warn("%s: has_th_attr: %d, isThMarkedFailed: %d",
+			qPrintable(name()), has_thumbnail_attr(), IsThumbnailMarkedFailed());
+		return false;
+	}
 	
 	return (cache_.thumbnail == nullptr);
 }

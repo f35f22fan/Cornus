@@ -412,7 +412,7 @@ int CreateAutoRenamedFile(QString dir_path, QString filename,
 	cint file_flags, const mode_t mode)
 {
 	int next = 0;
-	for (;;)
+	while(true)
 	{
 		QString dest_path = dir_path + io::NewNamePattern(filename, next);
 		auto ba = dest_path.toLocal8Bit();

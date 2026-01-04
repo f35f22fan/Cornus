@@ -13,20 +13,67 @@
 #include <QElapsedTimer>
 
 namespace cornus::io {
+struct Answer {
+	Answer() {bits_ = 0;}
+	Answer& operator=(const Answer &rhs) {
+		this->bits_ = rhs.bits_;
+		return *this;
+	}
+	u8 bits_ = 0;
+	
+	u8 bits() const { return bits_; }
+	void add(const Answer &rhs) { bits_ |= rhs.bits_; }
+	void clear() { bits_ = 0; }
+	bool none() const { return bits_ == 0; }
+	
+	cu8 OverwriteBit = 1 << 0;
+	bool overwrite() const { return bits_ & OverwriteBit; }
+	void overwrite(cbool flag) { if (flag) { bits_ |= OverwriteBit;} else {bits_ &= ~OverwriteBit;} }
+	
+	cu8 OverwriteAllBit = 1 << 1;
+	bool overwrite_all() const { return bits_ & OverwriteAllBit; }
+	void overwrite_all(cbool flag) { if (flag) { bits_ |= OverwriteAllBit;} else {bits_ &= ~OverwriteAllBit;} }
+	
+	cu8 SkipBit = 1 << 2;
+	bool skip() const { return bits_ & SkipBit; }
+	void skip(cbool flag) { if (flag) { bits_ |= SkipBit;} else {bits_ &= ~SkipBit;} }
+	
+	cu8 SkipAllBit = 1 << 3;
+	bool skip_all() const { return bits_ & SkipAllBit; }
+	void skip_all(cbool flag) { if (flag) { bits_ |= SkipAllBit;} else {bits_ &= ~SkipAllBit;} }
+	
+	bool any_skip() const { return bits_ & (SkipAllBit | SkipBit); }
+	
+	cu8 AutoRenameBit = 1 << 4;
+	bool auto_rename() const { return bits_ & AutoRenameBit; }
+	void auto_rename(cbool flag) { if (flag) { bits_ |= AutoRenameBit;} else {bits_ &= ~AutoRenameBit;} }
+	
+	cu8 AutoRenameAllBit = 1 << 5;
+	bool auto_rename_all() const { return bits_ & AutoRenameAllBit; }
+	void auto_rename_all(cbool flag) { if (flag) { bits_ |= AutoRenameAllBit;} else {bits_ &= ~AutoRenameAllBit;} }
+	
+	cu8 AbortBit = 1 << 6;
+	bool abort() const { return bits_ & AbortBit; }
+	void abort(cbool flag) { if (flag) { bits_ |= AbortBit;} else {bits_ &= ~AbortBit;} }
+	
+	cu8 RetryBit = 1 << 7;
+	bool retry() const { return bits_ & RetryBit; }
+	void retry(cbool flag) { if (flag) { bits_ |= RetryBit;} else {bits_ &= ~RetryBit;} }
+	
+	bool retry_or_overwrite() const { return bits_ & (RetryBit | OverwriteBit | OverwriteAllBit); }
+};
 
 enum class Question : i8 {
 	None = 0,
 	FileExists,
 	WriteFailed,
 	DeleteFailed,
+	AccessPermission,
 };
 
 struct TaskQuestion {
 	QString file_path_in_question;
 	QString explanation;
-	DeleteFailedAnswer delete_failed_answer = io::DeleteFailedAnswer::None;
-	FileExistsAnswer file_exists_answer = io::FileExistsAnswer::None;
-	WriteFailedAnswer write_failed_answer = io::WriteFailedAnswer::None;
 	Question question = Question::None;
 };
 
@@ -35,6 +82,12 @@ struct TaskData {
 	CondMutex cm = {};
 	ElapsedTimer work_time_recorder_ = {};
 	TaskQuestion task_question_ = {};
+	Answer answer_ = {};
+	
+	Answer GetAnswerWithLock() {
+		auto g = cm.guard();
+		return answer_;
+	}
 	
 	inline TaskState GetState(TaskQuestion *question = nullptr, i64 *ret_time_worked = nullptr)
 	{
@@ -53,7 +106,7 @@ struct TaskData {
 		cm.Unlock();
 		return ret;
 	}
-	void ChangeState(const TaskState new_state, TaskQuestion *task_question = nullptr);
+	void ChangeState(const TaskState new_state, Answer *answer = nullptr, TaskQuestion *question = nullptr);
 	
 	void RemoveBits(const TaskState states);
 	TaskState WaitFor(const TaskState new_state, const Lock l = Lock::Yes);
@@ -120,7 +173,6 @@ struct TaskProgress {
 };
 
 class Task {
-	
 	enum class InitTotalSize: i8 {
 		Yes,
 		No
@@ -149,9 +201,11 @@ private:
 		const QString &filename, const mode_t mode, const i64 file_size);
 	void CopyXAttr(const int input_fd, const int output_fd);
 	i64 CountTotalSize();
-	ActUponAnswer DealWithDeleteFailedAnswer(const i64 file_size);
-	ActUponAnswer DealWithFileExistsAnswer(const i64 file_size);
-	ActUponAnswer DealWithWriteFailedAnswer(const i64 file_size);
+	
+	Answer TackleFileExists(QString dest_path, int &file_flags, ci64 file_size);
+	Answer WaitForDeleteFailedAnswer(const i64 file_size);
+	Answer WaitForFileExistsAnswer(const i64 file_size);
+	Answer WaitForWriteFailedAnswer(const i64 file_size);
 	
 	// returns 0 on success, errno otherwise
 	int DeleteFile(const QString &full_path, struct statx &stx, QString &problematic_file);

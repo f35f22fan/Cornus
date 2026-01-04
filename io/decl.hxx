@@ -69,6 +69,7 @@ struct ServerLife
 enum class ActUponAnswer: i8 {
 	None = 0,
 	Skip,
+	SkipAll,
 	Retry,
 	Abort,
 };

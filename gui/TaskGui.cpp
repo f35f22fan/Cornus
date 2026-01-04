@@ -226,7 +226,8 @@ QWidget* TaskGui::CreateDeleteFailedPane()
 	{
 		auto *btn = new QPushButton(tr("Skip"));
 		connect(btn, &QPushButton::clicked, [=] {
-			SendDeleteFailedAnswer(io::DeleteFailedAnswer::Skip);
+			answer_.skip(true);
+			SendAnswer();
 		});
 		hlayout->addWidget(btn);
 	}
@@ -234,7 +235,8 @@ QWidget* TaskGui::CreateDeleteFailedPane()
 	{
 		auto *btn = new QPushButton(tr("Skip All"));
 		connect(btn, &QPushButton::clicked, [=] {
-			SendDeleteFailedAnswer(io::DeleteFailedAnswer::SkipAll);
+			answer_.skip_all(true);
+			SendAnswer();
 		});
 		hlayout->addWidget(btn);
 	}
@@ -242,7 +244,8 @@ QWidget* TaskGui::CreateDeleteFailedPane()
 	{
 		auto *btn = new QPushButton(tr("Retry"));
 		connect(btn, &QPushButton::clicked, [=] {
-			SendDeleteFailedAnswer(io::DeleteFailedAnswer::Retry);
+			answer_.retry(true);
+			SendAnswer();
 		});
 		hlayout->addWidget(btn);
 	}
@@ -250,7 +253,8 @@ QWidget* TaskGui::CreateDeleteFailedPane()
 	{
 		auto *btn = new QPushButton(tr("Abort"));
 		connect(btn, &QPushButton::clicked, [=] {
-			SendDeleteFailedAnswer(io::DeleteFailedAnswer::Abort);
+			answer_.abort(true);
+			SendAnswer();
 		});
 		hlayout->addWidget(btn);
 	}
@@ -274,7 +278,8 @@ QWidget* TaskGui::CreateFileExistsPane()
 	{
 		auto *btn = new QPushButton(tr("Skip"));
 		connect(btn, &QPushButton::clicked, [=] {
-			SendFileExistsAnswer(io::FileExistsAnswer::Skip);
+			answer_.skip(true);
+			SendAnswer();
 		});
 		hlayout->addWidget(btn);
 	}
@@ -282,7 +287,8 @@ QWidget* TaskGui::CreateFileExistsPane()
 	{
 		auto *btn = new QPushButton(tr("Skip All"));
 		connect(btn, &QPushButton::clicked, [=] {
-			SendFileExistsAnswer(io::FileExistsAnswer::SkipAll);
+			answer_.skip_all(true);
+			SendAnswer();
 		});
 		hlayout->addWidget(btn);
 	}
@@ -290,7 +296,8 @@ QWidget* TaskGui::CreateFileExistsPane()
 	{
 		auto *btn = new QPushButton(tr("Auto Rename"));
 		connect(btn, &QPushButton::clicked, [=] {
-			SendFileExistsAnswer(io::FileExistsAnswer::AutoRename);
+			answer_.auto_rename(true);
+			SendAnswer();
 		});
 		hlayout->addWidget(btn);
 	}
@@ -298,7 +305,8 @@ QWidget* TaskGui::CreateFileExistsPane()
 	{
 		auto *btn = new QPushButton(tr("Auto Rename All"));
 		connect(btn, &QPushButton::clicked, [=] {
-			SendFileExistsAnswer(io::FileExistsAnswer::AutoRenameAll);
+			answer_.auto_rename_all(true);
+			SendAnswer();
 		});
 		hlayout->addWidget(btn);
 	}
@@ -306,7 +314,8 @@ QWidget* TaskGui::CreateFileExistsPane()
 	{
 		auto *btn = new QPushButton(tr("Overwrite"));
 		connect(btn, &QPushButton::clicked, [=] {
-			SendFileExistsAnswer(io::FileExistsAnswer::Overwrite);
+			answer_.overwrite(true);
+			SendAnswer();
 		});
 		hlayout->addWidget(btn);
 	}
@@ -314,7 +323,8 @@ QWidget* TaskGui::CreateFileExistsPane()
 	{
 		auto *btn = new QPushButton(tr("Overwrite All"));
 		connect(btn, &QPushButton::clicked, [=] {
-			SendFileExistsAnswer(io::FileExistsAnswer::OverwriteAll);
+			answer_.overwrite_all(true);
+			SendAnswer();
 		});
 		hlayout->addWidget(btn);
 	}
@@ -322,7 +332,8 @@ QWidget* TaskGui::CreateFileExistsPane()
 	{
 		auto *btn = new QPushButton(tr("Abort"));
 		connect(btn, &QPushButton::clicked, [=] {
-			SendFileExistsAnswer(io::FileExistsAnswer::Abort);
+			answer_.abort(true);
+			SendAnswer();
 		});
 		hlayout->addWidget(btn);
 	}
@@ -408,7 +419,8 @@ QWidget* TaskGui::CreateWriteFailedPane()
 	{
 		auto *btn = new QPushButton(tr("Skip"));
 		connect(btn, &QPushButton::clicked, [=] {
-			SendWriteFailedAnswer(io::WriteFailedAnswer::Skip);
+			answer_.skip(true);
+			SendAnswer();
 		});
 		hlayout->addWidget(btn);
 	}
@@ -416,7 +428,8 @@ QWidget* TaskGui::CreateWriteFailedPane()
 	{
 		auto *btn = new QPushButton(tr("Skip All"));
 		connect(btn, &QPushButton::clicked, [=] {
-			SendWriteFailedAnswer(io::WriteFailedAnswer::SkipAll);
+			answer_.skip_all(true);
+			SendAnswer();
 		});
 		hlayout->addWidget(btn);
 	}
@@ -424,7 +437,8 @@ QWidget* TaskGui::CreateWriteFailedPane()
 	{
 		auto *btn = new QPushButton(tr("Retry"));
 		connect(btn, &QPushButton::clicked, [=] {
-			SendWriteFailedAnswer(io::WriteFailedAnswer::Retry);
+			answer_.retry(true);
+			SendAnswer();
 		});
 		hlayout->addWidget(btn);
 	}
@@ -432,7 +446,8 @@ QWidget* TaskGui::CreateWriteFailedPane()
 	{
 		auto *btn = new QPushButton(tr("Abort"));
 		connect(btn, &QPushButton::clicked, [=] {
-			SendWriteFailedAnswer(io::WriteFailedAnswer::Abort);
+			answer_.abort(true);
+			SendAnswer();
 		});
 		hlayout->addWidget(btn);
 	}
@@ -494,25 +509,10 @@ void TaskGui::PresentWindow()
 	setFocus(Qt::MouseFocusReason);
 }
 
-void TaskGui::SendDeleteFailedAnswer(const io::DeleteFailedAnswer answer)
+void TaskGui::SendAnswer()
 {
-	auto &data = task_->data();
-	task_question_.delete_failed_answer = answer;
-	data.ChangeState(TaskState::Answered, &task_question_);
-}
-
-void TaskGui::SendFileExistsAnswer(const io::FileExistsAnswer answer)
-{
-	auto &data = task_->data();
-	task_question_.file_exists_answer = answer;
-	data.ChangeState(TaskState::Answered, &task_question_);
-}
-
-void TaskGui::SendWriteFailedAnswer(const io::WriteFailedAnswer answer)
-{
-	auto &data = task_->data();
-	task_question_.write_failed_answer = answer;
-	data.ChangeState(TaskState::Answered, &task_question_);
+	task_->data().ChangeState(TaskState::Answered, &answer_);
+	answer_.clear();
 }
 
 void TaskGui::UpdateSpeedLabel()

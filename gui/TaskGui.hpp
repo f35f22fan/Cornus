@@ -38,9 +38,7 @@ private:
 	void PresentUserFileExistsQuestion();
 	void PresentUserWriteFailedQuestion();
 	void PresentWindow();
-	void SendDeleteFailedAnswer(const io::DeleteFailedAnswer answer);
-	void SendFileExistsAnswer(const io::FileExistsAnswer answer);
-	void SendWriteFailedAnswer(const io::WriteFailedAnswer answer);
+	void SendAnswer();
 	void UpdateSpeedLabel();
 	
 	NO_ASSIGN_COPY_MOVE(TaskGui);
@@ -54,6 +52,7 @@ private:
 	cornus::io::Progress progress_ = {};
 	QIcon continue_icon_, pause_icon_;
 	io::TaskQuestion task_question_ = {};
+	cornus::io::Answer answer_ = {};
 	bool gui_created_ = false;
 	bool made_visible_once_ = false;
 	

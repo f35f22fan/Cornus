@@ -13,31 +13,10 @@
 namespace cornus::gui {
 using io::TaskState;
 
-static const auto TaskIsDoneBits = TaskState::Finished | TaskState::Abort;
+static const auto TaskFinishedOrAborted = TaskState::Finished | TaskState::Abort;
 const QString IconCancel = QLatin1String("edit-delete");
 const int ProgressMin = 0;
 const int ProgressMax = 100;
-
-QByteArray ToStr(const io::TaskState state)
-{
-	QString s;
-	if (state & io::TaskState::Abort)
-		s.append("Abort|");
-	if (state & io::TaskState::Answered)
-		s.append("Answered|");
-	if (state & io::TaskState::AwaitingAnswer)
-		s.append("AwaitingAnswer|");
-	if (state & io::TaskState::Continue)
-		s.append("Continue|");
-	if (state & io::TaskState::Finished)
-		s.append("Finished|");
-	if (state & io::TaskState::Pause)
-		s.append("Pause|");
-	if (state & io::TaskState::Working)
-		s.append("Working|");
-	
-	return s.toLocal8Bit();
-}
 
 void Invoke(TaskGui *task_gui)
 {
@@ -56,42 +35,44 @@ void* wait_for_signal(void *ptr)
 		if (data.state & TaskState::AwaitingAnswer)
 		{
 			Invoke(task_gui);
-			const auto condition = TaskState::Answered | TaskIsDoneBits;
-//			const auto str = ToStr(wait_for_bits);
-//			mtl_info("Waiting for %s", str.data());
+			const auto condition = TaskState::Answered | TaskFinishedOrAborted;
+			mtl_info("Waiting for %s", qPrintable(ToString(condition)));
 			data.WaitFor(condition, Lock::No);
-//			mtl_info("Waiting for %s ... Done", str.data());
+			mtl_info("Waiting for %s ... Done", qPrintable(ToString(condition)));
 			if (data.state & TaskState::Answered)
 			{
+mtl_trace();
 				Invoke(task_gui);
 			}
 		} else {
-			const auto condition = TaskState::AwaitingAnswer | TaskIsDoneBits | TaskState::Working;
-//			const auto str = ToStr(wait_for_bits);
-//			mtl_info("Waiting for %s", str.data());
+			const auto condition = TaskState::AwaitingAnswer | TaskFinishedOrAborted | TaskState::Working;
+			mtl_info("Waiting for %s", qPrintable(ToString(condition)));
 			data.WaitFor(condition, Lock::No);
-//			mtl_info("Waiting for %s .. Done", str.data());
+			mtl_info("Waiting for %s .. Done", qPrintable(ToString(data.state)));
 			if (data.state & TaskState::Working)
 			{
-//				mtl_info("TaskState::Working (Sleep 300ms)");
+				mtl_info("TaskState::Working (Sleep 300ms)");
 				data.cm.Unlock();
-				const useconds_t ms = first_time ? 3000 * 1000 : 300 * 1000;
+				const useconds_t ms = first_time ? 1000 * 100 : 300 * 1000;
 				usleep(ms);
 				if (first_time)
 					first_time = false;
 				data.cm.Lock();
+				mtl_trace();
 				Invoke(task_gui);
 				continue;
 			} else {
+				mtl_trace();
 				Invoke(task_gui);
+				mtl_trace();
 			}
 		}
 		
-		const auto state = data.state;
-		if (state & TaskIsDoneBits)
+		cauto state = data.state;
+		if (state & TaskFinishedOrAborted)
 		{
-			auto ba = ToStr(state);
-			mtl_info("Task done: %s", ba.data());
+			mtl_info("Task done: %s", qPrintable(ToString(state)));
+			Invoke(task_gui);
 			break;
 		}
 	} while (true);
@@ -103,14 +84,11 @@ TaskGui::TaskGui(io::Task *task): task_(task)
 {
 	//mtl_printq2("TaskGui thread: ", io::thread_id_short(pthread_self()));
 	io::NewThread(wait_for_signal, this);
-	
-//	const int timeout = 3000; // 3 seconds
-//	QTimer::singleShot(timeout, this, &TaskGui::CheckTaskState);
 }
 
 TaskGui::~TaskGui()
 {
-	task_->data().WaitFor(TaskIsDoneBits);
+	task_->data().WaitFor(TaskFinishedOrAborted);
 	delete task_;
 }
 
@@ -120,7 +98,7 @@ void TaskGui::CheckTaskState()
 //	mtl_info("Thread: %s", thread_ba.data());
 	const TaskState state = task_->data().GetState(&task_question_);
 	
-	if (state & TaskIsDoneBits)
+	if (state & TaskFinishedOrAborted)
 	{
 		tasks_win_->TaskDone(this, state);
 		return;
@@ -136,8 +114,7 @@ void TaskGui::CheckTaskState()
 		tasks_win_->setVisible(true);
 	}
 	
-	if (state & TaskState::Working)
-	{
+	if (state & TaskState::Working) {
 //static int n = 0;
 //mtl_info("TaskState::Working %d", n++);
 		auto prev_id = progress_.details_id;
@@ -155,6 +132,7 @@ void TaskGui::CheckTaskState()
 			info_->setText(progress_.details);
 		}
 	}
+	
 	if (state & TaskState::AwaitingAnswer) {
 		switch (task_question_.question) {
 		case io::Question::FileExists: {
@@ -162,6 +140,7 @@ void TaskGui::CheckTaskState()
 			break;
 		}
 		case io::Question::WriteFailed: {
+			mtl_trace("Write Failed");
 			PresentUserWriteFailedQuestion();
 			break;
 		}
@@ -175,16 +154,15 @@ void TaskGui::CheckTaskState()
 		}
 		}
 	}
-	
-	if (state & TaskState::Answered)
+
+	if (state & TaskState::Continue)
 	{
 		auto &data = task_->data();
-		//auto state = data.GetState();
-		//auto state_ba = ToStr(state);
-		//mtl_info("RESTORING PROGRESS DISPLAY PANE: %s", state_ba.data());
+		auto state = data.GetState();
+		mtl_info("RESTORING PROGRESS DISPLAY PANE: %s", qPrintable(ToString(state)));
 		
 		stack_.layout->setCurrentIndex(stack_.progress_index);
-		const auto new_state = TaskState::Working;
+		cauto new_state = TaskState::Working;
 		data.ChangeState(new_state);
 		UpdateStartPauseIcon(new_state);
 	}
@@ -196,11 +174,9 @@ void TaskGui::ContinueOrPause()
 	auto old_state = data.GetState(nullptr);
 	io::TaskState new_state;
 	if (old_state & TaskState::Working) {
-		//mtl_info("New state : pause");
 		new_state = TaskState::Pause;
 	} else if (old_state & TaskState::Pause) {
-		//mtl_info("New state : working");
-		new_state = TaskState::Working;
+		new_state = TaskState::Continue;
 	} else {
 		mtl_trace();
 		return;

@@ -25,16 +25,41 @@ namespace cornus::io {
 
 cint OverwriteFlags = O_CREAT | O_TRUNC | O_LARGEFILE | O_NOFOLLOW | O_NOATIME | O_WRONLY;
 
+QString ToString(const io::TaskState state)
+{
+	QString s;
+	if (state & io::TaskState::Abort)
+		s.append("Abort|");
+	if (state & io::TaskState::Answered)
+		s.append("Answered|");
+	if (state & io::TaskState::AwaitingAnswer)
+		s.append("AwaitingAnswer|");
+	if (state & io::TaskState::Continue)
+		s.append("Continue|");
+	if (state & io::TaskState::Finished)
+		s.append("Finished|");
+	if (state & io::TaskState::Pause)
+		s.append("Pause|");
+	if (state & io::TaskState::Working)
+		s.append("Working|");
+	
+	return s;
+}
+
 void TaskData::ChangeState(const TaskState new_state, Answer *answer, TaskQuestion *question)
 {
 	auto g = cm.guard();
 	if (answer != nullptr)
-		answer_.add(*answer);
+		answer_ = *answer;
 	if (question != nullptr) {
 		task_question_ = *question;
 	}
 	cauto StopRecordingTime = TaskState::Finished | TaskState::Pause
 	| TaskState::Abort | TaskState::AwaitingAnswer;
+	
+	// if (new_state & TaskState::Working) {
+		mtl_info("CHANGED STATE TO: %s", qPrintable(ToString(new_state)));
+	// }
 	
 	state = new_state;
 	if (new_state & StopRecordingTime)
@@ -683,13 +708,29 @@ int Task::TryCreateRegularFile(const QString &new_dir_path,
 			
 		} else if (error_code == EACCES) {
 			mtl_warn("Don't have permission for %s", dest_ba.data());
-			return -1;
+			Answer answer = WaitForFileAccessAnswer(file_size, dest_path);
+			if (answer.retry()) {
+				mtl_trace("retry");
+				continue;
+			} else if (answer.skip()) {
+				mtl_trace();
+				return -1;
+			} else if (answer.skip_all()) {
+				mtl_trace();
+				return -1;
+			} else if (answer.abort()) {
+				mtl_trace();
+				return -1;
+			} else {
+				mtl_trace();
+				return -1;
+			}
 		} else {
 			mtl_warn("errno is: %d", error_code);
 			return -1;
 		}
 	}
-		
+	
 	mtl_trace();
 	return -1;
 }
@@ -724,7 +765,6 @@ Answer Task::TackleFileExists(QString dest_path, int &file_flags, ci64 file_size
 	question.question = io::Question::FileExists;
 	data_.ChangeState(TaskState::AwaitingAnswer, 0, &question);
 	return WaitForFileExistsAnswer(file_size);
-	
 }
 
 Answer
@@ -821,6 +861,39 @@ Task::WaitForWriteFailedAnswer(ci64 file_size)
 		data_.ChangeState(TaskState::Abort);
 		return answer;
 	} else {
+		answer.clear();
+		answer.abort(true);
+		return answer;
+	}
+}
+
+Answer
+Task::WaitForFileAccessAnswer(ci64 file_size, QString dest_path)
+{
+	TaskQuestion question = {};
+	question.explanation = QObject::tr("File access");
+	question.file_path_in_question = dest_path;
+	question.question = io::Question::WriteFailed;
+	data_.ChangeState(TaskState::AwaitingAnswer, 0, &question);
+	data_.WaitFor(TaskState::Answered);
+	Answer answer = data_.GetAnswerWithLock();
+	
+	if (answer.none()) {
+		mtl_trace();
+		answer.clear();
+		answer.abort(true);
+		return answer;
+	} else if (answer.retry()) {
+		mtl_trace("retry");
+		return answer;
+	} else if (answer.skip()) {
+		mtl_trace("skip");
+		return answer;
+	} else if (answer.skip_all()) {
+		mtl_trace("skip all");
+		return answer;
+	} else {
+		mtl_trace("other");
 		answer.clear();
 		answer.abort(true);
 		return answer;

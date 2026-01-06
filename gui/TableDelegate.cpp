@@ -216,42 +216,7 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	QPen pen(brush.color());
 	painter->setPen(pen);
 	painter->drawText(text_rect, text_alignment_, text);
-	
-	if (!app_->prefs().mark_extended_attrs_disabled() && file->has_ext_attrs()) {
-		QList<QString> names;
-		QList<QColor> colors;
-		
-		if (file->has_last_watched_attr()) {
-			names.append("lw");
-			colors.append(QColor(255, 0, 0));
-		}
-		if (file->has_watched_attr()) {
-			names.append("hw");
-			colors.append(QColor(255, 165, 0));
-		}
-		
-		if (file->has_media_attrs()) {
-			names.append("m");
-			colors.append(QColor(250, 250, 250));
-		}
-		if (file->has_thumbnail_attr()) {
-			names.append("th");
-			colors.append(QColor(159, 0, 255)); // violet
-		}
-		
-		cint count = colors.size();
-		cauto circle_h = fm.boundingRect("AB").height();
-		cauto h = fm.height();
-		for (int i = 0; i < count; i++)
-		{
-			pen.setColor(colors[i]);
-			painter->setPen(pen);
-			auto r = text_rect;
-			cauto y = r.y() + (i * circle_h);// - circle_h + 1;
-			r.setY(y);
-			painter->drawText(r, Qt::AlignLeft, names[i]);
-		}
-	}
+	cbool show_hint = !app_->prefs().mark_extended_attrs_disabled() && file->has_ext_attrs();
 	
 	QIcon *icon = app_->GetFileIcon(file);
 	if (icon == nullptr)
@@ -285,6 +250,42 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 		
 		if (action_icon != nullptr)
 			action_icon->paint(painter, icon_rect);
+	}
+	
+	if (show_hint) {
+		QList<QString> names;
+		QList<QColor> colors;
+		
+		if (file->has_last_watched_attr()) {
+			names.append("lw");
+			colors.append(QColor(255, 0, 0));
+		}
+		if (file->has_watched_attr()) {
+			names.append("hw");
+			colors.append(QColor(255, 165, 0));
+		}
+		
+		if (file->has_media_attrs()) {
+			names.append("m");
+			colors.append(QColor(250, 250, 250));
+		}
+		if (file->has_thumbnail_attr()) {
+			names.append("th");
+			colors.append(QColor(159, 0, 255)); // violet
+		}
+		
+		cint count = colors.size();
+		cauto circle_h = fm.boundingRect("AB").height();
+		cauto h = fm.height();
+		for (int i = 0; i < count; i++)
+		{
+			pen.setColor(colors[i]);
+			painter->setPen(pen);
+			auto r = text_rect;
+			cauto y = r.y() + (i * circle_h);// - circle_h + 1;
+			r.setY(y);
+			painter->drawText(r, Qt::AlignLeft, names[i]);
+		}
 	}
 }
 

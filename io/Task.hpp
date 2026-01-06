@@ -13,6 +13,9 @@
 #include <QElapsedTimer>
 
 namespace cornus::io {
+
+QString ToString(const io::TaskState state);
+
 struct Answer {
 	Answer() {bits_ = 0;}
 	Answer& operator=(const Answer &rhs) {
@@ -100,14 +103,13 @@ struct TaskData {
 		
 		return state;
 	}
-	inline i64 GetTimeWorked() {
-		cm.Lock();
-		ci64 ret = work_time_recorder_.elapsed_ms();
-		cm.Unlock();
-		return ret;
-	}
-	void ChangeState(const TaskState new_state, Answer *answer = nullptr, TaskQuestion *question = nullptr);
 	
+	inline i64 GetTimeWorked() {
+		auto g = cm.guard();
+		return work_time_recorder_.elapsed_ms();
+	}
+	
+	void ChangeState(const TaskState new_state, Answer *answer = nullptr, TaskQuestion *question = nullptr);
 	void RemoveBits(const TaskState states);
 	TaskState WaitFor(const TaskState new_state, const Lock l = Lock::Yes);
 };
@@ -204,6 +206,7 @@ private:
 	
 	Answer TackleFileExists(QString dest_path, int &file_flags, ci64 file_size);
 	Answer WaitForDeleteFailedAnswer(const i64 file_size);
+	Answer WaitForFileAccessAnswer(ci64 file_size, QString dest_path);
 	Answer WaitForFileExistsAnswer(const i64 file_size);
 	Answer WaitForWriteFailedAnswer(const i64 file_size);
 	

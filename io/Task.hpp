@@ -204,10 +204,10 @@ private:
 	void CopyXAttr(const int input_fd, const int output_fd);
 	i64 CountTotalSize();
 	
-	Answer TackleFileExists(QString dest_path, int &file_flags, ci64 file_size);
 	Answer WaitForDeleteFailedAnswer(const i64 file_size);
 	Answer WaitForFileAccessAnswer(ci64 file_size, QString dest_path);
-	Answer WaitForFileExistsAnswer(const i64 file_size);
+	Answer WaitForFileExistsAnswer(QString dir_path, QString filename, QString dest_path,
+		int &file_flags, ci64 file_size, mode_t mode);
 	Answer WaitForWriteFailedAnswer(const i64 file_size);
 	
 	// returns 0 on success, errno otherwise

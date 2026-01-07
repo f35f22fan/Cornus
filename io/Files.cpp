@@ -179,6 +179,7 @@ void Files::MarkFilesAsWatched(const enum Lock l, QList<io::File*> &vec)
 		{
 			if (next->id() == needle->id())
 			{
+				mtl_info("invert: %s", qPrintable(next->name()));
 				next->WatchProp(Op::Invert, media::WatchProps::Watched);
 				break;
 			}

@@ -41,14 +41,13 @@ void* wait_for_signal(void *ptr)
 			mtl_info("Waiting for %s ... Done", qPrintable(ToString(condition)));
 			if (data.state & TaskState::Answered)
 			{
-mtl_trace();
 				Invoke(task_gui);
 			}
 		} else {
 			const auto condition = TaskState::AwaitingAnswer | TaskFinishedOrAborted | TaskState::Working;
-			mtl_info("Waiting for %s", qPrintable(ToString(condition)));
+			// mtl_info("Waiting for %s", qPrintable(ToString(condition)));
 			data.WaitFor(condition, Lock::No);
-			mtl_info("Waiting for %s .. Done", qPrintable(ToString(data.state)));
+			// mtl_info("Waiting for %s .. Done", qPrintable(ToString(data.state)));
 			if (data.state & TaskState::Working)
 			{
 				mtl_info("TaskState::Working (Sleep 300ms)");
@@ -58,13 +57,10 @@ mtl_trace();
 				if (first_time)
 					first_time = false;
 				data.cm.Lock();
-				mtl_trace();
 				Invoke(task_gui);
 				continue;
 			} else {
-				mtl_trace();
 				Invoke(task_gui);
-				mtl_trace();
 			}
 		}
 		
@@ -176,7 +172,7 @@ void TaskGui::ContinueOrPause()
 	if (old_state & TaskState::Working) {
 		new_state = TaskState::Pause;
 	} else if (old_state & TaskState::Pause) {
-		new_state = TaskState::Continue;
+		new_state = TaskState::Continue | TaskState::Working;
 	} else {
 		mtl_trace();
 		return;

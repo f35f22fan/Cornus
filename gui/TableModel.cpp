@@ -173,7 +173,7 @@ void SendModifiedEvent(TableModel *model, QString name, ci32 dir_id)
 void ProcessEvents(EventArgs *a)
 {
 #ifdef CORNUS_DEBUG_INOTIFY
-	mtl_info("<EVT BATCH>");
+	mtl_info("<ProcessEvent>");
 #endif
 	AutoDelete a_(a);
 	struct statx stx;
@@ -285,7 +285,7 @@ void ProcessEvents(EventArgs *a)
 	}
 
 #ifdef CORNUS_DEBUG_INOTIFY
-	mtl_info("</EVT BATCH>");
+	mtl_info("</ProcessEvent>");
 #endif
 }
 

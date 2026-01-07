@@ -449,6 +449,8 @@ void
 TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 	const QModelIndex &index) const
 {
+	// static int counter = 0;
+	// mtl_trace("%d", counter++);
 	RestorePainter rp(painter);
 	painter->setRenderHint(QPainter::Antialiasing);
 	QFontMetricsF fm(option.font);

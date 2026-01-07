@@ -15,6 +15,11 @@
 
 namespace cornus::io {
 
+enum class AlsoDeleteFromDisk: bool {
+	Yes,
+	No,
+};
+
 enum class CloneFileOption: u32 {
 	Empty = 0,
 	NoThumbnail = 1,
@@ -62,7 +67,7 @@ public:
 	QString build_full_path() const;
 	FileCache& cache() { return cache_; }
 	void ClearCache();
-	void ClearThumbnail();
+	void ClearThumbnail(AlsoDeleteFromDisk d);
 	void DeleteMediaPreview();
 	bool extensionCanHaveThumbnail() const;
 	bool has(const io::FileBits bits) { return (bits_ & bits) != FileBits::Empty; }

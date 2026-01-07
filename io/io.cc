@@ -422,6 +422,8 @@ int CreateAutoRenamedFile(QString dir_path, QString filename,
 		if (errno != EEXIST)
 			return -1;
 	}
+	
+	return 0;
 }
 
 int DeleteFolder(QString dp, const DeleteSubFolders dsf, const DeleteTopFolder dtf)

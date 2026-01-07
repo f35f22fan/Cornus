@@ -21,7 +21,7 @@ File::~File()
 		link_target_ = 0;
 	}
 	
-	ClearThumbnail();
+	ClearThumbnail(AlsoDeleteFromDisk::No);
 	
 	delete cache_.desktop_file;
 	cache_.desktop_file = 0;
@@ -48,12 +48,15 @@ void File::ClearXAttrs()
 	DeleteMediaPreview();
 }
 
-void File::ClearThumbnail() {
+void File::ClearThumbnail(AlsoDeleteFromDisk d) {
 	delete cache_.thumbnail;
 	cache_.thumbnail = 0;
 	ext_attrs_.remove(media::XAttrThumbnail);
-	QVector<QString> names = {media::XAttrThumbnail};
-	io::RemoveEFA(build_full_path(), names);
+	
+	if (d == AlsoDeleteFromDisk::Yes) {
+		QVector<QString> names = {media::XAttrThumbnail};
+		io::RemoveEFA(build_full_path(), names);
+	}
 }
 
 File* File::Clone(const CloneFileOption opt) const

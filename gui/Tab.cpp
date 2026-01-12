@@ -14,6 +14,7 @@
 #include "../io/File.hpp"
 #include "../io/Files.hpp"
 #include "Location.hpp"
+#include "../misc/Blacklist.hpp"
 #include "OpenOrderPane.hpp"
 #include "../str.hxx"
 #include "Table.hpp"
@@ -444,6 +445,26 @@ void Tab::AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path)
 	});
 	open_with_menu->addAction(action);
 	main_menu->addMenu(open_with_menu);
+}
+
+void Tab::AllowThumbnailsInSelectedFiles()
+{
+	auto  &files = view_files();
+	MutexGuard guard = files.guard();
+	struct statx stx;
+	PrintErrors pe = PrintErrors::No;
+	for (io::File *next: files.data.vec)
+	{
+		if (!next->is_selected())
+			continue;
+		
+		if (app_->blacklist().AllowThumbnail(next)) {
+			cbool ok = io::ReloadMeta(*next, stx, app_->env(), pe);
+			// mtl_info("ReloadMeta result: %d for %s", ok, qPrintable(next->name()));
+		}
+	}
+	
+	app_->blacklist().Save();
 }
 
 bool Tab::AnyArchive(const QVector<QString> &extensions) const
@@ -1145,12 +1166,6 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 		} else if (key == Qt::Key_R) {
 			app_->Reload();
 		}
-		
-		if (shift) {
-			if (key == Qt::Key_U) {
-				view_files().RemoveThumbnailsFromSelectedFiles();
-			}
-		}
 	}
 	
 	if (key == Qt::Key_Delete) {
@@ -1466,6 +1481,24 @@ bool Tab::ReloadOpenWith()
 	}
 	
 	return true;
+}
+
+void Tab::RemoveThumbnailsFromSelectedFiles()
+{
+	auto  &files = view_files();
+	MutexGuard guard = files.guard();
+	
+	for (io::File *next: files.data.vec)
+	{
+		if (!next->is_selected() || !next->has_thumbnail_attr())
+			continue;
+		
+		cauto path = next->build_full_path();
+		app_->blacklist().BlockThumbnail(next);
+		next->ClearThumbnail(io::AlsoDeleteFromDisk::Yes);
+	}
+	
+	app_->blacklist().Save();
 }
 
 void Tab::resizeEvent(QResizeEvent *ev)
@@ -1852,6 +1885,33 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 			QAction *action = archive_menu->addAction(ext);
 			connect(action, &QAction::triggered, [=] {
 				app_->ArchiveTo(app_->tab()->current_dir(), ext);
+			});
+		}
+	}
+	
+	if (selected_count > 0) {
+		QMenu *efa_menu = new QMenu(tr("Extended File Attributes"));
+		menu->addSeparator();
+		menu->addMenu(efa_menu);
+		
+		QIcon *icon = app_->GetIcon(QLatin1String("php"));
+		if (icon) {
+			efa_menu->setIcon(*icon);
+		}
+		
+		menu->addSeparator();
+		
+		{
+			QAction *action = efa_menu->addAction("Remove Thumbnails");
+			connect(action, &QAction::triggered, [=] {
+				RemoveThumbnailsFromSelectedFiles();
+			});
+		}
+		
+		{
+			QAction *action = efa_menu->addAction("Allow Thumbnails");
+			connect(action, &QAction::triggered, [=] {
+				AllowThumbnailsInSelectedFiles();
 			});
 		}
 	}

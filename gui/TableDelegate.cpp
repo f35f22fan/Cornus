@@ -477,7 +477,7 @@ TableDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
 	auto role = (mouse_over || (row % 2)) ? QPalette::AlternateBase : QPalette::Base;
 	QBrush bg_brush = option.palette.brush(role);
 	if (mouse_over) {
-		cint increase = app_->isDarkMode() ? 200 : 50;
+		cint increase = app_->isDarkMode() ? 200 : 85;
 		QColor color = bg_brush.color().lighter(increase);
 		bg_brush.setColor(color);
 	}

@@ -1636,11 +1636,13 @@ bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &en
 void RemoveEFA(QStringView full_path, QVector<QString> names, const PrintErrors pe)
 {
 	auto file_path_ba = full_path.toLocal8Bit();
+	cint fd = open(file_path_ba.data(), O_WRONLY);
+	AutoCloseFd fd_(fd);
 	
 	for (const auto &name: names)
 	{
 		auto name_ba = name.toLocal8Bit();
-		cbool ok = lremovexattr(file_path_ba.data(), name_ba.data()) == 0;
+		cbool ok = fremovexattr(fd, name_ba.data()) == 0;
 		
 		// if (ok) {
 		// 	mtl_info("Removed %s for %s", name_ba.data(), file_path_ba.data());
@@ -1714,7 +1716,8 @@ bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx,
 	ba.add(dst_buf, compressed_size, ExactSize::Yes);
 	free(dst_buf);
 	
-	if (ok_to_store_thumbnails_in_ext_attrs && (item.dir == TempDir::No))
+	cbool temp_dir_not_mandatory = (item.dir == TempDir::No);
+	if (ok_to_store_thumbnails_in_ext_attrs && temp_dir_not_mandatory)
 	{
 		if (io::SetEFA(item.full_path, media::XAttrThumbnail, ba, PrintErrors::No))
 			return true;
@@ -1791,10 +1794,10 @@ QString SizeToString(ci64 sz, const StringLength len)
 
 bool SortFiles(io::File *a, io::File *b) 
 {
-/** Note: this function MUST be implemented with strict weak ordering
-  otherwise it randomly crashes (because of undefined behavior),
-  more info here:
- https://stackoverflow.com/questions/979759/operator-and-strict-weak-ordering/981299#981299 */
+// Note: this function MUST be implemented with strict weak ordering
+// otherwise it randomly crashes (because of undefined behavior),
+// more info here:
+// https://stackoverflow.com/questions/979759/operator-and-strict-weak-ordering/981299#981299
 	
 	if (!a->files())
 		mtl_warn("a->files is null on %s", qPrintable(a->name()));
@@ -1808,8 +1811,8 @@ bool SortFiles(io::File *a, io::File *b)
 	if (order.column == gui::Column::FileName) {
 		///a->name_lower().compare(b->name_lower());
 		int n = CompareStrings(a->name_lower(), b->name_lower());
-		bool result = n >= 0 ? false : true;
-		return order.ascending ? result : !result;
+		bool flag = n >= 0 ? false : true;
+		return order.ascending ? flag : !flag;
 	}
 	
 	cbool by_created = (order.column == gui::Column::TimeCreated);
@@ -1826,8 +1829,8 @@ bool SortFiles(io::File *a, io::File *b)
 		if (tc.tv_nsec == tc2.tv_nsec)
 			return false;
 		
-		cbool less_nsec = tc.tv_nsec < tc2.tv_nsec;
-		return order.ascending ? less_nsec : !less_nsec;
+		cbool flag = tc.tv_nsec < tc2.tv_nsec;
+		return order.ascending ? flag : !flag;
 	}
 	
 	if (order.column == gui::Column::Size) {
@@ -1836,8 +1839,8 @@ bool SortFiles(io::File *a, io::File *b)
 			bool result = n >= 0 ? false : true;
 			return order.ascending ? result : !result;
 		}
-		cbool less_size = a->size() < b->size();
-		return order.ascending ? less_size : !less_size;
+		cbool flag = a->size() < b->size();
+		return order.ascending ? flag : !flag;
 	}
 	
 	if (order.column == gui::Column::Icon) {
@@ -1849,12 +1852,12 @@ bool SortFiles(io::File *a, io::File *b)
 		// next, order by extension:
 		if (a->cache().ext == b->cache().ext) {
 			int n = CompareStrings(a->name_lower(), b->name_lower());
-			bool result = n >= 0 ? false : true;
-			return order.ascending ? result : !result;
+			bool flag = n >= 0 ? false : true;
+			return order.ascending ? flag : !flag;
 		}
 		
-		cbool less_ext = a->cache().ext < b->cache().ext;
-		return order.ascending ? less_ext : !less_ext;
+		cbool flag = a->cache().ext < b->cache().ext;
+		return order.ascending ? flag : !flag;
 	}
 	
 	mtl_trace();

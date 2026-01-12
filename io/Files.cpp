@@ -187,20 +187,6 @@ void Files::MarkFilesAsWatched(const enum Lock l, QList<io::File*> &vec)
 	}
 }
 
-void Files::RemoveThumbnailsFromSelectedFiles()
-{
-	MutexGuard guard = this->guard();
-	
-	for (io::File *next: data.vec)
-	{
-		if (!next->is_selected() || !next->has_thumbnail_attr())
-			continue;
-		
-		cauto path = next->build_full_path();
-		io::RemoveEFA(path, {media::XAttrName, media::XAttrThumbnail});
-	}
-}
-
 void Files::SelectAllFiles(const cornus::Lock l, const Selected flag, QSet<int> &indices)
 {
 	auto g = this->guard(l);

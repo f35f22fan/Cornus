@@ -46,7 +46,6 @@ struct FileCache {
 	const QHash<QString, Category> *possible_categories = nullptr;
 	media::MediaPreview *media_preview = nullptr;
 	Thumbnail *thumbnail = nullptr;
-	bool tried_loading_thumbnail = false;
 };
 
 class File {
@@ -214,8 +213,6 @@ public:
 	i64 size() const { return size_; }
 	void size(const i64 n) { size_ = n; }
 	
-	bool ShouldTryLoadingThumbnail();
-	
 	Thumbnail* thumbnail() const { return cache_.thumbnail; }
 	void thumbnail(Thumbnail *p)
 	{
@@ -257,7 +254,7 @@ private:
 	DiskFileId id_ = {};
 	struct statx_timestamp time_created_ = {};
 	struct statx_timestamp time_modified_ = {};
-	mode_t mode_;
+	mode_t mode_ = 0;
 	int dir_file_count_ = -1; // -2 => an error occured
 	io::FileBits bits_ = FileBits::Empty;
 	FileType type_ = FileType::Unknown;

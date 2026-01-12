@@ -113,8 +113,10 @@ void* ThumbnailLoader (void *args)
 		}
 		
 		ThumbLoaderArgs *new_work = th_data->new_work;
-		if (new_work == nullptr)
+		if (new_work == nullptr) {
+			// mtl_trace("new_work == nullptr");
 			continue;
+		}
 		
 		th_data->Unlock();
 		QString thumb_in_temp_path = io::BuildTempPathFromID(new_work->file_id);
@@ -124,8 +126,8 @@ void* ThumbnailLoader (void *args)
 		thumbnail::AbiType abi_version = -1;
 		if (has_ext_attr || io::ReadFile(thumb_in_temp_path, temp_ba, read_params))
 		{
-//			mtl_info("%s: %s, has_ext_attr: %d", qPrintable(new_work->full_path),
-//				qPrintable(thumb_in_temp_path), has_ext_attr);
+			// mtl_info("%s: %s, has_ext_attr: %d", qPrintable(new_work->full_path),
+			// 	qPrintable(thumb_in_temp_path), has_ext_attr);
 			ByteArray &img_ba = has_ext_attr ? new_work->ba : temp_ba;
 			i32 orig_img_w, orig_img_h;
 			QImage img = thumbnail::ImageFromByteArray(img_ba,
@@ -163,7 +165,7 @@ void* ThumbnailLoader (void *args)
 		if (thumbnail == nullptr)
 		{
 			th_data->new_work = nullptr;
-			//mtl_info("thumbnail failed %s", qPrintable(new_work->full_path));
+			mtl_info("thumbnail failed %s", qPrintable(new_work->full_path));
 			continue;
 		}
 		
@@ -173,11 +175,15 @@ void* ThumbnailLoader (void *args)
 			break;
 		}
 		
+		QString fp = new_work->full_path;
 		App *app = new_work->app;
 		delete new_work;
 		th_data->new_work = nullptr;
 		if (th_data->wait_for_work)
 		{
+			// if (fp.indexOf("company") >= 0) {
+			// 	mtl_info("thumbnail arrived: %s", qPrintable(fp));
+			// }
 			QMetaObject::invokeMethod(app, "ThumbnailArrived",
 				Q_ARG(cornus::Thumbnail*, thumbnail));
 		} else {
@@ -307,7 +313,7 @@ App::App()
 	printf("%#08x\n", i);   // gives 0x000007
 	*/
 	Init();
-	AccessWayland();
+	blacklist_.Load();
 	// QString s = QString::fromUtf8("Schöne Grüße");
 	// auto ba = s.toLocal8Bit();
 	// printf("%s len: %d\n", ba.data(), s.length());
@@ -372,11 +378,6 @@ App::~App()
 	for (auto *shortcut: shortcuts_)
 		delete shortcut;
 	shortcuts_.clear();
-}
-
-void App::AccessWayland()
-{
-	
 }
 
 void App::ApplyDefaultPrefs()
@@ -2103,6 +2104,26 @@ bool App::ShowInputDialog(const gui::InputDialogParams &params,
 	return ok;
 }
 
+bool App::ShouldLoadThumbnailFor(io::File *file)
+{
+	if (!file->is_regular())// || file->cache().tried_loading_thumbnail)
+		return false;
+	
+	if (file->cache().thumbnail != nullptr) {
+		return false;
+	}
+	
+	if (!file->extensionCanHaveThumbnail()) {
+		return false;
+	}
+	
+	if (blacklist_.ContainsThumbnail(file)) {
+		return false;
+	}
+	
+	return true;
+}
+
 void App::ShutdownThumbnailThreads()
 {
 	global_thumb_loader_data_.Lock();
@@ -2155,7 +2176,6 @@ void App::SubmitThumbLoaderBatchFromTab(
 	QVector<ThumbLoaderArgs*> *new_work_vec,
 	const TabId tab_id, const DirId dir_id)
 {
-	mtl_info("count: %lld", new_work_vec->size());
 	if (new_work_vec->isEmpty())
 	{
 		delete new_work_vec;
@@ -2200,14 +2220,13 @@ void App::SubmitThumbLoaderFromTab(ThumbLoaderArgs *arg)
 	{
 		auto g = global_thumb_loader_data_.guard();
 		InitThumbnailPoolIfNeeded();
-		auto &work_queue = global_thumb_loader_data_.work_queue;
 		
 // Iteration happens from last to first on purpose because the user needs
 // the thumbnails to be loaded from top to bottom and since the thumbnails
 // monitor picks from the bottom of the vector queue with vector->takeLast()
 // (because it's more efficient than vector->takeFirst()) one must submit
 // the items from last to first.
-		work_queue.append(arg);
+		global_thumb_loader_data_.work_queue.append(arg);
 		global_thumb_loader_data_.Broadcast();
 	}
 }

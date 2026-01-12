@@ -122,7 +122,6 @@ public:
 	bool HasSelectedFiles(const cornus::Lock l) const;
 	QPair<int, int> ListSelectedFiles(const cornus::Lock l, QList<QUrl> &list);
 	
-	void RemoveThumbnailsFromSelectedFiles();
 	void SelectAllFiles(const cornus::Lock l, const Selected flag, QSet<int> &indices);
 	void SelectFilenamesLater(const QVector<QString> &names, const SameDir sd = SameDir::No);
 	void SelectFileRange(const cornus::Lock l, cint row1, cint row2, QSet<int> &indices);

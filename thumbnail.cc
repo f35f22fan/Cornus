@@ -105,23 +105,27 @@ Thumbnail* Load(const QString &full_path, const u64 &file_id,
 {
 	QSize scaled, orig_img_sz;
 	QImage img;
-	if (false) { //ext == QByteArray("webp"))
-	// WebP is disabled in Qt5 on Ubuntu 21.10, so load webp files manually.
-	// Update from 2024: Since the app switched to Qt6 this is no longer an issue.
-	// Later the custom webp support should be fully deleted.
-		img = LoadWebpImage(full_path, max_img_w, max_img_h, scaled, orig_img_sz);
-	} else {
-		QImageReader reader = QImageReader(full_path, ext);
-		orig_img_sz = reader.size();
-		if (orig_img_sz.isEmpty())
-			return nullptr;
-		
-		scaled = GetScaledSize(orig_img_sz, max_img_w, max_img_h);
-		reader.setScaledSize(scaled);
-		img = reader.read();
-	}
+	// if (ext == QByteArray("webp")) {
+	// 	img = LoadWebpImage(full_path, max_img_w, max_img_h, scaled, orig_img_sz);
+	// } else {
+	QImageReader reader = QImageReader(full_path, ext);
+	orig_img_sz = reader.size();
+	if (orig_img_sz.isEmpty())
+		return nullptr;
 	
-	//mtl_info("%s is null: %s", qPrintable(full_path), img.isNull() ? "true" : "false");
+	scaled = GetScaledSize(orig_img_sz, max_img_w, max_img_h);
+	reader.setScaledSize(scaled);
+	img = reader.read();
+	// }
+	
+	// if (full_path.indexOf("company") >= 0) {
+	// 	mtl_info("%s is null: %s, ext: \"%s\"", qPrintable(full_path),
+	// 		img.isNull() ? "true" : "false", ext.data());
+	// 	mtl_info("max_img_w:%d, max_img_h:%d, scaled %dx%d, orig_img_sz: %dx%d",
+	// 		max_img_w, max_img_h, scaled.width(), scaled.height(),
+	// 		orig_img_sz.width(), orig_img_sz.height());
+	// }
+	
 	if (img.isNull()) {
 		return nullptr;
 	}
@@ -173,6 +177,7 @@ void* LoadMonitor(void *args)
 	return nullptr;
 }
 
+/*
 QImage LoadWebpImage(const QString &full_path, cint max_img_w,
 	cint max_img_h, QSize &scaled_sz, QSize &orig_img_sz)
 {
@@ -188,13 +193,11 @@ QImage LoadWebpImage(const QString &full_path, cint max_img_w,
 	WebPDecoderConfig config;
 	if (!WebPInitDecoderConfig(&config))
 	{
-//		mtl_trace();
 		return img;
 	}
 	
 	if (WebPGetFeatures((const u8*)ba.data(), ba.size(), &config.input) != VP8_STATUS_OK)
 	{
-//		mtl_trace();
 		return img;
 	}
 	
@@ -207,9 +210,6 @@ QImage LoadWebpImage(const QString &full_path, cint max_img_w,
 	config.options.scaled_height = scaled_sz.height();
 	
 	ci64 scanline_stride = scaled_sz.width() * 4;
-//	mtl_info("Requested stride: %ld", scanline_stride);
-//	mtl_info("max_img_w: %d, h: %d, scaled w: %d, h: %d",
-//		max_img_w, max_img_h, scaled_sz.width(), scaled_sz.height());
 	ci64 external_buf_size = scanline_stride * scaled_sz.height();
 	uchar *external_buf = new uchar[external_buf_size];
 	{
@@ -235,6 +235,6 @@ QImage LoadWebpImage(const QString &full_path, cint max_img_w,
 		CornusFreeQImageMemory, external_buf);
 	
 	return img;
-}
+} */
 
 }} // cornus::thumbnail::

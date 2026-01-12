@@ -24,6 +24,9 @@
 
 namespace cornus::gui {
 
+cint MaxImgW = 512;
+cint MaxImgH = 512;
+
 inline ThumbLoaderArgs* ThumbLoaderArgsFromFile(Tab *tab,
 	io::File *file, const DirId dir_id,
 	cint max_img_w, cint max_img_h)
@@ -206,16 +209,10 @@ DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
 	painter.drawPixmap(img_x + off, y + off, scaled_w - off*2, scaled_h - off*2, pixmap);
 	
 	return DrawBorder::Yes;
-//	cauto area_img = scaled_w * scaled_h;
-//	cauto area_avail = max_img_w * max_img_h;
-//	return ((area_avail / area_img) > 1.45) ? DrawBorder::Yes : DrawBorder::No;
 }
 
 void IconView::DisplayingNewDirectory(const DirId dir_id, const Reload r)
 {
-	if (last_thumbnail_submission_for_ == dir_id)
-		return;
-	
 	if (last_cancelled_except_ != dir_id)
 	{
 		last_cancelled_except_ = dir_id;
@@ -237,7 +234,6 @@ void IconView::FileChanged(const io::FileEventType evt, io::File *cloned_file)
 		(evt == io::FileEventType::Created) || (evt == io::FileEventType::Renamed);
 	if (anyof && cloned_file)
 	{
-		// mtl_info("Sending loading new thumbnail for %s", qPrintable(cloned_file->name()));
 		SendLoadingNewThumbnail(cloned_file);
 	}
 	
@@ -641,25 +637,15 @@ void IconView::SendLoadingNewThumbnailsBatch()
 		const DirId dir_id = files.data.dir_id;
 	files.Unlock();
 	
-	if (dir_id == last_thumbnail_submission_for_)
-		return;
-	
-	last_thumbnail_submission_for_ = dir_id;
-	ComputeProportions(icon_dim_);
-	cauto &cell = icon_dim_; // to make sure I don't change any value
-	cint max_img_h = cell.h_and_gaps - cell.text_h;
-	cint max_img_w = cell.w_and_gaps;
-	
 	QVector<ThumbLoaderArgs*> *work_stack = new QVector<ThumbLoaderArgs*>();
 	{
 		auto g = files.guard();
 		for (io::File *file: files.data.vec)
 		{
-			if (!file->ShouldTryLoadingThumbnail())
+			if (!app_->ShouldLoadThumbnailFor(file)) {
 				continue;
-			
-			file->cache().tried_loading_thumbnail = true;
-			auto *arg = ThumbLoaderArgsFromFile(tab_, file, dir_id, max_img_w, max_img_h);
+			}
+			auto *arg = ThumbLoaderArgsFromFile(tab_, file, dir_id, MaxImgW, MaxImgH);
 			work_stack->append(arg);
 		}
 	}
@@ -670,9 +656,8 @@ void IconView::SendLoadingNewThumbnailsBatch()
 void IconView::SendLoadingNewThumbnail(io::File *cloned_file)
 {
 	mtl_check_void(cloned_file);
-	// if (!cloned_file->ShouldTryLoadingThumbnail())
-	// 	return;
-	if (!cloned_file->extensionCanHaveThumbnail()) {
+	if (!app_->ShouldLoadThumbnailFor(cloned_file)) {
+		// mtl_trace("%s", qPrintable(cloned_file->name()));
 		return;
 	}
 	
@@ -680,16 +665,7 @@ void IconView::SendLoadingNewThumbnail(io::File *cloned_file)
 	MTL_CHECK_VOID(files.Lock());
 	const DirId dir_id = files.data.dir_id;
 	files.Unlock();
-	
-	//ComputeProportions(icon_dim_);
-	cauto &cell = icon_dim_; // to make sure I don't change any value
-	cint max_img_h = cell.h_and_gaps - cell.text_h;
-	cint max_img_w = cell.w_and_gaps;
-	
-	cloned_file->cache().tried_loading_thumbnail = true;
-	auto *arg = ThumbLoaderArgsFromFile(tab_, cloned_file, dir_id,
-		max_img_w, max_img_h);
-	
+	auto *arg = ThumbLoaderArgsFromFile(tab_, cloned_file, dir_id, MaxImgW, MaxImgH);
 	app_->SubmitThumbLoaderFromTab(arg);
 }
 
@@ -698,7 +674,6 @@ void IconView::SetViewState(const NewState ns)
 	if (ns == NewState::AboutToSet)
 	{
 		UpdateScrollRange();
-		// SendLoadingNewThumbnailsBatch();
 	} else if (ns == NewState::Set) {
 		SendLoadingNewThumbnailsBatch();
 	}

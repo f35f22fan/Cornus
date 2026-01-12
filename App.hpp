@@ -8,6 +8,7 @@
 #include "io/io.hh"
 #include "io/Notify.hpp"
 #include "gui/decl.hxx"
+#include "misc/Blacklist.hpp"
 #include "TreeData.hpp"
 #include "thumbnail.hh"
 
@@ -39,11 +40,11 @@ class App : public QMainWindow {
 public:
 	App();
 	virtual ~App();
-	void AccessWayland();
 	int app_quitting_fd() const { return app_quitting_fd_; }
 	void ArchiveTo(const QString &target_dir_path, const QString &ext);
 	void AskCreateNewFile(io::File *file, const QString &title);
 	int AvailableCpuCores() const;
+	misc::Blacklist& blacklist() { return blacklist_; }
 	QMenu* CreateNewMenu();
 	DirId current_dir_id() const;
 	void DeleteFilesById(const FilesId id);
@@ -97,6 +98,7 @@ public:
 	void SelectCurrentTab();
 	void SelectTabAt(const int tab_index, const FocusView fv);
 	void SetTopLevel(const TopLevel tl, io::File *cloned_file = nullptr);
+	bool ShouldLoadThumbnailFor(io::File *file);
 	bool ShowInputDialog(const gui::InputDialogParams &params, QString &ret_val);
 	
 	void SubmitThumbLoaderBatchFromTab(QVector<ThumbLoaderArgs*> *new_work_vec, const TabId tab_id, const DirId dir_id);
@@ -228,6 +230,7 @@ void DropArea::paste()
 	QProcessEnvironment env_;
 	QLocale locale_;
 	int app_quitting_fd_ = -1;
+	misc::Blacklist blacklist_;
 	
 	GlobalThumbLoaderData global_thumb_loader_data_ = {};
 	

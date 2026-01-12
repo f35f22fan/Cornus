@@ -11,7 +11,7 @@
 
 #include <pthread.h>
 #include <zstd.h>
-#include <webp/decode.h>
+// #include <webp/decode.h>
 
 void CornusFreeQImageMemory(void *data);
 
@@ -175,9 +175,6 @@ QImage ImageFromByteArray(ByteArray &ba, i32 &img_w, i32 &img_h,
 Thumbnail* Load(const QString &full_path, const u64 &file_id,
 	const QByteArray &ext, cint max_img_w, cint max_img_h,
 	const TabId tab_id, const DirId dir_id);
-
-QImage LoadWebpImage(const QString &full_path, cint max_img_w,
-	cint max_img_h, QSize &scaled_sz, QSize &orig_img_sz);
 
 inline QString SizeToString(const i32 w, const i32 h, const gui::ViewMode vm)
 {

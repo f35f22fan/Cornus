@@ -60,6 +60,7 @@ public:
 	void ActionCut();
 	void ActionPaste();
 	void ActionPasteLinks(const LinkType link);
+	void AllowThumbnailsInSelectedFiles();
 	App* app() const { return app_; }
 	void CreateGui();
 	const QString& current_dir() const { return current_dir_; }
@@ -104,6 +105,7 @@ public:
 	void PaintMagnified(QWidget *viewport, const QStyleOptionViewItem &option);
 	void PopulateUndoDelete(QMenu *menu);
 	bool ReloadOpenWith();
+	void RemoveThumbnailsFromSelectedFiles();
 	void ScrollToFile(const int file_index);
 	void ShutdownLastInotifyThread();
 	void StartDragOperation();

@@ -127,7 +127,6 @@ private:
 	bool magnified_ = false;
 	int scroll_page_step_ = -1;
 	DirId last_cancelled_except_ = -1;
-	DirId last_thumbnail_submission_for_ = -1;
 	ShiftSelect shift_select_ = {};
 	
 	bool mouse_down_ = false;

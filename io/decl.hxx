@@ -177,9 +177,9 @@ static const mode_t DirPermissions = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH;
 static const mode_t FilePermissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
 
 struct DiskFileId {
-	u64 inode_number;
-	u32 dev_major; // ID of device containing file, in a LAN it's unique
-	u32 dev_minor;
+    u64 inode_number = 0;
+    u32 dev_major = 0; // ID of device containing file, in a LAN it's unique
+    u32 dev_minor = 0;
 	
 	inline static DiskFileId FromStat(const struct stat &st) {
 		return io::DiskFileId {
@@ -196,6 +196,8 @@ struct DiskFileId {
 			.dev_minor = stx.stx_dev_minor,
 		};
 	}
+
+    bool empty() const { return inode_number == 0 && dev_major == 0 && dev_minor == 0; }
 	
 	inline bool
 	operator == (const DiskFileId &rhs) const {
@@ -212,6 +214,11 @@ struct DiskFileId {
 		dev_major == rhs.dev_major && dev_minor == rhs.dev_minor;
 	}
 };
+
+inline size_t qHash(const DiskFileId &key, size_t seed)
+{
+	return qHashMulti(seed, key.inode_number, key.dev_major, key.dev_minor);
+}
 
 struct SortingOrder {
 	SortingOrder() {}

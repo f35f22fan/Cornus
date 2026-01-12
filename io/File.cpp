@@ -253,25 +253,6 @@ void File::ReadLinkTarget(const Lock l)
 	link_target_ = target;
 }
 
-bool File::ShouldTryLoadingThumbnail()
-{
-	if (!is_regular() || cache_.tried_loading_thumbnail)
-		return false;
-	
-	if (!extensionCanHaveThumbnail()) {
-		return false;
-	}
-	
-	if (has_thumbnail_attr()) // || IsThumbnailMarkedFailed())
-	{
-		mtl_warn("%s: has_th_attr: %d, isThMarkedFailed: %d",
-			qPrintable(name()), has_thumbnail_attr(), IsThumbnailMarkedFailed());
-		return false;
-	}
-	
-	return (cache_.thumbnail == nullptr);
-}
-
 QString File::SizeToString() const
 {
 	if (!is_dir_or_so())

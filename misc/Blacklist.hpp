@@ -3,6 +3,7 @@
 #include <QString>
 #include <QHash>
 
+#include "../decl.hxx"
 #include "../io/decl.hxx"
 
 namespace cornus::misc {
@@ -11,7 +12,7 @@ struct Thumbnail {
 	struct io::DiskFileId id = {};
 	struct statx_timestamp date = {};
 	u32 time_added = 0; // minutes, not seconds since Unix Epoch
-	u8 value = 0;
+	Efa value = Efa::None;
 };
 
 inline bool operator==(const Thumbnail &a, const Thumbnail &b)
@@ -29,15 +30,16 @@ public:
 	Blacklist();
 	~Blacklist();
 	
-	void Add(const io::DiskFileId &id, const statx_timestamp &date, u8 value, cu32 *added = 0);
+	Efa Add(const io::DiskFileId &id, const statx_timestamp &date, Efa value, cu32 *added = 0);
 	
 	
 	void Load();
 	bool Save();
 	
-	bool ContainsThumbnail(io::File *file);
-	void BlockThumbnail(io::File *file);
-	bool AllowThumbnail(io::File *file);
+	bool IsAllowed(io::File *file, Efa efa);
+	Efa GetStatus(io::File *file);
+	Efa Block(io::File *file, Efa efa);
+	Efa Allow(io::File *file, Efa allowed);
 
 private:
 	QString filePath();

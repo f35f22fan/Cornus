@@ -2117,7 +2117,7 @@ bool App::ShouldLoadThumbnailFor(io::File *file)
 		return false;
 	}
 	
-	if (blacklist_.ContainsThumbnail(file)) {
+	if (EfaContains(blacklist_.GetStatus(file), Efa::Thumbnail)) {
 		return false;
 	}
 	

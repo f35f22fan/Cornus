@@ -15,9 +15,17 @@ Blacklist::~Blacklist() {
 	}
 }
 
-void Blacklist::Add(const io::DiskFileId &id, const struct statx_timestamp &date, u8 value, cu32 *added)
+Efa Blacklist::Add(const io::DiskFileId &id, const struct statx_timestamp &date, Efa value, cu32 *added)
 {
-	Thumbnail t = {};
+	Thumbnail t = hash_.value(id);
+	const Efa what_changed = value & ~t.value;
+	// mtl_info("value: %d, t.value: %d, what_changed: %d", (int)value, (int)t.value, (int)what_changed);
+	if (!t.id.empty()) {
+		t.value |= value;
+		hash_.insert(id, t);
+		return what_changed;
+	}
+	
 	t.id = id;
 	t.date = date;
 	t.value = value;
@@ -31,30 +39,36 @@ void Blacklist::Add(const io::DiskFileId &id, const struct statx_timestamp &date
 
 	hash_.insert(id, t);
 	
-	
+	return what_changed;
 }
 
-bool Blacklist::AllowThumbnail(io::File *file) {
-	// returns true if a file was found and unblocked.
-	const Thumbnail ret = {};
-	Thumbnail found = hash_.value(file->id(), ret);
+Efa Blacklist::Allow(io::File *file, Efa allowed) {
+	// returns what changed for the file
+	Thumbnail found = hash_.value(file->id());
 	if (found.id.empty()) {
-		return false;
+		return Efa::None;
 	}
 	
-	hash_.remove(file->id());
 	modified_ = true;
+	Efa what_changed = allowed & ~found.value;
+	found.value &= ~allowed;
+	if (found.value == Efa::None) {
+		hash_.remove(file->id());
+	} else {
+		hash_.insert(file->id(), found);
+	}
 	
-	return true;
+	return what_changed;
 }
 
-void Blacklist::BlockThumbnail(io::File *file) {
-	Add(file->id(), file->time_created(), 1);
+Efa Blacklist::Block(io::File *file, Efa efa) {
+	// returns what changed for the file
+	return Add(file->id(), file->time_created(), efa);
 }
 
-bool Blacklist::ContainsThumbnail(io::File *file) {
+Efa Blacklist::GetStatus(io::File *file) {
 	if (!hash_.contains(file->id())) {
-		return false;
+		return Efa::None;
 	}
 	
 	const misc::Thumbnail th = hash_.value(file->id());
@@ -65,9 +79,10 @@ bool Blacklist::ContainsThumbnail(io::File *file) {
 	if (!ret) {
 		modified_ = true;
 		hash_.remove(file->id());
+		return Efa::None;
 	}
 	
-	return ret;
+	return th.value;
 }
 
 QString Blacklist::filePath() {
@@ -76,6 +91,14 @@ QString Blacklist::filePath() {
 		full_path.append('/');
 	full_path.append("blacklist.bin");
 	return full_path;
+}
+
+bool Blacklist::IsAllowed(io::File *file, Efa efa)
+{
+	Efa has = GetStatus(file);
+	cbool ok = (has & efa) == efa;
+	
+	return ok;
 }
 
 void Blacklist::Load() {
@@ -95,7 +118,7 @@ void Blacklist::Load() {
 		date.tv_sec = buf.next_i64();
 		date.tv_nsec = buf.next_u32();
 		cu32 added = buf.next_u32();
-		u8 value = buf.next_u8();
+		Efa value = (Efa)buf.next_u8();
 		Add(id, date, value, &added);
 	}
 }
@@ -124,7 +147,7 @@ void Blacklist::ToBlob(ByteArray &buf)
 		buf.add_i64(th.date.tv_sec);
 		buf.add_u32(th.date.tv_nsec);
 		buf.add_u32(th.time_added);
-		buf.add_u8(th.value);
+		buf.add_u8((EfaType)th.value);
 	}
 }
 

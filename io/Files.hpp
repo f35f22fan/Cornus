@@ -125,8 +125,6 @@ public:
 	void SelectAllFiles(const cornus::Lock l, const Selected flag, QSet<int> &indices);
 	void SelectFilenamesLater(const QVector<QString> &names, const SameDir sd = SameDir::No);
 	void SelectFileRange(const cornus::Lock l, cint row1, cint row2, QSet<int> &indices);
-	void SetLastWatched(const enum Lock l, io::File *file);
-	void MarkFilesAsWatched(const enum Lock l, QList<io::File*> &vec);
 	
 	CondMutex quit_cm = {};
 	

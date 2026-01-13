@@ -1550,7 +1550,10 @@ void ReadXAttrs(io::File &file, const QByteArray &full_path)
 	
 	/// Copy the list of attribute keys to the buffer.
 	buflen = llistxattr(full_path.data(), buf, buflen);
-	MTL_CHECK_VOID(buflen != -1);
+	if (buflen == -1) {
+		mtl_warn("%s: %s", strerror(errno), full_path.data());
+		return;
+	}
 	
 	/** Loop over the list of zero terminated strings with the
 		attribute keys. Use the remaining buffer length to determine

@@ -60,7 +60,6 @@ public:
 	void ActionCut();
 	void ActionPaste();
 	void ActionPasteLinks(const LinkType link);
-	void AllowThumbnailsInSelectedFiles();
 	App* app() const { return app_; }
 	void CreateGui();
 	const QString& current_dir() const { return current_dir_; }
@@ -105,7 +104,6 @@ public:
 	void PaintMagnified(QWidget *viewport, const QStyleOptionViewItem &option);
 	void PopulateUndoDelete(QMenu *menu);
 	bool ReloadOpenWith();
-	void RemoveThumbnailsFromSelectedFiles();
 	void ScrollToFile(const int file_index);
 	void ShutdownLastInotifyThread();
 	void StartDragOperation();
@@ -144,6 +142,7 @@ protected:
 private:
 	void AddIconsView();
 	void AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path);
+	void AllowEfaInSelectedFiles(Efa allowed_list);
 	bool AnyArchive(const QVector<QString> &extensions) const;
 	QMimeData* CreateMimeWithSelectedFiles(const ClipboardAction action);
 	QVector<QAction*>
@@ -152,7 +151,11 @@ private:
 	int GetFileUnderMouse(const QPoint &local_pos, io::File **ret_cloned_file, QString *full_path = nullptr);
 	void Init();
 	void LaunchFromOpenWithMenu();
+	void MarkFilesAsWatched(const enum Lock l, QList<io::File*> &vec);
 	void ProcessAction(const QString &action);
+	void RemoveEfaFromSelectedFiles(Efa efa);
+	void SetLastWatched(const enum Lock l, io::File *file);
+	void TellEfaOfSelectedFile();
 	void UndeleteFiles(const QMap<i64, QVector<cornus::trash::Names> > &items);
 	QScrollBar* ViewScrollBar() const;
 	int ViewRowHeight() const;

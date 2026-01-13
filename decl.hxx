@@ -39,6 +39,40 @@ struct PathAndMode {
 	}
 };
 
+using EfaType = u8;
+enum class Efa: EfaType {
+	None = 0,
+	Thumbnail = 1,
+	Text = 1 << 2,
+	All = Thumbnail | Text,
+};
+
+inline bool EfaContains(Efa a, Efa b) {
+	return (static_cast<EfaType>(a) & static_cast<EfaType>(b)) != 0;
+}
+
+inline Efa operator & (Efa a, Efa b) {
+	return static_cast<Efa>(static_cast<EfaType>(a) & static_cast<EfaType>(b));
+}
+
+inline Efa operator | (Efa a, Efa b) {
+	return static_cast<Efa>(static_cast<EfaType>(a) | static_cast<EfaType>(b));
+}
+
+inline Efa& operator |= (Efa &a, const Efa &b) {
+	a = a | b;
+	return a;
+}
+
+inline Efa operator ~ (Efa a) {
+	return static_cast<Efa>(~(static_cast<EfaType>(a)));
+}
+
+inline Efa& operator &= (Efa &a, const Efa &b) {
+	a = static_cast<Efa>(static_cast<EfaType>(a) & static_cast<EfaType>(b));
+	return a;
+}
+
 enum class Op: i8 {
 	Add,
 	Remove,

@@ -4,6 +4,7 @@
 #include "../Media.hpp"
 #include "../io/io.hh"
 #include "../io/File.hpp"
+#include "../misc/Blacklist.hpp"
 #include "TextField.hpp"
 
 #include <QBoxLayout>
@@ -271,6 +272,11 @@ void AttrsDialog::Init()
 
 void AttrsDialog::SaveAssignedAttrs()
 {
+	cbool allowed = app_->blacklist().IsAllowed(file_, Efa::Text);
+	if (!allowed) {
+		return;
+	}
+	
 	Media *media = app_->media();
 	ci32 magic_num = media->GetMagicNumber();
 	ByteArray ba;

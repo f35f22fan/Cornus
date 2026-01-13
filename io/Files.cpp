@@ -166,27 +166,6 @@ QPair<int, int> Files::ListSelectedFiles(const cornus::Lock l, QList<QUrl> &list
 	return QPair<int, int> (num_dirs, num_files);
 }
 
-void Files::MarkFilesAsWatched(const enum Lock l, QList<io::File*> &vec)
-{
-	if (vec.isEmpty())
-		return;
-	
-	auto g = guard(l);
-	cauto &key = media::WatchProps::Name;
-	
-	for (io::File *needle: vec) {
-		for (io::File *next: data.vec)
-		{
-			if (next->id() == needle->id())
-			{
-				mtl_info("invert: %s", qPrintable(next->name()));
-				next->WatchProp(Op::Invert, media::WatchProps::Watched);
-				break;
-			}
-		}
-	}
-}
-
 void Files::SelectAllFiles(const cornus::Lock l, const Selected flag, QSet<int> &indices)
 {
 	auto g = this->guard(l);
@@ -234,23 +213,6 @@ void Files::SelectFileRange(const cornus::Lock l, cint row1, cint row2, QSet<int
 	{
 		vec[i]->set_selected(true);
 		indices.insert(i);
-	}
-}
-
-void Files::SetLastWatched(const enum Lock l, io::File *needle)
-{
-	MTL_CHECK_VOID(needle);
-	auto g = guard(l);
-	for (io::File *next: data.vec)
-	{
-		if (needle->id() == next->id())
-		{
-			next->WatchProp(Op::Invert, media::WatchProps::LastWatched);
-			// mtl_info("LastWatched Inverted: %s", qPrintable(next->name()));
-		} else if (next->has_last_watched_attr()) {
-			next->WatchProp(Op::Remove, media::WatchProps::LastWatched);
-			// mtl_info("LastWatched Removed: %s", qPrintable(next->name()));
-		}
 	}
 }
 

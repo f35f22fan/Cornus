@@ -447,7 +447,7 @@ void Tab::AddOpenWithMenuTo(QMenu *main_menu, const QString &full_path)
 	main_menu->addMenu(open_with_menu);
 }
 
-void Tab::AllowThumbnailsInSelectedFiles()
+void Tab::AllowEfaInSelectedFiles(Efa allowed_list)
 {
 	auto  &files = view_files();
 	MutexGuard guard = files.guard();
@@ -458,7 +458,8 @@ void Tab::AllowThumbnailsInSelectedFiles()
 		if (!next->is_selected())
 			continue;
 		
-		if (app_->blacklist().AllowThumbnail(next)) {
+		Efa what_changed = app_->blacklist().Allow(next, allowed_list);
+		if (EfaContains(what_changed, Efa::Thumbnail)) {
 			cbool ok = io::ReloadMeta(*next, stx, app_->env(), pe);
 			// mtl_info("ReloadMeta result: %d for %s", ok, qPrintable(next->name()));
 		}
@@ -1153,6 +1154,8 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 		
 		if (key == Qt::Key_G) {
 			ToggleMagnifiedMode();
+		} else if (key == Qt::Key_F) {
+			TellEfaOfSelectedFile();
 		}
 	}
 	
@@ -1275,6 +1278,30 @@ QString Tab::ListSpeedString() const
 	return ret;
 }
 
+void Tab::MarkFilesAsWatched(const enum Lock l, QList<io::File*> &vec)
+{
+	if (vec.isEmpty())
+		return;
+	
+	auto &files = view_files();
+	auto g = files.guard(l);
+	cauto &key = media::WatchProps::Name;
+	for (io::File *needle: vec) {
+		cbool allowed_to_set = app_->blacklist().IsAllowed(needle, Efa::Text);
+		if (!allowed_to_set) {
+			continue;
+		}
+		for (io::File *next: files.data.vec)
+		{
+			if (next->id() == needle->id())
+			{
+				next->WatchProp(Op::Invert, media::WatchProps::Watched);
+				break;
+			}
+		}
+	}
+}
+
 void Tab::MarkLastWatchedFile()
 {
 	{
@@ -1283,7 +1310,7 @@ void Tab::MarkLastWatchedFile()
 		io::File *file;
 		cint index = files.GetFirstSelectedFile(Lock::No, &file, Clone::No);
 		if (index != -1)
-			files.SetLastWatched(Lock::No, file);
+			SetLastWatched(Lock::No, file);
 	}
 	UpdateView();
 }
@@ -1293,7 +1320,7 @@ void Tab::MarkSelectedFilesAsWatched() {
 		auto &files = view_files();
 		auto g = files.guard(Lock::Yes);
 		QList<io::File*> vec = files.GetSelectedFiles(Lock::No, Clone::No);
-		files.MarkFilesAsWatched(Lock::No, vec);
+		MarkFilesAsWatched(Lock::No, vec);
 	}
 	UpdateView();
 }
@@ -1483,19 +1510,21 @@ bool Tab::ReloadOpenWith()
 	return true;
 }
 
-void Tab::RemoveThumbnailsFromSelectedFiles()
+void Tab::RemoveEfaFromSelectedFiles(Efa efa)
 {
 	auto  &files = view_files();
 	MutexGuard guard = files.guard();
 	
 	for (io::File *next: files.data.vec)
 	{
-		if (!next->is_selected() || !next->has_thumbnail_attr())
+		if (!next->is_selected())
 			continue;
 		
-		cauto path = next->build_full_path();
-		app_->blacklist().BlockThumbnail(next);
-		next->ClearThumbnail(io::AlsoDeleteFromDisk::Yes);
+		const Efa what_changed = app_->blacklist().Block(next, efa);
+		if (EfaContains(what_changed, Efa::Thumbnail)) {
+			// mtl_info("Clearing thumbnail");
+			next->ClearThumbnail(io::AlsoDeleteFromDisk::Yes);
+		}
 	}
 	
 	app_->blacklist().Save();
@@ -1524,6 +1553,25 @@ void Tab::ScrollToFile(cint file_index)
 	default: {
 		mtl_trace();
 	}
+	}
+}
+
+void Tab::SetLastWatched(const enum Lock l, io::File *file)
+{
+	MTL_CHECK_VOID(file);
+	auto &files = view_files();
+	auto g = files.guard(l);
+	cbool allowed_to_set =  app_->blacklist().IsAllowed(file, Efa::Text);
+	for (io::File *next: files.data.vec)
+	{
+		if (file->id() == next->id())
+		{
+			if (allowed_to_set) {
+				next->WatchProp(Op::Invert, media::WatchProps::LastWatched);
+			}
+		} else if (next->has_last_watched_attr()) {
+			next->WatchProp(Op::Remove, media::WatchProps::LastWatched);
+		}
 	}
 }
 
@@ -1904,14 +1952,42 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 		{
 			QAction *action = efa_menu->addAction("Remove Thumbnails");
 			connect(action, &QAction::triggered, [=] {
-				RemoveThumbnailsFromSelectedFiles();
+				RemoveEfaFromSelectedFiles(Efa::Thumbnail);
 			});
 		}
 		
 		{
 			QAction *action = efa_menu->addAction("Allow Thumbnails");
 			connect(action, &QAction::triggered, [=] {
-				AllowThumbnailsInSelectedFiles();
+				AllowEfaInSelectedFiles(Efa::Thumbnail);
+			});
+		}
+		
+		{
+			QAction *action = efa_menu->addAction("Remove All Text EFA");
+			connect(action, &QAction::triggered, [=] {
+				RemoveEfaFromSelectedFiles(Efa::Text);
+			});
+		}
+		
+		{
+			QAction *action = efa_menu->addAction("Allow All Text EFA");
+			connect(action, &QAction::triggered, [=] {
+				AllowEfaInSelectedFiles(Efa::Text);
+			});
+		}
+		
+		{
+			QAction *action = efa_menu->addAction("Remove All EFA");
+			connect(action, &QAction::triggered, [=] {
+				RemoveEfaFromSelectedFiles(Efa::All);
+			});
+		}
+		
+		{
+			QAction *action = efa_menu->addAction("Allow All EFA");
+			connect(action, &QAction::triggered, [=] {
+				AllowEfaInSelectedFiles(Efa::All);
 			});
 		}
 	}
@@ -2032,6 +2108,28 @@ void Tab::StartDragOperation()
 		 will break dragging movie files onto the MPV player. */
 		drag->exec(Qt::CopyAction);
 	}
+}
+
+void Tab::TellEfaOfSelectedFile() {
+	auto &files = view_files();
+	io::File *cloned_file = nullptr;
+	cint row = files.GetFirstSelectedFile(Lock::Yes, &cloned_file, Clone::Yes);
+	if (row == -1)
+		return;
+	AutoDelete ad(cloned_file);
+	const Efa efa = app_->blacklist().GetStatus(cloned_file);
+	QString s = cloned_file->name();
+	if (EfaContains(efa, Efa::Text)) {
+		s.append("\n \u274C Text not allowed");
+	}
+	
+	if (EfaContains(efa, Efa::Thumbnail)) {
+		s.append("\n \u274C Thumbnails not allowed");
+	}
+	
+	QMessageBox msgBox;
+	msgBox.setText(s);
+	msgBox.exec();
 }
 
 void Tab::ToggleMagnifiedMode()

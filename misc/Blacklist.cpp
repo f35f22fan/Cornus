@@ -96,8 +96,8 @@ QString Blacklist::filePath() {
 bool Blacklist::IsAllowed(io::File *file, Efa efa)
 {
 	Efa has = GetStatus(file);
-	cbool ok = (has & efa) == efa;
-	
+	cbool ok = !EfaContains(has, efa);
+	// mtl_info("efa: %d, has: %d, ok: %d", efa, has, ok);
 	return ok;
 }
 

@@ -1311,8 +1311,9 @@ void Tab::MarkLastWatchedFile()
 		auto guard = files.guard(Lock::Yes);
 		io::File *file;
 		cint index = files.GetFirstSelectedFile(Lock::No, &file, Clone::No);
-		if (index != -1)
+		if (index != -1) {
 			SetLastWatched(Lock::No, file);
+		}
 	}
 	UpdateView();
 }
@@ -1572,17 +1573,18 @@ void Tab::ScrollToFile(cint file_index)
 	}
 }
 
-void Tab::SetLastWatched(const enum Lock l, io::File *file)
+void Tab::SetLastWatched(const enum Lock lock, io::File *file)
 {
 	MTL_CHECK_VOID(file);
 	auto &files = view_files();
-	auto g = files.guard(l);
+	auto g = files.guard(lock);
 	cbool allowed_to_set =  app_->blacklist().IsAllowed(file, Efa::Text);
 	for (io::File *next: files.data.vec)
 	{
 		if (file->id() == next->id())
 		{
 			if (allowed_to_set) {
+				mtl_trace();
 				next->WatchProp(Op::Invert, media::WatchProps::LastWatched);
 			}
 		} else if (next->has_last_watched_attr()) {

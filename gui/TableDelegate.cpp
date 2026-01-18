@@ -275,10 +275,10 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 			names.append("m");
 			colors.append(QColor(250, 250, 250));
 		}
-		if (file->has_thumbnail_attr()) {
-			names.append("th");
-			colors.append(QColor(159, 0, 255)); // violet
-		}
+		// if (file->has_thumbnail_attr()) {
+		// 	names.append("th");
+		// 	colors.append(QColor(159, 0, 255)); // violet
+		// }
 		
 		cint count = colors.size();
 		cauto circle_h = fm.boundingRect("AB").height();

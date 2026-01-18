@@ -214,7 +214,7 @@ void Task::CopyRegularFile(const QString &from_path, const QString &new_dir_path
 		data_.ChangeState(TaskState::Abort);
 		return;
 	}
-mtl_trace("=========================");
+	
 	data_.ChangeState(TaskState::Working|TaskState::Continue);
 	AutoCloseFd output_ac(out_fd);
 	loff_t in_off = 0, out_off = 0;

@@ -82,7 +82,6 @@
 #include <sched.h>
 #include <glib.h>
 #include <polkit/polkit.h>
-//#include <polkitagent/polkitagent.h>
 
 namespace cornus {
 
@@ -1070,10 +1069,10 @@ QIcon* App::GetIconOrLoadExisting(const QString &icon_path)
 	if (found != nullptr)
 		return found;
 	
-	const QString full_path = icon_path;///icons_dir_ + '/' + icon_name;
-	auto *icon = new QIcon(full_path);
+	auto *icon = new QIcon(icon_path);
+	// mtl_info("icon path: %s", qPrintable(icon_path));
 	icon_set_.insert(icon_path, icon);
-	///	mtl_info("icon_name: %s", qPrintable(icon_name));
+	
 	return icon;
 }
 
@@ -1241,7 +1240,6 @@ void App::Init()
 //	setMouseTracking(true);
 	
 //	TestPolkit(this);
-	//thumbnail::LoadWebpImage("/home/fox/scale_1200.webp", 128, 128);
 }
 
 void App::InitThumbnailPoolIfNeeded()
@@ -1340,10 +1338,11 @@ QIcon* App::LoadIcon(io::File &file)
 		}
 	}
 	
-	QString filename = icon_names_.value(ext);
+	QString full_path = icon_names_.value(ext);
 	
-	if (!filename.isEmpty()) {
-		return GetIconOrLoadExisting(filename);
+	if (!full_path.isEmpty()) {
+		// mtl_info("filename: %s", qPrintable(full_path));
+		return GetIconOrLoadExisting(full_path);
 	}
 	
 	if (ext.startsWith(QLatin1String("blend"))) {
@@ -1353,7 +1352,7 @@ QIcon* App::LoadIcon(io::File &file)
 		}
 	}
 	
-	return GetDefaultIcon();
+	return nullptr;//GetDefaultIcon();
 }
 
 void App::LoadIconsFrom(QString dir_path)

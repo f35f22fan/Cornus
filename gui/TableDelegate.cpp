@@ -218,9 +218,16 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	painter->drawText(text_rect, text_alignment_, text);
 	cbool show_hint = !app_->prefs().mark_extended_attrs_disabled() && file->has_ext_attrs();
 	
+	QRectF tr = fm.boundingRect(text);
+	QRect icon_rect = text_rect;
+	icon_rect.setX(tr.width() + 6);
+	icon_rect.setWidth(icon_rect.width() - tr.width() - 2);
 	QIcon *icon = app_->GetFileIcon(file);
-	if (icon == nullptr)
-		return;
+	if (icon == nullptr) {
+		//painter->fillRect(icon_rect, QColor(255, 255, 100));
+		painter->drawText(icon_rect, Qt::AlignCenter, file->cache().ext);
+		// return;
+	}
 	
 	cbool transparent = file->action_cut() || file->action_copy() ||
 		file->action_paste();
@@ -228,11 +235,10 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	if (transparent)
 		painter->setOpacity(0.5f);
 	
-	QRectF tr = fm.boundingRect(text);
-	QRect icon_rect = text_rect;
-	icon_rect.setX(tr.width() + 6);
-	icon_rect.setWidth(icon_rect.width() - tr.width() - 2);
-	icon->paint(painter, icon_rect);
+	
+	if (icon) {
+		icon->paint(painter, icon_rect);
+	}
 	
 	if (transparent) {
 		painter->setOpacity(1.0f);

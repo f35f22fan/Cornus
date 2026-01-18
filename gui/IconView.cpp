@@ -183,22 +183,29 @@ void IconView::dropEvent(QDropEvent *evt)
 }
 
 DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
-	double x, double y)
+	double x, double y, QSize sz, bool &has_icon, QRect &bounding_rect)
 {
 	cauto &cell = icon_dim_;
 	cauto max_img_h = cell.h_and_gaps - cell.text_h;
 	cauto max_img_w = cell.w_and_gaps;
+	
+	has_icon = true;
 	QPixmap pixmap;
 	if (file->thumbnail())
 	{
 		pixmap = QPixmap::fromImage(file->thumbnail()->img);
 	} else {
 		QIcon *icon = app_->GetFileIcon(file);
-		pixmap = icon->pixmap(256, 256);
+		
+		if (icon) {
+			pixmap = icon->pixmap(sz);
+		} else {
+			has_icon = false;
+		}
 	}
 	
-	cf64 pic_w = pixmap.width();
-	cf64 pic_h = pixmap.height();
+	cf64 pic_w = (has_icon) ? pixmap.width() : sz.width();
+	cf64 pic_h = (has_icon) ? pixmap.height() : sz.height();
 	double scaled_w, scaled_h;
 	cf64 scale_ratio = std::max(pic_w / max_img_w, pic_h / max_img_h);
 	scaled_w = pic_w / scale_ratio;
@@ -206,7 +213,8 @@ DrawBorder IconView::DrawThumbnail(io::File *file, QPainter &painter,
 	
 	cauto img_x = x + (max_img_w - scaled_w) / 2;
 	cint off = 10;
-	painter.drawPixmap(img_x + off, y + off, scaled_w - off*2, scaled_h - off*2, pixmap);
+	bounding_rect = QRect(img_x + off, y + off, scaled_w - off*2, scaled_h - off*2);
+	painter.drawPixmap(bounding_rect, pixmap);
 	
 	return DrawBorder::Yes;
 }
@@ -474,6 +482,7 @@ void IconView::paintEvent(QPaintEvent *ev)
 	const QColor gray_color(100, 100, 100);
 	io::Files &files = tab_->view_files();
 	files.Lock();
+	const QSize img_sz(256, 256);
 	
 	for (double y = y_off; y < y_end; y += cell.rh)
 	{
@@ -489,6 +498,7 @@ void IconView::paintEvent(QPaintEvent *ev)
 			const QRect cell_r(x, y, cell.w_and_gaps, cell.h_and_gaps);
 			DrawBorder draw_border = DrawBorder::No;
 			QString img_wh_str;
+			bool has_icon = false;
 			{
 				// used to lock files here
 				io::File *file = files.data.vec[file_index];
@@ -505,7 +515,8 @@ void IconView::paintEvent(QPaintEvent *ev)
 					painter.fillRect(cell_r, c);
 				}
 				
-				draw_border = DrawThumbnail(file, painter, x, y);
+				QRect bounding_rect;
+				draw_border = DrawThumbnail(file, painter, x, y, img_sz, has_icon, bounding_rect);
 				const Thumbnail *thmb = file->thumbnail();
 				if (thmb)
 				{
@@ -514,6 +525,16 @@ void IconView::paintEvent(QPaintEvent *ev)
 						thmb->original_image_h, ViewMode::Icons);
 				} else {
 					//mtl_info("Doesn't have thumb: %s", name.data());
+				}
+				
+				if (!has_icon) {
+					QFont font = painter.font();
+					cauto saved = font.pointSize();
+					font.setPointSize(font.pointSize() * 2);
+					painter.setFont(font);
+					painter.drawText(bounding_rect, Qt::AlignCenter, file->cache().ext);
+					font.setPointSize(saved);
+					painter.setFont(font);
 				}
 			}
 			

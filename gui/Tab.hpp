@@ -153,6 +153,7 @@ private:
 	void LaunchFromOpenWithMenu();
 	void MarkFilesAsWatched(const enum Lock l, QList<io::File*> &vec);
 	void ProcessAction(const QString &action);
+	void ReloadThumbnail();
 	void RemoveEfaFromSelectedFiles(Efa efa);
 	void SetLastWatched(const enum Lock l, io::File *file);
 	void TellEfaOfSelectedFile();

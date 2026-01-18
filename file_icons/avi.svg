@@ -1,1 +1,21 @@
-mkv.svg
+<svg width="512" height="512" viewBox="-100 -100 200 200" xmlns="http://www.w3.org/2000/svg">
+<style>
+text {
+  font-family: Arial;
+  font-size: 100px;
+  font-weight: bold;
+  fill: rgb(100, 100, 140);
+}
+.cir {
+fill:none;
+stroke-width:5px;
+}
+</style>
+
+
+<circle cx="-38" cy="-20" r="30" class="cir" stroke="red" />
+<circle cx="0" cy="-20" r="30" class="cir" stroke="yellow" />
+<circle cx="38" cy="-20" r="30" class="cir" stroke="green" />
+
+<text x="-85" y="90">AVI</text>
+</svg>

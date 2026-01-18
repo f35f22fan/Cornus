@@ -1156,6 +1156,8 @@ void Tab::KeyPressEvent(QKeyEvent *evt)
 			ToggleMagnifiedMode();
 		} else if (key == Qt::Key_F) {
 			TellEfaOfSelectedFile();
+		} else if (key == Qt::Key_T) {
+			ReloadThumbnail();
 		}
 	}
 	
@@ -1508,6 +1510,20 @@ bool Tab::ReloadOpenWith()
 	}
 	
 	return true;
+}
+
+void Tab::ReloadThumbnail() {
+	auto &files = view_files();
+	io::File *cloned_file = nullptr;
+	{
+		auto g = files.guard();
+		io::File *file = 0;
+		cint row = files.GetFirstSelectedFile(Lock::No, &file, Clone::No);
+		if (row == -1)
+			return;
+		// AutoDelete ad(cloned_file);
+		file->ClearThumbnail(io::AlsoDeleteFromDisk::Yes);
+	}
 }
 
 void Tab::RemoveEfaFromSelectedFiles(Efa efa)
@@ -1938,6 +1954,12 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 	}
 	
 	if (selected_count > 0) {
+		{
+			QAction *action = menu->addAction("Reload Thumbnail");
+			connect(action, &QAction::triggered, [=] {
+				ReloadThumbnail();
+			});
+		}
 		QMenu *efa_menu = new QMenu(tr("Extended File Attributes"));
 		menu->addSeparator();
 		menu->addMenu(efa_menu);
@@ -1950,7 +1972,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 		menu->addSeparator();
 		
 		{
-			QAction *action = efa_menu->addAction("Remove Thumbnails");
+			QAction *action = efa_menu->addAction("Block Thumbnails");
 			connect(action, &QAction::triggered, [=] {
 				RemoveEfaFromSelectedFiles(Efa::Thumbnail);
 			});
@@ -1964,28 +1986,30 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 		}
 		
 		{
-			QAction *action = efa_menu->addAction("Remove All Text EFA");
+			QAction *action = efa_menu->addAction("Block Text");
 			connect(action, &QAction::triggered, [=] {
 				RemoveEfaFromSelectedFiles(Efa::Text);
 			});
 		}
 		
 		{
-			QAction *action = efa_menu->addAction("Allow All Text EFA");
+			QAction *action = efa_menu->addAction("Allow Text");
 			connect(action, &QAction::triggered, [=] {
 				AllowEfaInSelectedFiles(Efa::Text);
 			});
 		}
 		
+		efa_menu->addSeparator();
+		
 		{
-			QAction *action = efa_menu->addAction("Remove All EFA");
+			QAction *action = efa_menu->addAction("Block All");
 			connect(action, &QAction::triggered, [=] {
 				RemoveEfaFromSelectedFiles(Efa::All);
 			});
 		}
 		
 		{
-			QAction *action = efa_menu->addAction("Allow All EFA");
+			QAction *action = efa_menu->addAction("Allow All");
 			connect(action, &QAction::triggered, [=] {
 				AllowEfaInSelectedFiles(Efa::All);
 			});
@@ -2118,13 +2142,21 @@ void Tab::TellEfaOfSelectedFile() {
 		return;
 	AutoDelete ad(cloned_file);
 	const Efa efa = app_->blacklist().GetStatus(cloned_file);
-	QString s = cloned_file->name();
+	QString s("EFA Limitations for:\n\"");
+	s.append(cloned_file->name());
+	s.append("\"\n");
+	
+	
+	if (efa == Efa::None) {
+		s.append("\n(None)");
+	}
+	
 	if (EfaContains(efa, Efa::Text)) {
-		s.append("\n \u274C Text not allowed");
+		s.append("\n \u274C Text blocked");
 	}
 	
 	if (EfaContains(efa, Efa::Thumbnail)) {
-		s.append("\n \u274C Thumbnails not allowed");
+		s.append("\n \u274C Thumbnails blocked");
 	}
 	
 	QMessageBox msgBox;

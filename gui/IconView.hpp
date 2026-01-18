@@ -110,7 +110,8 @@ private:
 	void ClearMouseOver();
 	void ComputeProportions(IconDim &dim) const;
 	void DelayedRepaint();
-	DrawBorder DrawThumbnail(io::File *file, QPainter &painter, double x, double y);
+	DrawBorder DrawThumbnail(io::File *file, QPainter &painter, double x,
+							 double y, QSize sz, bool &has_icon, QRect &bounding_rect);
 	void Init();
 	void UpdateScrollRange();
 	

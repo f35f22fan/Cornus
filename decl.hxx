@@ -43,7 +43,7 @@ using EfaType = u8;
 enum class Efa: EfaType {
 	None = 0,
 	Thumbnail = 1,
-	Text = 1 << 2,
+	Text = 1 << 1,
 	All = Thumbnail | Text,
 };
 

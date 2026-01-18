@@ -144,6 +144,7 @@ private:
 	void CreateSidePane();
 	void DetectThemeType();
 	void DisplaySymlinkInfo(io::File &file);
+	// QIcon* GenIconFromExt(QString ext);
 	QIcon* GetDefaultIcon();
 	QIcon* GetFolderIcon();
 	QIcon* GetIconOrLoadExisting(const QString &icon_path);

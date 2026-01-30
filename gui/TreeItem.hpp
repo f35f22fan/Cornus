@@ -38,16 +38,13 @@ struct PartitionInfo
 	i64 size = -1;
 	
 /// DEVNAME="/dev/sda2"
-	QString dev_path;
+	// QString dev_path;
 	
 /// ID_FS_LABEL="Fedora"
 	QString label;
 	
 	// Needed to create an udev_device:
 	QString sys_path;
-	
-	io::DevNum dev_num = { -1, -1 };
-	io::DiskInfo disk_info = {};
 	
 	PartitionInfo* Clone() const
 	{
@@ -56,11 +53,9 @@ struct PartitionInfo
 		p->uuid = uuid;
 		p->fs_uuid = fs_uuid;
 		p->size = size;
-		p->dev_path = dev_path;
+		// p->dev_path = dev_path;
 		p->label = label;
 		p->sys_path = sys_path;
-		p->dev_num = dev_num;
-		p->disk_info = disk_info;
 		
 		return p;
 	}
@@ -107,8 +102,7 @@ public:
 	~TreeItem();
 	TreeItem* Clone();
 	
-	static TreeItem* FromDevice(struct udev_device *device,
-		io::DiskInfo *disk_info);
+	static TreeItem* FromDevice(struct udev_device *device, io::DiskInfo *disk_info);
 	static TreeItem* NewBookmark(io::File &file);
 	static TreeItem* NewBookmarksRoot(const int root_row);
 	static TreeItem* NewDisk(struct udev_device *device, const int root_row);
@@ -117,6 +111,8 @@ public:
 	void bookmark_name(const QString &s) { title_ = s; }
 	const QString& bookmark_path() const { return mount_path_; }
 	void bookmark_path(const QString &s) { mount_path_ = s; }
+	
+	QString dev_path() const { return disk_info_.dev_path; }
 	
 	QString DisplayString();
 	void set_partition() { type_ = gui::TreeItemType::Partition; }
@@ -127,8 +123,6 @@ public:
 		info_ = info;
 		set_partition();
 	}
-	
-	const QString dev_path() const { return info_ ? info_->dev_path : QString(); }
 	
 	bool current_partition() const { return (bits_ & Bits::CurrentPartition) != Bits::Empty; }
 	void current_partition(const bool flag) {

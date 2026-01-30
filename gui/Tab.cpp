@@ -1956,12 +1956,6 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 	}
 	
 	if (selected_count > 0) {
-		{
-			QAction *action = menu->addAction("Reload Thumbnail");
-			connect(action, &QAction::triggered, [=] {
-				ReloadThumbnail();
-			});
-		}
 		QMenu *efa_menu = new QMenu(tr("Extended File Attributes"));
 		menu->addSeparator();
 		menu->addMenu(efa_menu);

@@ -12,29 +12,30 @@ namespace cornus::gui {
 
 PartitionInfo* PartitionInfo::FromDevice(struct udev_device *dev)
 {
+	QString fs = udev_device_get_property_value(dev, "ID_FS_TYPE");
+	if (fs.isEmpty()) {
+		return nullptr;
+	}
+	
 	PartitionInfo *info = new PartitionInfo();
-	info->dev_path = udev_device_get_devnode(dev);
-	QString sz_str = udev_device_get_property_value(dev,
-		"ID_PART_ENTRY_SIZE");
+	info->fs = fs;
+	// info->dev_path = udev_device_get_devnode(dev);
+	QString sz_str = udev_device_get_property_value(dev, "ID_PART_ENTRY_SIZE");
 	
 	bool ok;
 	i64 size = sz_str.toLongLong(&ok);
 	if (ok)
 		info->size = size * kBlockSize;
-	info->fs = udev_device_get_property_value(dev, "ID_FS_TYPE");
+	
 	info->uuid = udev_device_get_property_value(dev, "ID_PART_ENTRY_UUID");
 	info->fs_uuid = udev_device_get_property_value(dev, "ID_FS_UUID");
-	
-//	printf("%s: %s, %s\n", qPrintable(info->dev_path),
-//		qPrintable(info->uuid), qPrintable(info->fs_uuid));
-	
 	info->label = udev_device_get_property_value(dev, "ID_FS_LABEL");
 	info->sys_path = udev_device_get_syspath(dev);
 	
-	dev_t devn = udev_device_get_devnum(dev);
-	info->dev_num.major = major(devn);
-	info->dev_num.minor = minor(devn);
-	//mtl_info("dev_num: %d:%d", info->dev_num.major, info->dev_num.minor);
+	// dev_t devn = udev_device_get_devnum(dev);
+	// info->disk_info.dev_num.major = major(devn);
+	// info->disk_info.dev_num.minor = minor(devn);
+	// mtl_info("dev_num: %d:%d", info->dev_num.major, info->dev_num.minor);
 	
 	return info;
 }
@@ -56,18 +57,39 @@ TreeItem* TreeItem::FromDevice(struct udev_device *device,
 	TreeItem *item = new TreeItem();
 	item->set_partition();
 	item->partition_info(info);
-	
 	if (disk_info) {
-		item->info_->disk_info = *disk_info;
+		item->disk_info() = *disk_info;
 	} else {
 		auto *parent_device = udev_device_get_parent(device);
 		if (!parent_device) {
-			return nullptr;
+			sidepane::ReadDiskInfo(parent_device, item->disk_info());
+		} else {
+			sidepane::ReadDiskInfo(device, item->disk_info());
 		}
-		sidepane::ReadDiskInfo(parent_device, item->info_->disk_info);
 	}
 	
 	return item;
+}
+
+TreeItem* TreeItem::NewDisk(struct udev_device *device, const int root_row)
+{
+	auto *p = new TreeItem();
+	const QString name = udev_device_get_property_value(device, "ID_MODEL");
+	p->set_disk(name);
+	p->root_row(root_row);
+	sidepane::ReadDiskInfo(device, p->disk_info());
+	
+	return p;
+}
+
+TreeItem* TreeItem::NewDisk(const io::DiskInfo &disk_info, const int root_row)
+{
+	auto *p = new TreeItem();
+	p->set_disk(disk_info.id_model);
+	p->root_row(root_row);
+	p->disk_info() = disk_info;
+	
+	return p;
 }
 
 TreeItem*
@@ -98,6 +120,7 @@ TreeItem::Clone()
 	p->size_ = size_;
 	p->type_ = type_;
 	p->bits_ = bits_;
+	p->disk_info_ = disk_info_;
 	if (info_) {
 		p->info_ = info_->Clone();
 	}
@@ -141,7 +164,7 @@ TreeItem::DisplayString()
 	
 	QString s;// QChar(0x2654) + ' ';
 	
-	const QString &dev_path = info_->dev_path;
+	const QString &dev_path = disk_info_.dev_path;
 	int index = dev_path.lastIndexOf('/');
 	if (index == -1) {
 		mtl_trace();
@@ -180,7 +203,7 @@ TreeItem::GetPartitionName() const
 	if (!info_)
 		return QString();
 	
-	const QString &dev_path = info_->dev_path;
+	const QString &dev_path = disk_info_.dev_path;
 	int index = dev_path.lastIndexOf('/');
 	if (index == -1) {
 		mtl_trace();
@@ -230,28 +253,6 @@ TreeItem* TreeItem::NewBookmarksRoot(const int root_row)
 	auto *p = new TreeItem();
 	p->set_bookmarks_root();
 	p->root_row(root_row);
-	return p;
-}
-
-TreeItem* TreeItem::NewDisk(struct udev_device *device, const int root_row)
-{
-	auto *p = new TreeItem();
-	const QString name = udev_device_get_property_value(device, "ID_MODEL");
-	p->set_disk(name);
-	p->root_row(root_row);
-	
-	sidepane::ReadDiskInfo(device, p->disk_info());
-	
-	return p;
-}
-
-TreeItem* TreeItem::NewDisk(const io::DiskInfo &disk_info, const int root_row)
-{
-	auto *p = new TreeItem();
-	p->set_disk(disk_info.id_model);
-	p->root_row(root_row);
-	p->disk_info() = disk_info;
-	
 	return p;
 }
 

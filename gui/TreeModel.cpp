@@ -30,7 +30,7 @@ int TreeModel::AddBookmarks(QVector<io::File*> &files_vec,
 {
 	AutoDeleteVec adv(files_vec);
 	QModelIndex target;
-	const int start_at = GetDropLocation(widget_pos, target);
+	cint start_at = GetDropLocation(widget_pos, target);
 	if (start_at == -1)
 		return -1;
 	
@@ -58,11 +58,11 @@ int TreeModel::AddBookmarks(QVector<io::File*> &files_vec,
 	MTL_CHECK(bookmarks_root != nullptr);
 	QModelIndex root_index = createIndex(bookmarks_root->Row(), 0, bookmarks_root);
 	
-	const int num_added = files_vec.size();
-	const int start_row = start_at;
+	cint num_added = files_vec.size();
+	cint start_row = start_at;
 	for (int i = 0; i < num_added; i++)
 	{
-		const int at = start_row + i;
+		cint at = start_row + i;
 		beginInsertRows(root_index, at, at);
 		{
 			TreeItem *new_item = TreeItem::NewBookmark(*files_vec[i]);
@@ -131,7 +131,7 @@ void TreeModel::DeleteSelectedBookmark()
 		TreeItem *item = view_->GetSelectedBookmark(&child_index);
 		MTL_CHECK_VOID(item != nullptr);
 		root_index = createIndex(root->Row(), 0, root);
-		const int at = child_index.row();
+		cint at = child_index.row();
 		{
 			beginRemoveRows(root_index, at, at);
 			root->DeleteChild(item);
@@ -164,11 +164,12 @@ void TreeModel::DeviceEvent(const Device device, const DeviceAction action,
 			MTL_CHECK_VOID(device != nullptr);
 			UdevDeviceAutoUnref auto_unref_device(device);
 			
-			const int at = data.roots.size();
+			cint at = data.roots.size();
 			TreeItem *root = TreeItem::NewDisk(device, at);
 			auto index = QModelIndex();
 			beginInsertRows(index, at, at);
 			{
+				// mtl_info("Disk dev_path: %s", qPrintable(root->dev_path()));
 				data.roots.append(root);
 			}
 			endInsertRows();
@@ -190,18 +191,23 @@ void TreeModel::DeviceEvent(const Device device, const DeviceAction action,
 				}
 			}
 		}
-		return;
+		// return;
 	}
 	
-	MTL_CHECK_VOID(device == Device::Partition);
+	// MTL_CHECK_VOID(device == Device::Partition);
 	
 	if (action == DeviceAction::Added) {
 		auto sys_path_ba = sys_path.toLocal8Bit();
 		struct udev_device *device = udev_device_new_from_syspath(udev, sys_path_ba.data());
 		MTL_CHECK_VOID(device != nullptr);
 		UdevDeviceAutoUnref auto_unref_device(device);
-		TreeItem *child = TreeItem::FromDevice(device, nullptr);
-		InsertPartition(child);
+		io::DiskInfo disk_info;
+		sidepane::ReadDiskInfo(device, disk_info);
+		TreeItem *child = TreeItem::FromDevice(device, &disk_info);
+		if (child) {
+			// mtl_info("Child dev_path: %s", qPrintable(child->dev_path()));
+			InsertPartition(child);
+		}
 	} else if (action == DeviceAction::Removed) {
 		bool done = false;
 		{
@@ -210,14 +216,14 @@ void TreeModel::DeviceEvent(const Device device, const DeviceAction action,
 				if (!root->is_disk())
 					continue;
 				auto &vec =root->children();
-				const int count = vec.size();
+				cint count = vec.size();
 				
 				for (int i = 0; i < count; i++)
 				{
 					TreeItem *child = vec[i];
 					PartitionInfo *info = child->partition_info();
 					MTL_CHECK_VOID(info != nullptr);
-					if (info->dev_path == dev_path)
+					if (child->dev_path() == dev_path)
 					{
 						auto parent_index = createIndex(root->Row(), 0, root);
 						{
@@ -253,10 +259,10 @@ int TreeModel::GetDropLocation(const QPoint &pos, QModelIndex &target)
 	target = view_->indexAt(pos);
 	if (!target.isValid())
 		return -1;
-	const int rh = view_->RowHeight(target);
-	const int y = pos.y();
-	const int rem = y % rh;
-	const int at = target.row();
+	cint rh = view_->RowHeight(target);
+	cint y = pos.y();
+	cint rem = y % rh;
+	cint at = target.row();
 	return (rem > rh / 2) ? at + 1 : at;
 }
 
@@ -268,10 +274,11 @@ gui::TreeItem* TreeModel::GetRootTS(const io::DiskInfo &disk_info, int *row)
 		int i = -1;
 		for (gui::TreeItem *root: data.roots) {
 			i++;
-			if (!root->is_disk())
+			if (!root->is_disk()) {
 				continue;
-			const auto &n = root->disk_info().num;
-			if (n == disk_info.num) {
+			}
+			
+			if (disk_info.dev_path.startsWith(root->dev_path())) {
 				if (row)
 					*row = i;
 				return root;
@@ -280,7 +287,7 @@ gui::TreeItem* TreeModel::GetRootTS(const io::DiskInfo &disk_info, int *row)
 		count = data.roots.size();
 	}
 	
-	const int at = count;
+	cint at = count;
 	auto *disk_root = gui::TreeItem::NewDisk(disk_info, at);
 	beginInsertRows(QModelIndex(), at, at);
 	{
@@ -290,6 +297,8 @@ gui::TreeItem* TreeModel::GetRootTS(const io::DiskInfo &disk_info, int *row)
 	
 	if (row)
 		*row = at;
+	
+	mtl_info("ADDED disk, dev_path: %s", qPrintable(disk_info.dev_path));
 	
 	return disk_root;
 }
@@ -400,15 +409,27 @@ void TreeModel::InsertBookmarks(const QVector<cornus::gui::TreeItem*> &bookmarks
 
 bool TreeModel::InsertPartition(TreeItem *item)
 {
+	if (item->is_disk()) {
+		TreeData &data = app_->tree_data();
+		auto g = data.guard();
+		beginInsertRows(QModelIndex(), 0, 0);
+		{
+			data.roots.append(item);
+		}
+		endInsertRows();
+		return true;
+	}
+	
 	MTL_CHECK(item->is_partition());
 	PartitionInfo *info = item->partition_info();
 	int root_row = -1;
 	int first = -1;
-	TreeItem *root = GetRootTS(info->disk_info, &root_row);
+	TreeItem *root = GetRootTS(item->disk_info(), &root_row);
 	MTL_CHECK(root != nullptr);
 	{
+		// mtl_info("Found root at dev_path: %s", qPrintable(root->dev_path()));
 		first = -1;
-		const int count = root->child_count();
+		cint count = root->child_count();
 		const QString s = item->toString();
 		for (int i = 0; i < count; i++)
 		{
@@ -421,8 +442,11 @@ bool TreeModel::InsertPartition(TreeItem *item)
 		if (first == -1)
 			first = count;
 	}
-	int last = first;
+	cint last = first;
+	TreeData &data = app_->tree_data();
+	auto g = data.guard();
 	auto root_index = createIndex(root_row, 0, root);
+	// mtl_info("root row: %d, first/last: %d", root_row, first);
 	beginInsertRows(root_index, first, last);
 	{
 		root->InsertChild(item, first);
@@ -557,7 +581,7 @@ void TreeModel::MoveBookmarks(QStringList str_list, const QPoint &pos)
 	}
 	endRemoveRows();
 	
-	const int k = (source_at < drop_at) ? drop_at - 1 : drop_at;
+	cint k = (source_at < drop_at) ? drop_at - 1 : drop_at;
 	//mtl_info("source_at: %d, drop_at: %d, k: %d", source_at, drop_at, k);
 	
 	beginInsertRows(bkm_root_index, k, k);

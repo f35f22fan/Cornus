@@ -70,6 +70,7 @@ set(cornus_src_files
     trash.cc trash.hh
     thumbnail.cc thumbnail.hh
     TreeData.cpp TreeData.hpp
+    udisks2.cpp udisks2.hpp
     ui.cc ui.hh
 
     gui/actions.hxx

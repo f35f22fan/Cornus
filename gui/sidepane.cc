@@ -55,7 +55,7 @@ TreeItem* FindPartitionByDevPath(const QString &dev_path,
 	const QVector<TreeItem*> &vec)
 {
 	for (TreeItem *next: vec) {
-		if (next->is_partition() && next->partition_info()->dev_path == dev_path)
+		if (next->is_partition() && next->disk_info().dev_path == dev_path)
 			return next;
 	}
 	
@@ -136,7 +136,7 @@ void* LoadItems(void *args)
 #ifdef CORNUS_PRINT_PARTITIONS_LOAD_TIME
 	ci64 mc = timer.elapsed_mc();
 	Q_UNUSED(mc);
-//	mtl_info("Partitions load time: %ld mc", mc);
+	mtl_info("Partitions load time: %ld mc", mc);
 #endif
 	
 	LoadBookmarks(method_args.bookmarks);
@@ -187,8 +187,8 @@ void PrintDev(udev_device *dev)
 void ReadDiskInfo(struct udev_device *device, io::DiskInfo &info)
 {
 	dev_t devn = udev_device_get_devnum(device);
-	info.num.major = major(devn);
-	info.num.minor = minor(devn);
+	info.dev_num.major = major(devn);
+	info.dev_num.minor = minor(devn);
 	info.id_model = udev_device_get_property_value(device, "ID_MODEL");
 	info.dev_path = udev_device_get_devnode(device);
 }
@@ -214,7 +214,7 @@ bool SortItems(TreeItem *a, TreeItem *b)
 	} else if (pi16) {
 		return false;
 	}
-	const int i = io::CompareStrings(pi8->dev_path, pi16->dev_path);
+	cint i = io::CompareStrings(a->disk_info().dev_path, b->disk_info().dev_path);
 	return (i >= 0) ? false : true;
 }
 
@@ -242,6 +242,7 @@ void udev_list_partitions(QVector<TreeItem*> &vec)
 	udev_list_entry_foreach(next_entry, devices)
 	{
 		const char *path = udev_list_entry_get_name(next_entry);
+		// mtl_info("dev path: %s", path);
 		struct udev_device *device = udev_device_new_from_syspath(udev, path);
 		UdevDeviceAutoUnref udau(device);
 		const QString sys_name = udev_device_get_sysname(device);
@@ -250,15 +251,21 @@ void udev_list_partitions(QVector<TreeItem*> &vec)
 			continue;
 		
 		const QString dev_type = udev_device_get_devtype(device);
-		
-		if (dev_type == disk_str) {
+		cbool is_disk = (dev_type == disk_str);
+		if (is_disk) {
 			ReadDiskInfo(device, disk_info);
-			continue;
+			if (disk_info.id_model.isEmpty()) {
+				continue;
+			}
+			TreeItem *disk = TreeItem::NewDisk(disk_info, 0);
+			if (disk) {
+				vec.append(disk);
+			}
 		}
 		
-		if (dev_type != partition_str)
-			continue;
-		
+		if (!is_disk) { // don't read twice where disk and partition are one
+			ReadDiskInfo(device, disk_info);
+		}
 		TreeItem *item = TreeItem::FromDevice(device, &disk_info);
 		if (item) {
 			vec.append(item);
@@ -287,8 +294,8 @@ void* monitor_devices(void *args)
 	udev_monitor_filter_add_match_subsystem_devtype(monitor, subsys, "disk");
 	udev_monitor_filter_add_match_subsystem_devtype(monitor, subsys, "partition");
 	udev_monitor_enable_receiving(monitor);
-	const int monitor_fd = udev_monitor_get_fd(monitor);
-	const int epoll_fd = epoll_create(1);
+	cint monitor_fd = udev_monitor_get_fd(monitor);
+	cint epoll_fd = epoll_create(1);
 	if (epoll_fd == -1)
 	{
 		mtl_status(errno);
@@ -296,7 +303,7 @@ void* monitor_devices(void *args)
 	}
 	
 	AutoCloseFd epoll_fd_(epoll_fd);
-	const int app_quitting_fd = app->app_quitting_fd();
+	cint app_quitting_fd = app->app_quitting_fd();
 	
 	QVector<struct epoll_event> evt_vec(2);
 	evt_vec[0].events = EPOLLIN;
@@ -313,7 +320,7 @@ void* monitor_devices(void *args)
 		}
 	}
 	
-	const int ms = 100 * 1000; // 100sec
+	cint ms = 100 * 1000; // 100sec
 	while (true)
 	{
 		cint num_fds = epoll_wait(epoll_fd, evt_vec.data(), evt_vec.size(), ms);

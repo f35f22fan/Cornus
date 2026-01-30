@@ -14,11 +14,28 @@
 #include <QMouseEvent>
 #include <QProcess>
 
+#include <QDBusConnection>
+#include <QDBusConnectionInterface>
+#include <QDBusInterface>
+#include <QDBusReply>
+
+#include <QXmlStreamReader>
+
+#include <iostream>
+
 namespace cornus::gui {
 
 const QString BookmarkMime = QLatin1String("app/cornus_bookmark");
 
-bool PendingCommands::ContainsPath(const QString &path, const bool mark_expired)
+const QString UdisksInterface = QLatin1String("org.freedesktop.UDisks2");
+const QString ManagerInterface = QLatin1String("org.freedesktop.UDisks2.Manager");
+const QString IntrospectableInterface = QLatin1String("org.freedesktop.DBus.Introspectable");
+
+const QString DrivesObject = QLatin1String("/org/freedesktop/UDisks2/drives");
+const QString BlockDevicesObject = QLatin1String("/org/freedesktop/UDisks2/block_devices");
+const QString ManagerObject = QLatin1String("/org/freedesktop/UDisks2/Manager");
+
+bool PendingCommands::ContainsPath(const QString &path, cbool mark_expired)
 {
 	int i = -1;
 	for (PendingCommand &cmd: pending_commands_)
@@ -35,7 +52,7 @@ bool PendingCommands::ContainsPath(const QString &path, const bool mark_expired)
 	return false;
 }
 
-bool PendingCommands::ContainsFsUUID(const QString &fs_uuid, const bool mark_expired)
+bool PendingCommands::ContainsFsUUID(const QString &fs_uuid, cbool mark_expired)
 {
 	for (PendingCommand &cmd: pending_commands_)
 	{
@@ -73,11 +90,88 @@ TreeView::TreeView(App *app, TreeModel *model): app_(app), model_(model)
 	setUpdatesEnabled(true);
 	// enables receiving ordinary mouse events (when mouse is not down)
 	// setMouseTracking(true);
+	
+	// udisks_ = new UDisks2();
+	// connect(udisks_, &UDisks2::filesystemAdded,
+	// 		this, &TreeView::filesystemAdded);
+	// connect(udisks_, &UDisks2::filesystemRemoved,
+	// 		this, &TreeView::filesystemRemoved);
+	// PrintData();
 }
 
 TreeView::~TreeView() {
 	delete model_;
 	delete menu_;
+	delete udisks_;
+}
+
+void TreeView::filesystemAdded(const QString &node) {
+	mtl_info("%s", qPrintable(node));
+}
+
+void TreeView::filesystemRemoved(const QString &node) {
+	mtl_info("%s", qPrintable(node));
+}
+
+QStringList ReadXmlAnswer(QString input) {
+	const QString name_str = QLatin1String("name");
+	const QString node_str = QLatin1String("node");
+	QXmlStreamReader xml(input);
+	QStringList response;
+	while (!xml.atEnd()) {
+		xml.readNext();
+		if (xml.tokenType() == QXmlStreamReader::StartElement && xml.name().toString() == node_str) {
+			QString name = xml.attributes().value(name_str).toString();
+			if (!name.isEmpty())
+				response << name;
+			
+			for (auto attr: xml.attributes()) {
+				mtl_info("name: %s, value: %s", qPrintable(attr.name().toString()), qPrintable(attr.value().toString()));
+			}
+		}
+	}
+	
+	return response;
+}
+
+QStringList getBlockDevices()
+{
+	QDBusInterface ud2(UdisksInterface,
+					   BlockDevicesObject,
+					   IntrospectableInterface,
+					   QDBusConnection::systemBus());
+	QDBusReply<QString> reply = ud2.call("Introspect");
+	if (!reply.isValid())
+		return QStringList();
+	
+	return ReadXmlAnswer(reply.value());
+}
+
+QStringList getDrives()
+{
+	QDBusInterface ud2(UdisksInterface,
+					   DrivesObject,
+					   IntrospectableInterface,
+					   QDBusConnection::systemBus());
+	if (!ud2.isValid())
+		return QStringList();
+	QDBusReply<QString> reply = ud2.call("Introspect");
+	if (!reply.isValid())
+		return QStringList();
+	
+	return ReadXmlAnswer(reply.value());
+}
+
+void TreeView::PrintData() {
+	QStringList drives = getDrives();
+	for (int i = 0; i < drives.size(); i++) {
+		mtl_info("Drive: %s", qPrintable(drives[i]));
+	}
+	
+	QStringList block_devices = getBlockDevices();
+	for (int i = 0; i < block_devices.size(); i++) {
+		mtl_info("Block Device: %s", qPrintable(block_devices[i]));
+	}
 }
 
 void TreeView::AnimateDND(const QPoint &drop_coord)
@@ -162,7 +256,7 @@ void TreeView::dragMoveEvent(QDragMoveEvent *evt)
 void TreeView::keyPressEvent(QKeyEvent *evt)
 {
 	const auto modifiers = evt->modifiers();
-	const bool any_modifiers = (modifiers != Qt::NoModifier);
+	cbool any_modifiers = (modifiers != Qt::NoModifier);
 	const int key = evt->key();
 	if (!any_modifiers)
 	{

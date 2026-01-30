@@ -31,12 +31,12 @@ enum class CountDirFiles: i8 {
 };
 
 struct DevNum {
-	i32 major;
-	i32 minor;
+	i32 major = -1;
+	i32 minor = -1;
 };
 
 struct DiskInfo {
-	io::DevNum num = {-1, -1}; // dev_t->major
+	DevNum dev_num;
 	QString id_model;
 	QString dev_path;
 };

@@ -263,11 +263,11 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 		QList<QColor> colors;
 		
 		if (file->has_last_watched_attr()) {
-			names.append("lw");
+			names.append("*");
 			colors.append(QColor(255, 0, 0));
 		}
 		if (file->has_watched_attr()) {
-			names.append("hw");
+			names.append("\u2713");
 			colors.append(QColor(255, 165, 0));
 		}
 		

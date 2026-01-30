@@ -143,6 +143,12 @@ struct TaskProgress {
 		p.CopyFrom(data);
 	}
 	
+	void GetShort(i64 &at, i64 &total) {
+		MutexGuard guard(&mutex);
+		at = data.at;
+		total = data.total;
+	}
+	
 	inline void AddProgress(const i64 progress, const i64 time_worked,
 		const i64 *new_total = nullptr)
 	{
@@ -185,6 +191,7 @@ public:
 	static Task* From(cornus::ByteArray &ba, const HasSecret hs);
 	
 	TaskData& data() { return data_; }
+	void GetShort(i64 &at, i64 &total) { progress_.GetShort(at, total); }
 	TaskProgress& progress() { return progress_; }
 	QVector<QString>& file_paths() { return file_paths_; }
 	

@@ -279,9 +279,13 @@ Daemon::Daemon()
 	notify_.Init();
 	env_ = QProcessEnvironment::systemEnvironment();
 	io::InitEnvInfo(category_, search_icons_dirs_, xdg_data_dirs_, possible_categories_, env_);
-	tasks_win_ = new gui::TasksWin();
-	LoadDesktopFiles();
+	
+	tray_icon_ = new QSystemTrayIcon();
+	tasks_win_ = new gui::TasksWin(tray_icon_);
 	InitTrayIcon();
+	
+	LoadDesktopFiles();
+	
 	QTimer::singleShot(OneHourInMs, this, &Daemon::CheckOldThumbnails);
 }
 
@@ -452,10 +456,7 @@ void Daemon::GetPreferredOrder(QString mime,
 
 void Daemon::InitTrayIcon()
 {
-	tray_icon_ = new QSystemTrayIcon();
-	tray_icon_->setIcon(QIcon(cornus::AppIconPath));
-	tray_icon_->setVisible(true);
-	tray_icon_->setToolTip("cornus I/O daemon");
+	tray_icon_->setToolTip("Cornus I/O");
 	connect(tray_icon_, &QSystemTrayIcon::activated, this, &Daemon::SysTrayClicked);
 	
 	tray_menu_ = new QMenu(tasks_win_);

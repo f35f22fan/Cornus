@@ -71,7 +71,7 @@ TreeItem* TreeItem::FromDevice(struct udev_device *device,
 	return item;
 }
 
-TreeItem* TreeItem::NewDisk(struct udev_device *device, const int root_row)
+TreeItem* TreeItem::NewDisk(struct udev_device *device, cint root_row)
 {
 	auto *p = new TreeItem();
 	const QString name = udev_device_get_property_value(device, "ID_MODEL");
@@ -82,7 +82,7 @@ TreeItem* TreeItem::NewDisk(struct udev_device *device, const int root_row)
 	return p;
 }
 
-TreeItem* TreeItem::NewDisk(const io::DiskInfo &disk_info, const int root_row)
+TreeItem* TreeItem::NewDisk(const io::DiskInfo &disk_info, cint root_row)
 {
 	auto *p = new TreeItem();
 	p->set_disk(disk_info.id_model);
@@ -137,7 +137,7 @@ void TreeItem::AppendChild(TreeItem *p) {
 	children_.append(p);
 }
 
-QVariant TreeItem::data(const int column) const
+QVariant TreeItem::data(cint column) const
 {
 	auto *k = const_cast<TreeItem*>(this);
 	return k->DisplayString();
@@ -145,7 +145,7 @@ QVariant TreeItem::data(const int column) const
 
 bool TreeItem::DeleteChild(TreeItem *p)
 {
-	const int at = children_.indexOf(p);
+	cint at = children_.indexOf(p);
 	MTL_CHECK(at != -1);
 	children_.remove(at);
 	delete p;
@@ -165,17 +165,13 @@ TreeItem::DisplayString()
 	QString s;// QChar(0x2654) + ' ';
 	
 	const QString &dev_path = disk_info_.dev_path;
-	int index = dev_path.lastIndexOf('/');
+	cint index = dev_path.lastIndexOf('/');
 	if (index == -1) {
 		mtl_trace();
 		return s;
 	}
 	
 	s += dev_path.mid(index + 1) + ' ';
-	
-	if (!size_str_.isEmpty())
-		s += size_str_ + ' ';
-	
 	QString size_str;
 	if (info_->size > 0)
 		size_str = io::SizeToString(info_->size, StringLength::Short);
@@ -203,20 +199,20 @@ TreeItem::GetPartitionName() const
 	if (!info_)
 		return QString();
 	
-	const QString &dev_path = disk_info_.dev_path;
-	int index = dev_path.lastIndexOf('/');
+	cint index = disk_info_.dev_path.lastIndexOf('/');
 	if (index == -1) {
 		mtl_trace();
 		return QString();
 	}
 	
-	return dev_path.mid(index + 1);
+	return disk_info_.dev_path.mid(index + 1);
 }
 
 bool TreeItem::HasRootPartition() const
 {
 	if (!is_disk())
 		return false;
+	
 	const QChar root_path = '/';
 	for (TreeItem *next: children_)
 	{
@@ -228,9 +224,9 @@ bool TreeItem::HasRootPartition() const
 }
 
 QModelIndex
-TreeItem::IndexOf(const QModelIndex &index, TreeItem *p, const int col) const
+TreeItem::IndexOf(const QModelIndex &index, TreeItem *p, cint col) const
 {
-	const int count = children_.size();
+	cint count = children_.size();
 	for (int i = 0; i < count; i++) {
 		TreeItem *next = children_[i];
 		if (next == p)
@@ -240,15 +236,15 @@ TreeItem::IndexOf(const QModelIndex &index, TreeItem *p, const int col) const
 	return QModelIndex();
 }
 
-void TreeItem::InsertChild(TreeItem *p, const int at)
+void TreeItem::InsertChild(TreeItem *p, cint at)
 {
 	p->parent_ = this;
-	const int count = children_.size();
-	const int n = (at >= count) ? count : at;
+	cint count = children_.size();
+	cint n = (at >= count) ? count : at;
 	children_.insert(n, p);
 }
 
-TreeItem* TreeItem::NewBookmarksRoot(const int root_row)
+TreeItem* TreeItem::NewBookmarksRoot(cint root_row)
 {
 	auto *p = new TreeItem();
 	p->set_bookmarks_root();

@@ -29,16 +29,14 @@ struct PartitionInfo
 /// ID_PART_ENTRY_UUID="fceef57f-868c-4091-b420-62457a686690"
 	QString uuid; // uniquely identifies a GPT partition
 	
+/// uniquely identifies a filesystem
 /// ID_FS_UUID is the UUID reported by glib/gio/GMount
-	QString fs_uuid; // uniquely identifies a filesystem
-	// Changes if the partition is reformatted
-	// If a particular filesystem does not support UUIDs, a shorter identifier is used.
+///Changes if the partition is reformatted
+/// If a particular filesystem does not support UUIDs, a shorter identifier is used.
+	QString fs_uuid;
 
 /// ID_PART_ENTRY_SIZE="1048576"
 	i64 size = -1;
-	
-/// DEVNAME="/dev/sda2"
-	// QString dev_path;
 	
 /// ID_FS_LABEL="Fedora"
 	QString label;
@@ -53,7 +51,6 @@ struct PartitionInfo
 		p->uuid = uuid;
 		p->fs_uuid = fs_uuid;
 		p->size = size;
-		// p->dev_path = dev_path;
 		p->label = label;
 		p->sys_path = sys_path;
 		
@@ -194,7 +191,6 @@ private:
 	QString title_;
 	QString mount_path_;
 	i64 size_ = -1;
-	QString size_str_;
 	PartitionInfo *info_ = nullptr;
 	TreeItemType type_ = TreeItemType::None;
 	int root_row_ = -1;

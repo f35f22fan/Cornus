@@ -2,7 +2,6 @@
 
 #include "../decl.hxx"
 #include "decl.hxx"
-#include "../udisks2.hpp"
 #include <QTreeView>
 
 namespace cornus::gui {
@@ -32,10 +31,6 @@ public:
 	
 	PendingCommands& pending_commands() { return pending_commands_; }
 	
-private Q_SLOTS:
-	void filesystemAdded(const QString &node);
-	void filesystemRemoved(const QString &node);
-	
 protected:
 	virtual void dragEnterEvent(QDragEnterEvent *event) override;
 	virtual void dragLeaveEvent(QDragLeaveEvent *evt) override;
@@ -57,7 +52,6 @@ private:
 	void RenameSelectedBookmark();
 	void StartDrag(const QPoint &pos);
 	
-	cornus::UDisks2 *udisks_ = nullptr;
 	App *app_ = nullptr;
 	TreeModel *model_ = nullptr;
 	QMenu *menu_ = nullptr;

@@ -57,9 +57,7 @@ void TaskData::ChangeState(const TaskState new_state, Answer *answer, TaskQuesti
 	cauto StopRecordingTime = TaskState::Finished | TaskState::Pause
 	| TaskState::Abort | TaskState::AwaitingAnswer;
 	
-	// if (new_state & TaskState::Working) {
-		mtl_info("%d CHANGED STATE TO: %s", step++, qPrintable(ToString(new_state)));
-	// }
+	// mtl_info("%d CHANGED STATE TO: %s", step++, qPrintable(ToString(new_state)));
 	
 	state = new_state;
 	if (new_state & StopRecordingTime)
@@ -102,8 +100,7 @@ void Task::CopyFiles()
 	CountTotalSize();
 	for (cauto &path: file_paths_)
 	{
-		mtl_info("Copy \"%s\" to \"%s\"", qPrintable(path),
-			qPrintable(to_dir_path_));
+		// mtl_info("Copy \"%s\" to \"%s\"", qPrintable(path), qPrintable(to_dir_path_));
 		CopyFileToDir(path, to_dir_path_);
 	}
 }
@@ -684,7 +681,7 @@ int Task::TryCreateRegularFile(const QString &new_dir_path,
 			return -1;
 			}
 		auto dest_ba = dest_path.toLocal8Bit();
-			mtl_info("file_flags: %o, OverwriteFlags: %o, original: %o", file_flags, OverwriteFlags, WriteFlags);
+		// mtl_info("file_flags: %o, OverwriteFlags: %o, original: %o", file_flags, OverwriteFlags, WriteFlags);
 		cint fd = ::open(dest_ba.data(), file_flags, mode);
 		if (fd != -1)
 		{

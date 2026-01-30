@@ -36,9 +36,9 @@ void* wait_for_signal(void *ptr)
 		{
 			Invoke(task_gui);
 			const auto condition = TaskState::Answered | TaskFinishedOrAborted;
-			mtl_info("Waiting for %s", qPrintable(ToString(condition)));
+			// mtl_info("Waiting for %s", qPrintable(ToString(condition)));
 			data.WaitFor(condition, Lock::No);
-			mtl_info("Waiting for %s ... Done", qPrintable(ToString(condition)));
+			// mtl_info("Waiting for %s ... Done", qPrintable(ToString(condition)));
 			if (data.state & TaskState::Answered)
 			{
 				Invoke(task_gui);
@@ -50,7 +50,7 @@ void* wait_for_signal(void *ptr)
 			// mtl_info("Waiting for %s .. Done", qPrintable(ToString(data.state)));
 			if (data.state & TaskState::Working)
 			{
-				mtl_info("TaskState::Working (Sleep 300ms)");
+				// mtl_info("TaskState::Working (Sleep 300ms)");
 				data.cm.Unlock();
 				const useconds_t ms = first_time ? 1000 * 100 : 300 * 1000;
 				usleep(ms);
@@ -67,7 +67,7 @@ void* wait_for_signal(void *ptr)
 		cauto state = data.state;
 		if (state & TaskFinishedOrAborted)
 		{
-			mtl_info("Task done: %s", qPrintable(ToString(state)));
+			// mtl_info("Task done: %s", qPrintable(ToString(state)));
 			Invoke(task_gui);
 			break;
 		}
@@ -88,10 +88,9 @@ TaskGui::~TaskGui()
 	delete task_;
 }
 
-void TaskGui::CheckTaskState()
-{
-//	auto thread_ba = io::thread_id_short(pthread_self()).toLocal8Bit();
-//	mtl_info("Thread: %s", thread_ba.data());
+void TaskGui::CheckTaskState() {
+	//	auto thread_ba = io::thread_id_short(pthread_self()).toLocal8Bit();
+	//	mtl_info("Thread: %s", thread_ba.data());
 	const TaskState state = task_->data().GetState(&task_question_);
 	
 	if (state & TaskFinishedOrAborted)
@@ -102,7 +101,8 @@ void TaskGui::CheckTaskState()
 	
 	if (!gui_created_)
 		CreateGui();
-
+	
+	made_visible_once_ = true;// don't show dialog unless an error occurred or user clicked sys tray.
 	if (!made_visible_once_)
 	{
 		made_visible_once_ = true;
@@ -155,7 +155,7 @@ void TaskGui::CheckTaskState()
 	{
 		auto &data = task_->data();
 		auto state = data.GetState();
-		mtl_info("RESTORING PROGRESS DISPLAY PANE: %s", qPrintable(ToString(state)));
+		// mtl_info("RESTORING PROGRESS DISPLAY PANE: %s", qPrintable(ToString(state)));
 		
 		stack_.layout->setCurrentIndex(stack_.progress_index);
 		cauto new_state = TaskState::Working;

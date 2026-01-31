@@ -1,5 +1,6 @@
 #include "File.hpp"
 
+#include "../AutoDelete.hh"
 #include "../ByteArray.hpp"
 #include "../DesktopFile.hpp"
 #include "Files.hpp"
@@ -9,6 +10,9 @@
 
 #include <cstdio>
 #include <zstd.h>
+#include <unistd.h>
+#include <sys/xattr.h>
+#include <fcntl.h>
 
 namespace cornus::io {
 
@@ -21,7 +25,7 @@ File::~File()
 		link_target_ = 0;
 	}
 	
-	ClearThumbnail(AlsoDeleteFromDisk::No);
+	ClearThumbnail(DeleteCacheFromDisk::No);
 	
 	delete cache_.desktop_file;
 	cache_.desktop_file = 0;
@@ -48,12 +52,12 @@ void File::ClearXAttrs()
 	DeleteMediaPreview();
 }
 
-void File::ClearThumbnail(AlsoDeleteFromDisk d) {
+void File::ClearThumbnail(DeleteCacheFromDisk d) {
 	delete cache_.thumbnail;
 	cache_.thumbnail = 0;
-	ext_attrs_.remove(media::XAttrThumbnail);
+	// ext_attrs_.remove(media::XAttrThumbnail);
 	
-	if (d == AlsoDeleteFromDisk::Yes) {
+	if (d == DeleteCacheFromDisk::Yes) {
 		QVector<QString> names = {media::XAttrThumbnail};
 		io::RemoveEFA(build_full_path(), names);
 	}
@@ -131,6 +135,45 @@ void File::CountDirFiles()
 int File::Delete() {
 	auto ba = build_full_path().toLocal8Bit();
 	return remove(ba.data());
+}
+
+void File::DeleteAllEfa() {
+	
+	if (is_dir_or_so()) {
+		// with directories can't remove ext attrs by using its FD, so instead
+		// use each time its full path.
+		QList<QString> names;
+		for (auto it = ext_attrs_.cbegin(); it != ext_attrs_.cend(); it++)
+		{
+			names.append(it.key());
+		}
+		
+		const QString full_path = build_full_path();
+		io::RemoveEFA(full_path, names, PrintErrors::No);
+		
+		return;
+	}
+	
+	auto file_path = build_full_path().toLocal8Bit();
+	cint fd = open(file_path.data(), O_WRONLY);
+	if (fd == -1) {
+		mtl_status(errno);
+		return;
+	}
+
+	AutoCloseFd fd_(fd);
+	for (auto it = ext_attrs_.cbegin(); it != ext_attrs_.cend(); it++)
+	{
+		if (!it.key().startsWith("user.CornusMas")) {
+			continue;
+		}
+		cauto name = it.key().toLocal8Bit();
+		// mtl_info("name: \"%s\"", name.data());
+		if (fremovexattr(fd, name.data()) != 0) {
+			cauto fn = this->name().toLocal8Bit();
+			mtl_warn("\"%s\": \"%s\" - %s", fn.data(), name.data(), strerror(errno));
+		}
+	}
 }
 
 void File::DeleteMediaPreview() {

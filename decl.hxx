@@ -73,6 +73,11 @@ inline Efa& operator &= (Efa &a, const Efa &b) {
 	return a;
 }
 
+enum class Block: i8 {
+	Yes,
+	No
+};
+
 enum class Op: i8 {
 	Add,
 	Remove,

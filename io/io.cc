@@ -1636,21 +1636,13 @@ bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &en
 	return true;
 }
 
-void RemoveEFA(QStringView full_path, QVector<QString> names, const PrintErrors pe)
+void RemoveEFA(QStringView full_path, QList<QString> names, const PrintErrors pe)
 {
 	auto file_path_ba = full_path.toLocal8Bit();
-	cint fd = open(file_path_ba.data(), O_WRONLY);
-	AutoCloseFd fd_(fd);
-	
 	for (const auto &name: names)
 	{
 		auto name_ba = name.toLocal8Bit();
-		cbool ok = fremovexattr(fd, name_ba.data()) == 0;
-		
-		// if (ok) {
-		// 	mtl_info("Removed %s for %s", name_ba.data(), file_path_ba.data());
-		// }
-		
+		cbool ok = removexattr(file_path_ba.data(), name_ba.data()) == 0;
 		if (!ok && (pe == PrintErrors::Yes))
 			mtl_warn("lremovexattr on %s: %s", name_ba.data(), strerror(errno));
 	}

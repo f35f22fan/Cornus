@@ -1523,11 +1523,11 @@ void Tab::ReloadThumbnail() {
 		if (row == -1)
 			return;
 		// AutoDelete ad(cloned_file);
-		file->ClearThumbnail(io::AlsoDeleteFromDisk::Yes);
+		file->ClearThumbnail(io::DeleteCacheFromDisk::Yes);
 	}
 }
 
-void Tab::RemoveEfaFromSelectedFiles(Efa efa)
+void Tab::RemoveEfaFromSelectedFiles(const Efa efa, const Block block)
 {
 	auto  &files = view_files();
 	MutexGuard guard = files.guard();
@@ -1537,10 +1537,15 @@ void Tab::RemoveEfaFromSelectedFiles(Efa efa)
 		if (!next->is_selected())
 			continue;
 		
-		const Efa what_changed = app_->blacklist().Block(next, efa);
-		if (EfaContains(what_changed, Efa::Thumbnail)) {
-			// mtl_info("Clearing thumbnail");
-			next->ClearThumbnail(io::AlsoDeleteFromDisk::Yes);
+		Efa what_changed = Efa::None;
+		if (block == Block::Yes) {
+			what_changed = app_->blacklist().Block(next, efa);
+		}
+		
+		if (efa == Efa::All) {
+			next->DeleteAllEfa();
+		} else if (EfaContains(what_changed, Efa::Thumbnail)) {
+			next->ClearThumbnail(io::DeleteCacheFromDisk::Yes);
 		}
 	}
 	
@@ -1960,17 +1965,25 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 		menu->addSeparator();
 		menu->addMenu(efa_menu);
 		
-		QIcon *icon = app_->GetIcon(QLatin1String("php"));
-		if (icon) {
-			efa_menu->setIcon(*icon);
+		{
+			efa_menu->addSeparator();
+			QAction *action = efa_menu->addAction("Remove File Attributes");
+			connect(action, &QAction::triggered, [=] {
+				RemoveEfaFromSelectedFiles(Efa::All, Block::No);
+			});
 		}
 		
-		menu->addSeparator();
+		efa_menu->addSeparator();
+		
+		// QIcon *icon = app_->GetIcon(QLatin1String("php"));
+		// if (icon) {
+		// 	efa_menu->setIcon(*icon);
+		// }
 		
 		{
 			QAction *action = efa_menu->addAction("Block Thumbnails");
 			connect(action, &QAction::triggered, [=] {
-				RemoveEfaFromSelectedFiles(Efa::Thumbnail);
+				RemoveEfaFromSelectedFiles(Efa::Thumbnail, Block::Yes);
 			});
 		}
 		
@@ -1981,10 +1994,12 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 			});
 		}
 		
+		efa_menu->addSeparator();
+		
 		{
 			QAction *action = efa_menu->addAction("Block Text");
 			connect(action, &QAction::triggered, [=] {
-				RemoveEfaFromSelectedFiles(Efa::Text);
+				RemoveEfaFromSelectedFiles(Efa::Text, Block::Yes);
 			});
 		}
 		
@@ -2000,7 +2015,7 @@ void Tab::ShowRightClickMenu(const QPoint &global_pos,
 		{
 			QAction *action = efa_menu->addAction("Block All");
 			connect(action, &QAction::triggered, [=] {
-				RemoveEfaFromSelectedFiles(Efa::All);
+				RemoveEfaFromSelectedFiles(Efa::All, Block::Yes);
 			});
 		}
 		

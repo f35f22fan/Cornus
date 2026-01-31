@@ -74,8 +74,6 @@ void TasksWin::DetectThemeType()
 
 void TasksWin::DrawPercent(cint percent) {
 	QString msg = QString::number(percent);
-	// msg.append("%");
-	
 	pixmap_.fill(QColor(0, 0, 0, 0));
 	QPainter painter(&pixmap_);
 	painter.setRenderHint(QPainter::Antialiasing);
@@ -84,9 +82,6 @@ void TasksWin::DrawPercent(cint percent) {
 	cint span_angle = (percent * 360 * 16) / 100;
 	QColor arc_color = opposite_to_bg();
 	arc_color.setAlpha(80);
-	// QPen pen(arc_color);
-	// pen.setWidth(5);
-	//painter.setPen(pen);
 	painter.setBrush(arc_color);
 	painter.drawPie(r, 0, span_angle);
 	

@@ -15,7 +15,7 @@
 
 namespace cornus::io {
 
-enum class AlsoDeleteFromDisk: bool {
+enum class DeleteCacheFromDisk: bool {
 	Yes,
 	No,
 };
@@ -66,7 +66,8 @@ public:
 	QString build_full_path() const;
 	FileCache& cache() { return cache_; }
 	void ClearCache();
-	void ClearThumbnail(AlsoDeleteFromDisk d);
+	void ClearThumbnail(DeleteCacheFromDisk d);
+	void DeleteAllEfa();
 	void DeleteMediaPreview();
 	bool extensionCanHaveThumbnail() const;
 	bool has(const io::FileBits bits) { return (bits_ & bits) != FileBits::Empty; }

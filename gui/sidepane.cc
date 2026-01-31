@@ -12,7 +12,7 @@
 #include <string.h>
 #include <sys/epoll.h>
 
-#define CORNUS_PRINT_PARTITIONS_LOAD_TIME
+//#define CORNUS_PRINT_PARTITIONS_LOAD_TIME
 
 namespace cornus::gui::sidepane {
 

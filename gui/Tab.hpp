@@ -154,7 +154,7 @@ private:
 	void MarkFilesAsWatched(const enum Lock l, QList<io::File*> &vec);
 	void ProcessAction(const QString &action);
 	void ReloadThumbnail();
-	void RemoveEfaFromSelectedFiles(Efa efa);
+	void RemoveEfaFromSelectedFiles(const Efa efa, const Block block);
 	void SetLastWatched(const enum Lock l, io::File *file);
 	void TellEfaOfSelectedFile();
 	void UndeleteFiles(const QMap<i64, QVector<cornus::trash::Names> > &items);

@@ -350,7 +350,7 @@ i64 ReadToBuf(cint fd, char *buf, ci64 buf_size,
 bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &env,
 	const PrintErrors pe, QString *dir_path = nullptr);
 
-void RemoveEFA(QStringView full_path, QVector<QString> names,
+void RemoveEFA(QStringView full_path, QList<QString> names,
 	const PrintErrors pe = PrintErrors::No);
 
 // returns 0 on success or errno on failure

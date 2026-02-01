@@ -50,15 +50,16 @@ void File::ClearXAttrs()
 {
 	ext_attrs_.clear();
 	DeleteMediaPreview();
+	ClearThumbnail(DeleteCacheFromDisk::No);
 }
 
 void File::ClearThumbnail(DeleteCacheFromDisk d) {
 	delete cache_.thumbnail;
 	cache_.thumbnail = 0;
-	// ext_attrs_.remove(media::XAttrThumbnail);
+	ext_attrs_.remove(io::Efa_thumbnail);
 	
 	if (d == DeleteCacheFromDisk::Yes) {
-		QVector<QString> names = {media::XAttrThumbnail};
+		QVector<QString> names = {io::Efa_thumbnail};
 		io::RemoveEFA(build_full_path(), names);
 	}
 }
@@ -88,6 +89,7 @@ File* File::Clone(const CloneFileOption opt) const
 	file->time_modified_ = time_modified_;
 	file->dir_file_count_ = dir_file_count_;
 	file->link_target_ = link_target_ ? link_target_->Clone() : nullptr;
+	file->load_thumbnail_ = load_thumbnail_;
 	
 	return file;
 }
@@ -138,7 +140,6 @@ int File::Delete() {
 }
 
 void File::DeleteAllEfa() {
-	
 	if (is_dir_or_so()) {
 		// with directories can't remove ext attrs by using its FD, so instead
 		// use each time its full path.
@@ -154,17 +155,20 @@ void File::DeleteAllEfa() {
 		return;
 	}
 	
+	load_thumbnail(false);
 	auto file_path = build_full_path().toLocal8Bit();
 	cint fd = open(file_path.data(), O_WRONLY);
 	if (fd == -1) {
 		mtl_status(errno);
 		return;
 	}
-
+	
+	const QString security = QLatin1String("security.");
+	
 	AutoCloseFd fd_(fd);
 	for (auto it = ext_attrs_.cbegin(); it != ext_attrs_.cend(); it++)
 	{
-		if (!it.key().startsWith("user.CornusMas")) {
+		if (it.key().startsWith(security)) { // it's gonna fail, so no need to waste time trying.
 			continue;
 		}
 		cauto name = it.key().toLocal8Bit();
@@ -174,6 +178,8 @@ void File::DeleteAllEfa() {
 			mtl_warn("\"%s\": \"%s\" - %s", fn.data(), name.data(), strerror(errno));
 		}
 	}
+	
+	ClearXAttrs();
 }
 
 void File::DeleteMediaPreview() {
@@ -216,7 +222,7 @@ bool File::has_exec_bit() const {
 
 bool File::IsThumbnailMarkedFailed()
 {
-	ByteArray &ba = ext_attrs_[media::XAttrThumbnail];
+	ByteArray &ba = ext_attrs_[io::Efa_thumbnail];
 	return ba.size() <= (thumbnail::HeaderSize + 4);
 }
 
@@ -224,7 +230,7 @@ void File::MarkThumbnailFailed()
 {
 	ByteArray ba;
 	ba.add_i32(-1);
-	ext_attrs_.insert(media::XAttrThumbnail, ba);
+	ext_attrs_.insert(io::Efa_thumbnail, ba);
 }
 
 media::MediaPreview*
@@ -239,7 +245,7 @@ File::media_attrs_decoded()
 	
 	cache_.media_preview = io::CreateMediaPreview(media_attrs());
 	if (cache_.media_preview == nullptr) {
-		ext_attrs_.remove(media::XAttrName);
+		ext_attrs_.remove(io::Efa_media);
 	}
 	
 	return cache_.media_preview;
@@ -325,7 +331,7 @@ void File::WatchProp(Op op, cu64 prop)
 		cu64 flags = old_props | prop;
 //		mtl_info("flags: %lu", flags);
 		ByteArray ba(flags);
-		io::SetEFA(build_full_path(), media::WatchProps::Name, ba);
+		io::SetEFA(build_full_path(), io::Efa_watch_props, ba);
 	} else {
 		if ((old_props & prop) == 0)
 			return; // nothing to remove
@@ -336,9 +342,9 @@ void File::WatchProp(Op op, cu64 prop)
 			ByteArray ba;
 			ba.add_u64(without);
 //			mtl_info("without: %lu, old props: %lu", without, old_props);
-			io::SetEFA(full_path, media::WatchProps::Name, ba);
+			io::SetEFA(full_path, io::Efa_watch_props, ba);
 		} else {
-			io::RemoveEFA(full_path, {media::WatchProps::Name});
+			io::RemoveEFA(full_path, {io::Efa_watch_props});
 		}
 	}
 }

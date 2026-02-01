@@ -20,7 +20,7 @@
 #include <QTime>
 #include <QTimer>
 
-//#define CORNUS_DEBUG_INOTIFY
+cbool kDebugInotify = false;
 
 namespace cornus::gui {
 
@@ -132,7 +132,6 @@ void SendCreateEvent(TableModel *model, cornus::io::Files *files,
 	auto &env = model->app()->env();
 	if (!io::ReloadMeta(*new_file, stx, env, PrintErrors::No))
 	{
-		mtl_trace();
 		delete new_file;
 		return;
 	}
@@ -149,9 +148,9 @@ void SendCreateEvent(TableModel *model, cornus::io::Files *files,
 void SendDeleteEvent(TableModel *model, cornus::io::Files *files,
 	const QString name, ci32 dir_id)
 {
-#ifdef CORNUS_DEBUG_INOTIFY
-	mtl_info("filename: %s", qPrintable(name));
-#endif
+	if (kDebugInotify) {
+		mtl_info("filename: %s", qPrintable(name));
+	}
 	io::FileEvent evt = {};
 	evt.dir_id = dir_id;
 	evt.from_name = name;
@@ -160,21 +159,23 @@ void SendDeleteEvent(TableModel *model, cornus::io::Files *files,
 		ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
 }
 
-void SendModifiedEvent(TableModel *model, QString name, ci32 dir_id)
+void SendModifiedEvent(TableModel *model, QString name, ci32 dir_id, const io::Modification mt)
 {
 	io::FileEvent evt = {};
 	evt.from_name = name;
 	evt.dir_id = dir_id;
 	evt.type = io::FileEventType::Modified;
+	evt.modif_type = mt;
 	QMetaObject::invokeMethod(model, "InotifyEventInGuiThread",
 		ConnectionType, Q_ARG(cornus::io::FileEvent, evt));
 }
 
 void ProcessEvents(EventArgs *a)
 {
-#ifdef CORNUS_DEBUG_INOTIFY
-	mtl_info("<ProcessEvent>");
-#endif
+	if (kDebugInotify) {
+		mtl_info("<ProcessEvent>");
+	}
+	
 	AutoDelete a_(a);
 	struct statx stx;
 	isize add = 0;
@@ -196,28 +197,29 @@ void ProcessEvents(EventArgs *a)
 			name = ev->name;
 			if (!a->include_hidden_files && name.startsWith('.'))
 				continue;
-#ifdef CORNUS_DEBUG_INOTIFY
-			mtl_info("%s", ev->name);
-#endif
+			if (kDebugInotify) {
+				mtl_info("%s", ev->name);
+			}
 		}
 		
 		cauto mask = ev->mask;
 		//cbool is_dir = mask & IN_ISDIR;
 		if (mask & (IN_ATTRIB | IN_MODIFY))
 		{
-#ifdef CORNUS_DEBUG_INOTIFY
-			mtl_trace("(IN_ATTRIB | IN_MODIFY): %s", ev->name);
-#endif		
-			SendModifiedEvent(model, name, a->dir_id);
+			if (kDebugInotify) {
+				mtl_trace("(IN_ATTRIB | IN_MODIFY): %s", ev->name);
+			}
+			cauto modif_type = (mask & IN_ATTRIB) ? io::Modification::Attribs : io::Modification::Contents;
+			SendModifiedEvent(model, name, a->dir_id, modif_type);
 		} else if (mask & IN_CREATE) {
-#ifdef CORNUS_DEBUG_INOTIFY
-			mtl_trace("IN_CREATE: %s", ev->name);
-#endif
+			if (kDebugInotify) {
+				mtl_trace("IN_CREATE: %s", ev->name);
+			}
 			SendCreateEvent(model, a->files, name, a->dir_id);
 		} else if (mask & IN_DELETE) {
-#ifdef CORNUS_DEBUG_INOTIFY
-			mtl_trace("IN_DELETE: %s", ev->name);
-#endif
+			if (kDebugInotify) {
+				mtl_trace("IN_DELETE: %s", ev->name);
+			}
 			SendDeleteEvent(model, a->files, name, a->dir_id);
 		} else if (mask & IN_DELETE_SELF) {
 			mtl_warn("IN_DELETE_SELF");
@@ -226,10 +228,10 @@ void ProcessEvents(EventArgs *a)
 		} else if (mask & IN_MOVE_SELF) {
 			mtl_warn("IN_MOVE_SELF");
 		} else if (mask & IN_MOVED_FROM) {
-#ifdef CORNUS_DEBUG_INOTIFY
-			mtl_info("IN_MOVED_FROM, from: %s, len: %d, cookie: %d",
-				qPrintable(name), ev->len, ev->cookie);
-#endif
+			if (kDebugInotify) {
+				mtl_info("IN_MOVED_FROM, from: %s, len: %d, cookie: %d",
+					qPrintable(name), ev->len, ev->cookie);
+			}
 			auto &ren = a->renames;
 			ren.m.Lock();
 			ren.vec.append(RenameData {
@@ -243,10 +245,10 @@ void ProcessEvents(EventArgs *a)
 			ren.m.Lock();
 			QString old_name = TakeTheOtherNameByCookie(ren, ev->cookie);
 			ren.m.Unlock();
-#ifdef CORNUS_DEBUG_INOTIFY
-			mtl_info("IN_MOVED_TO new_name: \"%s\", old_name: \"%s\", cookie %d",
-				qPrintable(new_name), qPrintable(old_name), ev->cookie);
-#endif
+			if (kDebugInotify) {
+				mtl_info("IN_MOVED_TO new_name: \"%s\", old_name: \"%s\", cookie %d",
+					qPrintable(new_name), qPrintable(old_name), ev->cookie);
+			}
 			if (old_name.isEmpty())
 			{
 				mtl_info("was dragged from the outside into this dir");
@@ -271,22 +273,22 @@ void ProcessEvents(EventArgs *a)
 			QString name(ev->name);
 			if (!a->include_hidden_files && name.startsWith('.'))
 				continue;
-#ifdef CORNUS_DEBUG_INOTIFY
-			if (ev->len > 0)
-				mtl_trace("IN_CLOSE_WRITE: %s", ev->name);
-			else
-				mtl_trace("IN_CLOSE_WRITE");
-#endif
-			SendModifiedEvent(model, name, a->dir_id);
+			if (kDebugInotify) {
+				if (ev->len > 0)
+					mtl_trace("IN_CLOSE_WRITE: %s", ev->name);
+				else
+					mtl_trace("IN_CLOSE_WRITE");
+			}
+			SendModifiedEvent(model, name, a->dir_id, io::Modification::Contents);
 		} else if (mask & (IN_IGNORED | IN_CLOSE_NOWRITE)) {
 		} else {
 			mtl_warn("Unhandled inotify event: %u", mask);
 		}
 	}
-
-#ifdef CORNUS_DEBUG_INOTIFY
-	mtl_info("</ProcessEvent>");
-#endif
+	
+	if (kDebugInotify) {
+		mtl_info("</ProcessEvent>");
+	}
 }
 
 void CleanupRenames(Renames &ren,
@@ -342,8 +344,8 @@ void* ReloadMetaTh(void *p)
 			for (io::File *next: files.data.vec)
 			{
 				if (next->needs_meta_update()) {
-					// auto ba = next->build_full_path().toLocal8Bit();
-					// mtl_info("To be updated: \"%s\"", ba.data());
+					auto fp = next->build_full_path();
+					mtl_info("To be updated: \"%s\"", qPrintable(fp));
 					next->needs_meta_update(false);
 					files_to_update.append(next->Clone());
 				}
@@ -401,9 +403,9 @@ void* WatchDir(void *void_args)
 	files.Lock();
 	cint signal_quit_fd = files.data.signal_quit_fd;
 	files.Unlock();
-#ifdef CORNUS_DEBUG_INOTIFY
+	if (kDebugInotify) {
 		mtl_info(" === WatchDir() inotify fd: %d, signal_fd: %d", notify_fd, signal_quit_fd);
-#endif
+	}
 	cauto path = args->dir_path.toLocal8Bit();
 	cauto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE
 		| IN_DELETE_SELF | IN_MOVE_SELF | IN_CLOSE_WRITE | IN_MOVE;// | IN_MODIFY;
@@ -475,9 +477,9 @@ void* WatchDir(void *void_args)
 			cauto &evt = evt_vec[i];
 			if ((evt.events & EPOLLIN) == 0)
 				continue;
-#ifdef CORNUS_DEBUG_INOTIFY
-			mtl_info("fd: %d", evt.data.fd);
-#endif
+			if (kDebugInotify) {
+				mtl_info("fd: %d", evt.data.fd);
+			}
 			if (evt.data.fd == notify_fd)
 			{
 				cisize buf_len = 4096 * 4;
@@ -541,12 +543,12 @@ void* WatchDir(void *void_args)
 		if (count_was > 0) {
 			CleanupRenames(renames, args->table_model, &files, args->dir_id);
 		
-			#ifdef CORNUS_DEBUG_INOTIFY
-					renames.m.Lock();
-					cint count_is = renames.vec.size();
-					renames.m.Unlock();
-					mtl_trace("was: %d, is: %d", count_was, count_is);
-			#endif
+			if (kDebugInotify) {
+				renames.m.Lock();
+				cint count_is = renames.vec.size();
+				renames.m.Unlock();
+				mtl_trace("was: %d, is: %d", count_was, count_is);
+			}
 		}
 
 		files.Lock();
@@ -569,9 +571,10 @@ void* WatchDir(void *void_args)
 		files.Broadcast();
 	}
 	
-#ifdef CORNUS_DEBUG_INOTIFY
-	mtl_info("Thread %lX exited", i64(pthread_self()));
-#endif
+	if (kDebugInotify) {
+		mtl_info("Thread %lX exited", i64(pthread_self()));
+	}
+	
 	return nullptr;
 }
 
@@ -676,9 +679,9 @@ void TableModel::SelectFilesAfterInotifyBatch()
 				io::File *file = files_vec[i];
 				if (file->name() == select_name)
 				{
-#ifdef CORNUS_DEBUG_INOTIFY
-mtl_printq2("Selecting name ", select_name);
-#endif
+					if (kDebugInotify) {
+						mtl_info("Selecting name ", qPrintable(select_name));
+					}
 					indices.insert(i);
 					file->set_selected(true);
 					it = names_to_select.erase(it);
@@ -713,7 +716,6 @@ mtl_printq2("Selecting name ", select_name);
 
 void TableModel::InotifyEventInGuiThread(cornus::io::FileEvent evt)
 {
-	// mtl_warn("RECEIVED: %s", qPrintable(evt.from_name));
 	auto &files = tab_->view_files();
 	{
 		auto g = files.guard();
@@ -729,19 +731,18 @@ void TableModel::InotifyEventInGuiThread(cornus::io::FileEvent evt)
 	switch (evt.type)
 	{
 	case io::FileEventType::Modified: {
+		
 		io::File *cloned_file = nullptr;
 		{
 			auto g = files.guard();
 			int index;
 			Find(files.data.vec, evt.from_name, &index);
-			delete evt.new_file;
-			evt.new_file = nullptr;
-			if (index == -1) {
-				mtl_trace();
-				return;
-			}
+			mtl_check_void(index != -1);
 			io::File *file = files.data.vec[index];
-			// mtl_warn("Modified %s", qPrintable(file->name()));
+			if (kDebugInotify) {
+				mtl_info("Modified %s", qPrintable(file->name()));
+			}
+			mtl_info("Modified %s", qPrintable(file->name()));
 			struct statx stx;
 			if (io::ReloadMeta(*file, stx, app_->env(), PrintErrors::No)) {
 				cloned_file = file->Clone();
@@ -756,10 +757,10 @@ void TableModel::InotifyEventInGuiThread(cornus::io::FileEvent evt)
 		break;
 	}
 	case io::FileEventType::Created: {
-		mtl_warn("Created %s", qPrintable(evt.from_name));
-#ifdef CORNUS_DEBUG_INOTIFY
-		mtl_printq2("CREATED: ", evt.new_file->name());
-#endif
+		
+		if (kDebugInotify) {
+			mtl_info("Created %s", qPrintable(evt.from_name));
+		}
 		InsertFile(evt.new_file);
 		break;
 	}
@@ -775,12 +776,12 @@ void TableModel::InotifyEventInGuiThread(cornus::io::FileEvent evt)
 		break;
 	}
 	case io::FileEventType::Renamed: {
-#ifdef CORNUS_DEBUG_INOTIFY
-		mtl_trace("RENAMED, old_name: %s, new_name: %s",
-			qPrintable(evt.from_name),
-			qPrintable(evt.to_name)
-		);
-#endif
+		if (kDebugInotify) {
+			mtl_info("RENAMED, old_name: %s, new_name: %s",
+				qPrintable(evt.from_name),
+				qPrintable(evt.to_name)
+			);
+		}
 		auto &files = tab_->view_files();
 		int remove_index = -1;
 		{

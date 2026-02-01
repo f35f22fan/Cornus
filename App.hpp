@@ -98,7 +98,8 @@ public:
 	void SelectCurrentTab();
 	void SelectTabAt(const int tab_index, const FocusView fv);
 	void SetTopLevel(const TopLevel tl, io::File *cloned_file = nullptr);
-	bool ShouldLoadThumbnailFor(io::File *file);
+	bool ShouldLoadThumbnailFor(io::File *file, const gui::ViewMode current_mode,
+								const gui::ViewMode calling_mode);
 	bool ShowInputDialog(const gui::InputDialogParams &params, QString &ret_val);
 	
 	void SubmitThumbLoaderBatchFromTab(QVector<ThumbLoaderArgs*> *new_work_vec, const TabId tab_id, const DirId dir_id);
@@ -118,8 +119,6 @@ public:
 	void TestExecBuf(const char *buf, const isize size, ExecInfo &ret);
 	ThemeType theme_type() const { return theme_type_; }
 	gui::ToolBar *toolbar() const { return toolbar_; }
-	
-	void ViewChanged();
 	HashInfo WaitForRootDaemon(const CanOverwrite co);
 	
 public Q_SLOTS:

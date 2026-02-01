@@ -77,18 +77,18 @@ public:
 		is_symlink() || is_dir(); }
 	QHash<QString, ByteArray>& ext_attrs() { return ext_attrs_; }
 	bool has_ext_attrs() const { return ext_attrs_.size() > 0; }
-	bool has_media_attrs() const { return ext_attrs_.contains(media::XAttrName);}
-	ByteArray& media_attrs() { return ext_attrs_[media::XAttrName]; }
+	bool has_media_attrs() const { return ext_attrs_.contains(io::Efa_media);}
+	ByteArray& media_attrs() { return ext_attrs_[io::Efa_media]; }
 	media::MediaPreview* media_attrs_decoded();
 	bool has_last_watched_attr() const {
 		return watch_props() & media::WatchProps::LastWatched;
 	}
-	bool has_thumbnail_attr() const { return ext_attrs_.contains(media::XAttrThumbnail); }
+	bool has_thumbnail_attr() const { return ext_attrs_.contains(io::Efa_thumbnail); }
 	bool has_watched_attr() const {
 		return watch_props() & media::WatchProps::Watched;
 	}
 	u64 watch_props() const {
-		cauto loc = ext_attrs_.find(media::WatchProps::Name);
+		cauto loc = ext_attrs_.find(io::Efa_watch_props);
 		if (loc == ext_attrs_.end())
 			return 0;
 		ByteArray ba = loc.value();
@@ -97,8 +97,8 @@ public:
 	
 	void WatchProp(Op op, cu64 prop);
 	
-	ByteArray thumbnail_attrs() const { return ext_attrs_.value(media::XAttrThumbnail); }
-	ByteArray& thumbnail_attrs_ref() { return ext_attrs_[media::XAttrThumbnail]; }
+	ByteArray thumbnail_attrs() const { return ext_attrs_.value(io::Efa_thumbnail); }
+	ByteArray& thumbnail_attrs_ref() { return ext_attrs_[io::Efa_thumbnail]; }
 	bool is_desktop_file() const { return is_regular() &&
 		cache_.ext == str::Desktop; }
 	bool IsThumbnailMarkedFailed();
@@ -137,7 +137,6 @@ public:
 		return false;
 	}
 	
-	
 	inline bool check_bits(FileBits fb) const {
 		return (bits_ & fb) != FileBits::Empty;
 	}
@@ -165,7 +164,6 @@ public:
 		toggle_flag(FileBits::ActionPaste, add);
 		toggle_flag(AllActions & ~FileBits::ActionPaste, false);
 	}
-	
 	
 	bool needs_meta_update() const { return check_bits(FileBits::NeedsMetaUpdate); }
 	void needs_meta_update(cbool flag) {
@@ -209,10 +207,12 @@ public:
 	const DiskFileId& id() const { return id_; }
 	u64 id_num() const { return id_.inode_number; }
 	
-	QString SizeToString() const;
+	bool load_thumbnail() const { return load_thumbnail_; }
+	void load_thumbnail(cbool flag) { load_thumbnail_ = flag; }
 	
 	i64 size() const { return size_; }
 	void size(const i64 n) { size_ = n; }
+	QString SizeToString() const;
 	
 	Thumbnail* thumbnail() const { return cache_.thumbnail; }
 	void thumbnail(Thumbnail *p)
@@ -259,6 +259,7 @@ private:
 	int dir_file_count_ = -1; // -2 => an error occured
 	io::FileBits bits_ = FileBits::Empty;
 	FileType type_ = FileType::Unknown;
+	bool load_thumbnail_ = true;
 	
 	friend class cornus::gui::TableModel;
 };

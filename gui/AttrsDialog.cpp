@@ -374,13 +374,13 @@ void AttrsDialog::SaveAssignedAttrs()
 	cbool contains_data = ba.size() > sizeof magic_num;
 	if (contains_data)
 	{
-		ext_attrs.insert(media::XAttrName, ba);
-		io::SetEFA(file_->build_full_path(), media::XAttrName, ba);
+		ext_attrs.insert(io::Efa_media, ba);
+		io::SetEFA(file_->build_full_path(), io::Efa_media, ba);
 	} else {
-		if (ext_attrs.contains(media::XAttrName)) {
+		if (ext_attrs.contains(io::Efa_media)) {
 			file_->DeleteMediaPreview();
-			// ext_attrs.remove(media::XAttrName);
-			io::RemoveEFA(file_->build_full_path(), {media::XAttrName});
+			// ext_attrs.remove(io::Efa_media);
+			io::RemoveEFA(file_->build_full_path(), {io::Efa_media});
 		}
 	}
 }

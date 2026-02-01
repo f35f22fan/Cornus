@@ -461,7 +461,6 @@ void Tab::AllowEfaInSelectedFiles(Efa allowed_list)
 		Efa what_changed = app_->blacklist().Allow(next, allowed_list);
 		if (EfaContains(what_changed, Efa::Thumbnail)) {
 			cbool ok = io::ReloadMeta(*next, stx, app_->env(), pe);
-			// mtl_info("ReloadMeta result: %d for %s", ok, qPrintable(next->name()));
 		}
 	}
 	
@@ -1287,7 +1286,7 @@ void Tab::MarkFilesAsWatched(const enum Lock l, QList<io::File*> &vec)
 	
 	auto &files = view_files();
 	auto g = files.guard(l);
-	cauto &key = media::WatchProps::Name;
+	cauto &key = io::Efa_watch_props;
 	for (io::File *needle: vec) {
 		cbool allowed_to_set = app_->blacklist().IsAllowed(needle, Efa::Text);
 		if (!allowed_to_set) {

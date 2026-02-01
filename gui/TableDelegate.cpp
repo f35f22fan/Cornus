@@ -224,9 +224,7 @@ TableDelegate::DrawIcon(QPainter *painter, io::File *file,
 	icon_rect.setWidth(icon_rect.width() - tr.width() - 2);
 	QIcon *icon = app_->GetFileIcon(file);
 	if (icon == nullptr) {
-		//painter->fillRect(icon_rect, QColor(255, 255, 100));
 		painter->drawText(icon_rect, Qt::AlignCenter, file->cache().ext);
-		// return;
 	}
 	
 	cbool transparent = file->action_cut() || file->action_copy() ||

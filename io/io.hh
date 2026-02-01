@@ -62,6 +62,7 @@ struct FileEvent {
 	int dir_id = -1;
 	int renaming_deleted_file_at = -1;
 	FileEventType type = FileEventType::None;
+	io::Modification modif_type = Modification::All;
 };
 
 enum class PostWrite: i8 {
@@ -347,8 +348,8 @@ bool ReadLinkSimple(const char *file_path, QString &result);
 i64 ReadToBuf(cint fd, char *buf, ci64 buf_size,
 	const PrintErrors pe = PrintErrors::No);
 
-bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &env,
-	const PrintErrors pe, QString *dir_path = nullptr);
+bool ReloadMeta(io::File &file, struct statx &stx,
+				const QProcessEnvironment &env, const PrintErrors pe, QString *dir_path = nullptr);
 
 void RemoveEFA(QStringView full_path, QList<QString> names,
 	const PrintErrors pe = PrintErrors::No);

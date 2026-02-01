@@ -57,10 +57,11 @@ enum class ScrollBy: i8 {
 	PageStep,
 };
 
-enum class ViewMode: i8 {
-	None,
+enum class ViewMode: u8 {
+	None = 0,
 	Details,
 	Icons,
+	List,
 };
 
 struct InputDialogParams {

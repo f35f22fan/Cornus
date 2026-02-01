@@ -737,8 +737,6 @@ void App::DetectThemeType()
 	const QColor c = option.palette.window().color();
 	const i32 avg = (c.red() + c.green() + c.blue()) / 3;
 	theme_type_ = (avg > 150) ? ThemeType::Light : ThemeType::Dark;
-//	mtl_info("avg: %d, light: %s", avg, (theme_type_ == ThemeType::Light)
-//		? "true" : "false");
 }
 
 void App::DisplayFileContents(cint row, io::File *cloned_file)
@@ -2103,9 +2101,14 @@ bool App::ShowInputDialog(const gui::InputDialogParams &params,
 	return ok;
 }
 
-bool App::ShouldLoadThumbnailFor(io::File *file)
+bool App::ShouldLoadThumbnailFor(io::File *file, const gui::ViewMode current_mode,
+	const gui::ViewMode calling_mode)
 {
-	if (!file->is_regular())// || file->cache().tried_loading_thumbnail)
+	if (current_mode != calling_mode || current_mode != gui::ViewMode::Icons) {
+		return false;
+	}
+	
+	if (!file->is_regular() || !file->load_thumbnail())
 		return false;
 	
 	if (file->cache().thumbnail != nullptr) {
@@ -2362,7 +2365,8 @@ void App::TestExecBuf(const char *buf, const isize size, ExecInfo &ret)
 
 void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 {
-	//mtl_info("Thumbnail arrived with ID: %lu", thumbnail->file_id);
+	// mtl_info("Thumbnail arrived, ID: %lu, path: %s",
+	// 		 thumbnail->file_id, qPrintable(thumbnail->debug_path));
 	gui::Tab *tab = this->tab(thumbnail->tab_id);
 	if (tab == nullptr || tab->icon_view() == nullptr)
 	{
@@ -2371,9 +2375,10 @@ void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 		return;
 	}
 	
+	bool found_file = false;
 	auto &files = tab->view_files();
 	{
-		MTL_CHECK_VOID(files.Lock());
+		files.Lock();
 		const DirId dir_id = files.data.dir_id;
 		
 		if (thumbnail->dir_id != dir_id)
@@ -2389,18 +2394,19 @@ void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 			if (file->id_num() != thumbnail->file_id)
 				continue;
 			
-//mtl_printq2("Found file: ", file->name());
+			// mtl_info("Found file: %s", qPrintable(file->name()));
+			found_file = true;
 			file->thumbnail(thumbnail);
 			const io::DiskFileId file_id = file->id();
 			QString full_path = file->build_full_path();
-//mtl_printq2("Full path: ", full_path);
 			files.Unlock();
-			tab->icon_view()->RepaintLater();
 			
+			tab->icon_view()->RepaintLater();
 			if (thumbnail->origin == Origin::DiskFile)
 			{
 				io::SaveThumbnail st;
 				st.full_path = full_path;
+				// mtl_info("Save thumbnail to disk: %s", qPrintable(full_path));
 				st.id = file_id;
 				st.orig_img_w = thumbnail->original_image_w;
 				st.orig_img_h = thumbnail->original_image_h;
@@ -2410,13 +2416,12 @@ void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 				
 				QTimer::singleShot(0, this, &App::SaveThumbnail);
 			}
-			return;
+			return; // thumbnail is assigned to file, files is unlocked, so just return
 		}
 		
-		files.Unlock();
 	}
 	
-	delete thumbnail;
+	delete thumbnail; // file for thumbnail not found, so delete it.
 }
 
 void App::ToggleExecBitOfSelectedFiles()
@@ -2439,11 +2444,6 @@ void App::ToggleExecBitOfSelectedFiles()
 			}
 		}
 	}
-}
-
-void App::ViewChanged()
-{
-	mtl_tbd();
 }
 
 HashInfo App::WaitForRootDaemon(const CanOverwrite co)

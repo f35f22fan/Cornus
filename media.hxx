@@ -18,12 +18,8 @@ using HashI2V = QMap<i16, QVector<QString>>;
 using HashI4V = QMap<i32, QVector<QString>>;
 
 namespace media {
-static const QString XAttrName = QStringLiteral("user.CornusMas.m");
-static const QString XAttrThumbnail = QStringLiteral("user.CornusMas.thmb");
-static const QString XAttrWatched = QStringLiteral("user.CornusMas.watched");
-
 namespace WatchProps {
-static const QString Name = QStringLiteral("user.CornusMas.wp");
+
 const u64 LastWatched =   1u << 0;
 const u64 Watched =       1u << 1;
 }

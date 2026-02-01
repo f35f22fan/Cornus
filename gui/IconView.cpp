@@ -520,11 +520,11 @@ void IconView::paintEvent(QPaintEvent *ev)
 				const Thumbnail *thmb = file->thumbnail();
 				if (thmb)
 				{
-					//mtl_info("has thumb: %s", name.data());
+					// mtl_info("has thumb: %s", name.data());
 					img_wh_str = thumbnail::SizeToString(thmb->original_image_w,
 						thmb->original_image_h, ViewMode::Icons);
 				} else {
-					//mtl_info("Doesn't have thumb: %s", name.data());
+					// mtl_info("Doesn't have thumb: %s", name.data());
 				}
 				
 				if (!has_icon) {
@@ -653,6 +653,7 @@ void IconView::ScrollToFile(cint file_index)
 
 void IconView::SendLoadingNewThumbnailsBatch()
 {
+	mtl_trace();
 	auto &files = tab_->view_files();
 	MTL_CHECK_VOID(files.Lock());
 		const DirId dir_id = files.data.dir_id;
@@ -663,7 +664,7 @@ void IconView::SendLoadingNewThumbnailsBatch()
 		auto g = files.guard();
 		for (io::File *file: files.data.vec)
 		{
-			if (!app_->ShouldLoadThumbnailFor(file)) {
+			if (!app_->ShouldLoadThumbnailFor(file, tab_->view_mode(), ViewMode::Icons)) {
 				continue;
 			}
 			auto *arg = ThumbLoaderArgsFromFile(tab_, file, dir_id, MaxImgW, MaxImgH);
@@ -676,8 +677,9 @@ void IconView::SendLoadingNewThumbnailsBatch()
 
 void IconView::SendLoadingNewThumbnail(io::File *cloned_file)
 {
+	mtl_trace();
 	mtl_check_void(cloned_file);
-	if (!app_->ShouldLoadThumbnailFor(cloned_file)) {
+	if (!app_->ShouldLoadThumbnailFor(cloned_file, tab_->view_mode(), ViewMode::Icons)) {
 		// mtl_trace("%s", qPrintable(cloned_file->name()));
 		return;
 	}

@@ -20,6 +20,28 @@ class Notify;
 class SaveFile;
 class Task;
 
+static const QString Efa_cornus = QLatin1String("user.CornusMas");
+static const QString Efa_media = QStringLiteral("user.CornusMas.m");
+static const QString Efa_thumbnail = QStringLiteral("user.CornusMas.thmb");
+static const QString Efa_watched = QStringLiteral("user.CornusMas.watched");
+static const QString Efa_watch_props = QStringLiteral("user.CornusMas.wp");
+
+using ModificationType = u8;
+enum class Modification: ModificationType {
+	Attribs = 1,
+	Contents = 1 << 1,
+	All = Contents | Attribs,
+};
+
+
+inline bool operator & (Modification a, Modification b) {
+	return (static_cast<ModificationType>(a) & static_cast<ModificationType>(b)) != 0;
+}
+
+inline Modification operator | (Modification a, Modification b) {
+	return static_cast<Modification>(static_cast<ModificationType>(a) | static_cast<ModificationType>(b));
+}
+
 enum class IsCloseWriteEvent: i8 {
 	Yes,
 	No

@@ -36,6 +36,7 @@ const bool DebugThumbnailExit = false;
 struct Thumbnail {
 	Thumbnail* Clone();
 	QImage img;
+	QString debug_path; // used for debugging
 	u64 file_id = 0;
 	i64 time_generated = -1;
 	TabId tab_id = -1;

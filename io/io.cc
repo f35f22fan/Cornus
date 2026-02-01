@@ -1603,13 +1603,13 @@ bool ReloadMeta(io::File &file, struct statx &stx, const QProcessEnvironment &en
 	cauto fields = STATX_ALL;
 	if (statx(0, full_path.data(), flags, fields, &stx) != 0)
 	{
-		if (pe == PrintErrors::Yes)
+		if (pe == PrintErrors::Yes) {
 			mtl_warn("statx(): %s: \"%s\"", strerror(errno), full_path.data());
-		return false;
+			return false;
+		}
 	}
 	
 	FillInStx(file, stx, nullptr);
-	file.DeleteMediaPreview();
 	ReadXAttrs(file, full_path);
 	
 	if (file.is_symlink())
@@ -1714,8 +1714,12 @@ bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx,
 	cbool temp_dir_not_mandatory = (item.dir == TempDir::No);
 	if (ok_to_store_thumbnails_in_ext_attrs && temp_dir_not_mandatory)
 	{
-		if (io::SetEFA(item.full_path, media::XAttrThumbnail, ba, PrintErrors::No))
+		if (io::SetEFA(item.full_path, io::Efa_thumbnail, ba, PrintErrors::No)) {
+			mtl_info("Saved to EFA: %s", qPrintable(item.full_path));
 			return true;
+		} else {
+			mtl_warn("Failed");
+		}
 	}
 	
 	QString file_path = io::BuildTempPathFromID(item.id);
@@ -1723,9 +1727,10 @@ bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx,
 	if (!io::WriteToFile(save_file.GetPathToWorkWith(), ba.data(), ba.size()))
 	{
 		save_file.CommitCancelled();
-		mtl_printq(file_path);
-		mtl_printq2("File path to work with: ", save_file.GetPathToWorkWith());
+		mtl_info("File path to work with: ", qPrintable(save_file.GetPathToWorkWith()));
 		return false;
+	} else {
+		mtl_info("Saved to: %s", qPrintable(save_file.GetPathToWorkWith()));
 	}
 	
 	return save_file.Commit();

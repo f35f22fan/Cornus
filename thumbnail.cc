@@ -19,6 +19,7 @@ namespace cornus {
 
 Thumbnail* Thumbnail::Clone() {
 	Thumbnail *t = new Thumbnail();
+	t->debug_path = debug_path;
 	t->img = img;
 	t->file_id = file_id;
 	t->time_generated = time_generated;
@@ -110,27 +111,21 @@ Thumbnail* Load(const QString &full_path, const u64 &file_id,
 	// } else {
 	QImageReader reader = QImageReader(full_path, ext);
 	orig_img_sz = reader.size();
-	if (orig_img_sz.isEmpty())
+	if (orig_img_sz.isEmpty()) {
+		mtl_warn("%s", qPrintable(full_path));
 		return nullptr;
+	}
 	
 	scaled = GetScaledSize(orig_img_sz, max_img_w, max_img_h);
 	reader.setScaledSize(scaled);
 	img = reader.read();
-	// }
-	
-	// if (full_path.indexOf("company") >= 0) {
-	// 	mtl_info("%s is null: %s, ext: \"%s\"", qPrintable(full_path),
-	// 		img.isNull() ? "true" : "false", ext.data());
-	// 	mtl_info("max_img_w:%d, max_img_h:%d, scaled %dx%d, orig_img_sz: %dx%d",
-	// 		max_img_w, max_img_h, scaled.width(), scaled.height(),
-	// 		orig_img_sz.width(), orig_img_sz.height());
-	// }
-	
 	if (img.isNull()) {
+		mtl_warn("%s (\"%s\") is Null(): ", qPrintable(full_path), ext.data());
 		return nullptr;
 	}
 	
 	auto *thumbnail = new Thumbnail();
+	thumbnail->debug_path = full_path;
 	thumbnail->abi_version = thumbnail::AbiVersion;
 	thumbnail->img = img;
 	thumbnail->file_id = file_id;

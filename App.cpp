@@ -118,7 +118,7 @@ void* ThumbnailLoader (void *args)
 		}
 		
 		th_data->Unlock();
-		QString thumb_in_temp_path = io::BuildTempPathFromID(new_work->file_id);
+		QString thumb_in_temp_path = io::BuildTempPathFromID(new_work->file_id, new_work->time_modified);
 		Thumbnail *thumbnail = nullptr;
 		cbool has_ext_attr = !new_work->ba.is_empty();
 		temp_ba.to(0);
@@ -2406,6 +2406,7 @@ void App::ThumbnailArrived(cornus::Thumbnail *thumbnail)
 			{
 				io::SaveThumbnail st;
 				st.full_path = full_path;
+				st.time_modified = file->time_modified_s();
 				// mtl_info("Save thumbnail to disk: %s", qPrintable(full_path));
 				st.id = file_id;
 				st.orig_img_w = thumbnail->original_image_w;

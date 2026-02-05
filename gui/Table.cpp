@@ -378,6 +378,7 @@ void Table::mouseDoubleClickEvent(QMouseEvent *evt)
 void Table::mouseMoveEvent(QMouseEvent *evt)
 {
 	mouse_pos_ = evt->pos();
+	// mtl_info("mouse pos x:%d, y:%d", mouse_pos_.x(), mouse_pos_.y());
 	HiliteFileUnderMouse();
 	
 	if (mouse_down_ && (drag_start_pos_.x() >= 0 || drag_start_pos_.y() >= 0)) {

@@ -228,6 +228,7 @@ public:
 	
 	const struct statx_timestamp&
 	time_modified() const { return time_modified_; }
+	i64 time_modified_s() const { return time_modified_.tv_sec; };
 	void time_modified(const struct statx_timestamp &t) { time_modified_ = t; }
 	
 	void type(const FileType t) { type_ = t; }

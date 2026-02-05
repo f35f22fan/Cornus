@@ -43,6 +43,7 @@ struct SaveThumbnail {
 	QImage thmb;
 	i32 orig_img_w = -1;
 	i32 orig_img_h = -1;
+	i64 time_modified = 0;
 	TempDir dir;
 	DiskFileId id;
 };
@@ -172,7 +173,7 @@ void randname(char *buf);
 int create_shm_file(void);
 int allocate_shm_file(size_t size);
 
-QString BuildTempPathFromID(const DiskFileId &id);
+QString BuildTempPathFromID(const DiskFileId &id, ci64 time_modified);
 
 bool CanWriteToDir(QStringView dir_path);
 

@@ -59,6 +59,8 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 	bool paint_as_selected = false;
 	if (table_->CheckIsOnFileName(file, row, table_->drop_coord())) {
 		paint_as_selected = true;
+	// } else if (table_->CheckIsOnFileName(file, row, table_->mouse_pos())) {
+	// 	paint_as_selected = true;
 	}
 	
 	QRectF sel_rect = option.rect;
@@ -71,7 +73,7 @@ TableDelegate::DrawFileName(QPainter *painter, io::File *file,
 		QColor c;
 		if (file->selected_by_search()) {
 			if (file->selected_by_search_active())
-				c = QColor(255, 150, 150);
+				c = QColor(150, 150, 150);
 			else
 				c = QColor(10, 255, 10);
 		} else {

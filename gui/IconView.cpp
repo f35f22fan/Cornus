@@ -36,6 +36,7 @@ inline ThumbLoaderArgs* ThumbLoaderArgsFromFile(Tab *tab,
 	p->ba = file->thumbnail_attrs();
 	p->full_path = file->build_full_path();
 	p->file_id = file->id();
+	p->time_modified = file->time_modified_s();
 	p->ext = file->cache().ext.toLocal8Bit();
 	p->tab_id = tab->id();
 	p->dir_id = dir_id;
@@ -653,7 +654,7 @@ void IconView::ScrollToFile(cint file_index)
 
 void IconView::SendLoadingNewThumbnailsBatch()
 {
-	mtl_trace();
+	// mtl_trace();
 	auto &files = tab_->view_files();
 	MTL_CHECK_VOID(files.Lock());
 		const DirId dir_id = files.data.dir_id;
@@ -677,7 +678,7 @@ void IconView::SendLoadingNewThumbnailsBatch()
 
 void IconView::SendLoadingNewThumbnail(io::File *cloned_file)
 {
-	mtl_trace();
+	// mtl_trace();
 	mtl_check_void(cloned_file);
 	if (!app_->ShouldLoadThumbnailFor(cloned_file, tab_->view_mode(), ViewMode::Icons)) {
 		// mtl_trace("%s", qPrintable(cloned_file->name()));

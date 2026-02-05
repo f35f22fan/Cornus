@@ -79,12 +79,14 @@ int allocate_shm_file(size_t size)
 	return fd;
 }
 
-QString BuildTempPathFromID(const DiskFileId &id)
+QString BuildTempPathFromID(const DiskFileId &id, ci64 time_modified)
 {
 	QString s = io::GetLastingTmpDir();
 	s.append(QString::number(id.dev_major)).append('_');
 	s.append(QString::number(id.dev_minor)).append('_');
-	s.append(QString::number(id.inode_number));
+	s.append(QString::number(id.inode_number)).append('_');
+	s.append(QString::number(time_modified));
+	// mtl_info("%s", qPrintable(s));
 	
 	return s;
 }
@@ -1722,7 +1724,7 @@ bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx,
 		}
 	}
 	
-	QString file_path = io::BuildTempPathFromID(item.id);
+	QString file_path = io::BuildTempPathFromID(item.id, item.time_modified);
 	io::SaveFile save_file(file_path);
 	if (!io::WriteToFile(save_file.GetPathToWorkWith(), ba.data(), ba.size()))
 	{

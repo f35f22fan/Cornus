@@ -58,6 +58,7 @@ public:
 	TabId tab_id = -1;
 	DirId dir_id = -1;
 	io::DiskFileId file_id = {};
+	i64 time_modified = 0;
 	int icon_w = -1;
 	int icon_h = -1;
 	
@@ -174,8 +175,8 @@ QImage ImageFromByteArray(ByteArray &ba, i32 &img_w, i32 &img_h,
 	AbiType &abi_version, ZSTD_DCtx *decompress_context);
 
 Thumbnail* Load(const QString &full_path, const u64 &file_id,
-	const QByteArray &ext, cint max_img_w, cint max_img_h,
-	const TabId tab_id, const DirId dir_id);
+				const QByteArray &ext, cint max_img_w, cint max_img_h,
+				const TabId tab_id, const DirId dir_id);
 
 inline QString SizeToString(const i32 w, const i32 h, const gui::ViewMode vm)
 {

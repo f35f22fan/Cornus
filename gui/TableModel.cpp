@@ -20,7 +20,7 @@
 #include <QTime>
 #include <QTimer>
 
-cbool kDebugInotify = false;
+cbool kDebugInotify = true;
 
 namespace cornus::gui {
 
@@ -396,7 +396,7 @@ void* WatchDir(void *void_args)
 	App *app = tab->app();
 	AutoDelete args_(args);
 	io::Notify &notify = tab->notify();
-	cint notify_fd = notify.fd;
+	cint notify_fd = notify.inotify_fd_;
 	QProcessEnvironment env = app->env();
 	io::Files &files = tab->view_files();
 	
@@ -404,19 +404,20 @@ void* WatchDir(void *void_args)
 	cint signal_quit_fd = files.data.signal_quit_fd;
 	files.Unlock();
 	if (kDebugInotify) {
-		mtl_info(" === WatchDir() inotify fd: %d, signal_fd: %d", notify_fd, signal_quit_fd);
+		mtl_info("Thread:%lX, Inotify_fd:%d, signal_fd:%d", i64(pthread_self()),
+		notify_fd, signal_quit_fd);
 	}
 	cauto path = args->dir_path.toLocal8Bit();
 	cauto event_types = IN_ATTRIB | IN_CREATE | IN_DELETE
 		| IN_DELETE_SELF | IN_MOVE_SELF | IN_CLOSE_WRITE | IN_MOVE;// | IN_MODIFY;
-	cint wd = inotify_add_watch(notify_fd, path.data(), event_types);
-	if (wd == -1)
+	cint dir_watch_fd = inotify_add_watch(notify_fd, path.data(), event_types);
+	if (dir_watch_fd == -1)
 	{
 		mtl_status(errno);
 		return nullptr;
 	}
 	
-	io::AutoRemoveWatch arw(notify, wd);
+	io::AutoRemoveWatch arw(notify, dir_watch_fd);
 
 	files.Lock();
 	files.data.thread_exited(false);
@@ -450,7 +451,7 @@ void* WatchDir(void *void_args)
 			return nullptr;
 		}
 	}
-	
+	bool go_home = false;
 	while (true)
 	{
 		bool ren_is_empty;
@@ -465,6 +466,7 @@ void* WatchDir(void *void_args)
 		{
 			if (errno == EINTR)
 			{ // Interrupted system call after resume from sleep
+				mtl_info("Interrupted, continue loop.");
 				continue;
 			}
 			mtl_status(errno);
@@ -477,11 +479,12 @@ void* WatchDir(void *void_args)
 			cauto &evt = evt_vec[i];
 			if ((evt.events & EPOLLIN) == 0)
 				continue;
-			if (kDebugInotify) {
-				mtl_info("fd: %d", evt.data.fd);
-			}
+			
 			if (evt.data.fd == notify_fd)
 			{
+				if (kDebugInotify) {
+					mtl_info("notify_fd: %d", evt.data.fd);
+				}
 				cisize buf_len = 4096 * 4;
 				char *buf = new char[buf_len];
 				cisize num_read = read(evt.data.fd, buf, buf_len);
@@ -502,13 +505,13 @@ void* WatchDir(void *void_args)
 					.include_hidden_files = include_hidden_files,
 					.model = model,
 					.dir_id = args->dir_id,
-					.wd = wd,
+					.wd = dir_watch_fd,
 					.renames = renames,
 					.env = env
 				};
 				ProcessEvents(a);
 			} else if (evt.data.fd == signal_quit_fd) {
-				//mtl_info("Quit fd!");
+				mtl_info("Quit fd");
 				signalled_from_event_fd = true;
 				// must read 8 bytes:
 				io::ReadEventFd(evt.data.fd);
@@ -524,7 +527,8 @@ void* WatchDir(void *void_args)
 		if (has_been_unmounted_or_deleted.GetFlag())
 		{
 			mtl_info("has_been_unmounted_or_deleted");
-			arw.RemoveWatch(wd);
+			// arw.RemoveWatch(dir_watch_fd);
+			go_home = true;
 			break;
 		}
 		
@@ -573,6 +577,10 @@ void* WatchDir(void *void_args)
 	
 	if (kDebugInotify) {
 		mtl_info("Thread %lX exited", i64(pthread_self()));
+	}
+	
+	if (go_home) {
+		QMetaObject::invokeMethod(tab, "GoHomeSlot", ConnectionType);
 	}
 	
 	return nullptr;

@@ -17,7 +17,7 @@ public:
 	MutexGuard guard() { return MutexGuard(&mutex); }
 	void Init();
 	
-	int fd = -1;
+	int inotify_fd_ = -1;
 /** Why a map? => inotify_add_watch() only adds a new watch if
 there's no previous watch watching the same location, otherwise it
 returns an existing descriptor which is likely used by some other code.
@@ -34,12 +34,8 @@ to remove it, otherwise just decrease it by 1.*/
 
 class AutoRemoveWatch {
 public:
-	AutoRemoveWatch(io::Notify &notify, int wd);
+	AutoRemoveWatch(io::Notify &notify, cint dir_watch_fd);
 	virtual ~AutoRemoveWatch();
-	
-	void RemoveWatch(int wd) {
-		notify_.watches.remove(wd); // needed on IN_UNMOUNT event
-	}
 	
 private:
 	io::Notify &notify_;

@@ -1717,10 +1717,8 @@ bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx,
 	if (ok_to_store_thumbnails_in_ext_attrs && temp_dir_not_mandatory)
 	{
 		if (io::SetEFA(item.full_path, io::Efa_thumbnail, ba, PrintErrors::No)) {
-			mtl_info("Saved to EFA: %s", qPrintable(item.full_path));
+			// mtl_info("Saved to EFA: %s", qPrintable(item.full_path));
 			return true;
-		} else {
-			mtl_warn("Failed");
 		}
 	}
 	
@@ -1729,10 +1727,10 @@ bool SaveThumbnailToDisk(const SaveThumbnail &item, ZSTD_CCtx *compress_ctx,
 	if (!io::WriteToFile(save_file.GetPathToWorkWith(), ba.data(), ba.size()))
 	{
 		save_file.CommitCancelled();
-		mtl_info("File path to work with: ", qPrintable(save_file.GetPathToWorkWith()));
+		mtl_info("Failed saving to: ", qPrintable(save_file.GetPathToWorkWith()));
 		return false;
 	} else {
-		mtl_info("Saved to: %s", qPrintable(save_file.GetPathToWorkWith()));
+		// mtl_info("Saved to: %s", qPrintable(save_file.GetPathToWorkWith()));
 	}
 	
 	return save_file.Commit();

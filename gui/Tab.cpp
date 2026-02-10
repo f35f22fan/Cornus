@@ -849,6 +849,10 @@ void Tab::GoForward() {
 
 void Tab::GoHome() { GoTo(Action::To, {QDir::homePath(), Processed::No}); }
 
+void Tab::GoHomeSlot() {
+	GoHome();
+}
+
 bool Tab::GoTo(const Action action, DirPath dp, const cornus::Reload r)
 {
 	GoToParams *params = new GoToParams();

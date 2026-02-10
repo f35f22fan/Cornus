@@ -135,6 +135,7 @@ Q_SIGNALS:
 	
 public Q_SLOTS:
 	void GoToFinish(cornus::io::FilesData *new_data);
+	void GoHomeSlot();
 	
 protected:
 	virtual void resizeEvent(QResizeEvent *ev) override;

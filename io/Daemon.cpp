@@ -191,7 +191,7 @@ void* WatchDesktopFileDirs(void *void_args)
 	for (const QString &next: args->dir_paths)
 	{
 		auto path = next.toLocal8Bit();
-		int wd = inotify_add_watch(notify.fd, path.data(), event_types);
+		int wd = inotify_add_watch(notify.inotify_fd_, path.data(), event_types);
 		
 		if (wd == -1)
 		{
@@ -210,14 +210,11 @@ void* WatchDesktopFileDirs(void *void_args)
 	}
 	
 	AutoCloseFd epoll_fd_(epfd);
-	struct epoll_event pev = {};
-	pev.events = EPOLLIN;
-	pev.data.fd = notify.fd;
 	cint quit_fd = server->signal_quit_fd();
 	
 	QVector<struct epoll_event> evt_vec(2);
 	evt_vec[0].events = EPOLLIN;
-	evt_vec[0].data.fd = notify.fd;
+	evt_vec[0].data.fd = notify.inotify_fd_;
 	evt_vec[1].events = EPOLLIN;
 	evt_vec[1].data.fd = quit_fd;
 	
@@ -239,7 +236,7 @@ void* WatchDesktopFileDirs(void *void_args)
 		if (do_exit)
 			break;
 		bool has_been_unmounted_or_deleted = false;
-		
+		bool got_quit_event = false;
 		for (int i = 0; i < num_fds; i++)
 		{
 			cauto &evt = evt_vec[i];
@@ -249,10 +246,11 @@ void* WatchDesktopFileDirs(void *void_args)
 			if (evt.data.fd == quit_fd)
 			{
 				io::ReadEventFd(evt.data.fd);
-				return nullptr;
+				got_quit_event = true;
+				break;
 			}
 			
-			if (evt.data.fd == notify.fd)
+			if (evt.data.fd == notify.inotify_fd_)
 			{
 				ReadEvent(poll_event.data.fd, buf,
 					has_been_unmounted_or_deleted, server, fd_to_path);
@@ -260,9 +258,16 @@ void* WatchDesktopFileDirs(void *void_args)
 			
 		}
 		
-		if (has_been_unmounted_or_deleted) {
+		if (has_been_unmounted_or_deleted || got_quit_event) {
 			break;
 		}
+	}
+	
+	for (auto it = fd_to_path.cbegin(); it != fd_to_path.cend(); ++it) {
+		cint wd = it.key();
+		cint status = inotify_rm_watch(notify.inotify_fd_, wd);
+		if (status != 0)
+			mtl_warn("%s: %d", strerror(errno), wd);
 	}
 	
 	return nullptr;

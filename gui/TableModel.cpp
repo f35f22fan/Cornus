@@ -402,6 +402,7 @@ void* WatchDir(void *void_args)
 	
 	files.Lock();
 	cint signal_quit_fd = files.data.signal_quit_fd;
+	cint just_wakeup_fd = files.data.signal_just_wakeup_fd;
 	files.Unlock();
 	if (kDebugInotify) {
 		mtl_info("Thread:%lX, Inotify_fd:%d, signal_fd:%d", i64(pthread_self()),
@@ -437,11 +438,13 @@ void* WatchDir(void *void_args)
 	}
 
 	AutoCloseFd epoll_fd_(epoll_fd);
-	QVector<struct epoll_event> evt_vec(2);
+	QVector<struct epoll_event> evt_vec(3);
 	evt_vec[0].events = EPOLLIN;
 	evt_vec[0].data.fd = notify_fd;
 	evt_vec[1].events = EPOLLIN;
 	evt_vec[1].data.fd = signal_quit_fd;
+	evt_vec[2].events = EPOLLIN;
+	evt_vec[2].data.fd = just_wakeup_fd;
 
 	for (struct epoll_event &evt: evt_vec)
 	{
@@ -513,6 +516,10 @@ void* WatchDir(void *void_args)
 			} else if (evt.data.fd == signal_quit_fd) {
 				mtl_info("Quit fd");
 				signalled_from_event_fd = true;
+				// must read 8 bytes:
+				io::ReadEventFd(evt.data.fd);
+			} else if (evt.data.fd == just_wakeup_fd) {
+				// this will trigger dealing with files.data.filenames_to_select
 				// must read 8 bytes:
 				io::ReadEventFd(evt.data.fd);
 			} else {
@@ -947,7 +954,7 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 		if (files.first_time) {
 			files.first_time = false;
 		} else {
-			files.WakeUpInotify(Lock::No);
+			files.WakeUpInotify(Lock::No, Quit::Yes);
 		}
 	}
 	
@@ -979,12 +986,6 @@ void TableModel::SwitchTo(io::FilesData *new_data)
 		files.data.vec = new_data->vec;
 		new_data->vec.clear();
 		files.cached_files_count = files.data.vec.size();
-		
-		// for(io::File *f: files.data.vec) {
-		// 	if (f->has_media_attrs()) {
-		// 		mtl_info("file %s has media attrs", qPrintable(f->name()));
-		// 	}
-		// }
 	}
 	endInsertRows();
 	

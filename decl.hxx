@@ -30,6 +30,11 @@ using DirId = i32;
 using FileId = i32;
 using FilesId = i64;
 
+enum class Quit: i8 {
+	Yes,
+	No,
+};
+
 struct PathAndMode {
 	QString path; // expected to be full path
 	mode_t mode;

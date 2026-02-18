@@ -360,44 +360,6 @@ void Tab::ActionPasteLinks(const LinkType link)
 	view_files().SelectFilenamesLater(names, SameDir::Yes);
 }
 
-/** void Daemon::CopyURLsToClipboard(ByteArray *ba)
-{
-	QMimeData *mime = new QMimeData();
-	
-	QList<QUrl> urls;
-	QString prefix = QLatin1String("file://");
-	while (ba->has_more())
-	{
-		QString s = prefix + ba->next_string();
-		mtl_printq2("URL: ", s);
-		urls.append(QUrl(s));
-	}
-	
-	mime->setUrls(urls);
-	QClipboard *clip = QApplication::clipboard();
-	clip->setMimeData(mime);
-	mtl_info("Done");
-}
-
-void Daemon::CutURLsToClipboard(ByteArray *ba)
-{
-	QMimeData *mime = new QMimeData();
-	
-	QList<QUrl> urls;
-	while (ba->has_more()) {
-		urls.append(QUrl(ba->next_string()));
-	}
-	
-	mime->setUrls(urls);
-	
-	QByteArray kde_mark;
-	char c = '1';
-	kde_mark.append(c);
-	mime->setData(str::KdeCutMime, kde_mark);
-	
-	QApplication::clipboard()->setMimeData(mime);
-} **/
-
 void Tab::ActionPlayInMpv()
 {
 	auto paths = io::MergeList(FetchFilePaths(Path::Full, WhichFiles::Selected), '\n');
@@ -870,6 +832,7 @@ bool Tab::GoTo(const Action action, DirPath dp, const cornus::Reload r)
 
 void Tab::GoToAndSelect(const QString full_path)
 {
+	mtl_info("%s", qPrintable(full_path));
 	QFileInfo info(full_path);
 	QDir parent = info.dir();
 	MTL_CHECK_VOID(parent.exists());
@@ -882,7 +845,7 @@ void Tab::GoToAndSelect(const QString full_path)
 	if (same_dir == SameDir::No) {
 		MTL_CHECK_VOID(GoTo(Action::To, {parent_dir, Processed::No}, Reload::No));
 	} else {
-		files.WakeUpInotify(Lock::Yes);
+		files.WakeUpInotify(Lock::Yes, Quit::No);
 	}
 }
 
@@ -2088,7 +2051,7 @@ void Tab::ShutdownLastInotifyThread()
 		io::Files &files = view_files();
 		auto g = files.guard();
 		files.data.thread_must_exit(true);
-		files.WakeUpInotify(Lock::No);
+		files.WakeUpInotify(Lock::No, Quit::Yes);
 		
 		while (!files.data.thread_exited())
 		{

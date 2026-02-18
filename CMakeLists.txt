@@ -25,8 +25,7 @@ endif()
 #    SET (CMAKE_CXX_FLAGS "-Wall -ftree-vectorize")
 #endif()
 
-set(BUILD_CORNUS_IO "y")
-#set(BUILD_CORNUS_R "y")
+set(BUILD_CORNUS_IO "")
 
 find_package(Qt6 REQUIRED COMPONENTS Core5Compat Core Gui Widgets Test DBus)
 include_directories(${Qt6_INCLUDE_DIRS})

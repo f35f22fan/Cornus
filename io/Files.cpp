@@ -10,13 +10,23 @@ namespace cornus::io {
 FilesData::FilesData()
 {
 	signal_quit_fd = ::eventfd(0, 0);
-	if (signal_quit_fd == -1)
+	if (signal_quit_fd == -1) {
 		mtl_status(errno);
+	}
+	
+	signal_just_wakeup_fd = ::eventfd(1, 0);
+	if (signal_just_wakeup_fd == -1) {
+		mtl_status(errno);
+	}
+	
 }
 
 FilesData::~FilesData()
 {
 	if (::close(signal_quit_fd) != 0)
+		mtl_status(errno);
+	
+	if (::close(signal_just_wakeup_fd) != 0)
 		mtl_status(errno);
 	
 	for (auto *next: vec) {
@@ -187,6 +197,7 @@ void Files::SelectFilenamesLater(const QVector<QString> &names, const SameDir sd
 	data.skip_dir_id = (sd == SameDir::Yes) ? -1 : data.dir_id;
 	for (cauto &name: names)
 	{
+		mtl_info("%s", qPrintable(name));
 		data.filenames_to_select.insert(name, 0);
 	}
 }
@@ -216,12 +227,13 @@ void Files::SelectFileRange(const cornus::Lock l, cint row1, cint row2, QSet<int
 	}
 }
 
-void Files::WakeUpInotify(const enum Lock l)
+void Files::WakeUpInotify(const enum Lock l, const Quit q)
 {
 	auto g = guard(l);
 	// Wake up epoll(), must write an 8 bytes number.
 	ci64 n = 1;
-	if (::write(data.signal_quit_fd, &n, sizeof n) == -1)
+	cint fd = (q == Quit::Yes) ? data.signal_quit_fd : data.signal_just_wakeup_fd;
+	if (::write(fd, &n, sizeof n) == -1)
 		mtl_status(errno);
 }
 

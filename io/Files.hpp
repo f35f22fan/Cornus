@@ -46,7 +46,7 @@ public:
 	QString scroll_to_and_select;
 	SortingOrder sorting_order;
 	DirId dir_id = 0;/// for inotify/epoll
-	int signal_quit_fd = -1;
+	int signal_quit_fd = -1, signal_just_wakeup_fd = -1;
 	u16 bits_ = 0;
 	cornus::Action action = Action::None;
 	
@@ -128,7 +128,7 @@ public:
 	
 	CondMutex quit_cm = {};
 	
-	void WakeUpInotify(const enum Lock l);
+	void WakeUpInotify(const enum Lock l, const Quit q);
 	
 	inline void Broadcast() {
 		pthread_cond_broadcast(&cond);
